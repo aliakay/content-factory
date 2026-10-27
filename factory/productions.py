@@ -711,11 +711,22 @@ def render(con, prod_id):
     # held shots are this style's point: the "motion stalls" check belongs to the old montage look
     tech = report["technical"]
     tech["problems"] = [x for x in tech["problems"] if not x.startswith("motion stalls")]
+    static = (tech.get("frames") or {}).get("static_share", 0)
+    if explainer.is_explainer(p["data"]) and static > 0.4:   # anti-slideshow gate: graphics videos must keep moving
+        tech["problems"].append(f"plays like a slideshow: {round(static * 100)} % of seconds barely move")
     report["pass"] = not tech["problems"] and report["visual"].get("pass", False) and not any(
         i.get("severity") == "critical" for i in report["visual"].get("issues", []))
     report["lint"] = warn
     p["qa"] = report
     save(con, p, "QA", "geçti" if report["pass"] else "bulgular var")
+    try:   # cover / thumbnail candidates in the channel's colours (free, Pillow)
+        from . import channels, thumbs
+        ch = channels.of(con, p) or {}
+        logo = os.path.join(ROOT, ch["logo"]) if ch.get("logo") else None
+        thumbs.make(dst, os.path.dirname(dst), p["data"].get("hook") or p["title"], p["data"].get("aspect", "9:16"),
+                    ch.get("color") or "#FFD93D", logo, p["data"].get("lang", "en"))
+    except Exception as e:
+        print("thumbs:", type(e).__name__, e, flush=True)
     return dst
 
 

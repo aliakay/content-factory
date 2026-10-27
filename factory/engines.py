@@ -52,7 +52,81 @@ def render(spec_path, preview=False):
     """Run the spec's engine, then the shared post-pass. Returns (mp4 path, real duration in seconds)."""
     spec = json.load(open(spec_path))
     dst, total = module(engine_of(spec)).main(spec_path, preview=preview)
-    return finish(dst, spec, total, preview)
+    dst, total = finish(dst, spec, total, preview)
+    if not preview:
+        master(dst)
+    return dst, total
+
+
+# ---------- shared post-pass: audio mastering ----------
+TARGET_LUFS, TARGET_TP = -14.0, -1.5   # TikTok / Shorts / Reels / YouTube all normalise around -14 LUFS
+
+
+def loudness(path):
+    """(integrated LUFS, true peak dBFS) of a file's audio, or (None, None) without audio."""
+    r = subprocess.run([FFMPEG, "-hide_banner", "-i", path, "-vn", "-af", "ebur128=peak=true", "-f", "null", "-"],
+                       capture_output=True, text=True)
+    import re
+    m = re.search(r"Integrated loudness:\s+I:\s+([-\d.]+) LUFS.*?True peak:\s+Peak:\s+([-\d.]+) dBFS", r.stderr, re.S)
+    return (float(m.group(1)), float(m.group(2))) if m else (None, None)
+
+
+def master(dst):
+    """Final-only mastering: when the mix is off target (|I - -14| > 1 LU or true peak above -1 dBFS) the audio is
+    re-mastered and the video stream copied. With pedalboard + pyloudnorm installed: a gentle glue compressor, a
+    limiter and exact loudness gain; otherwise ffmpeg two-pass loudnorm (linear) + a true-peak limiter."""
+    lufs, tp = loudness(dst)
+    if lufs is None or (abs(lufs - TARGET_LUFS) <= 1.0 and tp <= -1.0):
+        return {"lufs": lufs, "tp": tp, "changed": False}
+    tmp = dst + ".master.mp4"
+    try:
+        _master_pedalboard(dst, tmp)
+        how = "pedalboard"
+    except Exception:
+        _master_ffmpeg(dst, tmp, lufs, tp)
+        how = "ffmpeg"
+    if os.path.exists(tmp) and os.path.getsize(tmp) > 1000:
+        os.replace(tmp, dst)
+    after = loudness(dst)
+    print(f"master ({how}): {lufs} LUFS / {tp} dBTP -> {after[0]} / {after[1]}", flush=True)
+    return {"lufs": after[0], "tp": after[1], "changed": True, "how": how}
+
+
+def _master_ffmpeg(src, dst, lufs, tp):
+    r = subprocess.run([FFMPEG, "-hide_banner", "-i", src, "-vn", "-af",
+                        f"loudnorm=I={TARGET_LUFS}:TP={TARGET_TP}:LRA=11:print_format=json", "-f", "null", "-"],
+                       capture_output=True, text=True)
+    st = r.stderr[r.stderr.rfind("{"):r.stderr.rfind("}") + 1]
+    try:
+        m = json.loads(st)
+        af = (f"loudnorm=I={TARGET_LUFS}:TP={TARGET_TP}:LRA=11:measured_I={m['input_i']}:measured_TP={m['input_tp']}:"
+              f"measured_LRA={m['input_lra']}:measured_thresh={m['input_thresh']}:offset={m['target_offset']}:linear=true")
+    except (ValueError, KeyError):
+        af = f"loudnorm=I={TARGET_LUFS}:TP={TARGET_TP}:LRA=11"
+    subprocess.run([FFMPEG, "-v", "error", "-y", "-i", src, "-map", "0:v", "-map", "0:a", "-c:v", "copy",
+                    "-af", af + ",alimiter=limit=0.84:level=false", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+                    "-movflags", "+faststart", dst], check=True)
+
+
+def _master_pedalboard(src, dst):
+    import numpy as np
+    import pedalboard
+    import pyloudnorm
+    raw = subprocess.run([FFMPEG, "-v", "error", "-i", src, "-vn", "-f", "f32le", "-ac", "2", "-ar", "48000", "-"],
+                         capture_output=True, check=True).stdout
+    x = np.frombuffer(raw, dtype=np.float32).reshape(-1, 2).T.copy()
+    board = pedalboard.Pedalboard([pedalboard.HighpassFilter(30), pedalboard.Compressor(threshold_db=-18, ratio=2.5, attack_ms=15,
+                                                                                         release_ms=180)])
+    y = board(x, 48000)
+    meter = pyloudnorm.Meter(48000)
+    y = pyloudnorm.normalize.loudness(y.T, meter.integrated_loudness(y.T), TARGET_LUFS).T
+    y = pedalboard.Pedalboard([pedalboard.Limiter(threshold_db=TARGET_TP - 0.5, release_ms=80)])(y.astype(np.float32), 48000)
+    wav = dst + ".wav"
+    subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "f32le", "-ac", "2", "-ar", "48000", "-i", "-", wav],
+                   input=np.clip(y.T, -1, 1).astype(np.float32).tobytes(), check=True)
+    subprocess.run([FFMPEG, "-v", "error", "-y", "-i", src, "-i", wav, "-map", "0:v", "-map", "1:a", "-c:v", "copy",
+                    "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-shortest", dst], check=True)
+    os.remove(wav)
 
 
 # ---------- shared post-pass: the channel's brand layer ----------

@@ -149,6 +149,8 @@ def production_detail(con, pid):
         cap = os.path.join(folder, "caption.txt")
         out["caption"] = shorts.parse_caption(open(cap).read()) if os.path.exists(cap) else None
         out["caption_copy"] = shorts.copy_text(out["caption"])
+        out["thumbs"] = sorted(f for f in os.listdir(folder) if f.startswith("thumb_") and f.endswith(".jpg")) \
+            if os.path.isdir(folder) else []
     out["posts"] = [x for x in tracking.posts(con) if x["prod_id"] == pid]
     out["channel"] = channels.of(con, p)
     out["brand_on"] = p["data"].get("brand") is not False
@@ -459,6 +461,28 @@ def act(con, pid, body):
             prof_default = eleven_profile().get("defaults", {}).get(p["data"].get("lang", "en"))
             p["data"]["voice_id"] = prof_default if prof_default in vids else (sorted(vids)[0] if vids else None)
         P.save(con, p, "ElevenLabs hesabı", (accounts.eleven(aid) or {}).get("name", aid))
+    elif a == "reroll_plate":   # one illustration again (a new take), after its own credit approval
+        sid = body.get("scene")
+        if sid not in (p["data"].get("plates") or {}):
+            raise ValueError("bu sahnenin çizimi yok")
+        est = credits.estimate([{"kind": "image", "model": "gpt-image-2", "units": 1, "unit": "img"}])
+        if int(body.get("approved") or 0) < est["total"]:
+            raise ValueError("Onaylanan kredi tahminden düşük")
+        for sc in p["data"]["scenes"]:
+            if sc["id"] == sid and sc.get("plate"):
+                sc["plate"]["take"] = int(sc["plate"].get("take") or 1) + 1   # a new prompt variant = a new image
+                if body.get("note"):
+                    sc["plate"]["prompt"] = (sc["plate"]["prompt"] + " " + str(body["note"])[:300]).strip()
+        p["data"]["plates"].pop(sid)
+        P.save(con, p, "çizim yeniden", sid)
+        queue_for(con, p, "p_plates", json.dumps({"id": pid, "approved": est["total"]}))
+    elif a == "set_grammar":
+        from factory import motiondesign
+        g = body.get("grammar")
+        if g not in motiondesign.GRAMMARS:
+            raise ValueError("bilinmeyen gramer")
+        p["data"]["grammar"] = g
+        P.save(con, p, "anlatım grameri", g)
     elif a == "set_look":
         look = body.get("look")
         if not styles.valid(look) or not explainer.is_explainer(p["data"]):
@@ -539,6 +563,22 @@ def series_detail(con, sid):
             "cast_estimate": series.cast_estimate(con, s, aid), "voices": eleven_info(aid)["voices"],
             "sheets": {c["id"]: asset((c.get("sheet") or {}).get("file")) for c in d.get("characters") or []},
             "channel": channels.get(con, s["channel_id"])}
+
+
+def clip_search(con, text, k=24):
+    """Clips ranked by how close their description / place / tags are to `text` (factory/embed.py)."""
+    from factory import embed
+    text = (text or "").strip()
+    rows = [dict(r) for r in con.execute("""SELECT c.clip_id, c.kind, c.description, c.tags, c.mood, c.duration, p.name place
+                                             FROM clips c LEFT JOIN places p ON p.place_id=c.place_id WHERE c.usable=1""")]
+    if not text or not rows:
+        return []
+    docs = [" ".join(x for x in (r["description"], r["place"], r["mood"], " ".join(json.loads(r["tags"] or "[]"))) if x) for r in rows]
+    mat = embed.vectors(docs, con)
+    qv = embed.vectors([text], con)[0]
+    sims = mat @ qv
+    order = sims.argsort()[::-1][:k]
+    return [{**rows[i], "score": round(float(sims[i]), 3)} for i in order if sims[i] > 0.05]
 
 
 def search(con, text):
@@ -1147,6 +1187,8 @@ class Handler(shorts.Handler):
             f = self.inside(OUT, path[len("/media/out/"):])
             if f and f.endswith(".mp4"):
                 return self.send_file(f, "video/mp4", head, download="dl" in q)
+            if f and f.endswith(".jpg"):   # cover / thumbnail candidates
+                return self.send_file(f, "image/jpeg", head, download="dl" in q, cache="no-store")
         if path.startswith("/media/work/"):
             f = self.inside(os.path.join(ROOT, "work"), path[len("/media/work/"):])
             if f:
@@ -1241,6 +1283,9 @@ class Handler(shorts.Handler):
         m = re.fullmatch(r"/api/series/(\d+)", path)
         if m:
             return series_detail(con, int(m.group(1)))
+        if path == "/api/clips/search":   # semantic search over the footage library (descriptions + places)
+            from factory import embed
+            return {"results": clip_search(con, (q.get("q") or [""])[0]), "backend": embed.backend()}
         if path == "/api/search":   # command palette
             return search(con, (q.get("q") or [""])[0])
         m = re.fullmatch(r"/api/production/(\d+)", path)

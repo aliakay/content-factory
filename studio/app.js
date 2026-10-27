@@ -185,6 +185,18 @@ document.addEventListener("change", (ev) => { const el = ev.target.closest("[dat
 document.addEventListener("input", (ev) => { const el = ev.target.closest("[data-input]"); if (el && ACT[el.dataset.input]) ACT[el.dataset.input](el, ev); });
 document.addEventListener("keydown", (ev) => {
   if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "k") { ev.preventDefault(); openPalette(); }
+  // player keys (when not typing): space / k play-pause, j / l -1 / +1 s, , / . one frame, f fullscreen
+  const typing = /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || "");
+  const v = !typing && !ev.metaKey && !ev.ctrlKey && ($("#modal.on video") || $("#app video"));
+  if (v && [" ", "k", "j", "l", ",", ".", "f"].includes(ev.key)) {
+    ev.preventDefault();
+    if (ev.key === " " || ev.key === "k") v.paused ? v.play() : v.pause();
+    if (ev.key === "j") v.currentTime = Math.max(0, v.currentTime - 1);
+    if (ev.key === "l") v.currentTime = Math.min(v.duration || 1e9, v.currentTime + 1);
+    if (ev.key === ",") { v.pause(); v.currentTime = Math.max(0, v.currentTime - 1 / 30); }
+    if (ev.key === ".") { v.pause(); v.currentTime += 1 / 30; }
+    if (ev.key === "f" && v.requestFullscreen) v.requestFullscreen();
+  }
   if (ev.key === "Escape") { closeModal(); closePalette(); closeDrawer(); $$(".pop").forEach((p) => p.remove()); }
   if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey) && ev.target.id === "prompt") ACT.plan();
 });
@@ -419,7 +431,7 @@ function planHtml(row) {
     <div class="pf"><button class="btn accent" data-act="planStart">${ICON.check}Planı onayla ve başlat</button><button class="btn ghost" data-act="planCancel">Vazgeç</button><span class="sp"></span><span class="tiny faint">Hiçbir şey kredi harcamadan başlamaz.</span></div>
   </div>`;
 }
-const SERIES_STYLES = { cartoon: "Çizgi film", storybook: "Masal kitabı", anime: "Anime", flat_vector: "Düz vektör", cinematic: "Dizi / sinematik", comic: "Çizgi roman" };
+const SERIES_STYLES = { cartoon: "Çizgi film", storybook: "Masal kitabı", anime: "Anime", flat_vector: "Düz vektör", cinematic: "Dizi / sinematik", comic: "Çizgi roman", pixel: "8-bit piksel", papercut: "Kâğıt kesik", claymation: "Kil animasyon", bauhaus: "Bauhaus", vaporwave: "Vaporwave", inkwash: "Mürekkep" };
 function defaultSteps(p) {
   return {
     footage: ["Claude çekimlerinden fikirleri yazar", "Sen bir fikri onaylarsın", "Art director kurguyu ve efektleri tasarlar", "Ses (varsa): kredi tahmini + onay", "Önizleme → final render + QA"],
@@ -659,6 +671,7 @@ function controlsCard(p) {
     <label class="field" style="min-width:170px"><span>Kanal</span><select data-change="setChannelOf" data-id="${p.prod_id}">${S.channels.map((c) => `<option value="${esc(c.id)}" ${c.id === (p.channel || {}).id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
     ${(p.channel || {}).logo_url ? `<div class="field"><span>Logo katmanı</span><label class="switch"><input type="checkbox" data-change="setBrand" data-id="${p.prod_id}" ${p.brand_on ? "checked" : ""}><i></i></label></div>` : ""}
   </div>
+  ${isEx && !done && ["auto", "illustrated"].includes(lookNow) ? `<div class="field mt12"><span>Anlatım grameri (Opus bu dille tasarlar)</span><div class="chips">${GRAMMARS.map(([k, t]) => `<span class="chip ${(d.grammar || "auto") === k ? "on" : ""}" data-act="setGrammar" data-id="${p.prod_id}" data-v="${k}">${t}</span>`).join("")}</div></div>` : ""}
   ${isEx && !done && !d.series ? `<div class="field mt12"><span>Görünüm</span><div class="chips">${looks.map(([k, t]) => `<span class="chip ${lookNow === k ? "on" : ""}" data-act="setLook" data-id="${p.prod_id}" data-v="${esc(k)}">${esc(t)}</span>`).join("")}</div></div>` : ""}
   </div>`;
 }
@@ -697,7 +710,7 @@ function platesCard(p) {
   const e = p.plates_estimate; if (!e) return "";
   const d = p.data, ready = Object.keys(p.plates || {}).length;
   if (!e.images) return `<div class="card"><div class="row"><h3 style="margin:0">🖌 Çizimler</h3><span class="sp"></span><span class="badge ok">${ready} çizim hazır</span></div>
-    <div class="thumbs mt12">${Object.values(p.plates || {}).map((u) => `<img src="${esc(u)}" data-act="open" data-src="${esc(u)}" data-photo="1" alt="">`).join("")}</div>
+    <div class="thumbs mt12">${Object.entries(p.plates || {}).map(([sid, u]) => `<div style="flex:none;position:relative"><img src="${esc(u)}" data-act="open" data-src="${esc(u)}" data-photo="1" alt="">${["ready", "published"].includes(p.stage) || p.busy ? "" : `<button class="btn sm glass" style="position:absolute;right:6px;bottom:6px" data-act="rerollPlate" data-id="${p.prod_id}" data-scene="${esc(sid)}" title="Bu çizimi yeniden üret">↻ ${esc(sid)}</button>`}</div>`).join("")}</div>
     ${d.art_style ? `<div class="tiny faint mt8">Stil: ${esc(d.art_style.slice(0, 220))}</div>` : ""}</div>`;
   return `<div class="card actcard" style="--c:var(--warn)"><h3>🖌 Çizimler · kredi onayı</h3>
     <div class="small muted">Her sahne kilitli stilde bir illüstrasyon üzerinde durur${d.series ? "; karakterler seri sayfasındaki karakter sayfalarından çizilir" : ""}. Çizimler bitince Opus kamera hareketlerini ve işaretleri tasarlar.</div>
@@ -806,6 +819,7 @@ function actionCard(p, wide) {
   else if (p.stage === "ready" || p.stage === "published") { const vid = p.output ? `/media/out/${p.output}/${p.output}.mp4` : "";
     a = `<div class="card actcard st-${p.stage}"><h3>${p.stage === "ready" ? "Hazır" : "Yayında"}</h3>${vid ? `<div class="player ${wide ? "wide" : ""}"><video src="${esc(vid)}" controls playsinline preload="metadata"></video></div>
       <div class="row mt12"><a class="btn sm" href="${esc(vid)}?dl=1">${ICON.download}İndir</a>${p.caption_copy ? `<button class="btn sm" data-act="copy" data-text="${esc(p.caption_copy)}">${ICON.copy}Açıklama + etiketler</button>` : ""}</div>` : ""}
+      ${(p.thumbs || []).length ? `<h3 class="mt16">Kapak adayları</h3><div class="grid mt8" style="grid-template-columns:repeat(3,1fr);gap:6px">${p.thumbs.map((f) => `<a href="/media/out/${esc(p.output)}/${esc(f)}?dl=1" title="indir"><img src="/media/out/${esc(p.output)}/${esc(f)}?v=${encodeURIComponent(p.updated_at)}" style="width:100%;border-radius:10px;aspect-ratio:${wide ? "16/9" : "9/16"};object-fit:cover" alt=""></a>`).join("")}</div><div class="tiny faint mt8">Videodan seçilen en net kareler, kanal renginle. Dokun: indir.</div>` : ""}
       ${qaBox(p.qa)}
       <h3 class="mt16">Paylaştın mı? Linki ekle</h3><div class="row nowrap"><input id="purl" type="url" placeholder="YouTube / TikTok / Instagram linki"><button class="btn sm accent" data-act="publish" data-id="${id}">Ekle</button></div>
       ${p.posts.length ? `<div class="mt12 small">${p.posts.map((x) => `<div class="row mt8"><b>${plat(x.platform)}</b><a class="muted tiny" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url.slice(0, 44))}…</a><span class="sp"></span>${x.latest ? num(x.latest.views) + " izlenme" : "—"}</div>`).join("")}</div>` : ""}
@@ -843,6 +857,13 @@ ACT.planEdit = async (el) => { await pact(el.dataset.id, "plan_edit", { feedback
 ACT.applyPlan = async (el) => { const steps = $$(".pstep:checked").map((i) => i.value); if (!steps.length) return toast("En az bir adım seç", 1); if (steps.includes("script") && !steps.includes("design") && !confirm("Metin değişince sahneler yeniden tasarlanır. Devam?")) return; await pact(el.dataset.id, "apply_plan", { steps }); route(); };
 ACT.redesign = async (el) => { const n = prompt("Neyi beğenmedin / ne istiyorsun? (boş = baştan farklı bir tasarım)"); if (n === null) return; await pact(el.dataset.id, "redesign", { note: n }); route(); };
 ACT.redirect = async (el) => { const n = prompt("Ne değişsin? (boş = art director baştan farklı bir yön dener)"); if (n === null) return; await pact(el.dataset.id, "direct", { note: n }); route(); };
+const GRAMMARS = [["auto", "🤖 Opus seçsin"], ["kurzgesagt", "🪐 Kurzgesagt"], ["vox", "📰 Vox"], ["whiteboard", "✏️ Beyaz tahta"], ["3b1b", "📐 3Blue1Brown"], ["storytime", "📖 Hikâye"], ["kinetic", "🔤 Kinetik yazı"], ["keynote", "🖥 Keynote"], ["finance", "📈 Finans"]];
+ACT.rerollPlate = async (el) => {
+  const note = prompt(`“${el.dataset.scene}” çizimi yeniden üretilecek (~1 görsel kredisi, ~210 kredi). Ne değişsin? (boş = aynı tarif, yeni çekim)`);
+  if (note === null) return;
+  await pact(el.dataset.id, "reroll_plate", { scene: el.dataset.scene, note, approved: 260 }); toast("Çizim yeniden üretiliyor"); route();
+};
+ACT.setGrammar = async (el) => { await pact(el.dataset.id, "set_grammar", { grammar: el.dataset.v }); toast("Gramer: " + el.textContent.trim() + " · yeniden tasarımda kullanılır"); route(); };
 ACT.setLook = async (el) => { await pact(el.dataset.id, "set_look", { look: el.dataset.v }); route(); };
 ACT.setChannelOf = async (el) => { await pact(el.dataset.id, "set_channel", { channel: el.value }); await reloadChannels(); toast("Kanal değişti"); route(); };
 ACT.setBrand = async (el) => { await pact(el.dataset.id, "set_brand", { on: el.checked }); toast(el.checked ? "Logo katmanı açık" : "Logo katmanı kapalı"); route(); };
@@ -1022,9 +1043,15 @@ ROUTES["#/yerler"] = async () => {
     <div class="card mt16"><h3>Yeni çekim ekle (iCloud paylaşımlı albüm)</h3><div class="row"><input id="ilink" type="url" placeholder="https://photos.icloud.com/shared/album/…" style="flex:1;min-width:220px"><button class="btn accent" data-act="ingest">İndir ve analiz et</button></div>
       <div class="tiny faint mt8">${o.clips.total} klip (${o.clips.videos} video) · ${o.clips.described} açıklandı</div>
       ${o.albums.length ? `<div class="row mt8">${o.albums.map((a) => `<button class="btn sm" data-act="ingest" data-link="${esc(a.link)}">↻ ${esc(a.title)} <span class="faint">${ago(a.last_sync)}</span></button>`).join("")}</div>` : ""}</div>
+    <div class="card mt16"><h3>Çekimlerde ara</h3><div class="row nowrap"><input type="search" id="clipq" data-keep="clipq" placeholder="ör. gün batımında göl, yürüyen insanlar, karlı zirve…"><button class="btn" data-act="clipSearch">${ICON.search}Ara</button></div><div id="clipres" class="strip mt12"></div></div>
     <div class="grid mt16" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr))">${places.map((p) => `<div class="card row nowrap"><img src="/thumb/clip/${encodeURIComponent(p.sample)}?t=1" style="width:44px;height:76px;object-fit:cover;border-radius:9px;flex:none" alt=""><div style="flex:1;min-width:0"><input type="text" id="pl${p.place_id}" value="${esc(p.name)}"><div class="tiny faint mt8">${esc(p.day)} · ${p.n} klip (${p.v || 0} video)</div></div><button class="btn sm" data-act="renamePlace" data-id="${p.place_id}">Kaydet</button></div>`).join("")}</div>`);
 };
 ACT.ingest = async (el) => { const link = el.dataset.link || $("#ilink").value.trim(); const r = await post("/api/ingest", { link }); toast("Albüm işi başladı (#" + r.job_id + ")"); };
+ACT.clipSearch = async () => {
+  const r = await api("/api/clips/search?q=" + encodeURIComponent($("#clipq").value)), res = r.results;
+  const hint = r.backend === "hash" ? `<div class="tiny faint">Çevrimdışı arama: klip açıklamaları İngilizce olduğu için İngilizce kelimelerle ara. Türkçe ↔ İngilizce anlamsal arama için VM'de <code>fastembed</code> kur.</div>` : "";
+  $("#clipres").innerHTML = (res.length ? "" : hint) + res.map((c) => `<div class="shot"><img loading="lazy" src="/thumb/clip/${encodeURIComponent(c.clip_id)}?t=1" alt=""><div class="m"><b>${esc(c.place || "")}</b> · ${Math.round(c.score * 100)}%<br>${esc((c.description || "").slice(0, 90))}</div></div>`).join("") || '<div class="tiny faint">Eşleşen çekim yok</div>';
+};
 ACT.renamePlace = async (el) => { await post(`/api/places/${el.dataset.id}/rename`, { name: $("#pl" + el.dataset.id).value }); toast("Kaydedildi"); };
 
 // ================= Ses / Bütçe / Hesaplar / Sinyaller =================

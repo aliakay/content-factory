@@ -22,6 +22,8 @@ ANNOTATIONS = ("box", "arrow", "pin", "label", "underline", "circle", "path")
 
 SCRIPT_RULES = """ILLUSTRATED LOOK: every scene stands on ONE illustration (made later by an image model in a single locked art
 style) and the motion designer animates camera moves and annotations over it. Write:
+- Write "art_style", every plate "prompt" and every character "look" in ENGLISH even when the video's language is not
+  English (image models follow English best); on-screen texts and annotations stay in the video's language.
 - "art_style": one paragraph that locks the look for every image: medium (e.g. flat vector illustration with thick
   dark outlines and soft cel shading), palette (4-6 named colours), lighting, level of detail, camera height, mood.
   Never name an artist or a brand. Images contain NO text, letters, logos or UI.
@@ -99,8 +101,9 @@ def plate_prompt(d, sc, characters=None):
     if characters and pl.get("cast"):
         desc = [f"{c['name']}: {c['look']}" for c in characters if c["id"] in pl["cast"]]
         who = (" Characters in this image (draw them exactly like this every time): " + " | ".join(desc)) if desc else ""
+    take = f" (take {pl['take']}: a fresh composition of the same moment)" if pl.get("take", 1) > 1 else ""
     return (f"{d.get('art_style') or 'Flat vector illustration, thick dark outlines, soft cel shading, muted palette.'} "
-            f"Scene: {pl['prompt']}.{who} No text, letters, numbers, logos or user-interface elements in the image.")
+            f"Scene: {pl['prompt']}.{who}{take} No text, letters, numbers, logos or user-interface elements in the image.")
 
 
 def make_plates(con, p, approved, characters=None, flow_id=None):

@@ -28,13 +28,17 @@ html,body{margin:0;background:#000;overflow:hidden}
 </style>
 <div id="stage"><div id="cap"></div></div>
 <script src="/motion/node_modules/gsap/dist/gsap.min.js"></script>
+<script src="/motion/templates/fxlib.js"></script>
 <script>
 const norm = (w) => String(w).toLowerCase().replace(/[^\p{L}\p{N}%$.]/gu, "");
 let tl, B, chunks = [];
-window.render = (t) => { if (tl) { tl.time(t, false); caps(t); } };
+window.render = (t) => { if (tl) { tl.time(t, false); for (const f of FX._hooks) f(t); caps(t); } };
 window.ready = (async () => {
   const hash = new URLSearchParams(location.hash.slice(1));
   B = await (await fetch(hash.get("b"))).json();
+  if (B.three !== false) {   // Three.js for scenes that build 3D with FX.three / FX.globe (deterministic, driven by render)
+    try { window.THREE = await import("/motion/node_modules/three/build/three.module.min.js"); } catch (e) { console.error("three: " + e.message); }
+  }
   const root = document.documentElement;
   for (const [k, v] of Object.entries(B.palette || {})) root.style.setProperty("--" + k, v);
   const stg = document.getElementById("stage"), capEl = document.getElementById("cap");
@@ -58,7 +62,7 @@ window.ready = (async () => {
         return w ? w.s : sc.start + fb; } };
     tl.set(sec, { display: "block" }, sc.start);
     tl.set(sec, { display: "none" }, sc.end);
-    try { new Function("tl", "root", "T", "gsap", "$", sc.js || "")(tl, sec, T, gsap, (q) => sec.querySelectorAll(q)); }
+    try { new Function("tl", "root", "T", "gsap", "$", "FX", sc.js || "")(tl, sec, T, gsap, (q) => sec.querySelectorAll(q), FX); }
     catch (e) { console.error("scene " + sc.id + " js: " + e.message); }
   }
   tl.set(document.getElementById("s_" + B.scenes[0].id), { display: "block" }, 0);

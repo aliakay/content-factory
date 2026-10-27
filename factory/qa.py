@@ -45,8 +45,39 @@ def technical(path, expected=None):
     if fz["frozen_s"] > limit or fz["longest_hold_s"] > 1.2:
         problems.append(f"motion stalls: {fz['frozen_s']}s near-frozen (limit {limit:.1f}s), longest hold "
                         f"{fz['longest_hold_s']}s — add a slow push or cut sooner")
+    fc = frame_checks(path)
+    out["frames"] = fc
+    if fc["flash_windows"]:
+        problems.append(f"flashing: more than 3 flashes per second at {fc['flash_windows'][:4]} s (photosensitivity risk)")
+    if fc["broken_frames"]:
+        problems.append(f"possible broken/corrupt frames at {fc['broken_frames'][:4]} s")
     out["problems"] = problems
     return out
+
+
+def frame_checks(path, fps=10):
+    """Numeric checks on small grey frames (OpenCV-style, numpy only):
+    flashes  luminance jumps > 20 % of the range; more than 3 inside any 1 s window is a photosensitivity risk (WCAG 2.3.1)
+    broken   frames whose edge energy spikes > 4x their neighbours' (block corruption, a glitched or half-decoded frame)
+    static   share of 1 s windows with almost no change: high on an explainer means it plays like a slideshow"""
+    import numpy as np
+    from .fxdetect import frames
+    fr = frames(path, fps=fps, width=128, max_s=180)
+    if len(fr) < fps:
+        return {"flash_windows": [], "broken_frames": [], "static_share": 0.0}
+    lum = fr.mean(axis=(1, 2))
+    jumps = np.where(np.abs(np.diff(lum)) > 0.2)[0] / fps
+    flash = sorted({round(float(t), 1) for t in jumps if ((jumps >= t) & (jumps < t + 1)).sum() > 3})
+    edge = np.abs(np.diff(fr, axis=2)).mean(axis=(1, 2)) + np.abs(np.diff(fr, axis=1)).mean(axis=(1, 2))
+    broken = []
+    for i in range(1, len(edge) - 1):
+        nb = (edge[i - 1] + edge[i + 1]) / 2
+        if nb > 1e-3 and edge[i] > 4 * nb and edge[i] > 0.05:
+            broken.append(round(i / fps, 2))
+    diff = np.abs(np.diff(fr, axis=0)).mean(axis=(1, 2))
+    wins = [diff[k:k + fps].max() for k in range(0, len(diff) - fps + 1, fps)]
+    static = round(float(np.mean([w < 0.004 for w in wins])), 2) if wins else 0.0
+    return {"flash_windows": flash[:10], "broken_frames": broken[:10], "static_share": static}
 
 
 def frozen_time(path, threshold=0.35, fps=10):

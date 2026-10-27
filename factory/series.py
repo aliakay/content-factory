@@ -35,6 +35,12 @@ STYLES = {
     "cinematic": ("Dizi / sinematik", "cinematic painterly digital art in a TV-drama mood: realistic proportions, dramatic "
                                       "lighting, film colour grade, shallow depth of field"),
     "comic": ("Çizgi roman", "comic-book art: bold inks, halftone shading, dynamic angles, strong colour blocks"),
+    "pixel": ("8-bit piksel", "8-bit pixel art: chunky pixels, limited 16-colour palette, crisp silhouettes, tile-based backgrounds"),
+    "papercut": ("Kâğıt kesik", "layered paper-cut diorama: cut-paper shapes with soft drop shadows, textured card stock, depth layers"),
+    "claymation": ("Kil animasyon", "claymation look: soft clay figures with visible fingerprints, miniature sets, warm studio light"),
+    "bauhaus": ("Bauhaus", "Bauhaus graphic style: primary colours, circles, squares and triangles, bold geometric compositions"),
+    "vaporwave": ("Vaporwave", "vaporwave aesthetic: pastel pink and teal gradients, grid horizons, retro 3D objects, sunset glow"),
+    "inkwash": ("Mürekkep", "ink-wash painting: expressive brush strokes, monochrome ink with one accent colour, paper texture, empty space"),
 }
 SHEET_PROMPT = ("Character reference sheet of ONE character: full body, front view and three-quarter view side by side, "
                 "neutral pose, plain light background, consistent proportions and outfit.")
@@ -182,6 +188,7 @@ Write the SERIES BIBLE and the story as a short book first; videos are made from
 - Visual style family: {style[1]}. Write "art_style" as one locked paragraph in that family.
 - {d['n_episodes']} episodes; every episode ends on a pull to the next one; a clear arc over the season.
 - 2-5 characters, each with a FIXED look that an illustrator can repeat exactly (colours, outfit, one signature item).
+- "art_style" and every character "look" are written in ENGLISH (they go to the image model); names may stay as they are.
 - Chapters: prose a narrator could read, vivid and visual, {lang}. Episode titles/loglines in {lang}.
 - Original story; no existing franchises, characters or real private people. Family friendly unless the premise says
   otherwise; no gore, no sexual content.
