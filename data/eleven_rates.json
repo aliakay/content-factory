@@ -1,0 +1,34 @@
+{
+ "tts:eleven_v4": {
+  "unit": "char",
+  "rate": 1.151111993475275,
+  "samples": 8
+ },
+ "tts:eleven_flash_v2_5": {
+  "unit": "char",
+  "rate": 1.1511145996860284,
+  "samples": 1
+ },
+ "sfx:eleven_text_to_sound_v2": {
+  "unit": "gen",
+  "rate": 19.19,
+  "samples": 1,
+  "note": "duration param ignored by the flow; ~1 s result"
+ },
+ "music:eleven_music_v2_5": {
+  "unit": "s",
+  "rate": 32.17501073729421,
+  "samples": 2
+ },
+ "image:gpt-image-2": {
+  "unit": "img",
+  "rate": 212.4974172718291,
+  "samples": 1
+ },
+ "video:bytedance-seedance-v2.5": {
+  "unit": "s",
+  "rate": 3224.1937179277866,
+  "samples": 1,
+  "note": "720p 9:16 no audio; extremely expensive \u2014 confirm price + approval before any video generation"
+ }
+}

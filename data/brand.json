@@ -1,0 +1,11 @@
+{
+  "_about": "Style lock for the channel (tastemaker idea): every video reuses these tokens instead of re-deriving a look. Edit in the panel (Ideas \u2192 Brand kit).",
+  "accent_hex": "#FFD93D",
+  "panel_alpha": "20",
+  "personality": "auto",
+  "sfx_default": "subtle",
+  "fonts": {
+    "sans": "Poppins",
+    "accent": "Instrument Serif"
+  }
+}

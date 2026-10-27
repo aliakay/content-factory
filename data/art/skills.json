@@ -1,0 +1,61 @@
+{
+ "learned": [
+  {
+   "name": "sky-handoff",
+   "kind": "mask",
+   "what": "Luma reveal where the bright overcast sky of the outgoing shot dissolves first and the land goes last, so the place change happens in the clouds.",
+   "when": "Overcast or bright-sky footage where outgoing and incoming shots both have a large sky in the top third at a similar brightness; use as the only transition family, two times per video at most.",
+   "spec": {
+    "shape": "luma",
+    "dur": 1.2,
+    "soft": 0.12
+   },
+   "source": "https://shotstack.io/learn/luma-matte-transitions/",
+   "from_prod": 7
+  },
+  {
+   "name": "rolling-dateline",
+   "kind": "html",
+   "what": "A light tabular clock that rolls from one filming time to the next (eased), followed by a hairline and a tracked caps place label. It marks a time and place jump with no sentence.",
+   "when": "One-day or journey videos with known capture times; place it on the first shot after the jump, in sky or dark negative space.",
+   "spec": {
+    "type": "html",
+    "html": "<div class=\"t\">12:39</div><div class=\"r\"></div><div class=\"k\">PLACE</div>",
+    "css": ".t{position:absolute;left:84px;top:205px;font-family:InterTight;font-weight:300;font-size:110px;font-variant-numeric:tabular-nums;color:#F3EFE6;opacity:0}.r{position:absolute;left:90px;top:345px;height:2px;width:0;background:#ECE7DD}.k{position:absolute;left:90px;top:368px;font-family:InterTight;font-weight:600;font-size:26px;letter-spacing:.34em;color:#ECE7DD;opacity:0}",
+    "js": "const t=root.querySelector('.t'),r=root.querySelector('.r'),k=root.querySelector('.k');\nconst out=1-clamp((p-0.84)/0.14,0,1);\nconst A=759,B=884;\nconst m=Math.round(lerp(A,B,easeOut(clamp((p-0.08)/0.4,0,1))));\nt.textContent=Math.floor(m/60)+':'+((m%60)<10?'0':'')+(m%60);\nt.style.opacity=clamp(p/0.1,0,1)*out;\nr.style.width=(easeOut(clamp((p-0.45)/0.25,0,1))*360)+'px';\nk.style.opacity=clamp((p-0.5)/0.15,0,1)*out;"
+   },
+   "source": "https://www.typewolf.com/site-of-the-day",
+   "from_prod": 7
+  },
+  {
+   "name": "type-in-dark-interior",
+   "kind": "rule",
+   "what": "Set titles in a dark band the footage already has (train ceiling, window frame, tunnel wall) instead of over the view, so the type looks like part of the place.",
+   "when": "POV shots from vehicles or interiors with a dark frame around the window.",
+   "spec": {
+    "left": 90,
+    "top": 205,
+    "note": "check the contact sheet for the dark band's y-range in 9:16 and keep the text inside it"
+   },
+   "source": "https://www.typewolf.com/site-of-the-day",
+   "from_prod": 7
+  }
+ ],
+ "wishlist": [
+  {
+   "effect": "text behind subject",
+   "why": "needs per-frame subject segmentation (matting model on CPU)",
+   "from_prod": null
+  },
+  {
+   "effect": "fog/mist layer drifting between treetops",
+   "why": "Needs depth estimation per frame (a monocular depth model on CPU) to place volumetric haze behind the near trees and in front of the far ones.",
+   "from_prod": 7
+  },
+  {
+   "effect": "per-mask grade split (warm only the red seats)",
+   "why": "Needs colour-key or segmentation masks per shot to grade one object separately from the rest of the frame.",
+   "from_prod": 7
+  }
+ ]
+}

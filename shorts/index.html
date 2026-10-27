@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Shorts">
+<meta name="color-scheme" content="light dark">
+<title>Shorts Paneli</title>
+<style>
+  :root {
+    --bg: #f5f4f1;
+    --surface: #ffffff;
+    --surface-2: #efeeea;
+    --text: #18171b;
+    --muted: #6d6a72;
+    --line: rgba(0, 0, 0, .08);
+    --accent: #f0364f;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(240, 54, 79, .1);
+    --ok: #12895a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 4px 16px rgba(0, 0, 0, .04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d0d0f;
+      --surface: #17171a;
+      --surface-2: #222226;
+      --text: #f3f3f4;
+      --muted: #9b9aa3;
+      --line: rgba(255, 255, 255, .08);
+      --accent: #ff4d63;
+      --accent-soft: rgba(255, 77, 99, .14);
+      --ok: #3ccf8e;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, a.btn { font: inherit; }
+
+  header {
+    position: sticky; top: 0; z-index: 5;
+    padding: calc(env(safe-area-inset-top) + 12px) 16px 12px;
+    background: color-mix(in srgb, var(--bg) 86%, transparent);
+    -webkit-backdrop-filter: saturate(1.6) blur(14px);
+    backdrop-filter: saturate(1.6) blur(14px);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar { max-width: 760px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .logo {
+    width: 30px; height: 30px; border-radius: 9px; flex: none;
+    background: var(--accent); display: grid; place-items: center;
+  }
+  .logo svg { width: 14px; height: 14px; fill: #fff; margin-left: 2px; }
+  h1 { font-size: 19px; margin: 0; letter-spacing: -.01em; }
+  .count { color: var(--muted); font-size: 13px; }
+  .icon-btn {
+    margin-left: auto; width: 38px; height: 38px; border-radius: 50%;
+    border: 1px solid var(--line); background: var(--surface); color: var(--text);
+    display: grid; place-items: center; cursor: pointer;
+  }
+  .icon-btn svg { width: 18px; height: 18px; }
+  .icon-btn.spin svg { animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  main { max-width: 760px; margin: 0 auto; padding: 16px 16px calc(env(safe-area-inset-bottom) + 24px); }
+  .list { display: grid; gap: 12px; }
+
+  .card {
+    display: grid; grid-template-columns: 104px 1fr; gap: 14px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    padding: 12px; box-shadow: var(--shadow);
+  }
+  .thumb {
+    position: relative; aspect-ratio: 9 / 16; border-radius: 10px; overflow: hidden;
+    background: var(--surface-2); border: 0; padding: 0; cursor: pointer;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb .play {
+    position: absolute; inset: 0; margin: auto; width: 38px; height: 38px; border-radius: 50%;
+    background: rgba(0, 0, 0, .45); display: grid; place-items: center;
+    -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  }
+  .thumb .play svg { width: 14px; height: 14px; fill: #fff; margin-left: 2px; }
+  .thumb .dur {
+    position: absolute; right: 6px; bottom: 6px; padding: 1px 6px; border-radius: 6px;
+    background: rgba(0, 0, 0, .6); color: #fff; font-size: 11px; font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .info { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .title-row { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .num { color: var(--muted); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .title {
+    font-weight: 650; font-size: 16px; line-height: 1.3; margin: 0; cursor: pointer;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; color: var(--muted); font-size: 12.5px; }
+  .chip {
+    padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600;
+    background: var(--chip-bg, var(--surface-2)); color: var(--chip-fg, var(--text));
+  }
+  .chip.wait { background: var(--accent-soft); color: var(--accent); }
+  .caption {
+    margin: 0; font-size: 13.5px; white-space: pre-line; cursor: pointer;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .tags { margin: 0; font-size: 12.5px; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .actions { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 40px; padding: 0 14px; border-radius: 11px; border: 0; cursor: pointer;
+    font-weight: 600; font-size: 14px; text-decoration: none; flex: 1 1 0; white-space: nowrap;
+  }
+  .btn svg { width: 17px; height: 17px; flex: none; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); }
+  .btn.tonal { background: var(--surface-2); color: var(--text); }
+  .btn.done { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+  .btn[aria-disabled="true"], .btn:disabled { opacity: .45; pointer-events: none; }
+  .btn:active { transform: scale(.98); }
+
+  .empty {
+    text-align: center; color: var(--muted); padding: 56px 20px; border: 1.5px dashed var(--line);
+    border-radius: 18px; background: var(--surface);
+  }
+  .empty strong { display: block; color: var(--text); font-size: 16px; margin-bottom: 4px; }
+  .empty code { font-size: 12.5px; background: var(--surface-2); padding: 2px 6px; border-radius: 6px; }
+  footer { color: var(--muted); font-size: 12.5px; text-align: center; margin-top: 22px; line-height: 1.6; }
+
+  /* viewer */
+  .viewer {
+    position: fixed; inset: 0; z-index: 20; display: none; overflow-y: auto;
+    background: rgba(0, 0, 0, .7); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    overscroll-behavior: contain;
+  }
+  .viewer.open { display: block; }
+  .sheet {
+    max-width: 480px; margin: 0 auto; min-height: 100%;
+    background: var(--surface); display: flex; flex-direction: column;
+  }
+  @media (min-width: 560px) {
+    .sheet { margin: 32px auto; min-height: 0; border-radius: 20px; overflow: hidden; }
+  }
+  .stage { position: relative; background: #000; padding-top: env(safe-area-inset-top); }
+  .stage video { display: block; width: 100%; max-height: 58vh; aspect-ratio: 9 / 16; background: #000; }
+  .close {
+    position: absolute; top: calc(env(safe-area-inset-top) + 10px); right: 10px; z-index: 2;
+    width: 36px; height: 36px; border-radius: 50%; border: 0; cursor: pointer;
+    background: rgba(0, 0, 0, .55); color: #fff; display: grid; place-items: center;
+  }
+  .close svg { width: 18px; height: 18px; }
+  .details { padding: 16px 16px calc(env(safe-area-inset-bottom) + 20px); display: flex; flex-direction: column; gap: 10px; }
+  .details h2 { margin: 0; font-size: 18px; }
+  .details .caption { -webkit-line-clamp: unset; display: block; font-size: 14.5px; cursor: text; user-select: text; -webkit-user-select: text; }
+  .details .tags { white-space: normal; user-select: text; -webkit-user-select: text; }
+  .notes { display: grid; gap: 4px; font-size: 13px; color: var(--muted); padding: 10px 12px; background: var(--surface-2); border-radius: 12px; }
+  .notes b { color: var(--text); font-weight: 600; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 20px); z-index: 30;
+    transform: translate(-50%, 20px); opacity: 0; transition: .2s; pointer-events: none;
+    background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 12px;
+    font-size: 14px; font-weight: 600; max-width: calc(100% - 32px); text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 360px) {
+    .card { grid-template-columns: 84px 1fr; gap: 12px; }
+    .btn { padding: 0 10px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="logo" aria-hidden="true"><svg viewBox="0 0 10 12"><path d="M0 0l10 6-10 6z"/></svg></div>
+    <div>
+      <h1>Shorts Paneli</h1>
+      <div class="count" id="count">Yükleniyor…</div>
+    </div>
+    <button class="icon-btn" id="refresh" aria-label="Yenile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="list" id="list"></div>
+  <footer>
+    İndirilen video iPhone'da <b>Dosyalar › İndirilenler</b>'e iner.<br>
+    Oradan <b>Paylaş › Videoyu Kaydet</b> ile Fotoğraflar'a geçer.
+  </footer>
+</main>
+
+<div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-label="Video">
+  <div class="sheet">
+    <div class="stage">
+      <video id="player" controls playsinline preload="metadata"></video>
+      <button class="close" id="close" aria-label="Kapat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="details" id="details"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const ICON = {
+  download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M6 12H5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7a1 1 0 0 0-1-1h-1"/></svg>',
+  play: '<svg viewBox="0 0 10 12"><path d="M0 0l10 6-10 6z"/></svg>',
+};
+const SERIES_HUES = [350, 205, 150, 35, 275];
+const $ = (id) => document.getElementById(id);
+const byId = (id) => videos.find((v) => v.id === id);
+let videos = [];
+let lastJson = "";
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const path = (id) => id.split("/").map(encodeURIComponent).join("/");
+const mediaUrl = (v, dl) => `/media/${path(v.id)}?v=${Math.round(v.mtime)}${dl ? "&dl=1" : ""}`;
+const thumbUrl = (v) => `/thumb/${path(v.id)}?v=${Math.round(v.mtime)}`;
+
+function nameParts(file) {
+  const stem = file.replace(/\.mp4$/i, "");
+  const m = stem.match(/^(\d+)[_-]+(.*)$/);
+  const rest = (m ? m[2] : stem).replace(/[_-]+/g, " ").trim();
+  return { num: m ? "#" + m[1] : "", title: rest.charAt(0).toUpperCase() + rest.slice(1) };
+}
+const fmtDur = (s) => s == null ? "" : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
+const fmtSize = (b) => b >= 1e9 ? (b / 1e9).toFixed(1) + " GB" : (b / 1e6).toFixed(1) + " MB";
+const fmtDate = (t) => new Date(t * 1000).toLocaleString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+function seriesChip(series) {
+  if (!series) return "";
+  let h = 0;
+  for (const c of series.toLowerCase()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const hue = SERIES_HUES[h % SERIES_HUES.length];
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const bg = `hsl(${hue} 80% ${dark ? 22 : 93}%)`, fg = `hsl(${hue} 70% ${dark ? 78 : 32}%)`;
+  return `<span class="chip" style="--chip-bg:${bg};--chip-fg:${fg}">${esc(series)}</span>`;
+}
+
+function actions(v) {
+  const off = v.ready ? "" : ' aria-disabled="true"';
+  const k = esc(v.id);
+  const share = canShareFiles() ? `<button class="btn tonal" data-share="${k}"${off}>${ICON.share}Kaydet</button>` : "";
+  return `<a class="btn primary" href="${mediaUrl(v, true)}" download="${esc(v.file)}"${off}>${ICON.download}İndir</a>
+    <button class="btn tonal" data-copy="${k}"${v.copy ? "" : " disabled"}>${ICON.copy}Kopyala</button>${share}`;
+}
+
+function render() {
+  const list = $("list");
+  const ready = videos.filter((v) => v.ready).length;
+  $("count").textContent = videos.length
+    ? `${ready} hazır video` + (videos.length > ready ? ` · ${videos.length - ready} işleniyor` : "")
+    : "Hazır video yok";
+  if (!videos.length) {
+    list.innerHTML = `<div class="empty"><strong>Henüz hazır video yok</strong>
+      Render edilen videolar <code>~/tiktok/out</code> klasörüne düştükçe burada görünür.</div>`;
+    return;
+  }
+  list.innerHTML = videos.map((v) => {
+    const k = esc(v.id);
+    const { num, title } = nameParts(v.file);
+    const p = v.post || {};
+    const thumb = v.ready
+      ? `<img src="${thumbUrl(v)}" alt="" loading="lazy"><span class="play">${ICON.play}</span>`
+      : "";
+    return `<article class="card">
+      <button class="thumb" data-open="${k}" aria-label="${esc(title)} önizle"${v.ready ? "" : " disabled"}>${thumb}
+        ${v.duration != null ? `<span class="dur">${fmtDur(v.duration)}</span>` : ""}</button>
+      <div class="info">
+        <div class="title-row">${num ? `<span class="num">${esc(num)}</span>` : ""}<h3 class="title" data-open="${k}">${esc(title)}</h3></div>
+        <div class="meta">${v.ready ? "" : '<span class="chip wait">İşleniyor…</span>'}${seriesChip(p.series)}
+          <span>${fmtDate(v.mtime)}</span><span>${fmtSize(v.size)}</span></div>
+        ${p.caption ? `<p class="caption" data-open="${k}">${esc(p.caption)}</p>` : ""}
+        ${p.hashtags ? `<p class="tags">${esc(p.hashtags)}</p>` : ""}
+        <div class="actions">${actions(v)}</div>
+      </div>
+    </article>`;
+  }).join("");
+}
+
+async function load(manual) {
+  const btn = $("refresh");
+  if (manual) btn.classList.add("spin");
+  try {
+    const res = await fetch("/api/videos", { cache: "no-store" });
+    const text = await res.text();
+    if (text !== lastJson) {
+      lastJson = text;
+      videos = JSON.parse(text);
+      render();
+    }
+  } catch (e) {
+    if (manual) toast("Sunucuya ulaşılamadı — Tailscale açık mı?");
+  } finally {
+    setTimeout(() => btn.classList.remove("spin"), 300);
+  }
+}
+
+function openViewer(id) {
+  const v = byId(id);
+  if (!v || !v.ready) return;
+  const { num, title } = nameParts(v.file);
+  const p = v.post || {};
+  const notes = [p.location && `<div>📍 <b>Konum:</b> ${esc(p.location)}</div>`,
+                 p.music && `<div>🎵 <b>Müzik:</b> ${esc(p.music)}</div>`,
+                 p.notes && `<div style="white-space:pre-line">📝 <b>Not:</b> ${esc(p.notes)}</div>`].filter(Boolean).join("");
+  $("details").innerHTML = `
+    <div class="meta">${seriesChip(p.series)}<span>${esc(num)}</span><span>${fmtDur(v.duration)}</span><span>${fmtSize(v.size)}</span></div>
+    <h2>${esc(title)}</h2>
+    <div class="actions">${actions(v)}</div>
+    ${p.caption ? `<p class="caption">${esc(p.caption)}</p>` : ""}
+    ${p.hashtags ? `<p class="tags">${esc(p.hashtags)}</p>` : ""}
+    ${!p.caption && v.copy ? `<p class="caption">${esc(v.copy)}</p>` : ""}
+    ${notes ? `<div class="notes">${notes}</div>` : ""}`;
+  const player = $("player");
+  player.poster = thumbUrl(v);
+  player.src = mediaUrl(v, false);
+  $("viewer").classList.add("open");
+  document.body.style.overflow = "hidden";
+  player.play().catch(() => {});
+}
+
+function closeViewer() {
+  const player = $("player");
+  player.pause();
+  player.removeAttribute("src");
+  player.load();
+  $("viewer").classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+// Over plain http (no secure context) the Clipboard API is missing, so fall back to execCommand,
+// which has to run synchronously inside the tap.
+function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text).then(() => true, () => legacyCopy(text));
+  }
+  return Promise.resolve(legacyCopy(text));
+}
+function legacyCopy(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.contentEditable = "true";
+  ta.readOnly = true;
+  ta.style.cssText = "position:fixed;top:0;left:-9999px;font-size:16px";
+  document.body.appendChild(ta);
+  const range = document.createRange();
+  range.selectNodeContents(ta);
+  const sel = getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  ta.setSelectionRange(0, text.length);
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch (e) {}
+  sel.removeAllRanges();
+  ta.remove();
+  return ok;
+}
+
+// Web Share with files only exists on https; then "Kaydet" can send the video straight to Photos.
+function canShareFiles() {
+  return window.isSecureContext && !!navigator.canShare &&
+    navigator.canShare({ files: [new File([""], "x.mp4", { type: "video/mp4" })] });
+}
+async function shareVideo(v, btn) {
+  btn.setAttribute("aria-disabled", "true");
+  try {
+    const blob = await (await fetch(mediaUrl(v, false))).blob();
+    await navigator.share({ files: [new File([blob], v.file, { type: "video/mp4" })] });
+  } catch (e) {
+    if (e.name !== "AbortError") toast("Paylaşılamadı, İndir'i kullan");
+  } finally {
+    btn.removeAttribute("aria-disabled");
+  }
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+document.addEventListener("click", (e) => {
+  const open = e.target.closest("[data-open]");
+  if (open) return openViewer(open.dataset.open);
+  const copy = e.target.closest("[data-copy]");
+  if (copy) {
+    const v = byId(copy.dataset.copy);
+    if (!v) return;
+    copyText(v.copy).then((ok) => {
+      if (!ok) return toast("Kopyalanamadı — metni basılı tutup seç");
+      document.querySelectorAll(`[data-copy="${CSS.escape(v.id)}"]`).forEach((b) => {
+        b.classList.replace("tonal", "done");
+        b.innerHTML = ICON.check + "Kopyalandı";
+        setTimeout(() => { b.classList.replace("done", "tonal"); b.innerHTML = ICON.copy + "Kopyala"; }, 1800);
+      });
+      toast("Açıklama ve hashtag'ler kopyalandı");
+    });
+    return;
+  }
+  const share = e.target.closest("[data-share]");
+  if (share) { const v = byId(share.dataset.share); return v && shareVideo(v, share); }
+  if (e.target.closest("#close") || e.target === $("viewer")) closeViewer();
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeViewer(); });
+$("refresh").addEventListener("click", () => load(true));
+document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+setInterval(() => { if (!document.hidden) load(); }, 20000);
+load();
+</script>
+</body>
+</html>

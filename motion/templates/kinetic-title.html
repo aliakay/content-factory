@@ -1,0 +1,64 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Kinetic title: Anime.js letter choreography + a Three.js particle field. Transparent background.
+     Params via URL hash: #title=...&sub=...&accent=%23FFD93D -->
+<style>
+  @font-face { font-family: Poppins; src: url("../../fonts/Poppins-Bold.ttf"); }
+  @font-face { font-family: Serif; src: url("../../fonts/InstrumentSerif-Italic.ttf"); }
+  html, body { margin: 0; width: 1080px; height: 1920px; background: transparent; overflow: hidden; }
+  #gl { position: absolute; inset: 0; }
+  #title { position: absolute; left: 0; right: 0; top: 700px; text-align: center; font: 700 120px Poppins;
+           color: #fff; letter-spacing: -2px; text-shadow: 0 6px 30px rgba(0,0,0,.45); }
+  #title span { display: inline-block; opacity: 0; }
+  #sub { position: absolute; left: 0; right: 0; top: 880px; text-align: center; font: 96px Serif;
+         color: var(--accent); opacity: 0; text-shadow: 0 6px 30px rgba(0,0,0,.45); }
+</style></head>
+<body>
+<canvas id="gl" width="1080" height="1920"></canvas>
+<div id="title"></div><div id="sub"></div>
+<script src="../node_modules/animejs/lib/anime.min.js"></script>
+<script type="module">
+import * as THREE from "../node_modules/three/build/three.module.min.js";
+const q = new URLSearchParams(location.hash.slice(1));
+const title = q.get("title") || "UNREAL PLACES";
+const sub = q.get("sub") || "that actually exist";
+const exitAt = Number(q.get("exit") || 2.6) * 1000;   // when the title leaves (ms)
+document.documentElement.style.setProperty("--accent", q.get("accent") || "#FFD93D");
+document.getElementById("title").style.fontSize = (q.get("size") || 120) + "px";
+document.getElementById("title").innerHTML = [...title].map(c => `<span>${c === " " ? "&nbsp;" : c}</span>`).join("");
+document.getElementById("sub").textContent = sub;
+
+// Anime.js timeline, never autoplayed: render(t) seeks it, so every frame is deterministic
+const tl = anime.timeline({ autoplay: false, easing: "easeOutExpo" })
+  .add({ targets: "#title span", opacity: [0, 1], translateY: [80, 0], scale: [0.9, 1],
+         duration: 700, delay: anime.stagger(35) })
+  .add({ targets: "#sub", opacity: [0, 1], translateY: [30, 0], duration: 600 }, "-=350")
+  .add({ targets: ["#title", "#sub"], opacity: 0, translateY: -40, duration: 350, easing: "easeInQuad" }, exitAt);
+
+// Three.js: soft particles drifting towards the camera
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("gl"), alpha: true, antialias: true,
+                                           preserveDrawingBuffer: true });
+renderer.setClearColor(0x000000, 0);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, 1080 / 1920, 0.1, 100);
+camera.position.z = 5;
+const N = 600, pos = new Float32Array(N * 3), seed = [];
+for (let i = 0; i < N; i++) { seed.push([Math.random() * 8 - 4, Math.random() * 14 - 7, Math.random() * -20]); }
+const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+const mat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, transparent: true, opacity: 0.7 });
+scene.add(new THREE.Points(geo, mat));
+
+window.render = (t) => {
+  tl.seek(t * 1000);
+  for (let i = 0; i < N; i++) {
+    const [x, y, z] = seed[i];
+    pos[i * 3] = x; pos[i * 3 + 1] = y + Math.sin(t + i) * 0.05; pos[i * 3 + 2] = ((z + t * 2) % 20 + 20) % 20 - 20;
+  }
+  geo.attributes.position.needsUpdate = true;
+  const ex = exitAt / 1000;
+  mat.opacity = Math.min(0.7, t * 0.7) * (t > ex ? Math.max(0, 1 - (t - ex) / 0.4) : 1);
+  renderer.render(scene, camera);
+};
+window.ready = Promise.resolve();
+</script>
+</body></html>

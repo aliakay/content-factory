@@ -1,0 +1,50 @@
+# --- secrets (never commit) ---
+.env
+config.env
+data/users.json
+data/eleven_accounts.json
+data/claude_auth/
+*.pem
+
+# --- runtime state (back up separately, see README) ---
+*.db
+*.db-wal
+*.db-shm
+*.log
+data/jobs/
+data/auto/
+data/art/history.jsonl
+data/eleven_profile.json
+data/stock_cache.json
+data/claude_calibration.json
+specs/
+reports/
+frames/
+
+# --- media: footage, renders, references, generated audio ---
+raw/
+out/
+work/
+refs/
+referance videolar*/
+assets/eleven/
+assets/stock/
+assets/voice/
+shorts/cache/
+*.mp4
+*.mov
+*.MOV
+*.m4a
+*.mp3
+
+# --- environments and caches ---
+.venv/
+motion/node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.tgz
+
+# editor / manual backups
+*.bak*
+*~

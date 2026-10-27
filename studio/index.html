@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Content Factory Stüdyo</title>
+<style>
+:root{
+  --bg:#0e1014;--surface:#161920;--surface2:#1d212a;--line:#2a2f3b;--text:#e9ebf1;--muted:#8c94a8;--faint:#5d6477;
+  --accent:#FFD93D;--accent-ink:#1a1600;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--info:#60a5fa;
+  --s-idea:#a78bfa;--s-voice:#f472b6;--s-preview:#60a5fa;--s-ready:#4ade80;--s-published:#FFD93D;--s-rejected:#6b7280;
+  --r:14px;--gap:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;-webkit-text-size-adjust:100%}
+a{color:inherit}
+button,input,textarea,select{font:inherit;color:inherit}
+header{position:sticky;top:0;z-index:20;background:rgba(14,16,20,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:10px;padding:12px 16px 6px;max-width:1280px;margin:0 auto}
+.brand{font-weight:700;letter-spacing:-.01em;font-size:17px}
+.brand span{color:var(--accent)}
+.jobpill{margin-left:auto;font-size:12px;padding:4px 10px;border-radius:99px;background:var(--surface2);border:1px solid var(--line);color:var(--muted);cursor:pointer;white-space:nowrap}
+.jobpill.on{color:var(--accent);border-color:#5c4f12}
+nav{display:flex;gap:4px;overflow-x:auto;padding:4px 12px 8px;max-width:1280px;margin:0 auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav a{text-decoration:none;padding:7px 12px;border-radius:10px;color:var(--muted);white-space:nowrap;font-weight:500;font-size:14px}
+nav a.on{background:var(--surface2);color:var(--text)}
+main{max-width:1280px;margin:0 auto;padding:16px 16px 80px;overflow-x:hidden}
+h1{font-size:22px;margin:4px 0 14px;letter-spacing:-.02em}
+h2{font-size:16px;margin:24px 0 10px;letter-spacing:-.01em}
+h3{font-size:14px;margin:0 0 6px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.muted{color:var(--muted)}.faint{color:var(--faint)}.small{font-size:13px}.tiny{font-size:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.grid{display:grid;gap:12px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.kpi .v{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:2px}
+.kpi .l{font-size:12px;color:var(--muted)}
+.bar{height:6px;background:var(--surface2);border-radius:99px;overflow:hidden;margin-top:8px}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface2);padding:9px 14px;border-radius:11px;cursor:pointer;font-weight:600;font-size:14px;text-decoration:none;min-height:40px}
+.btn:hover{border-color:#3a4150}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--bad)}
+.btn.ghost{background:transparent}
+.btn.sm{padding:5px 10px;min-height:32px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sp{flex:1}
+input[type=text],input[type=url],input[type=number],textarea,select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;outline:none}
+input:focus,textarea:focus{border-color:#5a6275}
+textarea{min-height:70px;resize:vertical}
+label.chk{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--muted)}
+.st-idea{--c:var(--s-idea)}.st-voice{--c:var(--s-voice)}.st-preview{--c:var(--s-preview)}.st-ready{--c:var(--s-ready)}.st-published{--c:var(--s-published)}.st-rejected{--c:var(--s-rejected)}
+.stage{color:var(--c);border-color:color-mix(in srgb,var(--c) 40%,transparent)}
+.stage .dot{background:var(--c)}
+.thumb{width:54px;height:96px;border-radius:9px;object-fit:cover;background:var(--surface2);flex:none}
+.pcard{display:flex;gap:12px;align-items:flex-start;text-decoration:none;cursor:pointer}
+.pcard:hover{border-color:#3a4150}
+.pcard .t{font-weight:600;line-height:1.3}
+.pcard .h{color:var(--muted);font-size:13px;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.board{display:grid;grid-template-columns:repeat(5,minmax(230px,1fr));gap:12px;overflow-x:auto;padding-bottom:8px}
+.col{background:transparent;min-width:230px}
+.col>.hd{display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:8px;font-size:14px}
+.col .list{display:grid;gap:8px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);padding:7px 12px;border-radius:99px;cursor:pointer;font-size:13px;user-select:none}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.fmt{cursor:pointer;position:relative}
+.fmt.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.fmt.off{opacity:.5;cursor:default}
+.fmt .n{font-weight:650}
+.fgrid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+.stepper{display:flex;gap:0;margin:6px 0 14px;overflow-x:auto}
+.stepper div{flex:1;min-width:76px;text-align:center;font-size:12px;color:var(--faint);padding-top:10px;border-top:3px solid var(--line)}
+.stepper div.done{color:var(--muted);border-color:#4b5263}
+.stepper div.cur{color:var(--c);border-color:var(--c);font-weight:650}
+.detail{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start}
+@media(max-width:960px){.detail{grid-template-columns:minmax(0,1fr)}.detail>div:last-child{order:-1}.board{grid-template-columns:repeat(5,82vw)}}
+video{width:100%;max-height:72vh;border-radius:12px;background:#000;display:block}
+.vwrap{max-width:380px;margin:0 auto}.vwrap.wide{max-width:none}
+.shots{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}
+.shot{flex:none;width:118px}
+.shot img{width:118px;height:210px;object-fit:cover;border-radius:10px;background:var(--surface2);display:block}
+.shot .m{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.3}
+.shot .tx{font-size:12px;margin-top:3px}
+.tl{position:relative;height:46px;border-radius:9px;overflow:hidden;background:var(--surface2);margin:8px 0 4px}
+.tl .seg{position:absolute;top:0;height:24px;border-right:2px solid var(--bg);background:#2c3342}
+.tl .seg:nth-child(odd){background:#343c4e}
+.tl .txt{position:absolute;top:27px;height:16px;border-radius:4px;background:color-mix(in srgb,var(--accent) 70%,transparent)}
+.lines{display:grid;gap:6px}
+.lines input{padding:8px 10px}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:6px 12px;font-size:14px}
+.kv>div:nth-child(odd){color:var(--muted)}
+.warnbox{border-color:#5c4612;background:#211b0c}
+.errbox{border-color:#5c1f1f;background:#211010}
+.okbox{border-color:#1f4d2e;background:#0f1d14}
+pre.log{background:#0a0c0f;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow:auto;margin:8px 0 0;color:#b9c0d0}
+.hist{display:grid;gap:8px;font-size:13px}
+.hist div{display:flex;gap:10px}
+.hist time{color:var(--faint);white-space:nowrap;font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;color:var(--muted);font-weight:600;font-size:12px;padding:8px 6px;border-bottom:1px solid var(--line)}
+td{padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.lib{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.lib img{width:100%;aspect-ratio:9/16;object-fit:contain;background:#000;border-radius:10px;background:var(--surface2);display:block;cursor:pointer}
+.spin{width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:sp .8s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#262b36;border:1px solid #3a4150;padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:92vw}
+#toast.on{opacity:1}#toast.bad{border-color:#7f2a2a;color:#fecaca}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;z-index:40;padding:16px}
+.modal.on{display:flex}
+.modal video{max-height:78vh;width:auto;max-width:100%}
+.modal .xbtn{position:fixed;top:max(12px,env(safe-area-inset-top));right:12px;z-index:41;background:rgba(0,0,0,.65);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:10px 18px;font-size:16px;font-weight:600}
+.empty{padding:22px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--r)}
+.spark{display:block}
+.sec{margin-top:14px}
+.flow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:13px}
+.flow b{padding:5px 10px;border-radius:9px;background:var(--surface2);border:1px solid var(--line);font-weight:600}
+@media(max-width:520px){.kv{grid-template-columns:1fr;gap:2px}.kv>div:nth-child(odd){font-size:12px;margin-top:8px}}
+footer{max-width:1280px;margin:0 auto;padding:0 16px 30px;color:var(--faint);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="brand">🎬 Content Factory <span>Stüdyo</span></div>
+    <div id="jobpill" class="jobpill" onclick="location.hash='#/'">işler: —</div>
+    <div id="mechip" class="jobpill" style="margin-left:6px;display:none" onclick="location.hash='#/hesaplar'"></div>
+  </div>
+  <nav id="nav">
+    <a href="#/">Pano</a><a href="#/uret">Üret</a><a href="#/hat">Üretim hattı</a><a href="#/takip">Takip</a>
+    <a href="#/videolar">Videolar</a><a href="#/referanslar">Referanslar</a><a href="#/ses">Ses & Avatar</a><a href="#/akislar">Akışlar</a><a href="#/kesif">Keşif</a><a href="#/sinyal">Sinyaller</a><a href="#/butce">Bütçe</a><a href="#/hesaplar">Hesaplar</a>
+  </nav>
+</header>
+<main id="app"></main>
+<footer>Shorts Paneli: <a id="lnk-shorts" href="#" target="_blank">:8095</a> · Eski panel (klipler, Reference Lab): <a id="lnk-old" href="#" target="_blank">:8503</a></footer>
+<script>for(const[id,p]of[["lnk-shorts",8095],["lnk-old",8503]])document.getElementById(id).href=`${location.protocol}//${location.hostname}:${p}`</script>
+<div id="toast"></div>
+<div id="modal" class="modal" onclick="if(event.target===this)closeModal()"><button class="xbtn" onclick="closeModal()">✕ Kapat</button><div id="modalBody"></div></div>
+<script>
+const STAGES=[["idea","Fikir"],["voice","Ses"],["preview","Önizleme"],["ready","Hazır"],["published","Yayında"],["rejected","Reddedildi"]];
+const SL=Object.fromEntries(STAGES);
+const PL={youtube:"YouTube",tiktok:"TikTok",instagram:"Instagram"};
+const JOBTR={p_ideas:"fikir üretimi",p_voice:"ses + önizleme",p_preview:"önizleme",p_render:"final render + QA",p_revise:"revizyon",p_design:"hareket tasarımı",p_verify:"doğrulama",ingest:"albüm indirme",analyze:"analiz",describe:"klip açıklama",radar:"radar",trends:"trendler",yt_stats:"YouTube istatistik",ref_lib:"referans analizi",discover:"günlük keşif",style_extract:"stil çıkarma",avatar_check:"avatar kontrolü",p_music:"müzik + önizleme",refs:"Reference Lab",ideas:"fikir (eski)",render:"render (eski)",preview:"önizleme (eski)",verify:"doğrulama (eski)"};
+let STYLES=[];const LOOKS=()=>[["auto","✨ Otomatik · Opus kendisi bulsun (araştırır, 3 yön önerir)"],["tech","🌌 Tech · koyu lacivert, neon vurgu"],["paper","📰 Paper · Vox tarzı krem kâğıt, sarı vurgu"],...STYLES.map(x=>["custom:"+x.id,"🎨 "+x.id])];
+async function uploadStyle(inp){const f=inp.files[0];if(!f)return;const note=prompt("Bu referanstan ne alınsın? (ör. sadece renkler) — boş bırakabilirsin")||"";try{const r=await fetch("/api/refs/upload",{method:"POST",headers:{"X-Studio":"1","X-Style":"1","X-Filename":encodeURIComponent(f.name),"X-Style-Note":encodeURIComponent(note)},body:f});const j=await r.json();if(!r.ok)throw new Error(j.error);toast("Stil çıkarılıyor (#"+j.job_id+"), ~1 dk");setTimeout(async()=>{STYLES=await api("/api/styles");route()},70000)}catch(e){toast(e.message,1)}}
+let FORMATS=[],timer=null,state={gen:{format:null,places:[],n:3,brief:"",refs:[],voice:null,aspect:"9:16"}};
+const ASPECT_TR={"9:16":"Dikey 9:16","16:9":"Yatay 16:9"};
+function aspectChips(cur,onpick){return ["9:16","16:9"].map(a=>`<span class="chip ${cur===a?"on":""}" onclick="${onpick(a)}"><span style="display:inline-block;vertical-align:-3px;margin-right:6px;border:2px solid currentColor;border-radius:3px;width:${a==="9:16"?10:18}px;height:${a==="9:16"?18:10}px"></span>${ASPECT_TR[a]}</span>`).join("")}
+const THEME_TR={gezi:"Gezi",vlog:"Vlog",manzara:"Manzara",motivasyon:"Motivasyon","diğer":"Diğer"};
+const LAYER_TR={title_serif:"serif başlık",title_bold:"kalın başlık",scramble:"şifreli başlık",editorial:"editoryal",words:"akan kelimeler",quote:"alıntı",pin:"konum pini",hook:"hook",caption:"altyazı"};
+const GRADE_TR={natural:"doğal",film:"film",golden:"altın",moody:"moody",vivid:"canlı",mono:"siyah-beyaz"};
+const FRAME_TR={full:"tam ekran",letterbox:"sinema bandı 16:9",scope:"geniş bant 2.39"};
+function refThumb(id){return "/thumb/ref?id="+encodeURIComponent(id)}
+function recipeChips(r){const x=(r.recipe||{}).recipe||{};return [x.frame&&FRAME_TR[x.frame],x.grade&&("renk: "+(GRADE_TR[x.grade]||x.grade)),x.pace&&(x.pace==="beat"?"beat'e kesme":"sakin tempo"),...(x.layers||[]).map(l=>LAYER_TR[l.type]||l.type)].filter(Boolean).map(t=>`<span class="badge">${esc(t)}</span>`).join("")}
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num=n=>n==null?"—":Number(n).toLocaleString("tr-TR");
+const sec=s=>s==null?"—":(Math.round(s*10)/10).toLocaleString("tr-TR")+" sn";
+function ago(iso){if(!iso)return"";const d=(Date.now()-new Date(iso))/1000;if(d<60)return"az önce";if(d<3600)return Math.floor(d/60)+" dk önce";if(d<86400)return Math.floor(d/3600)+" sa önce";return Math.floor(d/86400)+" gün önce"}
+function dt(iso){return iso?new Date(iso).toLocaleString("tr-TR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):""}
+function toast(m,bad){const t=$("#toast");t.textContent=m;t.className="on"+(bad?" bad":"");clearTimeout(t._t);t._t=setTimeout(()=>t.className="",3500)}
+async function api(p){const r=await fetch(p);if(r.status===401){location.href="/login";return new Promise(()=>{})}const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);return j}
+async function post(p,b){const r=await fetch(p,{method:"POST",headers:{"Content-Type":"application/json","X-Studio":"1"},body:JSON.stringify(b||{})});if(r.status===401){location.href="/login";return new Promise(()=>{})}const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||("HTTP "+r.status));return j}
+function stageBadge(s){return `<span class="badge stage st-${s}"><i class="dot"></i>${SL[s]||s}</span>`}
+function fmtName(id){const f=FORMATS.find(x=>x.id===id);return f?f.name_tr:id}
+function thumbUrl(clip,t){return clip?`/thumb/clip/${encodeURIComponent(clip)}?t=${t||0}`:""}
+function copy(text){const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();try{navigator.clipboard?navigator.clipboard.writeText(text).catch(()=>document.execCommand("copy")):document.execCommand("copy")}catch(e){}ta.remove();toast("Kopyalandı")}
+function openVideo(src,photo){$("#modalBody").innerHTML=photo?`<img src="${src}" style="max-width:100%;max-height:85vh;border-radius:10px" alt="">`:`<video src="${src}" controls autoplay playsinline></video>`;$("#modal").classList.add("on")}
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
+function closeModal(){$("#modal").classList.remove("on");$("#modalBody").innerHTML=""}
+function poll(fn,ms){clearTimeout(timer);timer=setTimeout(function again(){const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&a.value){timer=setTimeout(again,ms);return}fn()},ms)}
+function spark(h){if(!h||h.length<2)return"";const v=h.map(x=>x.views),mx=Math.max(...v),mn=Math.min(...v),W=90,H=24;const pts=v.map((y,i)=>`${(i/(v.length-1)*W).toFixed(1)},${(H-2-(mx===mn?0.5:(y-mn)/(mx-mn))*(H-4)).toFixed(1)}`).join(" ");return `<svg class="spark" width="${W}" height="${H}"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.6"/></svg>`}
+
+function pcard(p,extra){
+  return `<a class="card pcard" href="#/p/${p.prod_id}">
+    ${p.thumb?`<img class="thumb" loading="lazy" src="${thumbUrl(p.thumb,p.thumb_t)}" alt="">`:`<div class="thumb" style="display:grid;place-items:center">🎬</div>`}
+    <div style="min-width:0;flex:1">
+      <div class="t">${esc(p.title)}</div>
+      <div class="h">${esc(p.hook||"")}</div>
+      <div class="row" style="margin-top:6px;gap:6px">${stageBadge(p.stage)}<span class="badge">${esc(fmtName(p.format))}</span>${p.duration?`<span class="badge">${sec(p.duration)}</span>`:""}${p.aspect==="16:9"?`<span class="badge">yatay</span>`:""}</div>
+      ${p.busy?`<div class="small" style="color:var(--accent);margin-top:6px"><span class="spin"></span> ${esc(JOBTR[p.busy.kind]||p.busy.kind)} sürüyor</div>`:""}
+      ${extra||""}
+    </div></a>`}
+
+// ---------------- views ----------------
+async function viewPano(){
+  const o=await api("/api/overview");
+  const b=o.budget,pct=Math.min(100,b.spent/b.cap*100);
+  const pend=o.pending.length?o.pending.map(p=>pcard(p,`<div class="small" style="margin-top:6px">👉 ${esc(p.next)}</div>`)).join(""):`<div class="empty">Şu an senden bekleyen bir şey yok. <a href="#/uret">Yeni fikir üret →</a></div>`;
+  const jobs=o.jobs.map(j=>`<div class="card" style="padding:10px 12px">
+    <div class="row small"><b>#${j.job_id}</b><span>${esc(JOBTR[j.kind]||j.kind)}</span><span class="sp"></span>
+    ${j.status==="running"||j.status==="queued"?'<span style="color:var(--accent)"><span class="spin"></span> sürüyor</span>':j.status==="failed"?'<span style="color:var(--bad)">hata</span>':'<span class="muted">bitti</span>'}
+    <span class="faint tiny">${ago(j.finished_at||j.started_at)}</span></div>
+    ${j.result?`<div class="tiny muted" style="margin-top:4px">${esc(j.result)}</div>`:""}
+    ${j.tail&&j.status!=="done"?`<pre class="log">${esc(j.tail)}</pre>`:""}</div>`).join("");
+  const c=o.counts;
+  $("#app").innerHTML=`
+  <h1>Pano</h1>
+  <div class="grid kpis">
+    <div class="card kpi"><div class="l">Bu ay biten video</div><div class="v">${o.made_this_month}</div></div>
+    <div class="card kpi"><div class="l">Takip edilen paylaşım</div><div class="v">${o.tracking.posts}</div></div>
+    <div class="card kpi"><div class="l">Toplam izlenme (takip)</div><div class="v">${num(o.tracking.total_views)}</div></div>
+    <div class="card kpi"><div class="l">ElevenLabs kredisi · bu ay / ${num(b.cap)}</div><div class="v">${num(b.spent)}</div><div class="bar"><i style="width:${pct}%"></i></div></div>
+  </div>
+  <h2>Üretim hattı</h2>
+  <div class="chips">${STAGES.map(([k,l])=>`<a class="chip" href="#/hat" style="text-decoration:none"><span class="badge stage st-${k}" style="border:0;padding:0"><i class="dot"></i></span> ${l} · <b>${c[k]||0}</b></a>`).join("")}</div>
+  <h2>Senden bekleyenler</h2>
+  <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">${pend}</div>
+  <h2>İşler</h2>
+  <div class="grid">${jobs||'<div class="empty">Henüz iş yok</div>'}</div>
+  <h2>Yeni çekim ekle</h2>
+  <div class="card">
+    <div class="small muted" style="margin-bottom:8px">iCloud paylaşımlı albüm linki: indirir, GPS'e göre yerlere ayırır, sabit anları bulur ve her klibi açıklar. Ekran görüntüleri gizlilik için atlanır.</div>
+    <div class="row"><input id="ilink" type="url" placeholder="https://photos.icloud.com/shared/album/…" style="flex:1;min-width:220px"><button class="btn primary" onclick="ingest()">İndir ve analiz et</button></div>
+    <div class="tiny faint" style="margin-top:8px">${o.clips.total} klip (${o.clips.videos} video) · ${o.clips.described} açıklandı · ${o.albums.map(a=>esc(a.title)+" ("+ago(a.last_sync)+")").join(", ")}</div>
+    ${o.albums.length?`<div class="row" style="margin-top:8px">${o.albums.map(a=>`<button class="btn sm" onclick="ingest('${esc(a.link)}')">↻ ${esc(a.title)} senkronla</button>`).join("")}</div>`:""}
+  </div>`;
+  if(o.busy)poll(route,4000);
+}
+async function ingest(link){link=link||$("#ilink").value.trim();try{const r=await post("/api/ingest",{link});toast("Albüm işi başladı (#"+r.job_id+")");route()}catch(e){toast(e.message,1)}}
+
+async function viewUret(){
+  const [places,rl,prof]=await Promise.all([api("/api/places"),api("/api/refs"),api("/api/eleven")]);
+  const refsLib=rl.refs;
+  const g=state.gen;
+  if(!g.format){const pre=new URLSearchParams(location.hash.split("?")[1]||"").get("f");g.format=pre||FORMATS.find(f=>f.status==="ready").id}
+  const f=FORMATS.find(x=>x.id===g.format);
+  const topic=f.source==="topic";
+  $("#app").innerHTML=`
+  <h1>Üret</h1>
+  <h3>1 · Format</h3>
+  <div class="grid fgrid">${FORMATS.map(x=>`<div class="card fmt ${x.id===g.format?"on":""} ${x.status!=="ready"?"off":""}" ${x.status==="ready"?`onclick="state.gen.format='${x.id}';if('${x.source}'==='topic')state.gen.n=1;viewUret()"`:""}>
+    <div class="row"><span class="n">${esc(x.name_tr)}</span><span class="sp"></span>${x.status==="ready"?(x.voice?'<span class="badge">🎙 senin sesin</span>':'<span class="badge">🌿 doğal ses</span>'):'<span class="badge">yakında</span>'}</div>
+    <div class="tiny faint">${esc(x.name)} · ${x.duration[0]}–${x.duration[1]} sn</div>
+    <div class="small muted" style="margin-top:6px">${esc(x.desc_tr)}</div></div>`).join("")}</div>
+  ${topic?"":`  <h3 class="sec" style="margin-top:22px">Kadraj</h3>
+  <div class="chips">${aspectChips(g.aspect,a=>`state.gen.aspect='${a}';state.gen.brief=$('#brief')?$('#brief').value:state.gen.brief;viewUret()`)}</div>
+  <div class="tiny faint" style="margin-top:6px">${g.aspect==="16:9"?"Yatay: normal YouTube videosu. Çekimlerin çoğu dikey olduğu için ortadaki yatay şerit kullanılır; Claude konusu ortada olan geniş planları seçer.":"Dikey: TikTok, Shorts, Reels."}</div>
+  <h3 class="sec" style="margin-top:22px">2 · Hangi çekimler? <span class="faint" style="text-transform:none;font-weight:400">(boş = hepsi)</span></h3>
+  <div class="chips">${places.map(p=>`<span class="chip ${g.places.includes(p.place_id)?"on":""}" onclick="togglePlace(${p.place_id})" title="${esc(p.day)}">${esc(p.name)} <span class="${g.places.includes(p.place_id)?"":"faint"}">· ${p.n}</span></span>`).join("")}</div>
+  <div class="tiny faint" style="margin-top:6px">Yer adı yanlışsa: <a href="#/yerler">yerleri düzenle</a></div>
+  <h3 style="margin-top:22px">3 · Stil referansı <span class="faint" style="text-transform:none;font-weight:400">(en fazla 3; boş = sakin kurgu)</span></h3>
+  <div class="row" style="gap:8px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:6px">${refsLib.map(r=>`<div onclick="toggleRef('${esc(r.ref_id)}')" style="cursor:pointer;flex:none;width:96px;text-align:center">
+    <img src="${refThumb(r.ref_id)}" style="width:96px;height:150px;object-fit:cover;border-radius:10px;border:2px solid ${g.refs.includes(r.ref_id)?"var(--accent)":"transparent"}" loading="lazy">
+    <div class="tiny ${g.refs.includes(r.ref_id)?"":"faint"}" style="margin-top:3px">${esc(THEME_TR[r.theme]||"—")}<br>${esc((r.title||"").slice(0,22))}</div></div>`).join("")||'<div class="muted small">Henüz referans yok. <a href="#/referanslar">Referans ekle →</a></div>'}</div>
+`}
+  ${topic?`<h3 style="margin-top:22px">Görünüm</h3><div class="chips">${LOOKS().map(([k,t])=>`<span class="chip ${(g.look||"tech")===k?"on":""}" onclick="state.gen.look='${k}';state.gen.brief=$('#brief').value;viewUret()">${t}</span>`).join("")}<label class="chip" style="cursor:pointer">＋ Referans görselinden stil<input type="file" accept="image/*" style="display:none" onchange="uploadStyle(this)"></label></div>`:""}
+  ${f.voice?`<h3 style="margin-top:22px">Ses</h3><div class="chips">${prof.voices.map(v=>`<span class="chip ${(g.voice||prof.defaults.en)===v.voice_id?"on":""}" onclick="state.gen.voice='${v.voice_id}';state.gen.brief=$('#brief').value;viewUret()">🎙 ${esc(v.name)}</span>`).join("")}</div>`:""}
+  ${f.voice?"":`<h3 style="margin-top:22px">Anlatım katmanı (senin sesin)</h3><div class="chips">${[["auto","🤖 Claude karar versin"],["on","🎙 Hep anlat"],["off","🌿 Anlatım yok"]].map(([k,t])=>`<span class="chip ${(g.narrate||"auto")===k?"on":""}" onclick="state.gen.narrate='${k}';state.gen.brief=$('#brief').value;viewUret()">${t}</span>`).join("")}</div>`}
+  <div class="tiny faint" style="margin-top:8px">Her fikir ayrıca videoya özel bir <b>müzik tarifi</b> getirir (onayından sonra Müzik kartından üretilir).</div>
+  <h3 style="margin-top:22px">${topic?"2 · Konu":"4 · Not ve adet"}</h3>
+  <div class="card">
+    <textarea id="brief" placeholder="${topic?"Konu: ör. 'OpenAI'ın yeni modeli neden 10 kat ucuz?' · son haberler, bir bilim buluşu, şaşırtıcı bir bilgi…":"İsteğe bağlı: ör. 'Eibsee'de yüzme anını öne çıkar', 'sabah yürüyüşü hissi'"}">${esc(g.brief)}</textarea>
+    <div class="row" style="margin-top:10px"><span class="muted small">Kaç fikir?</span>${[1,2,3,4,5].map(n=>`<span class="chip ${g.n===n?"on":""}" onclick="state.gen.n=${n};state.gen.brief=$('#brief').value;viewUret()">${n}</span>`).join("")}
+      <span class="sp"></span><button class="btn primary" onclick="generate()">✨ ${topic?"Araştır ve yaz":g.n+" fikir üret"}</button></div>
+    <div class="tiny faint" style="margin-top:10px">Seçili: <b>${esc(f.name_tr)}</b> · ${ASPECT_TR[g.aspect]}. ${topic?"Konu web'de araştırılır, kaynaklı metin + sahne planı yazılır (5–10 dk). ElevenLabs kredisi harcanmaz; ses adımında tahmin gösterilir.":"Fikir üretimi Claude aboneliğinden gider, ElevenLabs kredisi harcamaz (2–4 dk)."} ${f.voice?"Ses adımında kredi tahmini gösterilir ve onayın olmadan üretilmez.":""}</div>
+  </div>`;
+}
+function togglePlace(id){const g=state.gen;g.brief=$("#brief")?.value||g.brief;g.places=g.places.includes(id)?g.places.filter(x=>x!==id):[...g.places,id];viewUret()}
+function toggleRef(id){const g=state.gen;g.brief=$("#brief")?.value||g.brief;g.refs=g.refs.includes(id)?g.refs.filter(x=>x!==id):[...g.refs,id].slice(-3);viewUret()}
+async function generate(){const g=state.gen;g.brief=$("#brief").value;try{const r=await post("/api/generate",{format:g.format,n:g.n,brief:g.brief,places:g.places,refs:g.refs,voice_id:g.voice,aspect:g.aspect,narrate:g.narrate||"auto",look:g.look||"tech"});toast("Fikir üretimi başladı (#"+r.job_id+"). Pano'da takip edebilirsin.");location.hash="#/"}catch(e){toast(e.message,1)}}
+
+async function viewYerler(){
+  const places=await api("/api/places");
+  $("#app").innerHTML=`<h1>Yerler</h1><div class="small muted" style="margin-bottom:12px">GPS'e göre otomatik gruplandı. Doğru adlar fikirlerin kalitesini artırır.</div>
+  <div class="grid">${places.map(p=>`<div class="card row"><img class="thumb" style="width:40px;height:70px" src="${thumbUrl(p.sample,1)}"><div style="flex:1;min-width:200px"><input type="text" id="pl${p.place_id}" value="${esc(p.name)}"><div class="tiny faint" style="margin-top:4px">${esc(p.day)} · ${p.n} klip (${p.v||0} video)</div></div><button class="btn sm" onclick="renamePlace(${p.place_id})">Kaydet</button></div>`).join("")}</div>`;
+}
+async function renamePlace(id){try{await post(`/api/places/${id}/rename`,{name:$("#pl"+id).value});toast("Kaydedildi")}catch(e){toast(e.message,1)}}
+
+async function viewHat(){
+  const ps=await api("/api/productions");
+  const cols=STAGES.filter(s=>s[0]!=="rejected").map(([k,l])=>{const items=ps.filter(p=>p.stage===k);
+    return `<div class="col st-${k}"><div class="hd"><span class="dot" style="background:var(--c)"></span>${l}<span class="faint">${items.length}</span></div><div class="list">${items.map(p=>pcard(p)).join("")||'<div class="empty small">—</div>'}</div></div>`}).join("");
+  const rej=ps.filter(p=>p.stage==="rejected");
+  if(matchMedia("(max-width:700px)").matches){  // phone: stage tabs + one list instead of a wide board
+    const sel=state.hatStage||(["idea","voice","preview","ready","published"].find(k=>ps.some(p=>p.stage===k&&!p.busy))||"idea");
+    $("#app").innerHTML=`<div class="row"><h1 style="margin:0">Üretim hattı</h1><span class="sp"></span><a class="btn primary sm" href="#/uret">✨ Yeni fikir</a></div>
+    <div class="chips sec">${STAGES.map(([k,l])=>`<span class="chip ${k===sel?"on":""}" onclick="state.hatStage='${k}';viewHat()">${l} · ${ps.filter(p=>p.stage===k).length}</span>`).join("")}</div>
+    <div class="grid sec">${ps.filter(p=>p.stage===sel).map(p=>pcard(p)).join("")||'<div class="empty small">Bu aşamada video yok</div>'}</div>`;
+    if(ps.some(p=>p.busy))poll(route,5000);
+    return;
+  }
+  $("#app").innerHTML=`<div class="row"><h1 style="margin:0">Üretim hattı</h1><span class="sp"></span><a class="btn primary" href="#/uret">✨ Yeni fikir</a></div>
+  <div class="flow small muted" style="margin:10px 0 16px"><b>Fikir</b>→<b>Ses (kredi onayı)</b>→<b>Önizleme</b>→<b>Final + QA</b>→<b>Hazır</b>→<b>Yayında + takip</b></div>
+  <div class="board">${cols}</div>
+  ${rej.length?`<details class="sec"><summary class="muted">Reddedilenler (${rej.length})</summary><div class="grid" style="margin-top:8px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">${rej.map(p=>pcard(p)).join("")}</div></details>`:""}`;
+  if(ps.some(p=>p.busy))poll(route,5000);
+}
+
+async function viewProd(id){
+  const p=await api("/api/production/"+id);
+  const d=p.data,f=p.format_info,tl=p.timeline||{};
+  const order=f.voice?["idea","voice","preview","ready","published"]:["idea","preview","ready","published"];
+  const ci=order.indexOf(p.stage);
+  const stepper=`<div class="stepper st-${p.stage}">${order.map((s,i)=>`<div class="${i<ci?"done":i===ci?"cur":""}">${SL[s]}</div>`).join("")}</div>`;
+  const busy=p.busy?`<div class="card warnbox"><div class="row"><span class="spin" style="color:var(--accent)"></span><b>${esc(JOBTR[p.busy.kind]||p.busy.kind)} sürüyor…</b></div>${p.busy.tail?`<pre class="log">${esc(p.busy.tail)}</pre>`:""}</div>`:"";
+  const starts=tl.starts||[],total=tl.total||1,shotsSpec=(tl.spec||{}).shots||[];
+  let segs=shotsSpec.map((s,i)=>{const st=starts[i]||0,en=i+1<starts.length?starts[i+1]:total;return `<div class="seg" style="left:${st/total*100}%;width:${(en-st)/total*100}%"></div>`}).join("");
+  const txts=((tl.spec||{}).text||[]).map(t=>`<div class="txt" title="${esc(t.text)}" style="left:${t.start/total*100}%;width:${Math.max(.5,(t.end-t.start)/total*100)}%"></div>`).join("");
+  let shots=(d.shots||[]).map((s,i)=>{const sp=shotsSpec[i]||{};const dur=sp.video?(sp.out-sp.in)/(sp.speed||1):sp.dur;
+    return `<div class="shot"><img loading="lazy" src="${thumbUrl(s.clip_id,s.in!=null?(s.in+0.5):0)}" alt=""><div class="m"><b>${i+1}</b> · ${sec(dur)}${sp.speed&&sp.speed<1?" · yavaş":""}<br>${esc(s.clip_id)}</div>${s.text?`<div class="tx">“${esc(s.text)}”</div>`:""}${s.shows?`<div class="m">${esc(s.shows)}</div>`:""}</div>`}).join("");
+  const isEx=d.kind==="explainer",scenesSpec=(tl.spec||{}).scenes||[];
+  if(isEx){segs=scenesSpec.map(sc=>`<div class="seg" style="left:${sc.start/total*100}%;width:${(sc.end-sc.start)/total*100}%"></div>`).join("");
+    shots=scenesSpec.map((sc,i)=>{const bg=((d.scenes||[])[i]||{}).bg,spBg=sc.bg;
+      const pic=spBg?(spBg.type==="clip"?`<img loading="lazy" src="${thumbUrl((bg||{}).clip_id,spBg.in+0.5)}" alt="">`:`<img loading="lazy" src="/media/stock/${encodeURIComponent(String(spBg.file).split("/").pop())}" alt="">`)
+        :(bg&&bg.query?`<div class="m" style="padding:14px 6px;color:var(--bad)">görsel bulunamadı: ${esc(bg.query)}</div>`:"");
+      const cred=bg&&bg.type==="image"?`<div class="m">📷 ${esc((bg.author||"?").slice(0,28))} · ${esc(bg.license||"")} ${bg.url?`<a class="tiny" href="${esc(bg.url)}" target="_blank">kaynak</a>`:""}</div>`:(bg&&bg.type==="clip"?`<div class="m">🎞 kendi çekimin · ${esc(bg.clip_id)}</div>`:"");
+      return `<div class="shot" style="min-width:190px">${pic}<div class="m"><b>${i+1}</b> · ${esc(sc.id)} · ${sec(sc.end-sc.start)}</div>${cred}${sc.elements.map(e=>`<div class="m">${esc(e.type)}${(e.text||e.big||e.question||e.old)?": "+esc(String(e.text||e.big||e.question||e.old).replace(/\n/g," ")):""} <span class="faint">@${e.at.toFixed?e.at.toFixed(1):e.at}s</span></div>`).join("")}</div>`}).join("")}
+  const factsCard=isEx?`<div class="card sec"><h3>Araştırma · kaynaklar</h3>${(d.facts||[]).map(x=>`<div class="small" style="margin-top:6px">• ${esc(x.claim)} ${x.source?`<a class="tiny" href="${esc(x.source)}" target="_blank">${esc(x.source.replace(/^https?:\/\//,"").slice(0,42))}</a>`:'<span style="color:var(--bad)">kaynak yok</span>'}${x.note?`<div class="tiny faint">${esc(x.note)}</div>`:""}</div>`).join("")||'<div class="muted small">kaynak yok</div>'}${(d.credits||[]).length?`<h3 style="margin-top:12px">Görsel kaynakları (açık lisans)</h3>${d.credits.map(c=>`<div class="small" style="margin-top:4px">📷 ${esc(c.title.slice(0,46))} · ${esc(c.author||"?")} · ${esc(c.license)} <a class="tiny" href="${esc(c.url)}" target="_blank">kaynak</a></div>`).join("")}<div class="tiny faint">Lisans gereği paylaşım notuna kredi satırı eklenir.</div>`:""}<div class="tiny faint" style="margin-top:8px">Konu: ${esc(d.topic||"")}</div></div>`:"";
+  const est=p.estimate;
+  const voiceReady=d.voice_take&&d.voice_take.text===(d.voice?.lines||[]).join(" ");
+  let action="";
+  if(p.busy){action=""}
+  else if(p.stage==="idea"){action=`<div class="card"><h3>Karar</h3><div class="small muted" style="margin-bottom:10px">Beğendiysen onayla: ${f.voice?"sonraki adımda ses metni ve kredi tahmini gelir.":"önizleme render'ı otomatik başlar."}</div>
+    <div class="card sec" style="margin-bottom:10px"><h3 style="margin:0 0 6px">Ses katmanı</h3><div class="kv small"><div>🎙 Anlatım</div><div>${f.voice?`senin sesin · ${(d.voice?.lines||[]).length} satır · ~${num(est?.credits||0)} kredi`:"yok (doğal ses)"}</div><div>🎵 Müzik</div><div>${d.music?.prompt?esc(d.music.prompt)+` · ~${num(p.music_estimate?.credits||0)} kredi`:"tarif yok (Müzik kartından yaz)"}</div></div><div class="tiny faint" style="margin-top:6px">Kredi harcanmaz; her biri ayrı onayınla üretilir.</div></div>
+    <button class="btn primary" style="width:100%" onclick="act(${id},'approve_idea')">✓ Fikri onayla</button>${reviseBox(id,p)}${rejectBox(id)}</div>`}
+  else if(p.stage==="voice"){action=`<div class="card"><h3>Ses · kredi onayı</h3>
+    <div class="kv" style="margin:8px 0"><div>Metin</div><div>${est.chars} karakter</div><div>Tahmin</div><div><b>~${num(est.credits)} kredi</b> <span class="faint tiny">(1 deneme, ${esc("eleven_v4")}, ses "Ali")</span></div><div>Bu ay</div><div>${num(est.budget.spent)} → ${num(est.budget.after)} / ${num(est.budget.cap)}</div></div>
+    ${est.budget.ok?"":`<div class="card errbox small">${esc(est.budget.why||"Aylık tavan aşılır.")}</div>`}
+    ${elevenPick(p)}
+    <select style="margin-bottom:8px" onchange="act(${id},'set_voice',{voice_id:this.value})">${(p.voices||[]).map(v=>`<option value="${v.voice_id}" ${(d.voice_id||"vhP2LOWrrIsWMq4m2vP6")===v.voice_id?"selected":""}>🎙 ${esc(v.name)}</option>`).join("")}</select>
+    <button class="btn primary" style="width:100%" ${est.budget.ok?"":"disabled"} onclick="if(confirm('ElevenLabs ~${est.credits} kredi harcanacak. Onaylıyor musun?'))act(${id},'approve_voice',{approved:${est.credits}})">🎙 Sesi üret (~${num(est.credits)} kredi)</button>
+    <div class="tiny faint" style="margin-top:8px">Metni aşağıdan düzenleyebilirsin; tahmin kaydedince güncellenir. Ses bitince önizleme otomatik hazırlanır.</div>${reviseBox(id,p)}${rejectBox(id)}</div>`}
+  else if(p.stage==="preview"){action=`<div class="card"><h3>Önizleme</h3>${p.preview?`<div class="vwrap ${d.aspect==="16:9"?"wide":""}"><video src="/media/${p.preview.replace(/^work\//,"work/")}?v=${encodeURIComponent(p.updated_at)}" controls playsinline preload="metadata"></video></div>
+    <div class="tiny faint" style="margin:6px 0 10px">Hızlı taslak (düşük kalite). Kurguyu ve yazıları değerlendir.</div>
+    ${!p.claims_ok?`<div class="card warnbox small" style="margin-bottom:8px">Doğrulanmamış iddialar var. <button class="btn sm" onclick="act(${id},'verify')">Doğrula</button> <label class="chk" style="margin-top:6px"><input type="checkbox" id="force"> yine de render et</label></div>`:""}
+    <button class="btn primary" style="width:100%" onclick="act(${id},'approve_render',{force:document.getElementById('force')?.checked})">✓ Onayla, final render</button>`:
+    `<button class="btn primary" style="width:100%" onclick="act(${id},'preview')">▶ Önizleme oluştur</button>`}${reviseBox(id,p)}${rejectBox(id)}</div>`}
+  else if(p.stage==="ready"||p.stage==="published"){const vid=p.output?`/media/out/${p.output}/${p.output}.mp4`:"";
+    action=`<div class="card"><h3>${p.stage==="ready"?"Hazır":"Yayında"}</h3>${vid?`<div class="vwrap ${d.aspect==="16:9"?"wide":""}"><video src="${vid}" controls playsinline preload="metadata"></video></div>
+    <div class="row" style="margin-top:10px"><a class="btn sm" href="${vid}?dl=1">⬇ İndir</a>${p.caption_copy?`<button class="btn sm" onclick="copy(${esc(JSON.stringify(p.caption_copy))})">📋 Açıklama + etiketler</button>`:""}</div>`:""}
+    ${qaBox(p.qa)}
+    <h3 style="margin-top:14px">Paylaştın mı? Linki ekle</h3><div class="row"><input id="purl" type="url" placeholder="YouTube / TikTok / Instagram linki" style="flex:1;min-width:200px"><button class="btn primary sm" onclick="act(${id},'publish',{url:document.getElementById('purl').value})">Ekle</button></div>
+    ${p.posts.length?`<div class="sec small">${p.posts.map(x=>`<div class="row" style="margin-top:6px"><b>${PL[x.platform]}</b><a class="muted tiny" href="${esc(x.url)}" target="_blank">${esc(x.url.slice(0,48))}…</a><span class="sp"></span>${x.latest?num(x.latest.views)+" izlenme":"—"}</div>`).join("")}<div class="tiny faint" style="margin-top:6px"><a href="#/takip">Takip sayfası →</a></div></div>`:""}
+    ${p.stage==="ready"?`<details class="sec"><summary class="muted small">Yine de değişiklik iste</summary>${reviseBox(id,p)}</details>`:""}</div>`}
+  else if(p.stage==="rejected"){action=`<div class="card"><h3>Reddedildi</h3><button class="btn" onclick="act(${id},'restore')">↩ Geri al</button></div>`}
+  action+=`<div class="card sec"><button class="btn danger sm" onclick="delProd(${id})">🗑 Kalıcı olarak sil</button><span class="tiny faint" style="margin-left:8px">fikri/videoyu ve dosyalarını diskten kaldırır</span></div>`;
+
+  const voiceEdit=f.voice?`<div class="card sec"><div class="row"><h3 style="margin:0">Ses metni (altyazı = bu satırlar)</h3><span class="sp"></span>${voiceReady?'<span class="badge" style="color:var(--ok)">ses hazır</span>':'<span class="badge">ses yok</span>'}</div>
+    <div class="lines" style="margin-top:8px" id="vlines">${(d.voice?.lines||[]).map(l=>`<input type="text" value="${esc(l)}">`).join("")}<input type="text" placeholder="+ yeni satır"></div>
+    ${d.voice_take&&d.voice_take.file?`<audio controls preload="none" src="/media/${esc(d.voice_take.file)}" style="width:100%;margin-top:10px"></audio>`:""}</div>`:"";
+  const textEdit=!f.voice?`<div class="card sec"><h3>Ekran yazıları (çekim başına)</h3><div class="lines" id="stexts">${(d.shots||[]).map((s,i)=>`<div class="row"><span class="faint small" style="width:22px">${i+1}</span><input type="text" value="${esc(s.text||"")}" placeholder="${i===0?"hook ("+esc(d.hook||"")+")":"(yazı yok)"}" style="flex:1"></div>`).join("")}</div></div>`:"";
+  const claims=(d.claims||[]).length?`<div class="card sec"><div class="row"><h3 style="margin:0">Doğrulanacak iddialar</h3><span class="sp"></span>${p.busy?"":`<button class="btn sm" onclick="act(${id},'verify')">🔎 Doğrula</button>`}</div>
+    ${(d.claims||[]).map(c=>`<div class="small" style="margin-top:6px">• ${esc(c.claim)}</div>`).join("")}
+    ${p.verification?`<div class="sec">${(p.verification.verdicts||[]).map(v=>`<div class="small" style="margin-top:6px">${{supported:"✅",partly:"🟡",unsupported:"⚠️",false:"❌"}[v.verdict]||"•"} ${esc(v.claim)} <span class="muted">— ${esc(v.note||"")}</span>${v.safer_wording?`<div class="tiny faint">Daha güvenli: ${esc(v.safer_wording)}</div>`:""}${(v.sources||[]).slice(0,2).map(s=>` <a class="tiny" href="${esc(s.url)}" target="_blank">${esc((s.title||"kaynak").slice(0,40))}</a>`).join("")}</div>`).join("")}</div>`:""}</div>`:"";
+  const post_=d.post||{};
+  $("#app").innerHTML=`
+  <div class="row"><a class="btn ghost sm" href="#/hat">← Hat</a><span class="sp"></span>${stageBadge(p.stage)}<span class="badge">${esc(f.name_tr)}</span></div>
+  ${p.stage!=="rejected"?`<div class="chips" style="margin-top:10px">${aspectChips(d.aspect||"9:16",a=>`setAspect(${id},'${a}')`)}${["ready","published"].includes(p.stage)?`<span class="tiny faint" style="align-self:center">diğerini seçersen o kadrajda bir kopya açılır</span>`:""}</div>`:""}
+  ${isEx&&!["ready","published","rejected"].includes(p.stage)?`<div class="chips" style="margin-top:10px">${LOOKS().map(([k,t])=>`<span class="chip ${(d.look_pack||"tech")===k?"on":""}" onclick="act(${id},'set_look',{look:'${k}'})">${t}</span>`).join("")}</div>`:""}
+  ${d.motion?`<div class="card sec"><h3>🎬 Opus'un tasarladığı hareket</h3><div class="small">${esc(d.motion.concept)}</div>
+  <div class="tiny faint" style="margin-top:4px">Her sahne bu konu için HTML/GSAP ile yazıldı; Opus kareleri kendisi kontrol edip düzeltti (${(d.motion.log||[]).length} tur) · tasarım maliyeti ~$${d.motion.cost_usd}${(d.motion.errors||[]).length?" · uyarı: "+esc(d.motion.errors[0]):""}</div>
+  <div class="row" style="gap:6px;margin-top:8px;overflow-x:auto;flex-wrap:nowrap">${(d.motion.shots||[]).map(f=>`<img src="/media/art/${f}?v=${encodeURIComponent(p.updated_at)}" style="height:240px;border-radius:8px;flex:none" loading="lazy" alt="">`).join("")}</div>
+  <div class="tiny" style="margin-top:6px">${(d.motion.refs||[]).map(r=>`<a href="${esc(r.url)}" target="_blank">${esc(r.title||r.url)}</a> <span class="faint">(${esc(r.takeaway||"")})</span>`).join(" · ")}</div>
+  </div>`:""}
+  ${d.direction?`<div class="card sec"><h3>🎨 Art direction</h3><div class="small">${esc(d.direction.concept||"")}</div>
+  ${Object.entries(d.direction.brief||{}).map(([k,v])=>`<div class="tiny" style="margin-top:4px"><b>${esc({hook:"Hook",arc:"Akış",look:"Görünüm",type:"Tipografi",rhythm:"Ritim",sound:"Ses"}[k]||k)}:</b> ${esc(v)}</div>`).join("")}
+  ${(d.direction.signature||[]).length?`<div class="tiny" style="margin-top:8px"><b>İmza hareketler:</b>${d.direction.signature.map(x=>`<div>• ${esc(x.move)} <span class="faint">(${esc(x.where||"")})</span> — ${esc(x.why||"")}</div>`).join("")}</div>`:""}
+  ${(d.direction.seen||[]).length?`<div class="tiny faint" style="margin-top:8px">Araştırırken baktığı sayfalar:</div><div class="row" style="gap:6px;margin-top:4px;overflow-x:auto;flex-wrap:nowrap">${d.direction.seen.map(f=>`<img src="/media/research/${esc(f)}?v=${encodeURIComponent(p.updated_at)}" onclick="viewShot(this.src)" style="height:150px;border-radius:6px;flex:none;cursor:zoom-in" loading="lazy" alt="">`).join("")}</div>`:""}
+  ${(d.direction.frames||[]).length?`<div class="tiny faint" style="margin-top:8px">Kendi kontrolü (${d.direction.review&&d.direction.review.ok?"onayladı":"düzeltti: "+esc((d.direction.review?.problems||[]).join("; "))}):</div><div class="row" style="gap:4px;margin-top:4px;overflow-x:auto;flex-wrap:nowrap">${d.direction.frames.map(f=>`<img src="/media/artstills/${esc(f)}?v=${encodeURIComponent(p.updated_at)}" onclick="viewShot(this.src)" style="cursor:zoom-in;height:150px;border-radius:6px;flex:none" loading="lazy" alt="">`).join("")}</div>`:""}
+  <div class="tiny" style="margin-top:6px">${(d.direction.research||[]).map(r=>`<a href="${esc(r.url)}" target="_blank">${esc(r.title||r.url)}</a> <span class="faint">(${esc(r.takeaway||"")})</span>`).join(" · ")}</div>
+  ${(d.direction.learned||[]).length?`<div class="tiny" style="margin-top:6px">📚 Kütüphaneye eklediği beceriler: ${d.direction.learned.map(esc).join(", ")}</div>`:""}
+  <div class="tiny faint" style="margin-top:4px">${esc(d.direction.at||"")} · ~$${d.direction.cost_usd||0}</div>
+  </div>`:""}
+  <h1 style="margin-top:10px">${esc(p.title)}</h1>
+  ${stepper}
+  <div class="detail">
+    <div>
+      ${busy}
+      <div class="card"><div class="kv"><div>Hook</div><div><b>${esc(d.hook||"")}</b></div><div>Ne anlatıyor</div><div>${esc(d.logline||"")}</div><div>Neden tutabilir</div><div class="muted">${esc(d.why||"")} <span class="faint tiny">(hipotez)</span></div>${d.content_fit!=null?`<div>Çekim uyumu</div><div>${esc(d.content_fit)}/10 <span class="muted small">${esc(d.fit_reason||"")}</span></div>`:""}</div></div>
+      <div class="card sec"><div class="row"><h3 style="margin:0">Storyboard</h3><span class="sp"></span><span class="muted small">${isEx?scenesSpec.length+" sahne":shotsSpec.length+" çekim"} · ${sec(tl.total)}</span></div>
+        <div class="tl">${segs}${txts}</div><div class="tiny faint">${isEx?"sahneler":"üst: çekimler · alt (sarı): ekrandaki yazılar"}</div>
+        <div class="shots" style="margin-top:10px">${shots}</div>
+        ${(tl.warn||[]).length?`<div class="card warnbox small sec">${tl.warn.map(w=>"⚠ "+esc(w)).join("<br>")}</div>`:""}
+        ${tl.error?`<div class="card errbox small sec">${esc(tl.error)}</div>`:""}</div>
+      ${refsCard(p)}${musicCard(p)}
+      ${voiceEdit}${textEdit}
+      <div class="card sec"><h3>Paylaşım metni</h3>
+        <div class="lines"><input id="e_title" type="text" value="${esc(p.title)}" placeholder="Başlık">
+        <input id="e_hook" type="text" value="${esc(d.hook||"")}" placeholder="Hook">
+        ${d.end_card!=null||f.voice?`<input id="e_end" type="text" value="${esc(d.end_card||"")}" placeholder="Son konum satırı">`:""}
+        <textarea id="e_caption" placeholder="Açıklama">${esc(post_.caption||"")}</textarea>
+        <input id="e_tags" type="text" value="${esc(post_.hashtags||"")}" placeholder="#etiketler">
+        <input id="e_loc" type="text" value="${esc(post_.location||"")}" placeholder="Konum">
+        <input id="e_music" type="text" value="${esc(post_.music||"")}" placeholder="Müzik önerisi"></div>
+        <div class="row" style="margin-top:10px"><button class="btn" ${p.busy?"disabled":""} onclick="saveEdits(${id},${f.voice})">💾 Değişiklikleri kaydet</button><button class="btn ghost sm" onclick="copy(${esc(JSON.stringify((post_.caption||"")+"\n\n"+(post_.hashtags||"")))})">📋 Kopyala</button></div>
+        <div class="tiny faint" style="margin-top:6px">Ses metni değişirse ses adımı ve kredi onayı tekrar gelir.</div></div>
+      ${factsCard}${claims}
+    </div>
+    <div>
+      ${action}
+      <div class="card sec"><h3>Geçmiş</h3><div class="hist">${p.history.slice().reverse().map(h=>`<div><time>${dt(h.at)}</time><span><b>${esc(h.event)}</b> ${esc(h.detail||"")}</span></div>`).join("")}</div></div>
+    </div>
+  </div>`;
+  if(p.busy)poll(route,4000);
+}
+function refsCard(p){const id=p.prod_id;const look=p.data.look;
+  return `<div class="card sec"><div class="row"><h3 style="margin:0">Stil referansları</h3><span class="sp"></span><a class="btn sm" href="#/referanslar?pick=${id}">${p.refs.length?"Değiştir":"Referans ekle"}</a></div>
+  ${p.refs.length?`<div class="row" style="margin-top:8px;flex-wrap:nowrap;overflow-x:auto">${p.refs.map(r=>`<div style="flex:none;width:84px"><img src="${refThumb(r.ref_id)}" onclick="openVideo('/media/ref?id=${encodeURIComponent(r.ref_id)}',${r.kind==='photo'})" style="width:84px;height:130px;object-fit:cover;border-radius:9px;cursor:pointer"><div class="tiny faint">${esc((r.title||"").slice(0,20))}</div></div>`).join("")}</div>`:`<div class="small muted" style="margin-top:6px">Referans yok: sakin kurgu (cinecut). Referans eklersen Claude kurguyu o stile göre yeniden yapar.</div>`}
+  ${look?`<div class="row" style="margin-top:8px;gap:6px"><span class="badge">${FRAME_TR[look.frame]||look.frame}</span><span class="badge">renk: ${GRADE_TR[look.grade]||look.grade}</span><span class="badge">grain ${look.grain}</span><span class="badge">${Math.round(look.bpm)} BPM</span>${p.data.title_card?`<span class="badge">${LAYER_TR[p.data.title_card.type]}: ${esc(p.data.title_card.text)}</span>`:""}</div>`:""}</div>`}
+function musicCard(p){if(["ready","published","rejected"].includes(p.stage)&&!p.data.music_take)return"";const m=p.data.music_take,e=p.music_estimate||{},id=p.prod_id;
+  if(m)return `<div class="card sec"><div class="row"><h3 style="margin:0">Müzik</h3><span class="sp"></span><span class="badge" style="color:var(--ok)">${Math.round(m.bpm)} BPM · ${num(m.credits)} kredi</span></div>
+    <audio controls preload="none" src="/media/${esc(m.file)}" style="width:100%;margin-top:8px"></audio><div class="tiny faint">${esc(m.prompt)}</div>
+    ${p.busy?"":`<button class="btn sm ghost" style="margin-top:6px" onclick="act(${id},'drop_music')">Müziği kaldır (uygulamada ses ekleyeceğim)</button>`}</div>`;
+  if(e.error)return "";
+  return `<div class="card sec"><h3>Müzik</h3><div class="small muted">${p.data.look?`Şu an kesmeler ${Math.round(p.data.look.bpm)} BPM ızgarasında. İstersen TikTok'ta bu tempoda bir ses ekle, ya da ElevenLabs ile videoya özel enstrümantal müzik üret: kesmeler gerçek beat'lere oturur.`:`Müzik yok, klibin kendi sesi var. ElevenLabs ile videoya özel enstrümantal bir parça üretebilirsin; doğal ses altta kalır. Tarifi aşağıdan değiştirebilirsin.`}</div>
+    <textarea id="mprompt" style="margin-top:8px">${esc(e.prompt||"")}</textarea>
+    <div class="kv small" style="margin:8px 0"><div>Süre</div><div>${e.seconds} sn</div><div>Tahmin</div><div><b>~${num(e.credits)} kredi</b> (Music v2.5)</div><div>Bu ay</div><div>${num(e.budget?.spent)} → ${num(e.budget?.after)} / ${num(e.budget?.cap)}</div></div>
+    <button class="btn" style="width:100%" ${p.busy||!e.budget?.ok?"disabled":""} onclick="if(confirm('ElevenLabs ~${e.credits} kredi harcanacak. Onaylıyor musun?'))act(${id},'approve_music',{approved:${e.credits},prompt:document.getElementById('mprompt').value})">🎵 Müzik üret (~${num(e.credits)} kredi)</button></div>`}
+function reviseBox(id,p){const pl=(p.data||{}).edit_plan;
+  const KIND={script:"📝 Metin",design:"🎨 Tasarım",voice:"🎙 Ses"};
+  if(pl)return `<div class="sec"><h3 style="margin:0 0 6px">Düzenleme planı</h3><div class="tiny faint">“${esc(pl.feedback)}”</div><div class="small" style="margin:6px 0">${esc(pl.summary_tr)}</div>
+    ${pl.steps.map((s,i)=>`<label class="chk" style="display:block;margin-top:8px"><input type="checkbox" class="pstep" value="${s.id}" checked onchange="planDeps()"> <b>${i+1}. ${KIND[s.id]||s.id}</b> — ${esc(s.title_tr)}<div class="tiny muted" style="margin-left:22px">${esc(s.why_tr)}</div><div class="tiny faint" style="margin-left:22px">${esc(s.instruction)}</div></label>`).join("")}
+    <div class="tiny faint" style="margin-top:8px">Adımlar birbirine bağlı sırayla çalışır: metin → tasarım → ses. Metin değişirse tasarım otomatik yenilenir; ses için kredi onayı ayrıca sorulur.</div>
+    <button class="btn primary" style="width:100%;margin-top:8px" onclick="applyPlan(${id})">✓ Planı onayla ve uygula</button>
+    <button class="btn ghost sm" style="margin-top:6px" onclick="act(${id},'discard_plan')">Planı sil</button></div>`;
+  return `<div class="sec"><h3 style="margin:0 0 6px">Geri bildirim / düzenleme</h3><textarea id="fb" placeholder="Neyi değiştirmek istiyorsun? ör. 'ses ve metin tamamen baştan, daha enerjik', 'sadece tasarım değişsin', 'hook zayıf, ilk sahne çarpıcı olsun'"></textarea><button class="btn" style="width:100%;margin-top:6px" onclick="act(${id},'plan_edit',{feedback:document.getElementById('fb').value})">🧭 Opus plan çıkarsın</button><div class="tiny faint" style="margin-top:6px">Opus önce hangi katmanların (metin / tasarım / ses) yenileneceğini planlar; onaylamadan hiçbir şey değişmez.</div></div>`}
+function planDeps(){}
+async function applyPlan(id){const steps=[...document.querySelectorAll(".pstep:checked")].map(i=>i.value);if(!steps.length)return toast("En az bir adım seç",1);
+  if(steps.includes("script")&&!steps.includes("design")&&!confirm("Metin değişince sahneler yeniden tasarlanır (tasarım otomatik eklenir). Devam?"))return;
+  await act(id,'apply_plan',{steps})}
+function rejectBox(id){return `<details class="sec"><summary class="muted small">Reddet</summary><input id="rr" type="text" placeholder="Neden? (isteğe bağlı)" style="margin-top:6px"><label class="chk" style="margin-top:6px"><input type="checkbox" id="rl"> Ders olarak kaydet (gelecek fikirlerde kaçınılır)</label><button class="btn danger sm" style="margin-top:6px" onclick="act(${id},'reject',{reason:document.getElementById('rr').value,lesson:document.getElementById('rl').checked})">Reddet</button></details>`}
+function qaBox(q){if(!q)return"";const t=q.technical||{},v=q.visual||{};
+  return `<div class="card ${q.pass?"okbox":"warnbox"} sec small"><b>${q.pass?"✅ QA geçti":"🔎 QA bulguları"}</b> · ${sec(t.duration)} · ${t.lufs??"—"} LUFS · tepe ${t.true_peak_db??"—"} dBFS
+  ${(t.problems||[]).map(x=>`<div style="color:var(--bad)">• ${esc(x)}</div>`).join("")}
+  ${(v.issues||[]).map(i=>`<div style="margin-top:4px">• <b>${esc(i.severity)}</b> @${esc(i.time)}s ${esc(i.problem)}<div class="tiny faint">öneri: ${esc(i.fix)}</div></div>`).join("")}
+  ${v.summary?`<div class="tiny muted" style="margin-top:4px">${esc(v.summary)}</div>`:""}</div>`}
+async function setAspect(id,a){if(document.querySelector(".spin")&&!confirm("Bu video için bir iş sürüyor. Yine de kadrajı değiştir?"))return;
+  try{const r=await post(`/api/production/${id}/action`,{action:"set_aspect",aspect:a});toast(r.redirect?"Yeni kopya açıldı, önizleme hazırlanıyor":"Kadraj değişti");if(r.redirect)location.hash="#/p/"+r.redirect;else route()}catch(e){toast(e.message,1)}}
+async function delProd(id){if(!confirm("Bu üretim ve tüm dosyaları kalıcı olarak silinsin mi? Geri alınamaz."))return;try{const r=await post(`/api/production/${id}/action`,{action:"delete"});toast("Silindi · "+r.freed_mb+" MB boşaldı");location.hash="#/hat"}catch(e){toast(e.message,1)}}
+async function delVideo(f){if(!confirm("“"+f+"” videosu diskten silinsin mi? Geri alınamaz."))return;try{const r=await post("/api/library/delete",{folder:f});toast("Silindi · "+r.freed_mb+" MB boşaldı");route()}catch(e){toast(e.message,1)}}
+async function delRef(id){if(!confirm("Bu referans dosyası ve analizi silinsin mi? Geri alınamaz."))return;try{const r=await post("/api/refs/delete",{ref_id:id});toast("Silindi · "+r.freed_mb+" MB boşaldı");route()}catch(e){toast(e.message,1)}}
+async function act(id,action,extra){try{await post(`/api/production/${id}/action`,{action,...(extra||{})});toast("Tamam");route()}catch(e){toast(e.message,1)}}
+async function saveEdits(id,voice){const edit={title:$("#e_title").value,hook:$("#e_hook").value,caption:$("#e_caption").value,hashtags:$("#e_tags").value,location:$("#e_loc").value,music:$("#e_music").value};
+  if($("#e_end"))edit.end_card=$("#e_end").value;
+  if(voice)edit.voice_lines=[...document.querySelectorAll("#vlines input")].map(i=>i.value);
+  else edit.shot_texts=[...document.querySelectorAll("#stexts input")].map(i=>i.value);
+  act(id,"save",{edit})}
+
+async function viewTakip(){
+  const [{posts,summary},lib]=await Promise.all([api("/api/posts"),api("/api/library")]);
+  const plat=Object.entries(summary.by_platform);
+  $("#app").innerHTML=`<div class="row"><h1 style="margin:0">Takip</h1><span class="sp"></span><button class="btn sm" onclick="refreshYT()">↻ YouTube'u yenile</button></div>
+  <div class="grid kpis sec">
+    <div class="card kpi"><div class="l">Toplam izlenme</div><div class="v">${num(summary.total_views)}</div></div>
+    ${["youtube","tiktok","instagram"].map(k=>{const b=summary.by_platform[k];return `<div class="card kpi"><div class="l">${PL[k]}</div><div class="v">${b?num(b.views):"—"}</div><div class="tiny faint">${b?b.posts+" paylaşım · en iyi "+num(b.best):"henüz yok"}</div></div>`}).join("")}
+  </div>
+  <h2>Paylaşım ekle</h2>
+  <div class="card"><div class="grid" style="grid-template-columns:1fr 2fr auto;gap:8px">
+    <select id="pv">${lib.map(v=>`<option value="${esc(v.folder)}">${esc(v.folder)}</option>`).join("")}<option value="">(videosuz)</option></select>
+    <input id="pu" type="url" placeholder="YouTube Shorts / TikTok / Instagram Reel linki">
+    <button class="btn primary" onclick="addPost()">Ekle</button></div>
+    <div class="tiny faint" style="margin-top:8px">YouTube sayıları API'den otomatik gelir (6 saatte bir). TikTok ve Instagram için sayıları uygulamadan bakıp elle gir; elle girilenler "manuel" diye işaretlenir.</div></div>
+  <h2>Paylaşımlar</h2>
+  ${posts.length?`<div class="card" style="padding:4px 8px;overflow-x:auto"><table><thead><tr><th>Video</th><th>Platform</th><th class="num">İzlenme</th><th class="num">Beğeni</th><th class="num">Yorum</th><th>Trend</th><th></th></tr></thead><tbody>
+  ${posts.map(x=>{const l=x.latest||{};return `<tr><td><div><b>${esc(x.prod_title||x.title||x.out_name||"—")}</b></div><div class="tiny faint"><a href="${esc(x.url)}" target="_blank">link</a> · ${dt(x.posted_at)} · ${esc(fmtName(x.format||""))}</div></td>
+    <td>${PL[x.platform]}</td><td class="num">${num(l.views)}</td><td class="num">${num(l.likes)}</td><td class="num">${num(l.comments)}</td>
+    <td>${spark(x.history)}<div class="tiny faint">${l.source?(l.source==="manual"?"manuel":"API")+" · "+ago(l.at):"veri yok"}</div></td>
+    <td><details><summary class="tiny muted">sayı gir</summary><div class="grid" style="gap:4px;margin-top:4px;min-width:140px">
+      <input id="sv${x.post_id}" type="number" placeholder="izlenme"><input id="sl${x.post_id}" type="number" placeholder="beğeni"><input id="sc${x.post_id}" type="number" placeholder="yorum"><input id="ss${x.post_id}" type="number" placeholder="paylaşım">
+      <button class="btn sm" onclick="addStats(${x.post_id})">Kaydet</button><button class="btn sm danger ghost" onclick="delPost(${x.post_id})">Sil</button></div></details></td></tr>`}).join("")}
+  </tbody></table></div>`:`<div class="empty">Henüz paylaşım eklenmedi. Bir videoyu paylaştığında linkini buraya ekle; izlenmeler fikir üretimine geri beslenir.</div>`}
+  <h2>Formata göre</h2>
+  ${Object.keys(summary.by_format).length?`<div class="card" style="padding:4px 8px"><table><thead><tr><th>Format</th><th class="num">Paylaşım</th><th class="num">Toplam</th><th class="num">En iyi</th></tr></thead><tbody>${Object.entries(summary.by_format).map(([k,b])=>`<tr><td>${esc(fmtName(k))}</td><td class="num">${b.posts}</td><td class="num">${num(b.views)}</td><td class="num">${num(b.best)}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty small">Veri geldikçe hangi formatın çalıştığı burada görünecek.</div>'}`;
+}
+async function addPost(){try{await post("/api/posts",{url:$("#pu").value,out_name:$("#pv").value});toast("Eklendi");route()}catch(e){toast(e.message,1)}}
+async function addStats(id){try{await post(`/api/posts/${id}/stats`,{views:$("#sv"+id).value,likes:$("#sl"+id).value,comments:$("#sc"+id).value,shares:$("#ss"+id).value});toast("Kaydedildi");route()}catch(e){toast(e.message,1)}}
+async function delPost(id){if(!confirm("Bu paylaşım ve sayıları silinsin mi?"))return;try{await post(`/api/posts/${id}/delete`);route()}catch(e){toast(e.message,1)}}
+async function refreshYT(){try{await post("/api/posts/refresh");toast("YouTube sayıları çekiliyor…");setTimeout(route,5000)}catch(e){toast(e.message,1)}}
+
+async function viewVideolar(){
+  const lib=await api("/api/library");
+  $("#app").innerHTML=`<h1>Videolar</h1>${lib.length?`<div class="grid lib">${lib.map(v=>`<div>
+    <img loading="lazy" src="/thumb/out/${encodeURI(v.id)}" onclick="openVideo('/media/out/${encodeURI(v.id)}')" alt="">
+    <div class="small" style="margin-top:6px;font-weight:600">${esc(v.folder)}</div>
+    <div class="tiny faint">${sec(v.duration)} · ${(v.size/1e6).toFixed(0)} MB</div>
+    <div class="row" style="margin-top:6px;gap:4px">${v.posts.map(p=>`<a class="badge" href="${esc(p.url)}" target="_blank">${PL[p.platform]}</a>`).join("")}</div>
+    <div class="row" style="margin-top:6px;gap:6px"><a class="btn sm" href="/media/out/${encodeURI(v.id)}?dl=1">⬇</a>${v.copy?`<button class="btn sm" onclick="copy(${esc(JSON.stringify(v.copy))})">📋</button>`:""}${v.prod_id?`<a class="btn sm" href="#/p/${v.prod_id}">Detay</a>`:""}<button class="btn sm danger ghost" onclick="delVideo(${esc(JSON.stringify(v.folder))})">🗑</button></div></div>`).join("")}</div>`:'<div class="empty">Henüz bitmiş video yok</div>'}`;
+}
+
+async function viewReferanslar(){
+  const {refs:lib,themes}=await api("/api/refs");
+  const pick=new URLSearchParams(location.hash.split("?")[1]||"").get("pick");
+  let cur=[];if(pick){try{cur=(await api("/api/production/"+pick)).data.refs||[]}catch(e){}}
+  state.pickRefs=state.pickFor===pick?state.pickRefs:cur;state.pickFor=pick;
+  const by={};lib.forEach(r=>(by[r.theme||"diğer"]=by[r.theme||"diğer"]||[]).push(r));
+  const card=r=>{const x=(r.recipe||{});const on=pick&&state.pickRefs.includes(r.ref_id);
+    return `<div class="card" style="padding:10px;${on?"border-color:var(--accent)":""}"><div class="row" style="flex-wrap:nowrap;align-items:flex-start">
+    <img src="${refThumb(r.ref_id)}" onclick="openVideo('/media/ref?id=${encodeURIComponent(r.ref_id)}',${r.kind==='photo'})" style="width:86px;height:150px;object-fit:cover;border-radius:9px;cursor:pointer;flex:none" loading="lazy">
+    <div style="min-width:0;flex:1"><div style="font-weight:650">${esc(x.title||r.title||"analiz bekliyor…")}</div>
+    <div class="tiny faint">${r.kind==="photo"?"📷 fotoğraf · yalnızca görünüm (renk, kadraj, yazı)":`${sec(r.duration)} · ${r.shot_stats?.shots||"?"} çekim · ort. ${r.shot_stats?.avg_shot_s||"?"} sn · ${r.bpm?Math.round(r.bpm)+" BPM":""}`}</div>
+    <div class="small muted" style="margin-top:4px">${esc(x.summary||"")}</div>
+    <div class="row" style="gap:4px;margin-top:6px">${recipeChips(r)}</div>
+    ${(x.unsupported||[]).length?`<div class="tiny" style="color:var(--warn);margin-top:4px">Henüz yapamadığımız: ${esc(x.unsupported.join(", "))}</div>`:""}
+    <div class="row" style="margin-top:8px;gap:6px"><select class="sm" style="width:auto;padding:5px 8px" onchange="setTheme('${esc(r.ref_id)}',this.value)">${r.theme?"":'<option value="" selected>tema?</option>'}${themes.map(t=>`<option value="${t}" ${t===r.theme?"selected":""}>${THEME_TR[t]}</option>`).join("")}</select>
+    ${pick?`<button class="btn sm ${on?"primary":""}" onclick="pickRef('${esc(r.ref_id)}')">${on?"✓ Seçili":"Seç"}</button>`:`<a class="btn sm" href="#/uret" onclick="state.gen.refs=['${esc(r.ref_id)}']">Bu stille üret</a>`}<button class="btn sm danger ghost" onclick="delRef('${esc(r.ref_id)}')">🗑</button></div></div></div></div>`};
+  $("#app").innerHTML=`<div class="row"><h1 style="margin:0">Referanslar</h1><span class="sp"></span><button class="btn sm" onclick="scanRefs()">↻ Klasörü tara</button></div>
+  ${pick?`<div class="card warnbox sec"><b>#${pick} için referans seç</b> (en fazla 3) <span class="sp"></span><div class="row" style="margin-top:8px"><button class="btn primary sm" onclick="saveRefs(${pick})">Kaydet ve videoya dön</button><a class="btn sm ghost" href="#/p/${pick}">Vazgeç</a></div><div class="tiny faint" style="margin-top:6px">Referanssız bir videoya eklersen Claude kurguyu bu stile göre yeniden yapar.</div></div>`:""}
+  <div class="card sec"><h3>Referans video / fotoğraf ekle</h3><div class="small muted">Beğendiğin bir Reels/TikTok'u ekran kaydıyla kaydet ya da bir fotoğraf/ekran görüntüsü yükle (fotoğraftan yalnızca görünüm alınır: renk, kadraj, yazı tasarımı; tempo ve kesme videodan gelir). Sunucudaki klasöre attıkların da otomatik taranır. Klip kesme ritmi, BPM ve Claude'un çıkardığı kurgu reçetesi fikir üretiminde kullanılır.</div>
+    <div class="row" style="margin-top:8px"><input type="file" id="rf" accept="video/*,image/*" style="flex:1;min-width:200px"><select id="rt" style="width:auto">${themes.map(t=>`<option value="${t}">${THEME_TR[t]}</option>`).join("")}</select><button class="btn primary" onclick="uploadRef()">Yükle</button></div><div id="up" class="tiny faint" style="margin-top:6px"></div></div>
+  ${Object.keys(by).length?Object.entries(by).map(([t,rs])=>`<h2>${esc(THEME_TR[t]||t)} <span class="faint small">${rs.length}</span></h2><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(330px,1fr))">${rs.map(card).join("")}</div>`).join(""):'<div class="empty sec">Henüz referans yok</div>'}`;
+  if(lib.some(r=>!r.recipe))poll(route,8000);
+}
+function pickRef(id){const a=state.pickRefs;state.pickRefs=a.includes(id)?a.filter(x=>x!==id):[...a,id].slice(-3);viewReferanslar()}
+async function saveRefs(pid){try{await post(`/api/production/${pid}/action`,{action:"set_refs",ref_ids:state.pickRefs});toast("Referanslar kaydedildi");location.hash="#/p/"+pid}catch(e){toast(e.message,1)}}
+async function setTheme(id,t){try{await post("/api/refs/theme",{ref_id:id,theme:t});toast("Tema kaydedildi")}catch(e){toast(e.message,1)}}
+async function scanRefs(){try{await post("/api/refs/scan");toast("Referanslar taranıyor");setTimeout(route,3000)}catch(e){toast(e.message,1)}}
+function uploadRef(){const f=$("#rf").files[0];if(!f)return toast("Önce bir video ya da fotoğraf seç",1);
+  const x=new XMLHttpRequest();x.open("POST","/api/refs/upload");x.setRequestHeader("X-Studio","1");x.setRequestHeader("X-Filename",encodeURIComponent(f.name));x.setRequestHeader("X-Theme",$("#rt").value);
+  x.upload.onprogress=e=>{if(e.lengthComputable)$("#up").textContent="Yükleniyor… %"+Math.round(e.loaded/e.total*100)};
+  x.onload=()=>{if(x.status===200){toast("Yüklendi, analiz başladı");route()}else{try{toast(JSON.parse(x.responseText).error,1)}catch(e){toast("Yükleme hatası",1)}}};
+  x.onerror=()=>toast("Yükleme hatası",1);x.send(f)}
+
+function elevenPick(p){const L=p.eleven_accounts||[];if(L.length<2)return"";
+  return `<div class="tiny faint">Kredi bu hesaptan düşer:</div><select style="margin:4px 0 8px" onchange="act(${p.prod_id},'set_eleven',{account:this.value})">${L.map(a=>`<option value="${esc(a.id)}" ${a.id===p.eleven_account?"selected":""}>💳 ${esc(a.name)}${a.mine?"":" (paylaşılan)"}</option>`).join("")}</select>`}
+let ME=null;
+async function loadMe(){try{ME=await api("/api/me");const c=$("#mechip");if(ME.login){c.style.display="";c.textContent="👤 "+ME.name}}catch(e){}}
+async function logout(){await post("/api/logout");location.href="/login"}
+async function viewHesaplar(){
+  await loadMe();const m=ME;
+  const cl=m.claude.connected?`<div class="small">✅ Bağlı · ${esc(m.claude.how)}${m.claude.at?" · "+esc(m.claude.at):""}</div>`:`<div class="small">❌ Bağlı değil. Fikir, art direction ve araştırma senin aboneliğinle çalışsın diye bağla.</div>`;
+  const claudeBox=m.role==="owner"?cl:`${cl}<div id="clflow" style="margin-top:10px">
+    <div class="small"><b>A) Tam giriş</b> — önerilen. claude.ai'daki connector'ların da çalışır, örneğin ElevenLabs'ı connector ile bağlayabilirsin.</div>
+    <button class="btn sm primary" style="margin-top:6px" onclick="claudeStart('login')">🔗 Tam giriş ile bağla</button>
+    <div class="small" style="margin-top:10px"><b>B) Sadece model anahtarı</b> — connector yok; ElevenLabs'ı API anahtarıyla eklersin.</div>
+    <button class="btn sm" style="margin-top:6px" onclick="claudeStart('token')">🔑 Anahtar ile bağla</button></div>`;
+  const acc=m.eleven.map(a=>{const b=a.balance||{};const ownerCan=a.mine||m.role==="owner";
+    return `<div class="card"><div class="row"><b>💳 ${esc(a.name)}</b><span class="sp"></span><span class="badge">${a.type==="connector"?"connector":"API "+esc(a.key_tail||"")}</span>${a.id===m.default_eleven?'<span class="badge" style="color:var(--ok)">varsayılan</span>':""}</div>
+    ${a.error?`<div class="small errbox card">${esc(a.error)}</div>`:`<div class="small" style="margin-top:6px">${b.left==null?"bakiye connector'dan okunmuyor":num(b.left)+" kredi kaldı"} · ${a.voices} ses${b.tier&&b.tier!=="connector"?" · "+esc(b.tier):""}</div>`}
+    ${!a.mine&&a.member_month_cap!=null?`<div class="tiny faint">Bu ay sana ayrılan: ${num(a.my_month||0)} / ${num(a.member_month_cap)}</div>`:""}
+    ${a.mine&&a.id!=="ali"?`<button class="btn sm ghost" style="margin-top:6px" onclick="accVoices('${a.id}')">🔄 Sesleri yenile</button>`:""}
+    ${ownerCan?`<div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap"><label class="small"><input type="checkbox" ${a.shared?"checked":""} onchange="accUpd('${a.id}',{shared:this.checked})"> Diğer kullanıcılar kullanabilsin</label></div>
+    <div class="row" style="gap:6px;margin-top:6px"><input type="number" min="0" placeholder="aylık kişi başı sınır (boş = sınırsız)" value="${a.member_month_cap??""}" style="flex:1" id="cap_${a.id}"><button class="btn sm" onclick="accUpd('${a.id}',{member_month_cap:$('#cap_${a.id}').value})">Kaydet</button></div>
+    ${a.type==="apikey"?`<div class="row" style="gap:6px;margin-top:6px"><input type="password" placeholder="yeni API anahtarı" style="flex:1" id="key_${a.id}"><button class="btn sm" onclick="accUpd('${a.id}',{key:$('#key_${a.id}').value})">Anahtarı değiştir</button></div>
+    <button class="btn sm ghost" style="margin-top:6px" onclick="if(confirm('Bu hesap silinsin mi?'))accDel('${a.id}')">Sil</button>`:""}`:""}</div>`}).join("");
+  $("#app").innerHTML=`<div class="row"><h1 style="margin:0">Hesaplar</h1><span class="sp"></span>${m.login?`<button class="btn sm ghost" onclick="logout()">Çıkış</button>`:""}</div>
+  <div class="small muted">Giriş yapan: <b>${esc(m.name)}</b> (${m.role==="owner"?"sahip":"üye"})</div>
+  <div class="card sec"><h3>🤖 Claude</h3>${claudeBox}</div>
+  <h2>ElevenLabs hesapları</h2><div class="tiny faint" style="margin-bottom:8px">Her videoda hangi hesaptan harcanacağı seçilir; sesler ve kalan kredi seçilen hesaptan otomatik okunur.</div>
+  <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">${acc}</div>
+  <div class="card sec"><h3>＋ ElevenLabs hesabını bağla</h3><div class="small">İki yol var; kredi ve ses kalitesi aynı:</div>
+  <div class="small" style="margin-top:8px"><b>A) Connector ile</b> — claude.ai → Ayarlar → Connectors'ta ElevenLabs bağlı olmalı ve Claude'u <i>tam giriş</i> ile bağlamış olmalısın. Görsel, video ve avatar akışlarına da erişir; biraz daha yavaş.</div>
+  ${m.role==="owner"?'<div class="tiny faint">Senin hesabın zaten connector ile bağlı.</div>':`<button class="btn sm" style="margin-top:6px" ${m.claude.connectors?"":"disabled"} onclick="accConn()">🔌 Connector'ımı bağla</button>${m.claude.connectors?"":'<div class="tiny faint">Önce Claude\'u tam giriş ile bağla.</div>'}`}
+  <div class="small" style="margin-top:12px"><b>B) API anahtarıyla</b> — daha hızlı, harcanan kredi tam belli; şimdilik ses, müzik ve efekt sesi.</div></div>
+  <div class="card sec"><h3>＋ ElevenLabs API anahtarı ekle</h3><div class="tiny faint">elevenlabs.io → Settings → API Keys. Ses, müzik ve kullanım okuma izni yeterli.</div>
+  <input type="text" id="ak_name" placeholder="hesap adı (isteğe bağlı)" style="margin-top:8px;width:100%"><input type="password" id="ak_key" placeholder="API anahtarı" style="margin-top:6px;width:100%">
+  <button class="btn primary sm" style="margin-top:8px" onclick="accAdd()">Ekle ve sesleri oku</button></div>
+  ${m.users?`<h2>Kullanıcılar</h2>${m.users.map(u=>`<div class="small">👤 ${esc(u.name)} <span class="faint">(${esc(u.id)}, ${u.role==="owner"?"sahip":"üye"})</span> · Claude ${u.claude.connected?"✅":"❌"}</div>`).join("")}`:""}`}
+async function claudeStart(mode){$("#clflow").innerHTML='<div class="small">Giriş linki hazırlanıyor…</div>';try{const r=await post("/api/claude/start",{mode});
+  $("#clflow").innerHTML=`<div class="small">1) Bu linki aç, kendi Claude hesabınla giriş yap ve izin ver:</div><a class="btn sm" style="margin-top:6px" href="${esc(r.url)}" target="_blank" rel="noopener">Claude'da giriş yap ↗</a>
+  <div class="small" style="margin-top:10px">2) Sayfanın verdiği kodu buraya yapıştır:</div><div class="row" style="gap:6px;margin-top:6px"><input type="text" id="clcode" style="flex:1" placeholder="kod"><button class="btn primary sm" onclick="claudeFinish()">Bağla</button></div>`}catch(e){toast(e.message,1);viewHesaplar()}}
+async function claudeFinish(){try{await post("/api/claude/finish",{code:$("#clcode").value});toast("Claude bağlandı");viewHesaplar()}catch(e){toast(e.message,1)}}
+async function accConn(){try{await post("/api/eleven/accounts/add_connector");toast("Connector eklendi, sesler okunuyor (~1 dk)");setTimeout(viewHesaplar,60000);viewHesaplar()}catch(e){toast(e.message,1)}}
+async function accVoices(id){try{await post(`/api/eleven/accounts/${id}/voices`);toast("Sesler yenileniyor");setTimeout(viewHesaplar,45000)}catch(e){toast(e.message,1)}}
+async function accAdd(){try{await post("/api/eleven/accounts/add",{name:$("#ak_name").value,key:$("#ak_key").value});toast("Hesap eklendi, sesler okundu");viewHesaplar()}catch(e){toast(e.message,1)}}
+async function accUpd(id,b){try{await post(`/api/eleven/accounts/${id}/update`,b);toast("Kaydedildi");viewHesaplar()}catch(e){toast(e.message,1)}}
+async function accDel(id){try{await post(`/api/eleven/accounts/${id}/delete`);toast("Silindi");viewHesaplar()}catch(e){toast(e.message,1)}}
+
+async function viewSes(){
+  const p=await api("/api/eleven");const a=p.avatar||{};
+  $("#app").innerHTML=`<h1>Ses & Avatar</h1>
+  <h2>Seslerin</h2><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">${p.voices.map(v=>`<div class="card"><div class="row"><b>🎙 ${esc(v.name)}</b><span class="sp"></span>${Object.entries(p.defaults||{}).filter(([l,id])=>id===v.voice_id).map(([l])=>`<span class="badge" style="color:var(--ok)">varsayılan ${l.toUpperCase()}</span>`).join("")}</div>
+    <div class="tiny faint">${esc(v.note||"")} · ${esc(v.voice_id)}</div>${v.preview_url?`<audio controls preload="none" src="${esc(v.preview_url)}" style="width:100%;margin-top:8px"></audio>`:""}
+    <button class="btn sm" style="margin-top:8px" onclick="setDefault('${v.language}','${v.voice_id}')">${v.language.toUpperCase()} için varsayılan yap</button></div>`).join("")}</div>
+  <div class="tiny faint" style="margin-top:6px">Ses üretimi her seferinde kredi tahmini gösterir ve onayını bekler (eleven_v4 ≈ 1,15 kredi/karakter).</div>
+  <h2>Avatar</h2><div class="card">
+    <div class="small">${a.node_id?`<span style="color:var(--ok)">✓ Avatar bulundu</span> · düğüm ${esc(a.node_id)}`:`<span style="color:var(--warn)">Avatar henüz akışta yok.</span>`} ${a.checked_at?`<span class="faint tiny">(${ago(a.checked_at)} kontrol edildi)</span>`:""}</div>
+    <ol class="small muted" style="margin:10px 0 10px 18px;padding:0"><li>Aşağıdaki akışı ElevenLabs'te aç.</li><li>+ → <b>Avatar</b> ile kendi avatarını ve stilini seç (ElevenLabs avatarları yalnızca bu seçiciyle eklenebiliyor).</li><li>"Kontrol et"e bas: Stüdyo düğümü bulur, senin sesinle konuşan avatar videolarında kullanır.</li></ol>
+    <div class="row"><a class="btn" href="${esc(a.flow_url||"#")}" target="_blank">ElevenLabs'te aç ↗</a><button class="btn primary" onclick="avatarCheck()">Kontrol et</button></div>
+    <div class="tiny faint" style="margin-top:8px">Konuşan avatar modelleri: ${esc((a.models||[]).join(", "))}. Fiyatları henüz ölçülmedi; ilk denemeden önce kısa bir kalibrasyon ve onayın gerekecek. Kitaplığında ${(a.photo_assets||[]).length} fotoğrafın var (yedek kaynak).</div></div>
+  <h2>Müzik</h2><div class="card small"><div>ElevenLabs Music v2.5 · ölçülen fiyat <b>~${p.music_rate?Math.round(p.music_rate):47} kredi/sn</b> (20 sn ≈ ${num(Math.round((p.music_rate||47)*20))} kredi). Referans stilli her videoda "Müzik" kartından üretilir; kesmeler gerçek beat'lere oturur.</div>
+  <div class="muted" style="margin-top:6px">Video to Music (videonun temposuna göre müzik): fiyatı henüz ölçülmedi, kalibrasyon onayından sonra açılacak.</div>
+  <div class="faint tiny" style="margin-top:6px">Bu ay: ${num(p.spent)} / ${num(p.cap)} kredi</div></div>`;
+}
+async function setDefault(l,v){try{await post("/api/eleven/default",{lang:l,voice_id:v});toast("Kaydedildi");route()}catch(e){toast(e.message,1)}}
+async function avatarCheck(){try{await post("/api/eleven/avatar_check");toast("Avatar kontrol ediliyor (≈1 dk)");setTimeout(route,60000)}catch(e){toast(e.message,1)}}
+
+async function viewAkislar(){
+  const fs=await api("/api/formats");
+  const ready=fs.filter(f=>f.status==="ready"),planned=fs.filter(f=>f.status!=="ready");
+  const card=f=>`<div class="card"><div class="row"><b>${esc(f.name_tr)}</b><span class="sp"></span>${f.status==="ready"?'<span class="badge" style="color:var(--ok)">hazır</span>':'<span class="badge">planlı</span>'}</div>
+    <div class="tiny faint">${esc(f.name)}</div><div class="small muted" style="margin:8px 0">${esc(f.desc_tr)}</div>
+    <div class="kv small"><div>Stil</div><div>${f.style==="calm"?"Sinematik sakin (doğal ses)":"Hikâye (senin sesin)"}</div><div>Kaynak</div><div>${{footage:"Kendi çekimin",topic:"Konu (çekimsiz)",avatar:"Avatar"}[f.source]}</div><div>Süre</div><div>${f.duration[0]}–${f.duration[1]} sn</div><div>Kanallar</div><div>${f.platforms.map(p=>PL[p]).join(", ")}</div><div>Üretilen</div><div>${f.count}</div></div>
+    ${f.status==="ready"?`<a class="btn sm" style="margin-top:10px" href="#/uret?f=${f.id}" onclick="state.gen.format='${f.id}'">Bu formatla üret →</a>`:""}</div>`;
+  $("#app").innerHTML=`<h1>Akışlar</h1>
+  <div class="card"><h3>Her video aynı hattan geçer</h3><div class="flow" style="margin-top:8px"><b>Çekim (iCloud)</b>→<b>Fikir (Claude + radar + kendi sonuçların)</b>→<b>Onay</b>→<b>Ses + kredi onayı*</b>→<b>Önizleme</b>→<b>Final + QA</b>→<b>Paylaş</b>→<b>Takip</b></div><div class="tiny faint" style="margin-top:8px">* yalnızca sesli formatlarda. Her adımda durup onayını bekler; kredi harcayan adım onaysız çalışmaz (kodda kilitli).</div></div>
+  <h2>Hazır formatlar</h2><div class="grid fgrid">${ready.map(card).join("")}</div>
+  <h2>Planlanan</h2><div class="grid fgrid">${planned.map(card).join("")}</div>`;
+}
+
+async function viewSinyal(){
+  const prof=(location.hash.split("?p=")[1])||"travel";
+  const s=await api("/api/signals?profile="+prof);
+  const r=s.runs[0];
+  $("#app").innerHTML=`<div class="row"><h1 style="margin:0">Sinyaller</h1><span class="sp"></span>
+    <a class="chip ${prof==="travel"?"on":""}" href="#/sinyal?p=travel" style="text-decoration:none">Seyahat</a><a class="chip ${prof==="psychology"?"on":""}" href="#/sinyal?p=psychology" style="text-decoration:none">Psikoloji</a></div>
+  <div class="row sec"><span class="small muted">YouTube Radar · son çalışma ${r?dt(r.ts)+" · "+r.status:"—"}</span><span class="sp"></span><button class="btn sm" onclick="runRadar('${prof}')">Radar'ı çalıştır (~950 kota)</button></div>
+  <div class="tiny faint" style="margin-top:4px">Icahn ✓ = küçük kanalda patlama (100K+ izlenme, &lt;100K abone, izlenme ≥ 5× abone): fikir videoyu taşımış demektir.</div>
+  <div class="grid sec">${s.radar.map(c=>`<a class="card row" href="${esc(c.url)}" target="_blank" style="text-decoration:none;flex-wrap:nowrap">
+    <img src="${esc(c.thumbnail||"")}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;flex:none" loading="lazy" alt="">
+    <div style="min-width:0;flex:1"><div class="small" style="font-weight:600">${esc(c.title)}</div><div class="tiny faint">${esc(c.channel_title||"")} · ${sec(c.duration_s)} · ${(c.age_h/24).toFixed(0)} gün</div>
+    <div class="row" style="gap:6px;margin-top:4px"><span class="badge">skor ${c.viral_score}</span><span class="badge">${num(c.views)} izlenme</span>${c.icahn?`<span class="badge" style="color:var(--accent)">Icahn ✓ ${c.views_per_sub}×</span>`:""}</div></div></a>`).join("")||'<div class="empty">Veri yok</div>'}</div>
+  <div class="row" style="margin-top:24px"><h2 style="margin:0">Google Trends (US, GB)</h2><span class="sp"></span><button class="btn sm" onclick="runTrends()">Yenile</button></div>
+  <div class="tiny faint">${s.trends_at?dt(s.trends_at):"hiç çekilmedi"} · konu ilgisi sinyali, video verisi değil</div>
+  <div class="chips sec">${s.trends.map(t=>`<span class="chip">${esc(t.geo)} · ${esc(t.title)} <span class="faint">${esc(t.traffic||"")}</span></span>`).join("")}</div>`;
+}
+async function runRadar(p){if(!confirm("YouTube kotasından ~950 birim kullanılacak (günlük 10.000). Devam?"))return;try{await post("/api/radar",{profile:p});toast("Radar başladı")}catch(e){toast(e.message,1)}}
+async function runTrends(){try{await post("/api/trends");toast("Trendler çekiliyor");setTimeout(route,6000)}catch(e){toast(e.message,1)}}
+
+
+function viewShot(src){closeShot();const b=document.createElement("div");b.id="shotbox";
+b.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:56px 12px 12px;overflow:auto";
+b.innerHTML=`<button onclick="closeShot()" aria-label="Kapat" style="position:fixed;top:10px;right:10px;width:44px;height:44px;border-radius:22px;border:0;background:#fff;color:#000;font-size:24px;line-height:44px;cursor:pointer">✕</button><img src="${src}" style="max-width:100%;max-height:100%;border-radius:8px">`;
+b.onclick=e=>{if(e.target===b)closeShot()};document.body.appendChild(b)}
+function closeShot(){const b=document.getElementById("shotbox");if(b)b.remove()}
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeShot()});
+async function redirectArt(id){const n=prompt("Ne değişsin? (boş bırakırsan art director baştan araştırıp farklı bir yön dener)");if(n===null)return;await act(id,'direct',{note:n})}
+async function redesign(id){const n=prompt("Neyi beğenmedin / ne istiyorsun? (boş bırakırsan Opus baştan, farklı bir tasarım yapar)");if(n===null)return;await act(id,'redesign',{note:n})}
+async function viewKesif(){
+  const d=await api("/api/discover");const r=d.run;
+  const CAT={ai:"Yapay zekâ",tech:"Teknoloji",science:"Bilim",finance:"Finans",world:"Dünya"};
+  $("#app").innerHTML=`<div class="row"><h1 style="margin:0">Keşif</h1><span class="sp"></span><button class="btn sm" onclick="runDiscover()">Şimdi tara</button></div>
+  <div class="tiny faint" style="margin-top:4px">${r?`Son tarama ${dt(r.at)} · ${r.items} haber → ${r.candidates} aday → ${r.cards} kart · $${(r.cost_usd||0).toFixed(2)}${r.note?" · "+esc(r.note):""}`:"Henüz tarama yok"} · her sabah otomatik · kredi harcamaz, kart seçince konu araştırması (Claude) başlar, ses onayı ayrıca istenir</div>
+  <div class="grid sec">${d.cards.map(c=>`<div class="card" style="${c.status==="skipped"?"opacity:.45":""}">
+    <div class="row" style="gap:6px"><span class="badge">${CAT[c.category]||esc(c.category)}</span><span class="badge">skor ${(c.score||0).toFixed(1)}</span><span class="badge">${(c.signals||{}).source_count||1} kaynak</span>${(c.flags||[]).map(f=>`<span class="badge" style="color:var(--bad)">${esc(f)}</span>`).join("")}</div>
+    <div style="font-weight:600;margin-top:8px">${esc(c.title)}</div>
+    <div class="small" style="margin-top:4px">“${esc(c.hook)}”</div>
+    <div class="tiny muted" style="margin-top:6px">${(c.beats||[]).map(esc).join(" → ")}</div>
+    <div class="tiny muted" style="margin-top:4px">Görsel: ${esc(c.visual_idea)}</div>
+    <div class="tiny faint" style="margin-top:4px">Neden şimdi: ${esc(c.why_now)}</div>
+    <div class="tiny" style="margin-top:6px">${(c.sources||[]).map(s=>`<a href="${esc(s.url)}" target="_blank">${esc(s.source)}</a>`).join(" · ")}</div>
+    <div class="row" style="margin-top:10px">${c.status==="picked"?'<span class="badge">seçildi · Pano\'da</span>':c.status==="skipped"?'<span class="tiny faint">geçildi</span>':`<button class="btn primary sm" onclick="pickCard(${c.card_id})">Bunu üret</button><button class="btn sm" onclick="skipCard(${c.card_id})">Geç</button>`}</div></div>`).join("")||'<div class="empty">Kart yok. “Şimdi tara” ile başlat.</div>'}</div>`;
+}
+async function runDiscover(){try{await post("/api/discover/run");toast("Tarama başladı (~2 dk)");setTimeout(route,90000)}catch(e){toast(e.message,1)}}
+async function pickCard(id){try{const r=await post("/api/discover/card/"+id+"/pick",{});toast("Araştırma + senaryo başladı (#"+r.job_id+")");location.hash="#/"}catch(e){toast(e.message,1)}}
+async function skipCard(id){try{await post("/api/discover/card/"+id+"/skip");route()}catch(e){toast(e.message,1)}}
+
+async function viewButce(){
+  const [b,u]=await Promise.all([api("/api/budget"),api("/api/claude_usage").catch(()=>null)]);const pct=Math.min(100,b.spent/b.cap*100);
+  const kinds=Object.entries(b.by_kind).sort((a,c)=>c[1]-a[1]);const mx=Math.max(1,...kinds.map(k=>k[1]));
+  const KT={tts:"Ses (TTS)",music:"Müzik",sfx:"Efekt",image:"Görsel",video:"AI video"};
+  $("#app").innerHTML=`<h1>Bütçe</h1>
+  <div class="card kpi"><div class="l">ElevenLabs bu ay</div><div class="v">${num(b.spent)} <span class="muted small">/ ${num(b.cap)} kredi · kalan ${num(b.cap-b.spent)}</span></div><div class="bar" style="height:10px"><i style="width:${pct}%"></i></div>
+  <div class="tiny faint" style="margin-top:8px">Kural kodda kilitli: onaylanmış kredi miktarı olmadan ya da tahmin onayı %15'ten fazla aşarsa ya da aylık tavan aşılacaksa üretim çağrısı hiç başlamaz.</div></div>
+${u?claudeUsage(u):""}
+  <h2>Türe göre (bu ay)</h2><div class="card grid" style="gap:10px">${kinds.map(([k,v])=>`<div><div class="row small"><span>${KT[k]||k}</span><span class="sp"></span><b>${num(v)}</b></div><div class="bar"><i style="width:${v/mx*100}%;background:${k==="video"?"var(--bad)":"var(--accent)"}"></i></div></div>`).join("")||'<div class="muted small">Bu ay harcama yok</div>'}</div>
+  <h2>Ölçülen fiyatlar</h2><div class="card" style="padding:4px 8px;overflow-x:auto"><table><thead><tr><th>Model</th><th class="num">Fiyat</th><th>Birim</th><th class="num">Ölçüm</th></tr></thead><tbody>${Object.entries(b.rates).map(([k,r])=>`<tr><td>${esc(k)}${r.note?`<div class="tiny faint">${esc(r.note)}</div>`:""}</td><td class="num">${(Math.round(r.rate*100)/100).toLocaleString("tr-TR")}</td><td>kredi/${esc(r.unit)}</td><td class="num">${r.samples}</td></tr>`).join("")}</tbody></table></div>
+  <h2>Hareketler</h2><div class="card" style="padding:4px 8px;overflow-x:auto"><table><thead><tr><th>Tarih</th><th>Tür</th><th>Not</th><th class="num">Kredi</th></tr></thead><tbody>${b.ledger.map(r=>`<tr><td class="tiny">${dt(r.at)}</td><td>${KT[r.kind]||r.kind}<div class="tiny faint">${esc(r.model)}</div></td><td class="small muted">${esc(r.note||"")}</td><td class="num">${num(Math.round(r.credits))}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function claudeUsage(u){
+  const usd=v=>"$"+(Math.round(v*100)/100).toLocaleString("tr-TR",{minimumFractionDigits:2});
+  const pct=v=>u.pct_per_usd?` <span class="muted small">≈ %${Math.round(v*u.pct_per_usd)} limit</span>`:"";
+  const mx=Math.max(0.01,...u.by_step.map(x=>x[1]));
+  return `<h2>Claude kullanımı (Content Factory)</h2>
+  <div class="card grid" style="grid-template-columns:repeat(3,1fr);gap:10px">${[["Son 5 saat","5h"],["Bugün","today"],["7 gün","7d"]].map(([l,k])=>`<div class="kpi"><div class="l">${l}</div><div class="v">${usd(u.totals[k])}${pct(u.totals[k])}</div></div>`).join("")}</div>
+  <div class="tiny faint" style="margin:6px 2px">API liste fiyatı karşılığı; abonelik limitinden yer ama limit yüzdesi Anthropic tarafından verilmiyor. ${u.pct_per_usd?`Yüzde tahmini ${dt(u.calibrated_at)} ölçümüne göre.`:"Bir kez kalibre edilince (işten önce/sonra limit yüzdesi) burada tahmini limit yüzdesi de görünür."}${u.estimated?" Defterden önceki çağrılar kayıtlardan tahmini olarak aktarıldı.":""}</div>
+  <h2>Bugün adıma göre</h2><div class="card grid" style="gap:10px">${u.by_step.map(([k,v])=>`<div><div class="row small"><span>${esc(k)}</span><span class="sp"></span><b>${usd(v)}</b></div><div class="bar"><i style="width:${v/mx*100}%"></i></div></div>`).join("")||'<div class="muted small">Bugün Claude çağrısı yok</div>'}
+  <div class="tiny faint">Model: ${Object.entries(u.by_model).map(([k,v])=>`${k} ${usd(v)}`).join(" · ")||"—"}</div></div>
+  ${u.by_prod.length?`<h2>Videoya göre (7 gün)</h2><div class="card" style="padding:4px 8px"><table><tbody>${u.by_prod.map(([id,n,v])=>`<tr><td><a href="#/p/${id}">${esc(n)}</a></td><td class="num">${usd(v)}</td></tr>`).join("")}</tbody></table></div>`:""}
+  <h2>Son Claude çağrıları</h2><div class="card" style="padding:4px 8px;overflow-x:auto"><table><thead><tr><th>Saat</th><th>Adım</th><th>Model</th><th class="num">Token</th><th class="num">$</th></tr></thead><tbody>${u.recent.map(r=>`<tr><td class="tiny">${dt(r.at)}</td><td>${esc(r.step)}${r.prod_id?` <span class="tiny faint">#${r.prod_id}</span>`:""}${r.ok?"":' <span class="tiny" style="color:var(--bad)">hata</span>'}</td><td class="small">${r.model}</td><td class="num tiny">${num(r.tokens)}</td><td class="num">${usd(r.cost)}${r.live?"":'<span class="tiny faint">*</span>'}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+// ---------------- router ----------------
+async function jobPill(){try{const j=await api("/api/jobs");const run=j.filter(x=>x.status==="running"||x.status==="queued");const el=$("#jobpill");el.className="jobpill"+(run.length?" on":"");el.innerHTML=run.length?`<span class="spin"></span> ${run.length} iş sürüyor`:"işler: boşta"}catch(e){}}
+async function route(){
+  if(!ME)loadMe();
+  clearTimeout(timer);
+  const h=location.hash||"#/";const path=h.split("?")[0];
+  document.querySelectorAll("nav a").forEach(a=>a.classList.toggle("on",a.getAttribute("href")===path||(path.startsWith("#/p/")&&a.getAttribute("href")==="#/hat")));
+  try{
+    if(!FORMATS.length)FORMATS=await api("/api/formats");
+    if(!STYLES.length)STYLES=await api("/api/styles").catch(()=>[]);
+    const m=path.match(/^#\/p\/(\d+)/);
+    if(m)await viewProd(m[1]);
+    else await ({"#/":viewPano,"#/uret":viewUret,"#/hat":viewHat,"#/takip":viewTakip,"#/videolar":viewVideolar,"#/akislar":viewAkislar,"#/sinyal":viewSinyal,"#/kesif":viewKesif,"#/butce":viewButce,"#/yerler":viewYerler,"#/referanslar":viewReferanslar,"#/ses":viewSes,"#/hesaplar":viewHesaplar}[path]||viewPano)();
+  }catch(e){$("#app").innerHTML=`<div class="card errbox">Yüklenemedi: ${esc(e.message)}</div>`}
+  jobPill();
+}
+let lastHash=null;
+window.addEventListener("hashchange",()=>{if(location.hash!==lastHash){lastHash=location.hash;window.scrollTo(0,0);route()}});
+setInterval(jobPill,8000);
+route();
+</script>
+</body>
+</html>

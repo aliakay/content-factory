@@ -1,0 +1,85 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'">
+<!-- Shell for Opus-designed explainers (factory/motiondesign.py). The page loads a bundle.json (palette, scenes with
+     html/css/js, scene + word timings), builds one paused GSAP master timeline and exposes window.render(t) for
+     motion/render.mjs. Scene scripts only add tweens to `tl` at absolute times; nothing runs in real time.
+     Network is blocked by the CSP above, so generated code cannot reach out. -->
+<style>
+@font-face{font-family:"Inter Tight";src:url("/fonts/InterTight%5Bwght%5D.ttf");font-weight:100 900}
+@font-face{font-family:"Montserrat";src:url("/fonts/Montserrat%5Bwght%5D.ttf");font-weight:100 900}
+@font-face{font-family:"Poppins";src:url("/fonts/Poppins-Medium.ttf");font-weight:500}
+@font-face{font-family:"Poppins";src:url("/fonts/Poppins-Bold.ttf");font-weight:700}
+@font-face{font-family:"Anton";src:url("/fonts/Anton-Regular.ttf")}
+@font-face{font-family:"DM Serif Display";src:url("/fonts/DMSerifDisplay-Regular.ttf")}
+@font-face{font-family:"Instrument Serif";src:url("/fonts/InstrumentSerif-Regular.ttf")}
+@font-face{font-family:"Instrument Serif";font-style:italic;src:url("/fonts/InstrumentSerif-Italic.ttf")}
+@font-face{font-family:"Playfair Display";src:url("/fonts/PlayfairDisplay%5Bwght%5D.ttf");font-weight:400 900}
+@font-face{font-family:"Cormorant Garamond";src:url("/fonts/CormorantGaramond%5Bwght%5D.ttf");font-weight:300 700}
+@font-face{font-family:"Shrikhand";src:url("/fonts/Shrikhand-Regular.ttf")}
+@font-face{font-family:"Monoton";src:url("/fonts/Monoton-Regular.ttf")}
+html,body{margin:0;background:#000;overflow:hidden}
+#stage{position:relative;width:1080px;height:1920px;overflow:hidden;background:var(--bg,#000);color:var(--ink,#fff);font-family:"Inter Tight",sans-serif}
+.scene{position:absolute;inset:0;display:none;overflow:hidden}
+#cap{position:absolute;left:40px;right:40px;top:1540px;height:170px;display:flex;align-items:center;justify-content:center;text-align:center;
+  font:900 84px/1.05 "Inter Tight",sans-serif;text-transform:uppercase;letter-spacing:-.01em;color:var(--capInk,#fff);
+  -webkit-text-stroke:14px var(--capStroke,#000);paint-order:stroke fill;z-index:50}
+#cap b{font-weight:900;color:var(--capActive,var(--accent,#2ee6c5))}
+</style>
+<div id="stage"><div id="cap"></div></div>
+<script src="/motion/node_modules/gsap/dist/gsap.min.js"></script>
+<script>
+const norm = (w) => String(w).toLowerCase().replace(/[^\p{L}\p{N}%$.]/gu, "");
+let tl, B, chunks = [];
+window.render = (t) => { if (tl) { tl.time(t, false); caps(t); } };
+window.ready = (async () => {
+  const hash = new URLSearchParams(location.hash.slice(1));
+  B = await (await fetch(hash.get("b"))).json();
+  const root = document.documentElement;
+  for (const [k, v] of Object.entries(B.palette || {})) root.style.setProperty("--" + k, v);
+  const g = document.createElement("style"); g.textContent = B.global_css || ""; document.head.appendChild(g);
+  const stage = document.getElementById("stage");
+  gsap.ticker.lagSmoothing(0);
+  tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+  for (const sc of B.scenes) {
+    const sec = document.createElement("section");
+    sec.className = "scene"; sec.id = "s_" + sc.id; sec.innerHTML = sc.html || "";
+    stage.insertBefore(sec, document.getElementById("cap"));
+    const st = document.createElement("style"); st.textContent = `#s_${sc.id}{${sc.css || ""}}`; document.head.appendChild(st);
+    const words = B.words.filter((w) => w.s >= sc.start - 0.1 && w.s < sc.end);
+    const T = { id: sc.id, start: sc.start, end: sc.end, dur: sc.end - sc.start, words, lines: sc.lines_t || [],
+      at: (word, fb = 0.3) => { const k = norm(word); const w = words.find((x) => norm(x.w) === k) || words.find((x) => k && norm(x.w).includes(k));
+        return w ? w.s : sc.start + fb; } };
+    tl.set(sec, { display: "block" }, sc.start);
+    tl.set(sec, { display: "none" }, sc.end);
+    try { new Function("tl", "root", "T", "gsap", "$", sc.js || "")(tl, sec, T, gsap, (q) => sec.querySelectorAll(q)); }
+    catch (e) { console.error("scene " + sc.id + " js: " + e.message); }
+  }
+  tl.set(document.getElementById("s_" + B.scenes[0].id), { display: "block" }, 0);
+  // kinetic captions: <=3 words / <=16 chars, the active word in the accent colour
+  let cur = [];
+  const flush = () => { if (cur.length) chunks.push(cur); cur = []; };
+  for (const w of B.words) { if (cur.length && (cur.length >= 3 || cur.map((x) => x.w).join(" ").length + w.w.length > 16)) flush(); cur.push(w); }
+  flush();
+  if (document.fonts) await document.fonts.ready;
+})();
+let lastKey = null;
+function caps(t) {
+  const el = document.getElementById("cap");
+  const sc = B.scenes.find((s) => t >= s.start && t < s.end);
+  let html = "", key = "";
+  if (!(sc && sc.hide_captions)) {
+    for (let i = 0; i < chunks.length; i++) {
+      const c = chunks[i], nxt = chunks[i + 1];
+      const a = c[0].s, b = nxt ? nxt[0].s : c[c.length - 1].e + 0.2;
+      if (t >= a && t < b) {
+        const act = c.reduce((k, w, j) => (t >= w.s ? j : k), 0);
+        key = i + ":" + act;
+        html = c.map((w, j) => (j === act ? `<b>${w.w}</b>` : w.w)).join(" ");
+        break;
+      }
+    }
+  }
+  if (key !== lastKey) { el.innerHTML = html ? `<span>${html}</span>` : ""; lastKey = key; }
+}
+</script>

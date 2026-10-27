@@ -1,0 +1,102 @@
+{
+ "id": "cream-grid-highlighter",
+ "created_at": "2026-10-27T08:11:58+00:00",
+ "palette": [
+  [
+   "#000000",
+   0.499
+  ],
+  [
+   "#f2eeeb",
+   0.258
+  ],
+  [
+   "#b0adcb",
+   0.101
+  ]
+ ],
+ "roles": {
+  "name": "cream-grid-highlighter",
+  "paper": true,
+  "bg_top": "#f2eeeb",
+  "bg_bot": "#f2eeeb",
+  "text": "#1a1626",
+  "muted": "#7a7691",
+  "accent": "#8b5cf6",
+  "hot": "#e0529c",
+  "hero": "#1a6fe0",
+  "notes": "Flat editorial cream paper with thin violet grid lines and bold solid highlighter-block bars in pink, green and blue, with hard-edged shapes, no glow and a light, airy mood."
+ },
+ "notes": "Flat editorial cream paper with thin violet grid lines and bold solid highlighter-block bars in pink, green and blue, with hard-edged shapes, no glow and a light, airy mood.",
+ "creator_note": "cream panels, purple grid lines, pink highlighter, keep it light",
+ "theme": {
+  "BG_TOP": [
+   242,
+   238,
+   235
+  ],
+  "BG_BOT": [
+   242,
+   238,
+   235
+  ],
+  "TEAL": [
+   139,
+   92,
+   246
+  ],
+  "ORANGE": [
+   224,
+   82,
+   156
+  ],
+  "TEXT": [
+   26,
+   22,
+   38
+  ],
+  "MUTED": [
+   122,
+   118,
+   145
+  ],
+  "HERO": [
+   25,
+   105,
+   213
+  ],
+  "COUNTER": [
+   139,
+   92,
+   246
+  ],
+  "PRICE2": [
+   25,
+   105,
+   213
+  ],
+  "SRC": [
+   122,
+   118,
+   145
+  ],
+  "TRACK": [
+   26,
+   22,
+   38,
+   30
+  ],
+  "OLD": [
+   224,
+   82,
+   156
+  ],
+  "STROKE": [
+   242,
+   238,
+   235
+  ],
+  "DARK": 0.72,
+  "PAPER": true
+ }
+}

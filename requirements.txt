@@ -1,0 +1,8 @@
+# Python 3.10+ (developed on 3.12). Install: ./install.sh  (or: pip install -r requirements.txt)
+numpy>=2.0
+pillow>=11.0
+streamlit>=1.40        # old panel (factory/app.py, :8503); the Studio itself is stdlib only
+faster-whisper>=1.0    # word timings of the voice-over (captions, scene timing)
+av>=14.0               # bin/analyze.py (clip scoring)
+pytest>=8.0            # tests/
+# optional: librosa>=0.10  (better beat tracking; factory/beats.py falls back to numpy without it)
