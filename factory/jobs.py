@@ -335,6 +335,11 @@ def run(job_id):
         elif kind == "discover":
             rid = discover.scan(con)
             result = f"discovery run {rid}: {discover.cards(con, rid)['run']['cards']} cards"
+        elif kind == "plan":   # the composer's planner (factory/planner.py)
+            from . import planner
+            o = jload(arg, {})
+            pl = planner.think(con, int(o["id"]), o.get("voices"))
+            result = f"plan: {pl['kind']} · {pl['format']}" + (" (yedek)" if pl.get("fallback") else "")
         elif kind in ("series_bible", "series_cast", "series_episode"):
             from . import series
             o = jload(arg, {})
