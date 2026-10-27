@@ -11,9 +11,9 @@ The production's `data` is the single source of truth (shots on real clips, voic
 `timeline()` compiles it deterministically into a bin/cinecut.py spec, so edits are small JSON changes, never
 hand-written ffmpeg.
 """
-import difflib, json, os, re, subprocess, sys
+import difflib, json, os, re, subprocess
 
-from . import credits, explainer, formats, ideas, llm, qa, refs, styled, tracking
+from . import credits, engines, explainer, formats, ideas, llm, qa, refs, styled, tracking
 from .store import ROOT, jload, now
 
 from .config import FFMPEG
@@ -398,7 +398,27 @@ def line_times(d):
 
 def timeline(con, p):
     """Compile a production into a renderer spec + lint warnings. Deterministic; no Claude involved.
-    Styled productions (with a `look`) go to bin/stylecut.py, the rest to bin/cinecut.py."""
+    Explainers go to bin/explainer.py (or bin/htmlmotion.py), styled productions (with a `look`) to bin/stylecut.py,
+    the rest to bin/cinecut.py. The spec names its engine and carries the channel's brand layer (factory/engines.py)."""
+    spec, total, starts, warn = _compile(con, p)
+    spec["engine"] = engines.engine_of(spec)
+    brand = _brand(con, p)
+    if brand:
+        spec["brand"] = brand
+    return spec, total, starts, warn
+
+
+def _brand(con, p):
+    """The brand layer of the production's channel (logo watermark / end card), or None."""
+    try:
+        from . import channels
+        return channels.brand(con, p)
+    except Exception as e:   # a broken channel setting must never stop a render
+        print("brand:", e, flush=True)
+        return None
+
+
+def _compile(con, p):
     d, fmt = p["data"], formats.for_data(p["format"], p["data"])
     if explainer.is_explainer(d):
         return explainer.compile_spec(con, p, fmt, VO_START)
@@ -508,7 +528,7 @@ def timeline(con, p):
     if d.get("aspect") == "16:9":
         for t in text:
             t["text"] = wrap(t["text"].replace("\\N", " "), 52)
-    spec = {"name": p["name"] or "draft", "aspect": d.get("aspect", "9:16"), "ambient_db": ambient,
+    spec = {"name": p["name"] or "draft", "engine": "cine", "aspect": d.get("aspect", "9:16"), "ambient_db": ambient,
             "shots": out_shots, "text": text}
     if d.get("music_take"):
         spec["music"] = {"file": d["music_take"]["file"], "db": -8 if voice else -5}
@@ -555,25 +575,9 @@ def assign_name(con, p):
     return p["name"]
 
 
-def _cinecut():
-    sys.path.insert(0, os.path.join(ROOT, "bin"))
-    import cinecut
-    return cinecut
-
-
 def _renderer(spec):
-    """(module, spec folder) for a compiled spec: styled specs carry a frame/layers."""
-    sys.path.insert(0, os.path.join(ROOT, "bin"))
-    if spec.get("engine") == "html":
-        import htmlmotion
-        return htmlmotion, "explainer"
-    if "scenes" in spec:
-        import explainer as renderer
-        return renderer, "explainer"
-    if "frame" in spec:
-        import stylecut
-        return stylecut, "style"
-    return _cinecut(), "cine"
+    """(module, spec folder) for a compiled spec (kept for callers outside the factory; see factory/engines.py)."""
+    return engines.module(engines.engine_of(spec)), engines.spec_dir(spec)
 
 
 def design(con, prod_id, note=""):
@@ -614,7 +618,7 @@ def preview(con, prod_id):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     spec, total, starts, warn = timeline(con, p)
     json.dump(spec, open(path, "w"), ensure_ascii=False, indent=1)
-    dst, _ = _renderer(spec)[0].main(path, preview=True)
+    dst, _ = engines.render(path, preview=True)
     if (p["data"].get("direction") or {}).get("reviewed") is False:  # the director checks its own render once
         from . import artdirector
         changed = artdirector.review(con, p, dst, starts, total)
@@ -623,7 +627,7 @@ def preview(con, prod_id):
         if changed:
             spec, total, starts, warn = timeline(con, p)
             json.dump(spec, open(path, "w"), ensure_ascii=False, indent=1)
-            dst, _ = _renderer(spec)[0].main(path, preview=True)
+            dst, _ = engines.render(path, preview=True)
     p["preview"] = os.path.relpath(dst, ROOT)
     p["stage"] = "preview"
     p["note"] = "; ".join(warn) or None
@@ -635,18 +639,18 @@ def render(con, prod_id):
     p = get(con, prod_id)
     assign_name(con, p)
     spec, total, _, warn = timeline(con, p)
-    mod, sub = _renderer(spec)
+    sub = engines.spec_dir(spec)
     os.makedirs(os.path.join(ROOT, "specs", sub), exist_ok=True)
     path = os.path.join(ROOT, "specs", sub, f"{p['name']}.json")
     json.dump(spec, open(path, "w"), ensure_ascii=False, indent=1)
-    dst, real_total = mod.main(path)
+    dst, real_total = engines.render(path)
     p["output"] = p["name"]
     p["stage"] = "ready"
     save(con, p, "render", f"{real_total:.1f} s")
     beats = [{"t0": t["start"], "t1": t["end"], "text": t["text"]} for t in spec["text"]]
     prev = ((p["qa"] or {}).get("visual") or {}).get("issues")
     report = qa.review(dst, {"beats": beats}, real_total, p["name"], previous=prev, model="sonnet",
-                       size=formats.ASPECTS.get(p["data"].get("aspect", "9:16")),
+                       size=engines.canvas(spec),
                        notes=(explainer.QA_HTML_NOTES if spec.get("engine") == "html" else explainer.QA_NOTES) if explainer.is_explainer(p["data"]) else "")
     # held shots are this style's point: the "motion stalls" check belongs to the old montage look
     tech = report["technical"]

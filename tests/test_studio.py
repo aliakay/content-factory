@@ -95,3 +95,18 @@ def test_renderer_geometry():
     assert sc.geometry("letterbox", 1080, 1920) == (1080, 608, 656)   # 16:9 band on a phone frame
     assert sc.geometry("letterbox", 1920, 1080)[1] == 804             # becomes the 2.39:1 band on 16:9
     assert sc.geometry("full", 1920, 1080) == (1920, 1080, 0)
+
+
+def test_engine_registry_and_brand_box(con):
+    from factory import engines
+    assert engines.engine_of({"scenes": []}) == "explainer" and engines.engine_of({"frame": "full"}) == "style"
+    assert engines.engine_of({"engine": "html", "scenes": []}) == "html" and engines.engine_of({}) == "cine"
+    p = prod(con, "cinematic_calm", {"title": "t", "hook": "h", "shots": [
+        {"clip_id": "A.MOV", "in": 1.0, "out": 4.0, "speed": 1.0, "text": ""}], "post": {}})
+    spec, *_ = P.timeline(con, p)
+    assert spec["engine"] == "cine"
+    x, y, lw = engines.watermark_box((1080, 1920), "tl", 0.11)
+    assert x > 0 and y >= 170 and lw < 200          # below the TikTok top tabs
+    x, y, lw = engines.watermark_box((1080, 1920), "tr", 0.11)
+    assert x + lw <= 1080 - 150                     # clear of the right-hand button column
+    assert engines.brand_of({"brand": {"logo": "/nope.png"}}) is None   # no logo file: no brand pass
