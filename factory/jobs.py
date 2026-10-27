@@ -338,7 +338,12 @@ def run(job_id):
         elif kind == "plan":   # the composer's planner (factory/planner.py)
             from . import planner
             o = jload(arg, {})
-            pl = planner.think(con, int(o["id"]), o.get("voices"))
+            try:
+                pl = planner.think(con, int(o["id"]), o.get("voices"))
+            except Exception as e:
+                con.execute("UPDATE plans SET status='failed', error=? WHERE plan_id=?", (f"{type(e).__name__}: {e}"[:300], int(o["id"])))
+                con.commit()
+                raise
             result = f"plan: {pl['kind']} · {pl['format']}" + (" (yedek)" if pl.get("fallback") else "")
         elif kind in ("series_bible", "series_cast", "series_episode"):
             from . import series
