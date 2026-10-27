@@ -501,7 +501,7 @@ def compile_spec(con, p, fmt, vo_start):
         warn.append("kaynaksız iddia var: her bilgi bir kaynak URL'si taşımalı")
     tm = __import__("time").localtime()
     month = f"{MONTHS_TR[tm.tm_mon - 1]} {tm.tm_year}" if lang == "tr" else __import__("time").strftime("%b %Y").upper()
-    spec = {"name": p["name"] or "draft", "aspect": "9:16", "lang": lang, "look": d.get("look_pack", "tech"), "theme": styles.theme_for(d.get("look_pack")), "duration": total, "header": f"{d.get('header', 'EXPLAINER')} · {month}",
+    spec = {"name": p["name"] or "draft", "aspect": d.get("aspect", "9:16") if d.get("aspect") in ASPECTS else "9:16", "lang": lang, "look": d.get("look_pack", "tech"), "theme": styles.theme_for(d.get("look_pack")), "duration": total, "header": f"{d.get('header', 'EXPLAINER')} · {month}",
             "voice": {"file": d["voice_take"]["file"], "start": vo_start} if real else None,
             "voice_start": vo_start, "words": [[w, s, e] for w, s, e in words], "scenes": scenes}
     if not real:

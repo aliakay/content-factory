@@ -171,3 +171,25 @@ def test_explainer_compile_resolves_trigger_words():
     cta = spec["scenes"][1]["elements"][0]
     assert cta["at"] >= spec["scenes"][1]["start"]
     assert spec["words"] and spec["header"].startswith("TECH · ")
+
+
+def test_explainer_16x9_spec_and_still(tmp_path, monkeypatch):
+    import importlib.util, os
+    from factory import explainer, formats, productions as P
+    d = _explainer_data()
+    d["aspect"] = "16:9"
+    spec, *_ = explainer.compile_spec(None, {"data": d, "name": "t169", "format": "explainer_short"},
+                                      formats.get("explainer_short"), P.VO_START)
+    assert spec["aspect"] == "16:9"
+    path = os.path.join(os.path.dirname(__file__), "..", "bin", "explainer.py")
+    sp = importlib.util.spec_from_file_location("explainer_r", path)
+    r = importlib.util.module_from_spec(sp)
+    sp.loader.exec_module(r)
+    monkeypatch.setattr(r, "ROOT", str(tmp_path))
+    f = tmp_path / "s.json"
+    f.write_text(json.dumps(spec))
+    out = r.main(str(f), stills=[1.0])
+    from PIL import Image
+    assert Image.open(out[0]).size == (1920, 1080)
+    r.set_canvas("9:16")
+    assert (r.W, r.H, r.CX) == (1080, 1920, 540)

@@ -2,7 +2,7 @@
 
 Python + Pillow frames are piped as raw RGB into ffmpeg (no Chromium, no AI video: text and numbers stay sharp).
 Spec (compiled by factory/explainer.py, all times absolute seconds):
-  {name, aspect "9:16", duration, voice {file, start}, music {file, db}, header "AI UPDATE · OCT 2026",
+  {name, aspect "9:16" | "16:9", duration, voice {file, start}, music {file, db}, header "AI UPDATE · OCT 2026",
    words [[word, start, end], ...], scenes [{id, start, end, hide_captions, elements [{type, at, ...}]}], post {...}}
 Usage: python bin/explainer.py specs/explainer/<name>.json [--preview] [--still T [T ...]]
 """
@@ -15,6 +15,13 @@ from factory.config import ROOT, FFMPEG  # noqa: E402
 FONT = os.path.join(ROOT, "fonts", "InterTight[wght].ttf")
 W, H = 1080, 1920
 FPS = 30
+# Canvas. The graphics are always laid out on a 1080-wide "stage" (VIS_TOP..VIS_BOT, centre x 540). On 9:16 the stage is
+# the canvas itself; on 16:9 it is drawn on its own layer and placed, scaled by STAGE_K, in the middle of the wide frame,
+# while background, header, source line and captions use the real canvas (CX, *_Y below).
+SW = 1080
+CX, HEADER_Y, CAP_SIZE = 540, 205, 66
+LANDSCAPE = False
+STAGE_K, STAGE_TOP = 1.0, 0
 
 # design tokens
 BG_TOP, BG_BOT = (6, 9, 20), (10, 22, 46)
@@ -49,8 +56,23 @@ def set_theme(name):
 
 
 LOOK = "tech"
-VIS_TOP, VIS_BOT = 300, 1250      # visual area; header ~200, source ~1260, captions ~1600
+VIS_TOP, VIS_BOT = 300, 1250      # visual area of the stage; header ~200, source ~1260, captions ~1600 (on 9:16)
 SOURCE_Y, CAPTION_Y = 1262, 1600
+STAGE_CROP = (VIS_TOP - 60, VIS_BOT + 60)   # the part of the stage shown on a 16:9 canvas
+
+
+def set_canvas(aspect):
+    """Switch every canvas-dependent position for "9:16" (1080x1920) or "16:9" (1920x1080)."""
+    g = globals()
+    if aspect == "16:9":
+        g.update(W=1920, H=1080, CX=960, HEADER_Y=62, SOURCE_Y=902, CAPTION_Y=984, CAP_SIZE=56, LANDSCAPE=True,
+                 STAGE_K=0.78, STAGE_TOP=104, STAGE_CROP=(VIS_TOP - 20, VIS_BOT + 20))
+    else:
+        g.update(W=1080, H=1920, CX=540, HEADER_Y=205, SOURCE_Y=1262, CAPTION_Y=1600, CAP_SIZE=66, LANDSCAPE=False,
+                 STAGE_K=1.0, STAGE_TOP=0, STAGE_CROP=(VIS_TOP - 60, VIS_BOT + 60))
+    g["PARTS"] = particles()
+    for fn in (background, glow, bg_photo, grain, dots):
+        fn.cache_clear()
 HEIGHTS = {"label": 64, "title": 150, "hero": 210, "text": 110, "stat_card": 400, "counter": 250, "bars": 120,
            "checks": 100, "strike": 270, "price": 230, "cta": 560}
 GAP = 34
@@ -136,7 +158,15 @@ def blit(img, spr, cx, cy, alpha=1.0, scale=1.0, dy=0.0, rot=0.0):
     a = spr.getchannel("A")
     if alpha < 1:
         a = a.point(lambda v: int(v * alpha))
-    img.paste(spr, (int(cx - spr.width / 2), int(cy + dy - spr.height / 2)), a)
+    x, y = int(cx - spr.width / 2), int(cy + dy - spr.height / 2)
+    if img.mode == "RGBA":   # the 16:9 stage layer: composite so soft edges keep their alpha
+        layer = spr.copy()
+        layer.putalpha(a)
+        sx, sy = max(0, -x), max(0, -y)
+        if sx < layer.width and sy < layer.height and x + layer.width > 0 and y + layer.height > 0:
+            img.alpha_composite(layer, (max(0, x), max(0, y)), (sx, sy))
+        return
+    img.paste(spr, (x, y), a)
 
 
 def pop(t, t0, dur=0.22):
@@ -239,8 +269,12 @@ def glow():
     return img.filter(ImageFilter.GaussianBlur(120))
 
 
-PARTS = [(random.Random(i + 300).random() * W, random.Random(i).random() * H, random.Random(i + 99).uniform(8, 26),
-          random.Random(i + 5).choice([2, 2, 3, 4])) for i in range(40)]
+def particles():
+    return [(random.Random(i + 300).random() * W, random.Random(i).random() * H, random.Random(i + 99).uniform(8, 26),
+             random.Random(i + 5).choice([2, 2, 3, 4])) for i in range(40)]
+
+
+PARTS = particles()
 
 
 def draw_background(t):
@@ -252,7 +286,7 @@ def draw_background(t):
         g = grain()
         img.paste(g, (0, 0), g)
         return img
-    blit(img, glow(), 540 + 140 * math.sin(t * 0.35), 700 + 90 * math.cos(t * 0.27), 0.9)
+    blit(img, glow(), W / 2 + 140 * math.sin(t * 0.35), H * 0.365 + 90 * math.cos(t * 0.27), 0.9)
     d = ImageDraw.Draw(img)
     for x0, y0, v, r in PARTS:
         x, y = (x0 + 6 * math.sin(t * 0.4 + y0)) % W, (y0 - v * t) % H
@@ -421,7 +455,7 @@ def draw_element(img, el, t, fade):
 def draw_source(img, el, t, fade):
     if t >= el["at"]:
         a, _, _ = pop(t, el["at"], 0.3)
-        blit(img, fit_text(el["text"], 36, 900, 600, fill=SRC), 540, SOURCE_Y, a * fade)
+        blit(img, fit_text(el["text"], 36, 900 if not LANDSCAPE else 1300, 600, fill=SRC), CX, SOURCE_Y, a * fade)
 
 
 def draw_header(img, text, t):
@@ -436,7 +470,7 @@ def draw_header(img, text, t):
         d.rounded_rectangle((0, 0, pill.width - 1, 65), 33, fill=(255, 255, 255, 18), outline=TEAL + (200,), width=2)
         d.ellipse((26, 25, 42, 41), fill=TEAL + (255,))
     pill.alpha_composite(spr, (60, int(33 - spr.height / 2)))
-    blit(img, pill, 540, 205, a, sc, dy)
+    blit(img, pill, CX, HEADER_Y, a, sc, dy)
 
 
 # ---------- captions ----------
@@ -472,13 +506,14 @@ def draw_captions(img, chunks, t):
     sprs = []
     for i, w in enumerate(ch):
         on = i == active
-        s = text_img(up(w[0]), 66, 900, TEXT if PAPER else (TEAL if on else TEXT), stroke=6)
+        s = text_img(up(w[0]), CAP_SIZE, 900, TEXT if PAPER else (TEAL if on else TEXT), stroke=6)
         sprs.append(s.resize((int(s.width * 1.04), int(s.height * 1.04)), Image.BILINEAR) if on else s)
     total = sum(s.width for s in sprs) + 12 * (len(sprs) - 1)
-    x = 540 - total / 2
+    x = CX - total / 2
+    hh = CAP_SIZE * 2 / 3
     for i, s in enumerate(sprs):
         if PAPER and i == active:  # the active word sits on a yellow highlighter block
-            ImageDraw.Draw(img).rectangle((x - 8, CAPTION_Y - 44, x + s.width + 8, CAPTION_Y + 44), fill=YELLOW)
+            ImageDraw.Draw(img).rectangle((x - 8, CAPTION_Y - hh, x + s.width + 8, CAPTION_Y + hh), fill=YELLOW)
         blit(img, s, x + s.width / 2, CAPTION_Y)
         x += s.width + 12
 
@@ -569,16 +604,27 @@ def make_frame(spec, chunks, t, still=False):
     img = with_background(img, sc, t, last, still)
     draw_header(img, spec.get("header", ""), t)
     fade = 1.0 if (last or PAPER) else clamp((sc["end"] - t) / 0.3)
+    stage = Image.new("RGBA", (SW, STAGE_CROP[1]), (0, 0, 0, 0)) if LANDSCAPE else img
     for el in sc["elements"]:
         if el["type"] == "source":
             draw_source(img, el, t, fade)
         elif el["type"] != "orb":
-            draw_element(img, el, t, fade)
+            draw_element(stage, el, t, fade)
+    if LANDSCAPE:
+        place_stage(img, stage)
     if not sc.get("hide_captions"):
         draw_captions(img, chunks, t)
     if PAPER:
         sheet_wipe(img, spec["scenes"], t)
     return img
+
+
+def place_stage(img, stage):
+    """16:9: the stage's visual band, scaled by STAGE_K, centred on the wide canvas."""
+    band = stage.crop((0, STAGE_CROP[0], SW, STAGE_CROP[1]))
+    k = STAGE_K
+    band = band.resize((int(band.width * k), int(band.height * k)), Image.BILINEAR)
+    img.paste(band, (int(CX - band.width / 2), STAGE_TOP), band)
 
 
 def sheet_wipe(img, scenes, t):
@@ -608,6 +654,7 @@ def main(path, preview=False, stills=None):
     spec = json.load(open(path))
     global LANG
     LANG = spec.get("lang", "en")
+    set_canvas(spec.get("aspect", "9:16"))
     if spec.get("theme"):  # custom look extracted from the creator's references (factory/styles.py)
         t = {k: tuple(v) if isinstance(v, list) else v for k, v in spec["theme"].items()}
         THEMES[spec["look"]] = {"name": spec["look"], **t}
@@ -629,7 +676,7 @@ def main(path, preview=False, stills=None):
     dst = os.path.join(out_dir, f"{name}.mp4")
     global FRAME_FPS
     fps = FRAME_FPS = 15 if preview else FPS
-    size = (540, 960) if preview else (W, H)
+    size = (W // 2, H // 2) if preview else (W, H)
     cmd = [FFMPEG, "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{size[0]}x{size[1]}",
            "-r", str(fps), "-i", "-"]
     inputs, chain, mix = 1, [], None

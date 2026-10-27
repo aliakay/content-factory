@@ -37,6 +37,12 @@ window.ready = (async () => {
   B = await (await fetch(hash.get("b"))).json();
   const root = document.documentElement;
   for (const [k, v] of Object.entries(B.palette || {})) root.style.setProperty("--" + k, v);
+  const stg = document.getElementById("stage"), capEl = document.getElementById("cap");
+  if (B.w && B.h && B.w > B.h) {   // 16:9 canvas: wide stage, captions in a lower band
+    stg.style.width = B.w + "px"; stg.style.height = B.h + "px";
+    Object.assign(capEl.style, { top: "880px", height: "150px", left: "160px", right: "160px", fontSize: "68px",
+                                 webkitTextStroke: "11px var(--capStroke,#000)" });
+  }
   const g = document.createElement("style"); g.textContent = B.global_css || ""; document.head.appendChild(g);
   const stage = document.getElementById("stage");
   gsap.ticker.lagSmoothing(0);
@@ -59,7 +65,11 @@ window.ready = (async () => {
   // kinetic captions: <=3 words / <=16 chars, the active word in the accent colour
   let cur = [];
   const flush = () => { if (cur.length) chunks.push(cur); cur = []; };
-  for (const w of B.words) { if (cur.length && (cur.length >= 3 || cur.map((x) => x.w).join(" ").length + w.w.length > 16)) flush(); cur.push(w); }
+  for (const w of B.words) {   // like bin/explainer.py: also break after , . : ? ! so a chunk never spans two sentences
+    if (cur.length && (cur.length >= 3 || cur.map((x) => x.w).join(" ").length + w.w.length > 16)) flush();
+    cur.push(w);
+    if (/[,.:?!]$/.test(w.w)) flush();
+  }
   flush();
   if (document.fonts) await document.fonts.ready;
 })();
