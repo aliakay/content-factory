@@ -213,3 +213,39 @@ def test_style_deep_tokens_and_approval_gate(tmp_path, monkeypatch):
     assert styles.valid("custom:" + sid)
     assert styles.pace_from({"cuts_per_s": 1.2, "motion_energy": 0.01}) == "fast"
     assert styles.pace_from({"cuts_per_s": 0.1, "motion_energy": 0.01}) == "calm"
+
+
+def test_fx_detection_on_synthetic_frames():
+    import numpy as np
+    from factory import fxdetect
+    f = np.full((60, 40), 0.7, dtype=np.float32)
+    f[30:, :] = 0.2                                        # a hard horizon at half height
+    assert abs(fxdetect.horizon_y(f) - 0.5) < 0.05
+    fr = np.full((40, 30, 20), 0.6, dtype=np.float32)
+    fr[16:20, :, :14] = 0.02                               # something dark fills most of the frame for half a second
+    occ = fxdetect.occlusions(fr, fps=8)
+    assert len(occ) == 1 and 1.9 <= occ[0]["t"] <= 2.5 and occ[0]["cover"] > 0.5
+    pairs = fxdetect.match_pairs({"A": {"horizon": [0.5, 0.5], "flow": [[6, 0]]},
+                                  "B": {"horizon": [0.52, 0.51], "flow": [[8, 1]]},
+                                  "C": {"horizon": [0.2, 0.2], "flow": [[-9, 0]]}})
+    assert pairs[0]["a"] == "A" and pairs[0]["b"] == "B" and "horizon" in pairs[0]["why"] and len(pairs) == 1
+
+
+def test_styled_keeps_new_effects_and_jl_mix():
+    import importlib.util, os
+    from factory import styled
+    d = styled.sanitize({"look": {}, "shots": [
+        {"clip_id": "A", "enter": "object", "audio": {"lead": 9}, "layer": {"type": "title_bold", "text": "X", "behind": 1}},
+        {"clip_id": "B", "enter": "match", "audio": {"lead": 0, "tail": 0}}]})
+    a, b = d["shots"]
+    assert a["enter"] == "object" and a["audio"] == {"lead": 1.5, "tail": 0.0} and a["layer"]["behind"] is True
+    assert b["enter"] == "match" and "audio" not in b
+    path = os.path.join(os.path.dirname(__file__), "..", "bin", "stylecut.py")
+    sp = importlib.util.spec_from_file_location("stylecut_fx", path)
+    sc = importlib.util.module_from_spec(sp)
+    sp.loader.exec_module(sc)
+    sc.AUDIO.update({"w0": (0.0, 0.8), "w1": (0.6, 0.0)})
+    parts, mix = sc.ambience(["w0", "w1"], [2.0, 2.0], 4.0, -6)
+    assert "adelay=1400|1400" in parts[1] and "afade=t=in:d=0.600" in parts[1]   # J-cut: heard 0.6 s early
+    assert "afade=t=out:st=2.000:d=0.800" in parts[0] and "amix=inputs=2" in mix   # L-cut: runs 0.8 s over
+    assert sc.ambience(["x", "y"], [1, 1], 2, -6) is None                          # no overlap: plain concat
