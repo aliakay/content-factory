@@ -386,7 +386,7 @@ def usable(sid):
 
 
 def valid(look):
-    return look in ("tech", "paper", "auto", "html") or (isinstance(look, str) and look.startswith("custom:") and usable(look[7:]))
+    return look in ("tech", "paper", "auto", "html", "illustrated") or (isinstance(look, str) and look.startswith("custom:") and usable(look[7:]))
 
 
 def theme_for(look):

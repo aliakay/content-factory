@@ -364,8 +364,11 @@ def make_voice(con, prod_id, approved):
     text = voice_text(d)
     if not text:
         raise ValueError("no spoken lines")
-    path, cost = eleven.tts(con, text, d.get("voice_id") or formats.VOICE_ID, formats.VOICE_MODEL, approved=approved,
-                            account=eleven_account(d))
+    if multi_voice(d):
+        path, cost = cast_voice(con, d, approved)
+    else:
+        path, cost = eleven.tts(con, text, d.get("voice_id") or formats.VOICE_ID, formats.VOICE_MODEL, approved=approved,
+                                account=eleven_account(d))
     times, dur = align(path, d["voice"]["lines"], d.get("lang", "en"))
     d["voice_take"] = {"file": os.path.relpath(path, ROOT), "text": text, "duration": dur, "lines": times,
                        "credits": round(cost), "at": now()}
@@ -374,6 +377,48 @@ def make_voice(con, prod_id, approved):
     p["stage"] = "preview"
     save(con, p, "ses", f"{round(cost)} kredi · {dur:.1f} s")
     return path, cost
+
+
+def multi_voice(d):
+    """Series episodes: a narrator and characters, each line spoken by its speaker's voice."""
+    v = d.get("voice") or {}
+    sp, cast = v.get("speakers"), d.get("cast_voices") or {}
+    return bool(sp) and len(sp) == len(v.get("lines") or []) and len({cast.get(x) for x in sp if cast.get(x)}) > 1
+
+
+def cast_voice(con, d, approved):
+    """One take per run of lines with the same voice, joined with short pauses into one file (then aligned as usual).
+    The approved credits are shared out by characters, so every call stays inside its own part of the approval."""
+    import hashlib
+    from . import eleven
+    lines, sp, cast = d["voice"]["lines"], d["voice"]["speakers"], d.get("cast_voices") or {}
+    default = d.get("voice_id") or formats.VOICE_ID
+    runs = []
+    for ln, who in zip(lines, sp):
+        vid = cast.get(who) or default
+        if runs and runs[-1][0] == vid:
+            runs[-1][1].append(ln)
+        else:
+            runs.append((vid, [ln]))
+    total_chars = max(1, len(voice_text(d)))
+    parts, cost = [], 0.0
+    for vid, group in runs:
+        text = " ".join(group)
+        share = max(1, round(approved * len(text) / total_chars) + 1)
+        path, c = eleven.tts(con, text, vid, formats.VOICE_MODEL, approved=share, account=eleven_account(d))
+        parts.append(path)
+        cost += c
+    key = hashlib.sha1("|".join(parts).encode()).hexdigest()[:16]
+    out = os.path.join(ROOT, "assets", "eleven", f"cast_{key}.mp3")
+    if not os.path.exists(out):
+        inputs, chain = [], []
+        for i, f in enumerate(parts):
+            inputs += ["-i", f]
+            chain.append(f"[{i}:a]aformat=sample_rates=48000:channel_layouts=mono,apad=pad_dur=0.25[p{i}]")
+        chain.append("".join(f"[p{i}]" for i in range(len(parts))) + f"concat=n={len(parts)}:v=0:a=1[a]")
+        subprocess.run([FFMPEG, "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chain), "-map", "[a]",
+                        "-c:a", "libmp3lame", "-q:a", "2", out], check=True)
+    return out, cost
 
 
 # ---------- timeline (data -> cinecut spec) ----------
@@ -614,9 +659,12 @@ def direct(con, prod_id, note=""):
 
 
 def preview(con, prod_id):
+    from . import illustrate
     p = get(con, prod_id)
     assign_name(con, p)
-    if p["data"].get("look_pack") == "auto":  # Opus designs the scenes itself (factory/motiondesign.py)
+    if illustrate.needs_plates(p["data"]) and illustrate.missing(p["data"]):
+        raise ValueError("Önce çizimleri üret (Çizimler kartı)")
+    if p["data"].get("look_pack") in ("auto", "illustrated"):  # Opus designs the scenes itself (factory/motiondesign.py)
         from . import motiondesign
         motiondesign.build(con, p)
         save(con, p, "hareket tasarımı", (p["data"]["motion"].get("concept") or "")[:120])

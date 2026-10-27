@@ -240,6 +240,17 @@ def run_production(con, kind, arg, job_id):
             if p["stage"] == "preview" and fmt_ok:
                 productions.preview(con, pid)
             return "art direction hazır"
+        if kind == "p_plates":   # illustrated look / series episode: the scene illustrations, then the motion design
+            from . import illustrate, series
+            chars, flow = series.cast_for(con, p)
+            cost = illustrate.make_plates(con, p, int(o["approved"]), chars, flow)
+            productions.save(con, p, "çizimler", f"{round(cost)} kredi")
+            if p["data"].get("look_pack") == "illustrated":
+                productions.design(con, pid)
+            p = productions.get(con, pid)
+            if p["stage"] == "preview" and p["data"].get("voice_take"):
+                productions.preview(con, pid)
+            return f"çizimler {round(cost)} kredi + hareket tasarımı"
         if kind == "p_music":
             _, cost = productions.make_music(con, pid, int(o["approved"]), o.get("prompt"))
             productions.preview(con, pid)
@@ -324,6 +335,33 @@ def run(job_id):
         elif kind == "discover":
             rid = discover.scan(con)
             result = f"discovery run {rid}: {discover.cards(con, rid)['run']['cards']} cards"
+        elif kind in ("series_bible", "series_cast", "series_episode"):
+            from . import series
+            o = jload(arg, {})
+            s = series.get(con, int(o["id"]))
+            s["job_id"] = job_id
+            series.save(con, s)
+            try:
+                if kind == "series_bible":
+                    s = series.write_bible(con, s["series_id"], o.get("feedback"))
+                    result = f"seri kitabı: {s['title']}"
+                elif kind == "series_cast":
+                    from . import accounts
+                    cost = series.make_sheets(con, s["series_id"], int(o["approved"]), o.get("account") or accounts.default_eleven())
+                    result = f"karakter sayfaları {round(cost)} kredi"
+                else:
+                    pid = series.write_episode(con, s["series_id"], int(o["n"]), o.get("note", ""))
+                    result = f"bölüm {o['n']} → üretim {pid}"
+            except Exception:
+                s = series.get(con, int(o["id"]))
+                if s["status"] == "writing":
+                    s["status"] = "failed"
+                    series.save(con, s)
+                raise
+            finally:
+                s = series.get(con, int(o["id"]))
+                s["job_id"] = None
+                series.save(con, s)
         elif kind == "style_extract":
             o = jload(arg, {})
             result = "stil: " + styles.extract(o["files"], o.get("note", ""))

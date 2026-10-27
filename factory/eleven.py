@@ -136,6 +136,48 @@ The credit cost is in the run status as price.credits (or credit_cost). Reply ON
     return path, cost
 
 
+IMAGE_MODEL = "gpt-image-2"
+
+
+def image(con, prompt_text, approved, account=None, aspect="9:16", flow_id=None, refs=(), idea_id=None, model=IMAGE_MODEL):
+    """One illustration (png) through the connector, on flow `flow_id` (a series keeps all its images on one flow).
+    `refs` = node ids of earlier images on that flow (character sheets, the previous plate): the new image is made
+    from them with creative_edit_image so characters and style stay the same. Returns (path, cost, flow_id, node_id).
+    Cached by (prompt, refs, aspect)."""
+    key = "img_" + hashlib.sha1(f"{model}|{aspect}|{','.join(refs)}|{prompt_text}".encode()).hexdigest()[:16]
+    cached = os.path.join(OUT, f"{key}.png")
+    meta_path = cached + ".json"
+    if os.path.exists(cached) and os.path.exists(meta_path):
+        m = json.load(open(meta_path))
+        return cached, 0.0, m.get("flow_id"), m.get("node_id")
+    account, acc = _account(account)
+    if acc["type"] == "apikey":
+        raise ElevenError("görsel üretimi yalnızca connector hesabıyla yapılabiliyor")
+    credits.guard(con, "image", model, 1, approved, account)
+    ratio = "2:3" if aspect == "9:16" else "3:2"
+    if refs:
+        how = (f"Use creative_edit_image on flow_id \"{flow_id}\" with connect_from {json.dumps(list(refs))} (these nodes "
+               f"are the reference images: keep their characters, faces, outfits, colours and drawing style exactly) and "
+               f"this prompt.")
+    else:
+        where = f' on flow_id "{flow_id}"' if flow_id else " (it creates a flow)"
+        how = f'Use creative_generate_image{where} with model "{model}" and this prompt.'
+    prompt = f"""Use the ElevenLabs tools. {how} Aspect ratio {ratio} (portrait for a 9:16 video, landscape for 16:9);
+exactly ONE image (generations_count 1). Prompt: <<<{prompt_text}>>>
+Poll creative_get_flow_run_status until finished, then read the signed image URL. Generate only once.
+Reply ONLY JSON: {{"url": "<signed image url>", "credit_cost": <number>, "flow_id": "<flow id>", "node_id": "<the
+generated image node id>"}}"""
+    tools = (T + "creative_generate_image", T + "creative_edit_image", T + "creative_get_model_schema") + POLL_TOOLS
+    with accounts.as_user(acc["owner"]):
+        data, _ = _run(prompt, tools, timeout=1200, model=model)
+    path = _download(data["url"], "png", key)
+    cost = float(data.get("credit_cost") or 0)
+    json.dump({"flow_id": data.get("flow_id") or flow_id, "node_id": data.get("node_id"), "prompt": prompt_text,
+               "refs": list(refs)}, open(meta_path, "w"))
+    credits.record(con, "image", model, 1, "img", cost, idea_id, prompt_text[:60], account)
+    return path, cost, data.get("flow_id") or flow_id, data.get("node_id")
+
+
 def media_duration(path):
     out = subprocess.run([FFPROBE, "-v", "error", "-show_entries",
                           "format=duration", "-of", "csv=p=0", path], capture_output=True, text=True).stdout

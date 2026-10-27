@@ -22,6 +22,9 @@ MODES = {
                 "desc_tr": "Kendi çekimlerinden video: Claude fikri ve klipleri seçer, art director kurguyu ve efektleri tasarlar."},
     "topic": {"name_tr": "Çekimsiz", "icon": "✍️",
               "desc_tr": "Sadece bir konu: Claude araştırır, kaynaklı metni yazar; senin sesin okur, sahneler kodla çizilir."},
+    "series": {"name_tr": "Seri", "icon": "📚",
+               "desc_tr": "Bir hikâye dünyası: Claude önce mini kitabı ve karakterleri yazar, sonra bölüm bölüm aynı "
+                          "karakterlerle çizimli videolar üretilir (çizgi film ya da dizi havasında)."},
 }
 
 FORMATS = [
@@ -95,6 +98,12 @@ FORMATS = [
               "you'); then one scene per fact, each opening with a label element '1/3', '2/3', '3/3' and one big visual "
               "(stat_card, counter, hero or title) for the fact's key number or word, with a source element; strongest "
               "fact last; CTA scene last. 70-85 words, one sentence per idea."},
+    {"id": "series_episode", "name": "Story series episode", "name_tr": "Seri bölümü",
+     "status": "ready", "style": "story", "source": "series", "voice": True, "duration": [30, 90],
+     "series": True, "platforms": ["tiktok", "youtube", "instagram"],
+     "desc_tr": "Bir serinin bölümü: anlatıcı + karakter sesleri, her sahne serinin kilitli çizim stilinde, aynı "
+                "karakterlerle; Opus çizimleri kamera hareketleri ve işaretlerle canlandırır.",
+     "guide": "One episode of an illustrated story series (see the series bible)."},
     {"id": "avatar_news", "name": "Avatar news / explainer", "name_tr": "Avatar ile haber",
      "status": "planned", "style": "story", "source": "avatar", "voice": True, "duration": [45, 60],
      "series": False, "platforms": ["tiktok", "youtube"],
@@ -104,7 +113,7 @@ FORMATS = [
 
 BY_ID = {f["id"]: f for f in FORMATS}
 for _f in FORMATS:
-    _f["mode"] = "footage" if _f["source"] == "footage" else "topic"   # avatar videos are topic-first too
+    _f["mode"] = _f["source"] if _f["source"] in ("footage", "series") else "topic"   # avatar videos are topic-first too
 
 
 def offered(mode=None):
