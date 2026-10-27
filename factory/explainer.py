@@ -105,6 +105,16 @@ SCHEMA = """{"ideas": [{
 }]}"""
 
 
+ASPECTS = ("9:16", "16:9")
+
+
+def canvas_rule(aspect):
+    if aspect == "16:9":
+        return ("CANVAS: horizontal 16:9 (1920x1080) for regular YouTube. The graphics sit in a centred stage, so keep "
+                "on-screen texts short as usual; backgrounds fill the whole wide frame (prefer wide, landscape pictures).")
+    return "CANVAS: vertical 9:16 (1080x1920) for TikTok / Shorts / Reels."
+
+
 def formats_default_voice():
     from . import formats
     return formats.VOICE_ID
@@ -136,9 +146,14 @@ def _s(x, n):
 
 
 # ---------- generation ----------
-def generate(con, fmt, n=1, brief="", voice_id=None, look="tech"):
+def format_note(fmt):
+    """The preset's own structure (e.g. the 3-facts listicle) on top of the shared RULES."""
+    return f"FORMAT: {fmt['name']}. {fmt['guide']}" if fmt.get("guide") and fmt["id"] != "explainer_short" else ""
+
+
+def generate(con, fmt, n=1, brief="", voice_id=None, look="tech", aspect="9:16", channel=None):
     """Research the topic in `brief` and create `n` explainer productions (stage idea)."""
-    from . import productions
+    from . import channels, productions
     topic = (brief or "").strip()
     if not topic:
         raise ValueError("Bir konu yaz: video neyi anlatsın?")
@@ -149,8 +164,11 @@ def generate(con, fmt, n=1, brief="", voice_id=None, look="tech"):
 English audience).
 
 {RULES}
+{canvas_rule(aspect)}
+{format_note(fmt)}
 
 {LANG_RULE[lang]}
+{channels.prompt_note(channel)}
 
 Already made (do not repeat): {json.dumps(made, ensure_ascii=False)}
 Today's date: {__import__('time').strftime('%Y-%m-%d')}. Duration {fmt['duration'][0]}-{fmt['duration'][1]} s.
@@ -168,18 +186,19 @@ Reply with ONLY JSON in this schema:
     for d in out:
         d = resolve_backgrounds(sanitize(d, topic, clips))
         d["lang"] = lang
+        d["aspect"] = aspect if aspect in ASPECTS else "9:16"
         d["look_pack"] = look if styles.valid(look) else "tech"
         if voice_id:
             d["voice_id"] = voice_id
         if d["voice"]["lines"] and d["scenes"]:
-            ids.append(productions.create(con, fmt["id"], d, topic))
+            ids.append(productions.create(con, fmt["id"], d, topic, (channel or {}).get("id")))
     if not ids:
         raise ValueError("Claude geçerli bir fikir döndürmedi")
     return ids, meta
 
 
 def revise(con, p, feedback):
-    from . import formats, productions
+    from . import channels, formats, productions
     d = p["data"]
     fmt = formats.get(p["format"])
     lang = d.get("lang") or voice_lang(d.get("voice_id") or formats_default_voice())
@@ -189,8 +208,11 @@ full revised idea in the same schema. Change only what the feedback asks for (pl
 (WebSearch / WebFetch) only if the feedback adds or changes facts; every on-screen claim still needs a source.
 
 {RULES}
+{canvas_rule(d.get("aspect", "9:16"))}
+{format_note(fmt)}
 
 {LANG_RULE[lang]}
+{channels.prompt_note(channels.of(con, p))}
 
 Duration {fmt['duration'][0]}-{fmt['duration'][1]} s.
 Creator feedback: <<<{feedback}>>>
@@ -203,6 +225,7 @@ Reply with ONLY JSON: {{"ideas": [<the one revised idea>]}} in this schema:
     new = (data.get("ideas") or [data])[0] if isinstance(data, dict) else data[0]
     new = resolve_backgrounds(sanitize(new, d.get("topic", ""), clip_index(con)))
     new["lang"] = lang
+    new["aspect"] = d.get("aspect", "9:16")
     new["look_pack"] = "auto" if d.get("motion") or d.get("look_pack") == "auto" else d.get("look_pack", "tech")
     if not new["voice"]["lines"] or not new["scenes"]:
         raise ValueError("revision came back without a script or scenes")

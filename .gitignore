@@ -17,6 +17,7 @@ data/art/history.jsonl
 data/eleven_profile.json
 data/stock_cache.json
 data/claude_calibration.json
+data/channels/
 specs/
 reports/
 frames/

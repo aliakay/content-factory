@@ -82,6 +82,8 @@ spoken formats, "text" only in calm formats (the first shot's text is the hook).
 def ensure(con):
     con.execute(SCHEMA)
     tracking.ensure(con)
+    from . import channels
+    channels.ensure(con)
 
 
 def get(con, prod_id):
@@ -108,17 +110,19 @@ def save(con, p, event=None, detail=""):
     con.commit()
 
 
-def create(con, fmt_id, data, brief=""):
-    from . import accounts
+def create(con, fmt_id, data, brief="", channel_id=None):
+    from . import accounts, channels
     data.setdefault("eleven_account", accounts.default_eleven())   # the creator's own ElevenLabs account by default
     ensure(con)
+    channel_id = channels.resolve(con, channel_id, "topic" if explainer.is_explainer(data) else "footage")
     if not isinstance(data.get("title"), str):
         data["title"] = str((data.get("title") or {}).get("text") or "untitled") if isinstance(data.get("title"), dict) \
             else "untitled"
     hist = [{"at": now(), "event": "fikir", "detail": "Claude önerdi"}]
-    cur = con.execute("INSERT INTO productions (created_at, updated_at, format, title, stage, brief, data, history) "
-                      "VALUES (?,?,?,?,?,?,?,?)", (now(), now(), fmt_id, data.get("title"), "idea", brief,
-                                                    json.dumps(data, ensure_ascii=False), json.dumps(hist)))
+    cur = con.execute("INSERT INTO productions (created_at, updated_at, format, title, stage, brief, data, history, "
+                      "channel_id) VALUES (?,?,?,?,?,?,?,?,?)", (now(), now(), fmt_id, data.get("title"), "idea", brief,
+                                                                 json.dumps(data, ensure_ascii=False), json.dumps(hist),
+                                                                 channel_id))
     con.commit()
     return cur.lastrowid
 
@@ -177,13 +181,16 @@ def series_part(con, fmt_id):
 
 
 def generate(con, fmt_id, n=3, brief="", place_ids=None, ref_ids=None, voice_id=None, aspect="9:16",
-             narrate="auto", look="tech"):
+             narrate="auto", look="tech", channel_id=None):
+    from . import channels
     ensure(con)
     fmt = formats.get(fmt_id)
     if fmt["status"] != "ready":
         raise ValueError(f"format {fmt_id} is not built yet")
+    channel_id = channels.resolve(con, channel_id, fmt["mode"])
+    chan = channels.get(con, channel_id)
     if fmt.get("source") == "topic":
-        return explainer.generate(con, fmt, n, brief, voice_id, look)
+        return explainer.generate(con, fmt, n, brief, voice_id, look, aspect=aspect, channel=chan)
     ctx = context(con, place_ids)
     if not ctx["inventory"]:
         raise ValueError("no usable clips for this selection — add an iCloud album first")
@@ -194,6 +201,7 @@ def generate(con, fmt_id, n=3, brief="", place_ids=None, ref_ids=None, voice_id=
     prompt = f"""You are the social-media expert and editor of a travel channel (TikTok, YouTube Shorts, Reels;
 global English audience). The creator films everything themselves; use ONLY clips from the inventory, with exact
 clip_id values.
+{channels.prompt_note(chan)}
 
 FORMAT: {fmt['name']} — {fmt['guide']}{part}
 Duration {fmt['duration'][0]}-{fmt['duration'][1]} s. Voice: {NARRATE_NOTE[narrate if not fmt['voice'] else "on"]}
@@ -223,7 +231,7 @@ could work are hypotheses. Reply with ONLY JSON in this schema:
             d["voice_id"] = voice_id
         d["aspect"] = aspect if aspect in formats.ASPECTS else "9:16"
         if d["shots"]:
-            ids.append(create(con, fmt_id, d, brief))
+            ids.append(create(con, fmt_id, d, brief, channel_id))
     return ids, meta
 
 
@@ -676,8 +684,9 @@ def revise(con, prod_id, feedback):
     inv = inventory(con, places or None)
     keep = {k: v for k, v in d.items() if k not in ("voice_take", "music_take", "edit_plan")}
     recipes = refs.recipes_for(con, d.get("refs") or [])
+    from . import channels
     prompt = f"""You edit one short video for the creator's travel channel. Apply the creator's feedback to the
-current version and return the full revised idea in the same schema. Change only what the feedback asks for (plus
+current version and return the full revised idea in the same schema. {channels.prompt_note(channels.of(con, p))} Change only what the feedback asks for (plus
 what it forces), use ONLY clips from the inventory.
 FORMAT: {fmt['name']} — {fmt['guide']}  Duration {fmt['duration'][0]}-{fmt['duration'][1]} s.
 {canvas_note(d.get("aspect", "9:16"))}
