@@ -193,3 +193,23 @@ def test_explainer_16x9_spec_and_still(tmp_path, monkeypatch):
     assert Image.open(out[0]).size == (1920, 1080)
     r.set_canvas("9:16")
     assert (r.W, r.H, r.CX) == (1080, 1920, 540)
+
+
+def test_style_deep_tokens_and_approval_gate(tmp_path, monkeypatch):
+    from factory import styles
+    monkeypatch.setattr(styles, "DIR", str(tmp_path))
+    roles = {"paper": False, "bg_top": "#0b0b12", "bg_bot": "#151530", "text": "#f5f5f5", "muted": "#9a9ab0",
+             "accent": "#ff4d6d", "hot": "#ffb703", "hero": "#ffffff", "highlight": "#9be15d",
+             "type": {"class": "condensed_display", "case": "as_is", "tracking": "wide"},
+             "layout": {"cards": "square", "shadow": "soft", "grid": "bogus"},
+             "motion": {"entrance": "rise", "pace": "fast", "transition": "cut"}}
+    sid = styles.save_roles("night", roles)
+    t = styles.get(sid)["theme"]
+    assert t["FONT_DISPLAY"] == "Anton-Regular.ttf" and t["UPPER"] is False and t["RADIUS"] == 4
+    assert list(t["HIGHLIGHT"]) == [155, 225, 93] and t["ENTRANCE"] == "rise" and t["POP_DUR"] == 0.18
+    assert "GRID" not in t                                  # unknown values fall back to the look's default
+    assert not styles.valid("custom:" + sid)                # drafts need the creator's approval
+    styles.approve(sid)
+    assert styles.valid("custom:" + sid)
+    assert styles.pace_from({"cuts_per_s": 1.2, "motion_energy": 0.01}) == "fast"
+    assert styles.pace_from({"cuts_per_s": 0.1, "motion_energy": 0.01}) == "calm"
