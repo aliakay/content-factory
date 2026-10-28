@@ -22,6 +22,9 @@ MODES = {
                 "desc_tr": "Kendi çekimlerinden video: Claude fikri ve klipleri seçer, art director kurguyu ve efektleri tasarlar."},
     "topic": {"name_tr": "Çekimsiz", "icon": "✍️",
               "desc_tr": "Sadece bir konu: Claude araştırır, kaynaklı metni yazar; senin sesin okur, sahneler kodla çizilir."},
+    "talk": {"name_tr": "Konuşma videon", "icon": "🎙",
+             "desc_tr": "Kameraya konuştuğun ham video: Claude transkripti kurgular (boşluk, ıı, tekrar kesilir), yüzünü "
+                        "ortalar, vurgu zoom'ları, kodla B-roll, altyazı ve ses temizliği ekler."},
     "series": {"name_tr": "Seri", "icon": "📚",
                "desc_tr": "Bir hikâye dünyası: Claude önce mini kitabı ve karakterleri yazar, sonra bölüm bölüm aynı "
                           "karakterlerle çizimli videolar üretilir (çizgi film ya da dizi havasında)."},
@@ -104,6 +107,12 @@ FORMATS = [
      "desc_tr": "Bir serinin bölümü: anlatıcı + karakter sesleri, her sahne serinin kilitli çizim stilinde, aynı "
                 "karakterlerle; Opus çizimleri kamera hareketleri ve işaretlerle canlandırır.",
      "guide": "One episode of an illustrated story series (see the series bible)."},
+    {"id": "talking_head", "name": "Talking-head edit", "name_tr": "Konuşma videosu kurgusu",
+     "status": "ready", "style": "story", "source": "talk", "voice": False, "duration": [15, 60],
+     "series": False, "platforms": ["tiktok", "youtube", "instagram"],
+     "desc_tr": "Kendi konuşma videonu yükle: transkript, kesmeler, yüz takipli kadraj, punch-in, kodla B-roll, vurgulu "
+                "altyazı, ses temizliği, müzik ve -14 LUFS master. Teknikleri planner seçer.",
+     "guide": "The creator's own raw talking video, edited (factory/talk.py)."},
     {"id": "avatar_news", "name": "Avatar news / explainer", "name_tr": "Avatar ile haber",
      "status": "planned", "style": "story", "source": "avatar", "voice": True, "duration": [45, 60],
      "series": False, "platforms": ["tiktok", "youtube"],
@@ -113,7 +122,7 @@ FORMATS = [
 
 BY_ID = {f["id"]: f for f in FORMATS}
 for _f in FORMATS:
-    _f["mode"] = _f["source"] if _f["source"] in ("footage", "series") else "topic"   # avatar videos are topic-first too
+    _f["mode"] = _f["source"] if _f["source"] in ("footage", "series", "talk") else "topic"   # avatar videos are topic-first too
 
 
 def offered(mode=None):

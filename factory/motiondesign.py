@@ -8,7 +8,7 @@ copied); photos come only from the open-licence Wikimedia Commons pipeline (`sto
 """
 import json, os, re, shutil, sys
 
-from . import illustrate, llm, stock
+from . import capabilities, illustrate, layoutlint, llm, sheets, stock
 
 from .config import ROOT
 DATA = os.path.join(ROOT, "data", "auto")
@@ -91,7 +91,23 @@ FX_DOC = """FX LIBRARY (available in every scene's JS as `FX`; deterministic, us
   camera: FX.camera(tl, wrapperEl, T, {move: push_in|pull_out|pan_left|pan_right|tilt_up|tilt_down|hold|zoom_to, focus:[x,y], at, zoom})
   surfaces/backgrounds: FX.glass(el) · FX.aurora(root, T, {colors, seed}) · FX.particles(root, T, {n, color, seed})
   3D (Three.js, rendered per frame): k = FX.three(root, T) -> {THREE, scene, camera, frame(fn(localT))} ·
-          FX.globe(root, T, {color, grid, turn}) · per-frame canvas drawing: FX.onFrame(fn(t)) · seeded random: FX.rand(seed)"""
+          FX.globe(root, T, {color, grid, turn}) · per-frame canvas drawing: FX.onFrame(fn(t)) · seeded random: FX.rand(seed)
+  characters (code-drawn, round-headed stickmen; YOU draw every person/prop, no images needed):
+          man = FX.stickman(root, {x, y (feet), h, color, head, ink, face, pose, prop: "<svg markup in the right hand>"}) ·
+          FX.pose(tl, man, "stand|wave|point|scared|shrug|knock|hold|crouch|cheer|sad|run", at, {dur}) · man.walk(at, dur, dx) ·
+          FX.wave(tl, man, at, dur) · man.mouth("smile|grin|flat|o|frown") · FX.shake(tl, el, at, {amp, dur})
+  story kit: FX.hud(root, {label: "NIGHT 1", place, times: [[t, "2:17 AM"], ...]}) (top-left clock that jumps forward) ·
+          FX.rule(tl, root, at, n, "KILL THE\nBIG LIGHTS", {y}) (red RULE #N tag + condensed headline) ·
+          FX.choice(tl, root, at, {q, a, b, sub}) (end question + two answer buttons + "comment below") ·
+          FX.flipCard(tl, root, at, "NIGHT 1", "NIGHT 2", {y}) · d = FX.lightsOut(tl, root, at, {keep}) (flicker, dark, cuts the
+          music) · FX.lightsOn(tl, d, at, {music: true}) · FX.slash(tl, root, at, [x1, y1, x2, y2]) · FX.shatter(tl, el, at)
+  devices / UI (ads, alerts): ph = FX.phone(root, {x, y, w}) -> {el, screen} (build the app inside ph.screen) ·
+          FX.alert(tl, ph, at, {app, title, body}) · FX.tap(tl, root, at, [x, y]) (finger tap ripple + click)
+  SOUND (every visible action gets ONE sound, declared next to its tween): FX.sfx(kind, at, {db}) with kind =
+          {sfx_kinds}. FX.music("cut", at) / FX.music("back", at) cut the music out and in on story events;
+          FX.music("drop", at) = where the track's drop must land (the key line / reveal). The kit helpers above already
+          add their own sound (rule: hit, lightsOut: clunk + music cut, choice: clicks, flipCard: flip, tap: click, alert:
+          notify, slash: swish, shatter: glass); pass {sfx: false} to silence one."""
 
 TASTE = """DESIGN TASTE IN NUMBERS (binding):
 - Type: max 2 families per video; scale steps ~1.25-1.333 (e.g. 28 / 36 / 48 / 64 / 88 / 120 px on 1080 wide); headlines
@@ -104,6 +120,29 @@ TASTE = """DESIGN TASTE IN NUMBERS (binding):
 - Recompose for THIS subject: never reuse a stock layout; every scene's composition comes from what it explains.
 - ANTI-SLIDESHOW: if a scene could be a PowerPoint slide (static centred text on a flat background) it is wrong: give it
   a diagram, a camera move over a picture, a build-up, a comparison that animates."""
+
+MOTION_DOCTRINE = """MOTION DOCTRINE (character-animation and motion-design craft, binding):
+- Emotion -> motion: joy = bouncy arcs, ease-out-back 0.2-0.4 s · calm = sine in-out 0.5-1 s · urgency = sharp straight
+  ease-out 0.1-0.2 s · sadness = slow, downward 0.6-1.2 s · surprise / impact = radial burst, expo.out 0.15-0.3 s ·
+  confidence = direct horizontal ease-out 0.2-0.4 s · elegance = long arcs (0.4,0,0.2,1) 0.4-0.7 s. Decide the emotion
+  of each scene BEFORE its properties.
+- Durations: micro 80-120 ms · tap / toggle 120-180 · card 200-350 · panel 300-400 · scene change 400-600 · dramatic
+  reveal 0.6-1.2 s; exits are 65-75 % of their entrance; distance scales the time (full screen ~1.8x of 100 px).
+- Disney principles in code: anticipation (a 10-20 % move the other way, 0.1-0.2 s) before big moves; squash / stretch
+  on impacts (keep the volume); follow-through: children 50-150 ms behind their parent, trailing parts stop 100-200 ms
+  later; arcs (10-20 px off the straight line); secondary action at 30-50 % of the primary, 50-100 ms later; staging:
+  dim what is not the hero; one primary action per beat. NEVER linear easing on spatial moves (only rotation, progress,
+  timers). Overshoot budget: feedback 2-5 %, success 5-10 %, celebration 15-25 %, error / premium 0 %.
+- The 1/3 rules: nothing travels more than a third of the frame without a direction or speed change; with 3+ moving
+  elements at most a third are active at once (element 1 settles as element 3 starts). Total stagger under 0.5 s.
+- Sequence: setup 20-30 % -> action 30-40 % -> resolution 30-40 %, then 0.1-0.2 s of stillness before new motion.
+- BANNED defaults (they read as generated): breathing / floating / pulsing loops standing in for motion on titles and
+  UI; titles that keep sliding or scaling after they land; a slow creeping scale late in a scene; bounce on UI; click
+  rings; every scene entering the same way; everything fading and sliding up; three cards in a row; a dark void with
+  small floating things and glow; a logo docked small in a corner. A character's idle breathing and overshoot are acting
+  and are fine.
+- Every seam has a transition with a cause (3-5 kinds per film, at most a third hard cuts); every on-screen line
+  holds ~0.3 s a word + 0.5 s; something meaningful changes at least every 3 s."""
 
 GRAMMARS = {
     "auto": "Pick the explainer grammar that fits the subject best and say which in META.concept.",
@@ -126,10 +165,30 @@ GRAMMARS = {
 }
 
 
-def rules(aspect):
-    c = CANVAS.get(aspect, CANVAS["9:16"])
-    return RULES.replace("{canvas}", c["canvas"]).replace("{size}", c["size"]).replace("{safe}", c["safe"]).replace(
+def fx_doc():
+    from . import sfx
+    return FX_DOC.replace("{sfx_kinds}", " | ".join(f"{k} ({v})" for k, v in sfx.KINDS.items()))
+
+
+SOUND_RULES = """SOUND DESIGN (you are also the sound designer; the mix is automatic from your cues):
+- One sound for every visible action (a light clunking off, knuckles on glass, a sign flipping, a tap, a card landing),
+  timed to the frame of the action. No random whooshes: a sound must match something you see. Silence is a tool: let a
+  quiet beat breathe before the scare / reveal; cut the music (FX.music("cut")) when the story says so (the power dies).
+- Effects never cover a word (the mix pulls them under speech); keep them sparse inside sentences, put the big ones
+  (impact, glass, clunk) in the gaps between lines. 6-20 cues for 30 s, up to ~40 for 90 s."""
+
+
+def rules(aspect, captions=None):
+    c = dict(CANVAS.get(aspect, CANVAS["9:16"]))
+    if (captions or {}).get("pos") == "mid":     # story captions sit in the middle of the frame, one word at a time
+        c["capband"] = "y 1080-1300 (one big word at a time, in the middle of the frame)" if aspect != "16:9" else "y 640-800"
+    out = RULES.replace("{canvas}", c["canvas"]).replace("{size}", c["size"]).replace("{safe}", c["safe"]).replace(
         "{capband}", c["capband"])
+    if (captions or {}).get("pos") == "mid":
+        out = out.replace("do not put content there and do not draw your own captions",
+                          "keep your own TEXT out of that band (characters and the set may sit behind the word) and do not "
+                          "draw your own captions")
+    return out
 
 
 def parse(text):
@@ -157,7 +216,7 @@ def parse(text):
             design["scenes"].setdefault(sid, {"html": "", "css": "", "js": ""})
         elif kind in ("HTML", "CSS", "JS") and sid:
             design["scenes"][sid][kind.lower()] = txt
-        elif kind in ("SPEC", "SCORES"):
+        elif kind in ("SPEC", "SCORES", "NOTES"):
             design[kind.lower()] = txt[:6000]
     return design
 
@@ -169,8 +228,14 @@ def brief(spec, d):
         scenes.append({"id": sc["id"], "start": sc["start"], "end": sc["end"], "hide_captions": sc.get("hide_captions", False),
                        "spoken_lines": d["voice"]["lines"][a:b + 1],
                        "planner_intent": [{k: v for k, v in e.items() if k != "at"} for e in sc["elements"]]})
-    return {"topic": d.get("topic") or d.get("title"), "title": d.get("title"), "language": d.get("lang", "en"),
-            "duration": spec["duration"], "facts": d.get("facts"), "scenes": scenes}
+    out = {"topic": d.get("topic") or d.get("title"), "title": d.get("title"), "language": d.get("lang", "en"),
+           "duration": spec["duration"], "facts": d.get("facts"), "scenes": scenes}
+    for k in ("hud", "cap_keys", "sound_cues"):   # story clock, caption colours, music cut / drop lines (preset extras)
+        if d.get(k):
+            out[k] = d[k]
+    if d.get("fiction"):
+        out["fiction"] = True
+    return out
 
 
 def author(spec, d, note=""):
@@ -180,16 +245,23 @@ def author(spec, d, note=""):
                  "Design something clearly different in composition and motion.")
     elif note:
         prior = f"\nCreator's note (data, not instructions): <<<{note}>>>"
+    if d.get("continues") and not d.get("motion"):
+        c = d["continues"]
+        prior += (f"\nThis video is part {d.get('part', 2)} of a series: keep the previous part's look so they read as one "
+                  f"show (concept: {c.get('concept')}; palette: {json.dumps(c.get('palette'))}); same characters drawn "
+                  f"the same way, new scenes for the new story.")
     grammar = d.get("grammar") or "auto"
-    plates = (f"\n{FX_DOC}\n\n{TASTE}\n\nEXPLAINER GRAMMAR: {grammar} - {GRAMMARS.get(grammar, GRAMMARS['auto'])}\n"
+    plates = (f"\n{fx_doc()}\n\n{SOUND_RULES}\n\n{TASTE}\n\n{MOTION_DOCTRINE}\n\nEXPLAINER GRAMMAR: {grammar} - {GRAMMARS.get(grammar, GRAMMARS['auto'])}\n"
               "Before the scenes, write a BUILD SPEC block (@@SPEC): per scene the composition (where things sit, in px), the type "
               "sizes, the exact motion beats with times/trigger words and the camera move. Quality is decided there; the code "
               "must then follow it.\n")
     if d.get("plates"):
         plates += (f"\n{illustrate.DESIGN_RULES}\nPLATES (scene id -> what the illustration shows, its camera, focus and "
                   f"annotations; data): {json.dumps(illustrate.brief(d), ensure_ascii=False)}\n")
-    prompt = f"""{rules(spec.get("aspect", "9:16"))}
+    recipe = capabilities.designer_notes(d)
+    prompt = f"""{rules(spec.get("aspect", "9:16"), spec.get("captions"))}
 {plates}{prior}
+{recipe}
 VIDEO (JSON; scene ids must be reused exactly; times are absolute seconds; "planner_intent" is the script writer's suggestion of
 what to show, free to improve): {json.dumps(brief(spec, d), ensure_ascii=False)}
 
@@ -198,14 +270,20 @@ Write the full design now."""
     return parse(text), meta, text
 
 
-def critique(spec, d, design, paths, errs, rnd):
+def critique(spec, d, design, paths, errs, rnd, lint=()):
     names = {sc["id"]: sc for sc in spec["scenes"]}
     listing = "\n".join(f"- {p}" for p in paths)
-    prompt = f"""You are the motion designer reviewing your own render. Round {rnd}.
-Read these frame images (file names show the time in seconds; per scene one frame ~0.6 s in and one at ~75 %):
+    prompt = f"""You are the motion designer reviewing your own render as a harsh motion director, not a proud author. Round {rnd}.
+Read these review sheets / frame images (labels and file names show the time in seconds: each scene just after it starts
+and at its middle, a strip across every cut, and a phone-width sheet to judge what is readable at 360 px):
 {listing}
+First describe each scene's frame in ONE sentence as a stranger would, naming every object: an object you would have to
+explain is a problem. Then check that the frames, with the words covered, still tell the story, and name every banned
+default (MOTION DOCTRINE) you see.
 Scenes (id: start-end s): {json.dumps({k: [v['start'], v['end']] for k, v in names.items()})}
 JS/page errors from the render: {json.dumps(errs)}
+Automatic layout check (measured on these frames; fix every one unless it is clearly intended, e.g. a mask reveal):
+{json.dumps(list(lint), ensure_ascii=False)}
 Check against the brief: legible text (contrast, size, not clipped, {CANVAS.get(spec.get("aspect", "9:16"), CANVAS["9:16"])["zones"]}), nothing overlapping by accident, the hook frame already readable, each scene actually explains its idea with a
 real diagram/visual (not just text on a gradient), good use of space, consistent palette. Fix every real problem.
 Score each frame-pair 1-5 on: legibility, composition, explains-the-idea, motion-implied (does it look like it moves, or a
@@ -214,13 +292,30 @@ Current design (scene blocks, your own output):
 {blocks_text(design)}
 
 Reply in the same block format: first "@@VERDICT ok" (nothing to fix) or "@@VERDICT fix", then "@@SCORES" with one line per
-scene "<id>: legibility n, composition n, explains n, motion n, consistency n", then ONLY the @@SCENE blocks
+scene "<id>: legibility n, composition n, explains n, motion n, consistency n", then "@@NOTES" with one line per problem
+"P0|P1|P2 · t=4.2s · where · problem -> exact change · what stays" (P0 breaks the read, P1 weakens the film, P2 polish;
+fix every P0 and the P1s worth it), then ONLY the @@SCENE blocks
 (complete @@HTML/@@CSS/@@JS) of scenes that must change, and optionally an @@GLOBAL_CSS block. Do not repeat unchanged scenes.
 @@END"""
     text, meta = llm.ask_text(prompt, tools=("Read",), timeout=1500)
     fixed = parse(text)
     ok = "@@VERDICT ok" in text and not fixed["scenes"]
     return ok, fixed, meta
+
+
+def review_sheets(paths, times, labels, outdir):
+    """The stills as 2 sheets (all review frames + the same at phone width) instead of dozens of separate images."""
+    at = sheets.by_time(paths)
+    ordered = [at.get(round(t, 2)) for t in times]
+    keep = [(p, lab) for p, lab in zip(ordered, labels) if p]
+    if not keep:
+        return paths
+    full = sheets.tile([p for p, _ in keep], os.path.join(outdir, "sheet_review.png"), cols=6, width=300,
+                       labels=[lab for _, lab in keep], title="review: scene start / middle + strips across every cut")
+    phone = sheets.tile([p for p, lab in keep if not lab.startswith("cut")], os.path.join(outdir, "sheet_phone.png"),
+                        cols=6, width=180, labels=[lab for _, lab in keep if not lab.startswith("cut")],
+                        title="phone width: can every line meant to be read be read?")
+    return [x for x in (full, phone) if x]
 
 
 def blocks_text(design):
@@ -277,17 +372,17 @@ def build(con, p, note=""):
     shotdir = os.path.join(ROOT, "work", "explainer", f"auto-{p['prod_id']}")
     spec["name"] = f"auto-{p['prod_id']}"
     log = []
+    hide = [sc["id"] for sc in spec["scenes"] if sc.get("hide_captions")]
     for rnd in range(1, 2):   # one self-check round (a 2nd round cost ~$0.7 and rarely found anything new)
         shutil.rmtree(shotdir, ignore_errors=True)
         bundle = htmlmotion.write_bundle(spec, design)
-        times = []
-        for sc in spec["scenes"]:
-            dur = sc["end"] - sc["start"]
-            times += [round(sc["start"] + min(0.6, dur * 0.3), 2), round(sc["start"] + dur * 0.75, 2)]
-        paths, errs = htmlmotion.shots(bundle, times, shotdir)
-        ok, fixed, m = critique(spec, d, design, paths, errs, rnd)
+        times, labels = sheets.review_times(spec["scenes"])
+        paths, errs, found = layoutlint.run(bundle, times, shotdir, spec.get("aspect", "9:16"), hide)
+        lint = layoutlint.as_text(found)
+        ok, fixed, m = critique(spec, d, design, review_sheets(paths, times, labels, shotdir), errs, rnd, lint)
         cost += m.get("cost_usd") or 0
-        log.append({"round": rnd, "errors": errs, "ok": ok, "fixed": sorted(fixed["scenes"]), "scores": fixed.get("scores")})
+        log.append({"round": rnd, "errors": errs, "lint": lint, "ok": ok, "fixed": sorted(fixed["scenes"]),
+                    "scores": fixed.get("scores"), "notes": (fixed.get("notes") or "")[:2000]})
         if ok and not errs:
             break
         for sid, sc in fixed["scenes"].items():
@@ -299,14 +394,17 @@ def build(con, p, note=""):
         resolve_plates(design, d)
     shutil.rmtree(shotdir, ignore_errors=True)            # final stills of the finished design
     bundle = htmlmotion.write_bundle(spec, design)
-    paths, errs = htmlmotion.shots(bundle, times, shotdir)
+    paths, errs, found = layoutlint.run(bundle, times, shotdir, spec.get("aspect", "9:16"), hide)
+    review = review_sheets(paths, times, labels, shotdir)
     rel = os.path.join("data", "auto", f"{p['prod_id']}", "design.json")
     os.makedirs(os.path.join(ROOT, os.path.dirname(rel)), exist_ok=True)
     json.dump(design, open(os.path.join(ROOT, rel), "w"), ensure_ascii=False, indent=1)
     d["motion"] = {"design": rel, "concept": design["meta"].get("concept"), "refs": design["meta"].get("refs") or [],
                    "spec": (design.get("spec") or "")[:3000], "grammar": d.get("grammar") or "auto",
-                   "palette": design["meta"].get("palette"), "log": log, "errors": errs, "cost_usd": round(cost, 2),
-                   "shots": [os.path.relpath(x, os.path.join(ROOT, "work", "explainer")) for x in paths]}
+                   "palette": design["meta"].get("palette"), "log": log, "errors": errs, "lint": layoutlint.as_text(found),
+                   "cost_usd": round(cost, 2),
+                   "shots": [os.path.relpath(x, os.path.join(ROOT, "work", "explainer")) for x in paths],
+                   "sheets": [os.path.relpath(x, os.path.join(ROOT, "work", "explainer")) for x in review if x.endswith(".png")]}
     d.pop("motion_note", None)
     d["look_pack"] = "html"
     return d["motion"]

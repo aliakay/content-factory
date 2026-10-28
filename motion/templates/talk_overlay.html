@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'">
+<!--
+  Overlay for bin/talkcut.py (talking-head edits), drawn on a transparent canvas at time t (deterministic, no CSS
+  animation). #spec=<json path> with {w, h, words: [[w, s, e]], keys: {word: key|danger}, accent, energy,
+  hook: {text, accent, end}, broll: [{start, end, kind, text, accent, label, items}], layer: "all"|"hook"|"top"}
+    captions  groups sized by energy (talk 3-5 words), broken at sentence ends and 150 ms pauses; the active word gets a
+              highlight box in the footage's accent; key words in the accent colour, danger words in red; placed at
+              ~650 px from the bottom on 9:16 (above the platform UI, under the face)
+    hook      the strongest line, big, heavy sans with one serif-italic accent word, the first 1-2 s ("hook" layer =
+              only the hook, rendered on its own so it can sit BEHIND the speaker)
+    broll     full-frame motion-graphics cutaways built in code: kinetic (heavy type + serif accent + corner brackets),
+              stat (a number counting up), list (2-3 checks), quote (serif italic), shape (a 3D cube with the word)
+-->
+<style>
+@font-face{font-family:Montserrat;src:url(/fonts/Montserrat[wght].ttf)}
+@font-face{font-family:InterTight;src:url(/fonts/InterTight[wght].ttf)}
+@font-face{font-family:InstrumentI;src:url(/fonts/InstrumentSerif-Italic.ttf)}
+@font-face{font-family:Anton;src:url(/fonts/Anton-Regular.ttf)}
+html,body{margin:0;background:transparent;overflow:hidden}
+#stage{position:absolute;left:0;top:0;overflow:hidden}
+.cap{position:absolute;left:60px;right:160px;text-align:center;font:900 70px/1.12 Montserrat;color:#fff;
+  -webkit-text-stroke:10px rgba(0,0,0,.85);paint-order:stroke fill;text-transform:none;letter-spacing:-.01em}
+.cap .w{display:inline-block;padding:2px 10px;margin:0 2px;border-radius:14px}
+.cap .on{background:var(--acc);color:#111;-webkit-text-stroke:0}
+.cap .k{color:var(--acc)} .cap .d{color:#ff453a}
+.hook{position:absolute;left:60px;right:160px;text-align:center;font:900 112px/0.98 Montserrat;color:#fff;
+  text-shadow:0 10px 40px rgba(0,0,0,.55);letter-spacing:-.025em}
+.hook i{font:400 128px/0.9 InstrumentI;color:var(--acc);letter-spacing:0}
+.broll{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;color:#f6f3ec;overflow:hidden}
+.br-big{font:900 128px/0.95 Montserrat;letter-spacing:-.03em;padding:0 140px 0 70px}
+.br-big i{font:400 150px/0.9 InstrumentI;color:var(--acc);letter-spacing:0}
+.br-label{font:800 30px InterTight;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.7);margin-top:26px}
+.br-num{font:400 300px/0.9 Anton;color:var(--acc)}
+.br-item{font:800 64px/1.2 Montserrat;margin:14px 0;display:flex;align-items:center;gap:22px}
+.br-item b{display:inline-grid;place-items:center;width:64px;height:64px;border-radius:16px;background:var(--acc);color:#111;font-size:44px}
+.br-quote{font:400 108px/1.05 InstrumentI;padding:0 150px 0 80px}
+.bracket{position:absolute;width:90px;height:90px;border:8px solid var(--acc)}
+.cube{width:380px;height:380px;position:relative;transform-style:preserve-3d}
+.cube div{position:absolute;inset:0;display:grid;place-items:center;font:900 62px Montserrat;color:#111;background:var(--acc);
+  border:6px solid rgba(0,0,0,.25);backface-visibility:hidden}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script>
+const P = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+let S = null, groups = [];
+const stage = document.getElementById("stage");
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const eo = (x) => 1 - Math.pow(1 - clamp(x), 3);
+const ei = (x) => Math.pow(clamp(x), 2);
+const norm = (w) => String(w).toLowerCase().replace(/[^\p{L}\p{N}%$.]/gu, "").replace(/\.+$/, "");
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+window.ready = (async () => {
+  S = await (await fetch("/" + P.spec)).json();
+  stage.style.width = S.w + "px"; stage.style.height = S.h + "px";
+  document.documentElement.style.setProperty("--acc", S.accent || "#ffd93d");
+  const [maxW, maxC] = { high: [3, 16], talk: [4, 26], calm: [6, 32] }[S.energy || "talk"] || [4, 26];
+  let cur = [], prevEnd = null;
+  const flush = () => { if (cur.length) groups.push(cur); cur = []; };
+  for (const w of S.words || []) {
+    if (cur.length && (cur.length >= maxW || cur.map((x) => x[0]).join(" ").length + w[0].length > maxC || (prevEnd !== null && w[1] - prevEnd >= 0.15))) flush();
+    cur.push(w); prevEnd = w[2];
+    if (/[.!?,:]$/.test(w[0])) flush();
+  }
+  flush();
+  if (document.fonts) { await document.fonts.load("900 70px Montserrat"); await document.fonts.load("400 100px InstrumentI"); await document.fonts.ready; }
+})();
+function capHtml(t) {
+  for (let i = 0; i < groups.length; i++) {
+    const g = groups[i], nxt = groups[i + 1];
+    const a = Math.max(0.12, g[0][1] - 0.04), b = nxt ? Math.min(nxt[0][1] - 0.04, g[g.length - 1][2] + 0.5) : g[g.length - 1][2] + 0.4;
+    if (t >= a && t < b) {
+      return g.map((w) => { const r = { key: "k", danger: "d" }[(S.keys || {})[norm(w[0])]] || "";
+        const on = t >= w[1] && t < Math.max(w[2], w[1] + 0.12);
+        return `<span class="w ${on ? "on" : r}">${esc(w[0])}</span>`; }).join(" ");
+    }
+  }
+  return "";
+}
+function hookHtml(t) {
+  const h = S.hook || {};
+  if (!h.text || t > (h.end || 2) + 0.25) return "";
+  const k = eo((t + 0.05) / 0.3), out = 1 - ei((t - (h.end || 2)) / 0.25);
+  const words = h.text.split(/\s+/).map((w) => (h.accent && norm(w) === norm(h.accent) ? `<i>${esc(w)}</i>` : esc(w))).join(" ");
+  return `<div class="hook" style="top:${S.h > S.w ? 330 : 120}px;opacity:${Math.min(k, out)};transform:scale(${1.1 - 0.1 * k})">${words}</div>`;
+}
+function brollHtml(t) {
+  const b = (S.broll || []).find((x) => t >= x.start && t < x.end);
+  if (!b) return "";
+  const p = (t - b.start) / Math.max(0.1, b.end - b.start), k = eo((t - b.start) / 0.25), out = 1 - ei((t - (b.end - 0.18)) / 0.18);
+  const op = Math.min(k, out), sc = 1.06 - 0.06 * k;
+  const acc = (txt) => txt.split(/\s+/).map((w) => (b.accent && norm(w) === norm(b.accent) ? `<i>${esc(w)}</i>` : esc(w))).join(" ");
+  let inner = "";
+  if (b.kind === "stat") {
+    const m = String(b.text).match(/^([^\d]*)([\d.,]+)(.*)$/);
+    let num = esc(b.text);
+    if (m) { const v = parseFloat(m[2].replace(/,/g, "")), dec = (m[2].split(".")[1] || "").length, cur = v * eo(p * 1.6);
+             num = esc(m[1]) + cur.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }) + esc(m[3]); }
+    inner = `<div class="br-num">${num}</div><div class="br-label">${esc(b.label || "")}</div>`;
+  } else if (b.kind === "list") {
+    inner = (b.items && b.items.length ? b.items : [b.text]).map((it, i) => { const q = eo((t - b.start - 0.12 - i * 0.14) / 0.25);
+      return `<div class="br-item" style="opacity:${q};transform:translateX(${(1 - q) * -40}px)"><b>✓</b>${esc(it)}</div>`; }).join("");
+  } else if (b.kind === "quote") {
+    inner = `<div class="br-quote">“${acc(b.text)}”</div>`;
+  } else if (b.kind === "shape") {
+    const r = -25 + 70 * eo(p);
+    inner = `<div style="perspective:1400px"><div class="cube" style="transform:rotateX(-18deg) rotateY(${r}deg)">
+      <div style="transform:translateZ(190px)">${esc(b.text)}</div><div style="transform:rotateY(90deg) translateZ(190px);filter:brightness(.8)">${esc(b.accent || "")}</div>
+      <div style="transform:rotateY(-90deg) translateZ(190px);filter:brightness(.7)"></div><div style="transform:rotateX(90deg) translateZ(190px);filter:brightness(1.1)"></div></div></div>`;
+  } else {
+    inner = `<div class="br-big">${acc(b.text)}</div>`;
+  }
+  const br = (pos) => `<div class="bracket" style="${pos}"></div>`;
+  const brs = br("left:70px;top:300px;border-right:0;border-bottom:0") + br("right:170px;top:300px;border-left:0;border-bottom:0") +
+              br("left:70px;bottom:520px;border-right:0;border-top:0") + br("right:170px;bottom:520px;border-left:0;border-top:0");
+  return `<div class="broll" style="opacity:${op};transform:scale(${sc});background:radial-gradient(120% 80% at 50% 40%, #1d1f26, #08090c);
+    background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px),radial-gradient(120% 80% at 50% 40%, #1d1f26, #08090c);background-size:60px 60px,60px 60px,auto">
+    ${b.kind === "kinetic" || b.kind === "stat" ? brs : ""}${inner}</div>`;
+}
+window.render = (t) => {
+  if (!S) return;
+  const layer = S.layer || "all";
+  let html = "";
+  if (layer !== "hook") html += brollHtml(t);
+  if (layer === "hook" || (layer === "all" && !(S.hook || {}).behind)) html += hookHtml(t);
+  if (layer !== "hook") { const c = capHtml(t); if (c) html += `<div class="cap" style="top:${S.h > S.w ? S.h - 690 : S.h - 230}px">${c}</div>`; }
+  stage.innerHTML = html;
+};
+</script>
+</body>
+</html>

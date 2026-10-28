@@ -199,7 +199,7 @@ def run_production(con, kind, arg, job_id):
         o = jload(arg, {})
         ids, meta = productions.generate(con, o["format"], o.get("n", 3), o.get("brief", ""), o.get("places") or None,
                                          o.get("refs") or None, o.get("voice_id"), o.get("aspect", "9:16"), o.get("narrate", "auto"),
-                                         o.get("look", "tech"), o.get("channel"))
+                                         o.get("look", "tech"), o.get("channel"), o.get("continues"), o.get("recipe"))
         for pid in ids:  # "auto" look: Opus designs the scenes now, so the creator sees them BEFORE approving voice credits
             if productions.get(con, pid)["data"].get("look_pack") != "auto":
                 continue
@@ -381,6 +381,12 @@ def run(job_id):
             subprocess.run([PY, "-m", "radar.cli", "run", *([arg] if arg else [])], check=True, cwd=ROOT)
         elif kind == "yt_stats":
             result = f"{tracking.refresh_youtube(con)} YouTube posts refreshed"
+        elif kind == "talk_new":   # a raw talking video -> analysed, cut by Claude, filed as a production
+            from . import talk
+            o = jload(arg, {})
+            pid = talk.create(con, os.path.join(ROOT, o["file"]), o.get("brief", ""), o.get("channel"), o.get("aspect", "9:16"),
+                              o.get("recipe"), o.get("lang"))
+            result = f"konuşma kurgusu {pid}"
         elif kind.startswith("p_"):
             result = run_production(con, kind, arg, job_id)
         elif kind == "ideas":

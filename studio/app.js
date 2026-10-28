@@ -71,7 +71,7 @@ const STAGES = [["idea", "Fikir"], ["voice", "Ses"], ["preview", "Önizleme"], [
 const SL = Object.fromEntries(STAGES);
 const PL = { youtube: "YouTube", tiktok: "TikTok", instagram: "Instagram" };
 const plat = (p) => PL[p] || p || "—";
-const JOBTR = { p_ideas: "fikir üretimi", p_voice: "ses + önizleme", p_preview: "önizleme", p_render: "final render + QA", p_revise: "revizyon", p_design: "hareket tasarımı", p_direct: "art direction", p_verify: "doğrulama", p_plan: "düzenleme planı", p_plan_apply: "plan uygulama", p_music: "müzik + önizleme", p_plates: "çizimler + tasarım", plan: "planlayıcı", series_bible: "seri kitabı", series_cast: "karakter sayfaları", series_episode: "bölüm yazımı", ingest: "albüm indirme", analyze: "analiz", describe: "klip açıklama", radar: "radar", trends: "trendler", yt_stats: "YouTube istatistik", ref_lib: "referans analizi", discover: "günlük keşif", style_extract: "stil çıkarma", avatar_check: "avatar kontrolü", eleven_voices: "sesleri okuma" };
+const JOBTR = { p_ideas: "fikir üretimi", p_voice: "ses + önizleme", p_preview: "önizleme", p_render: "final render + QA", p_revise: "revizyon", p_design: "hareket tasarımı", p_direct: "art direction", p_verify: "doğrulama", p_plan: "düzenleme planı", p_plan_apply: "plan uygulama", p_music: "müzik + önizleme", p_plates: "çizimler + tasarım", plan: "planlayıcı", series_bible: "seri kitabı", series_cast: "karakter sayfaları", series_episode: "bölüm yazımı", ingest: "albüm indirme", analyze: "analiz", describe: "klip açıklama", radar: "radar", trends: "trendler", yt_stats: "YouTube istatistik", ref_lib: "referans analizi", discover: "günlük keşif", style_extract: "stil çıkarma", avatar_check: "avatar kontrolü", eleven_voices: "sesleri okuma", talk_new: "konuşma videosu kurgusu" };
 const KIND = { footage: ["🎞", "Çekimli"], explainer: ["✍️", "Konu"], series: ["📚", "Seri"] };
 const LOOKS = [["auto", "✨ Otomatik", "Opus sahneleri kendisi tasarlar"], ["illustrated", "🖌 Çizimli", "AI illüstrasyon + kamera + işaretler"], ["tech", "🌌 Tech", "koyu lacivert, neon vurgu"], ["paper", "📰 Paper", "Vox tarzı kâğıt"]];
 const THEME_TR = { gezi: "Gezi", vlog: "Vlog", manzara: "Manzara", motivasyon: "Motivasyon", "diğer": "Diğer" };
@@ -325,6 +325,7 @@ function composerHtml(c) {
   if (a.refs && a.refs.length) chips.push(`<span class="chip on" data-act="attClear" data-k="refs">🎞 ${a.refs.length} referans <span class="x">✕</span></span>`);
   if (a.series_id) chips.push(`<span class="chip on" data-act="attClear" data-k="series_id">📚 seri #${esc(a.series_id)} <span class="x">✕</span></span>`);
   if (a.links && a.links.length) chips.push(`<span class="chip on" data-act="attClear" data-k="links">🔗 ${a.links.length} link <span class="x">✕</span></span>`);
+  if (a.talk) chips.push(`<span class="chip on" data-act="attClear" data-k="talk">🎙 ${esc(a.talk_name || "konuşma videosu")} <span class="x">✕</span></span>`);
   return `<div class="composer" id="composer"><div class="inner">
     <textarea id="prompt" data-keep="prompt" data-input="promptInput" placeholder="${esc(EXAMPLES[Math.floor(Date.now() / 60000) % EXAMPLES.length])}">${esc(S.comp.prompt)}</textarea>
     ${chips.length ? `<div class="att-row">${chips.join("")}</div>` : ""}
@@ -333,6 +334,7 @@ function composerHtml(c) {
       <button class="attach" data-act="attPick" data-k="refs">${ICON.ref}Referans</button>
       <button class="attach" data-act="attPick" data-k="series_id">${ICON.book}Seri</button>
       <button class="attach" data-act="attPick" data-k="links">${ICON.clip}Link</button>
+      <button class="attach" data-act="talkPick" title="Kameraya konuştuğun ham video: Claude kurgular">🎙 Konuşma videosu</button>
       <span class="attach" style="cursor:default">📺 ${esc(c ? c.name : "kanal")}</span>
       <span class="sp"></span><span class="tiny faint" style="margin-right:6px">⌘⏎</span>
       <button class="send" data-act="plan" title="Planla">${ICON.send}</button>
@@ -369,6 +371,19 @@ ACT.attPick = async (el) => {
   el.parentElement.appendChild(pop);
   setTimeout(() => document.addEventListener("click", function off(e) { if (!pop.contains(e.target) && e.target !== el) { pop.remove(); document.removeEventListener("click", off); } }), 0);
 };
+ACT.talkPick = () => {
+  const inp = document.createElement("input"); inp.type = "file"; inp.accept = "video/mp4,video/quicktime,.mp4,.mov,.m4v";
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    toast("Yükleniyor… " + f.name);
+    try {
+      const r = await upload("/api/refs/upload", f, { "X-Talk": "1" }, (k) => { const t = $("#toast"); t.textContent = `Yükleniyor %${Math.round(k * 100)}`; t.className = "on"; });
+      S.comp.att.talk = r.file; S.comp.att.talk_name = f.name; S.sig = null; toast("Video eklendi: şimdi ne istediğini yaz ve planla");
+      route({ poll: true });
+    } catch (e) { toast(e.message, 1); }
+  };
+  inp.click();
+};
 ACT.attToggle = (el) => {
   const k = el.dataset.k, v = k === "places" ? Number(el.dataset.v) : el.dataset.v, a = S.comp.att;
   a[k] = a[k] || []; a[k] = a[k].includes(v) ? a[k].filter((x) => x !== v) : [...a[k], v].slice(k === "refs" ? -3 : -50);
@@ -398,13 +413,14 @@ function planHtml(row) {
   const steps = p.steps_tr && p.steps_tr.length ? p.steps_tr : defaultSteps(p);
   const pay = (t) => /kredi|onay|ses|çizim|müzik|karakter/i.test(t);
   return `<div class="plan" data-plan="${row.plan_id}">
-    <div class="ph"><div class="ic">${{ footage: "🎞", topic: "✍️", series_new: "📚", series_episode: "🎬" }[p.kind] || "✨"}</div>
+    <div class="ph"><div class="ic">${{ footage: "🎞", topic: "✍️", series_new: "📚", series_episode: "🎬", talk: "🎙" }[p.kind] || "✨"}</div>
       <div style="flex:1;min-width:0"><div class="tiny faint" style="font-weight:700;letter-spacing:.06em;text-transform:uppercase">Plan · ${esc(p.kind_tr || "")}${p.fallback ? " · yedek plan (Claude'a ulaşılamadı)" : ""}</div>
         <div class="say">${esc(p.understood_tr || row.prompt || "")}</div></div>
       <button class="iconbtn" data-act="planDismiss" title="Kapat">✕</button></div>
-    ${(p.questions_tr || []).length ? `<div style="padding:12px 20px 0"><div class="note warn">${p.questions_tr.map((x) => "❓ " + esc(x)).join("<br>")}<div class="tiny muted" style="margin-top:4px">Cevabı aşağıdaki brief'e ekleyebilir ya da yeni bir prompt yazabilirsin.</div></div></div>` : ""}
+    ${(p.questions_tr || []).length || p.question_tr ? `<div style="padding:12px 20px 0"><div class="note warn">${[...(p.questions_tr || []), ...(p.question_tr ? [p.question_tr] : [])].map((x) => "❓ " + esc(x)).join("<br>")}<div class="tiny muted" style="margin-top:4px">Cevabı aşağıdaki brief'e ekleyebilir ya da yeni bir prompt yazabilirsin.</div></div></div>` : ""}
     <div class="pb"><div class="col" style="gap:14px">
-      <div class="field"><span>Tür</span>${seg("kind", [["footage", "🎞 Çekimli"], ["topic", "✍️ Konu"], ["series_new", "📚 Yeni seri"], ["series_episode", "🎬 Seri bölümü"]], p.kind, "planSet")}</div>
+      <div class="field"><span>Tür</span>${seg("kind", [["footage", "🎞 Çekimli"], ["topic", "✍️ Konu"], ["series_new", "📚 Yeni seri"], ["series_episode", "🎬 Seri bölümü"], ...((row.attachments || {}).talk ? [["talk", "🎙 Konuşma kurgusu"]] : [])], p.kind, "planSet")}</div>
+      ${artDirHtml(row, p)}
       <div class="row" style="gap:12px;align-items:flex-start">
         <label class="field" style="flex:1;min-width:160px"><span>Kanal</span><select data-change="planSel" data-name="channel">${S.channels.map((c) => `<option value="${esc(c.id)}" ${c.id === p.channel ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
         ${p.kind === "footage" || p.kind === "topic" ? `<label class="field" style="flex:1;min-width:160px"><span>Tarz</span><select data-change="planSel" data-name="format">${presets.map((f) => `<option value="${esc(f.id)}" ${f.id === p.format ? "selected" : ""}>${esc(f.name_tr)}</option>`).join("")}</select></label>` : ""}
@@ -431,6 +447,35 @@ function planHtml(row) {
     <div class="pf"><button class="btn accent" data-act="planStart">${ICON.check}Planı onayla ve başlat</button><button class="btn ghost" data-act="planCancel">Vazgeç</button><span class="sp"></span><span class="tiny faint">Hiçbir şey kredi harcamadan başlamaz.</span></div>
   </div>`;
 }
+function artDirHtml(row, p) {
+  const tl = p.technique_labels || [], tr = p.treatments || [], bm = p.benchmark || {};
+  const byArea = {};
+  for (const t of tl) (byArea[t.area_tr] = byArea[t.area_tr] || []).push(t);
+  return `<div class="field"><span>Art direction (planner'ın yönetmen notu, düzenlenebilir)</span>
+      <textarea data-change="planSel" data-name="direction" style="min-height:84px" placeholder="Konsept, görsel dünya, hareket, ses, imza anı, final…">${esc(p.direction || "")}</textarea>
+      ${bm.learn ? `<div class="tiny muted mt8">🎬 Referans: ${esc(bm.learn)}${bm.avoid ? ` · <span class="faint">almayacağımız: ${esc(bm.avoid)}</span>` : ""}</div>` : ""}</div>
+    ${tr.length ? `<div class="field"><span>Üç yaklaşım (birini seç)</span><div class="col" style="gap:6px">${tr.map((t, i) => `<div class="row" style="cursor:pointer;gap:8px;align-items:flex-start" data-act="planTreat" data-i="${i}"><span class="chip ${i === 0 ? "on" : ""}">${i + 1}</span><div><b>${esc(t.label_tr)}</b> <span class="small muted">${esc(t.idea_tr || "")}</span></div></div>`).join("")}</div></div>` : ""}
+    <div class="field"><span>Teknikler (planner birleştirdi · ✕ ile çıkar, ＋ ile ekle)${p.seconds ? ` · hedef ~${p.seconds} sn` : ""}</span>
+      ${Object.entries(byArea).map(([a, ts]) => `<div class="tiny faint mt8">${esc(a)}</div><div class="chips">${ts.map((t) => `<span class="chip on" data-act="planTech" data-id="${esc(t.id)}" data-op="del" title="${esc(t.id)}">${esc(t.tr)} <span class="x">✕</span></span>`).join("")}</div>`).join("") || '<div class="tiny muted">Teknik seçilmedi</div>'}
+      <div class="chips mt8"><span class="chip" data-act="planTechPick" data-kind="${esc(p.kind === "talk" ? "talk" : p.kind === "footage" ? "footage" : "topic")}">＋ teknik ekle</span></div></div>`;
+}
+ACT.planTreat = (el) => planUpdate({ treatment: Number(el.dataset.i) });
+ACT.planTech = async (el) => {
+  const id = $("[data-plan]").dataset.plan; const row = await api("/api/plan/" + id);
+  let ts = row.plan.techniques || [];
+  ts = el.dataset.op === "del" ? ts.filter((x) => x !== el.dataset.id) : [...ts, el.dataset.id];
+  $$(".pop").forEach((x) => x.remove());
+  await planUpdate({ techniques: ts });
+};
+ACT.planTechPick = async (el) => {
+  $$(".pop").forEach((p) => p.remove());
+  const chips = await api("/api/techniques?kind=" + encodeURIComponent(el.dataset.kind));
+  const by = {}; for (const c of chips) (by[c.area_tr] = by[c.area_tr] || []).push(c);
+  const pop = document.createElement("div"); pop.className = "pop"; pop.style.maxHeight = "60vh"; pop.style.overflowY = "auto";
+  pop.innerHTML = `<h3>Teknik ekle</h3>${Object.entries(by).map(([a, cs]) => `<div class="tiny faint mt8">${esc(a)}</div><div class="chips">${cs.map((c) => `<span class="chip" data-act="planTech" data-id="${esc(c.id)}" data-op="add">${esc(c.tr)}</span>`).join("")}</div>`).join("")}`;
+  el.parentElement.appendChild(pop);
+  setTimeout(() => document.addEventListener("click", function off(e) { if (!pop.contains(e.target) && e.target !== el) { pop.remove(); document.removeEventListener("click", off); } }), 0);
+};
 const SERIES_STYLES = { cartoon: "Çizgi film", storybook: "Masal kitabı", anime: "Anime", flat_vector: "Düz vektör", cinematic: "Dizi / sinematik", comic: "Çizgi roman", pixel: "8-bit piksel", papercut: "Kâğıt kesik", claymation: "Kil animasyon", bauhaus: "Bauhaus", vaporwave: "Vaporwave", inkwash: "Mürekkep" };
 function defaultSteps(p) {
   return {
@@ -438,6 +483,7 @@ function defaultSteps(p) {
     topic: ["Claude konuyu araştırır, kaynaklı metni yazar", p.look === "illustrated" ? "Çizimler: kredi tahmini + onay" : "Opus sahneleri tasarlar", "Ses: kredi tahmini + onay", "Önizleme → final render + QA"],
     series_new: ["Claude seri kitabını yazar: dünya, karakterler, bölümler", "Kitabı okursun, düzeltir ya da onaylarsın", "Karakter sayfaları: kredi tahmini + onay", "Her bölüm ayrı üretim olur (çizim + ses onaylı)"],
     series_episode: ["Claude bölümü kitaptan uyarlar", "Çizimler: kredi tahmini + onay", "Karakter sesleri: kredi tahmini + onay", "Önizleme → final render"],
+    talk: ["Videon transkript edilir; boşluk, ıı, tekrar ve yarım kalan cümleler bulunur", "Claude kurguyu çıkarır: hook, sıra, punch-in, B-roll, altyazı renkleri", "Kurgu planını onaylarsın (tutulan / kesilen cümleler)", "Önizleme → final render (ses temizliği, müzik, -14 LUFS) + QA"],
   }[p.kind] || [];
 }
 let planTimer = null;
@@ -647,10 +693,11 @@ async function viewProd(id) {
       <div class="card"><div class="kv"><div>Hook</div><div><b>${esc(d.hook || "")}</b></div><div>Ne anlatıyor</div><div>${esc(d.logline || "")}</div>
         <div>Neden tutabilir</div><div class="muted">${esc(d.why || "")} <span class="faint tiny">(hipotez)</span></div>
         ${d.content_fit != null ? `<div>Çekim uyumu</div><div>${esc(d.content_fit)}/10 <span class="muted small">${esc(d.fit_reason || "")}</span></div>` : ""}</div></div>
-      ${storyboard(p)}
-      ${platesCard(p)}${motionCard(p)}${directionCard(p)}
-      ${!isEx ? refsCard(p) : ""}${musicCard(p)}
-      ${voiceEdit(p)}${textEdit(p)}${postEdit(p)}
+      ${recipeCard(p)}${talkCard(p)}
+      ${p.data.kind === "talk" ? "" : storyboard(p)}
+      ${platesCard(p)}${motionCard(p)}${directionCard(p)}${soundCard(p)}
+      ${!isEx && d.kind !== "talk" ? refsCard(p) : ""}${musicCard(p)}
+      ${voiceEdit(p)}${d.kind === "talk" ? "" : textEdit(p)}${postEdit(p)}
       ${factsCard(p)}${claimsCard(p)}
     </div>
     <div class="col sticky" style="gap:14px">
@@ -723,9 +770,41 @@ function motionCard(p) {
   const m = p.data.motion; if (!m) return "";
   return `<div class="card"><h3>🎬 Opus'un tasarladığı hareket</h3><div class="small">${esc(m.concept)}</div>
     <div class="tiny faint mt8">Her sahne HTML/GSAP ile yazıldı · ${(m.log || []).length} kontrol turu · ~${usd(m.cost_usd)}${(m.errors || []).length ? " · uyarı: " + esc(m.errors[0]) : ""}</div>
-    <div class="thumbs mt12">${(m.shots || []).map((x) => `<img src="/media/art/${esc(x)}?v=${encodeURIComponent(p.updated_at)}" data-act="open" data-src="/media/art/${esc(x)}" data-photo="1" style="height:220px" alt="">`).join("")}</div>
+    ${(m.lint || []).length ? `<div class="note warn mt8 tiny">${m.lint.map((x) => "📐 " + esc(x)).join("<br>")}</div>` : `<div class="tiny faint mt8">📐 Yerleşim + okunabilirlik + hareket kontrolü temiz</div>`}
+    ${(m.sheets || []).length ? `<div class="thumbs mt12">${m.sheets.map((x) => `<img src="/media/art/${esc(x)}?v=${encodeURIComponent(p.updated_at)}" data-act="open" data-src="/media/art/${esc(x)}" data-photo="1" style="height:220px" alt="">`).join("")}</div>`
+      : `<div class="thumbs mt12">${(m.shots || []).map((x) => `<img src="/media/art/${esc(x)}?v=${encodeURIComponent(p.updated_at)}" data-act="open" data-src="/media/art/${esc(x)}" data-photo="1" style="height:220px" alt="">`).join("")}</div>`}
     <div class="tiny mt8">${(m.refs || []).map((r) => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title || r.url)}</a> <span class="faint">(${esc(r.takeaway || "")})</span>`).join(" · ")}</div>
     ${!["ready", "published", "rejected"].includes(p.stage) ? `<button class="btn sm mt12" data-act="redesign" data-id="${p.prod_id}">${ICON.wand}Yeniden tasarla</button>` : ""}</div>`;
+}
+function recipeCard(p) {
+  const r = p.recipe || {}; if (!r.direction && !(r.techniques || []).length) return "";
+  const by = {}; for (const t of r.techniques || []) (by[t.area_tr] = by[t.area_tr] || []).push(t);
+  return `<div class="card"><h3>🎨 Tarif (art direction + teknikler)</h3>${r.direction ? `<div class="small">${esc(r.direction)}</div>` : ""}
+    ${Object.entries(by).map(([a, ts]) => `<div class="tiny faint mt8">${esc(a)}</div><div class="chips">${ts.map((t) => `<span class="chip on" title="${esc(t.id)}">${esc(t.tr)}</span>`).join("")}</div>`).join("")}
+    ${r.seconds ? `<div class="tiny faint mt8">hedef süre ${esc(r.seconds.join ? r.seconds.join("-") : r.seconds)} sn</div>` : ""}</div>`;
+}
+function talkCard(p) {
+  const t = p.talk; if (!t) return "";
+  if (t.error) return `<div class="card"><h3>🎙 Kurgu planı</h3><div class="note err">${esc(t.error)}</div></div>`;
+  const flag = { retake: "tekrar çekim", false_start: "yarım cümle", filler_only: "sadece ıı" };
+  return `<div class="card"><h3>🎙 Kurgu planı</h3>
+    <div class="small">Ham ${sec(t.raw_s)} → tutulan ~${sec(t.kept_s)} · ${t.faces ? "yüz takibi var" : "yüz takibi yok (ortalı kadraj)"} · vurgu rengi <span class="swatch" style="background:${esc(t.accent || "#ffd93d")}"></span> ${t.fallback ? `<span class="badge">yedek kurgu (${esc(t.fallback)})</span>` : ""}</div>
+    ${t.hook ? `<div class="mt8"><b>Hook:</b> “${esc(t.hook)}”${(t.hook_options || []).length ? ` <span class="tiny muted">diğerleri: ${t.hook_options.map((h) => "“" + esc(h) + "”").join(" · ")}</span>` : ""}</div>` : ""}
+    <div class="talk mt12" style="max-height:340px;overflow:auto">${t.phrases.map((ph) => `<div class="row" style="gap:8px;align-items:flex-start;opacity:${ph.kept ? 1 : 0.45}">
+      <span class="tiny faint" style="width:70px;flex:none">${ph.t[0].toFixed(1)}–${ph.t[1].toFixed(1)}s</span>
+      <span class="badge" style="flex:none">${ph.kept ? "#" + ph.pos : "kesildi"}</span>
+      <span class="small" style="${ph.kept ? "" : "text-decoration:line-through"}">${esc(ph.text)}${ph.flags.length ? ` <span class="tiny" style="color:var(--warn)">(${ph.flags.map((f) => flag[f] || f).join(", ")})</span>` : ""}${ph.fillers ? ` <span class="tiny faint">${ph.fillers} ıı</span>` : ""}</span></div>`).join("")}</div>
+    ${(t.broll || []).length ? `<div class="mt12"><b class="small">Kodla B-roll</b>${t.broll.map((b) => `<div class="tiny">▣ ${esc(b.kind)} · “${esc(b.text)}”${b.label ? " · " + esc(b.label) : ""} <span class="faint">(cümle #${b.id})</span></div>`).join("")}</div>` : ""}
+    <div class="tiny muted mt8">${(t.punch || []).length} punch-in · renk ${esc(t.grade || "")} · anahtar kelimeler: ${esc(((t.keywords || {}).key || []).join(", "))}</div>
+    <div class="tiny faint mt8">Değiştirmek için “değişiklik iste” kutusuna yaz (örn. “şu cümleyi at”, “hook'u 2. seçenek yap”).</div></div>`;
+}
+function soundCard(p) {
+  const s = (p.qa || {}).sound; if (!s) return "";
+  const f = s.findings || [], m = s.metrics || {};
+  return `<div class="card"><h3>👂 Ses kontrolü (miks ölçüldü, dinlenmedi)</h3>
+    <div class="tiny muted">${m.lufs != null ? `${m.lufs} LUFS · ${m.true_peak} dBTP · ` : ""}${m.effects != null ? `${m.effects} efekt · ` : ""}${m.loudest_at != null ? `en yüksek an ${m.loudest_at} sn (%${Math.round((m.loudest_share || 0) * 100)})` : ""}</div>
+    ${f.length ? `<div class="note warn mt8 small">${f.map((x) => `${x.severity === "fail" ? "⛔" : x.severity === "warn" ? "⚠" : "ℹ"} ${esc(x.detail)}`).join("<br>")}</div>` : `<div class="note ok mt8 small">Bulgu yok</div>`}
+    ${p.sound_sheet ? `<img class="mt12" src="${esc(p.sound_sheet)}?v=${encodeURIComponent(p.updated_at)}" data-act="open" data-src="${esc(p.sound_sheet)}" data-photo="1" style="width:100%;border-radius:10px" alt="">` : ""}</div>`;
 }
 function directionCard(p) {
   const x = p.data.direction; if (!x) return "";

@@ -70,5 +70,5 @@ def test_merged_formats_stay_valid_but_are_not_offered():
     offered = {f["id"] for f in formats.offered()}
     assert "day_vlog" not in offered and "this_looks_unreal" not in offered
     assert formats.get("day_vlog")["merged_into"] == "story_vo" and formats.canonical("day_vlog") == "story_vo"
-    assert {f["mode"] for f in formats.offered()} == {"footage", "topic", "series"}
+    assert {f["mode"] for f in formats.offered()} == {"footage", "topic", "series", "talk"}
     assert formats.get("facts_listicle")["status"] == "ready"

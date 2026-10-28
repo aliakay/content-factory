@@ -13,7 +13,7 @@ hand-written ffmpeg.
 """
 import difflib, json, os, re, subprocess
 
-from . import credits, engines, explainer, formats, ideas, llm, qa, refs, styled, tracking
+from . import credits, engines, explainer, formats, ideas, llm, qa, refs, styled, talk, tracking
 from .store import ROOT, jload, now
 
 from .config import FFMPEG
@@ -181,7 +181,7 @@ def series_part(con, fmt_id):
 
 
 def generate(con, fmt_id, n=3, brief="", place_ids=None, ref_ids=None, voice_id=None, aspect="9:16",
-             narrate="auto", look="tech", channel_id=None):
+             narrate="auto", look="tech", channel_id=None, continues=None, recipe=None):
     from . import channels
     ensure(con)
     fmt = formats.get(fmt_id)
@@ -189,8 +189,16 @@ def generate(con, fmt_id, n=3, brief="", place_ids=None, ref_ids=None, voice_id=
         raise ValueError(f"format {fmt_id} is not built yet")
     channel_id = channels.resolve(con, channel_id, fmt["mode"])
     chan = channels.get(con, channel_id)
+    if fmt.get("source") == "talk":
+        raise ValueError("Konuşma videosu kurgusu için videonu yükle (Konuşma videosu)")
     if fmt.get("source") == "topic":
-        return explainer.generate(con, fmt, n, brief, voice_id, look, aspect=aspect, channel=chan)
+        prev = None
+        if continues:   # the next part of a story: same characters, voice and look
+            pp = get(con, int(continues))
+            prev = dict(pp["data"], _prod_id=pp["prod_id"])
+            voice_id = voice_id or prev.get("voice_id")
+        return explainer.generate(con, fmt, n, brief, voice_id, look, aspect=aspect, channel=chan, prev=prev,
+                                  recipe=recipe)
     ctx = context(con, place_ids)
     if not ctx["inventory"]:
         raise ValueError("no usable clips for this selection — add an iCloud album first")
@@ -230,6 +238,9 @@ could work are hypotheses. Reply with ONLY JSON in this schema:
         if voice_id:
             d["voice_id"] = voice_id
         d["aspect"] = aspect if aspect in formats.ASPECTS else "9:16"
+        if recipe:      # the planner's art direction travels with the footage video too (art director reads it)
+            from . import capabilities
+            capabilities.apply(recipe, d, "footage")
         if d["shots"]:
             ids.append(create(con, fmt_id, d, brief, channel_id))
     return ids, meta
@@ -369,6 +380,7 @@ def make_voice(con, prod_id, approved):
     else:
         path, cost = eleven.tts(con, text, d.get("voice_id") or formats.VOICE_ID, formats.VOICE_MODEL, approved=approved,
                                 account=eleven_account(d))
+    path = voice_post(path, d)
     times, dur = align(path, d["voice"]["lines"], d.get("lang", "en"))
     d["voice_take"] = {"file": os.path.relpath(path, ROOT), "text": text, "duration": dur, "lines": times,
                        "credits": round(cost), "at": now()}
@@ -377,6 +389,31 @@ def make_voice(con, prod_id, approved):
     p["stage"] = "preview"
     save(con, p, "ses", f"{round(cost)} kredi · {dur:.1f} s")
     return path, cost
+
+
+def voice_post(path, d):
+    """Optional post on a fresh take (data.voice_fx, free): {"tempo": 1.05 (5 % tighter), "pitch": -1 (semitones,
+    deeper), "tighten": true (shorten only the REAL silences between words), "chain": "clean"}. Alignment runs after
+    it, so captions and scene timings follow the processed file. Returns the file to use (the original if no fx)."""
+    from . import audiofx
+    fx = d.get("voice_fx") or {}
+    if not fx:
+        return path
+    tempo, pitch = float(fx.get("tempo") or 1.0), float(fx.get("pitch") or 0.0)
+    if (fd := d.get("duration_cap")) and fx.get("fit"):   # "keep it under 95 s": speed up slightly when it runs long
+        try:
+            dur = len(decode(path)) / 16000
+            tempo = max(tempo, min(1.12, dur / max(1.0, float(fd) - 1.5)))
+        except Exception:
+            pass
+    stem = os.path.splitext(path)[0]
+    out = path
+    if abs(tempo - 1) > 0.001 or abs(pitch) > 0.01 or fx.get("chain"):
+        out = audiofx.process_voice(path, f"{stem}_fx.wav", tempo, pitch, fx.get("chain"))
+    if fx.get("tighten"):
+        words = explainer.align_words(out, d["voice"]["lines"], d.get("lang", "en"))
+        out, _, _ = audiofx.tighten(out, f"{stem}_tight.wav", words, max_gap=float(fx.get("max_gap") or 0.32))
+    return out
 
 
 def multi_voice(d):
@@ -449,11 +486,12 @@ def line_times(d):
     return out, t, False
 
 
-def timeline(con, p):
+def timeline(con, p, preview=True):
     """Compile a production into a renderer spec + lint warnings. Deterministic; no Claude involved.
-    Explainers go to bin/explainer.py (or bin/htmlmotion.py), styled productions (with a `look`) to bin/stylecut.py,
-    the rest to bin/cinecut.py. The spec names its engine and carries the channel's brand layer (factory/engines.py)."""
-    spec, total, starts, warn = _compile(con, p)
+    Explainers go to bin/explainer.py (or bin/htmlmotion.py), talking-head edits to bin/talkcut.py, styled productions
+    (with a `look`) to bin/stylecut.py, the rest to bin/cinecut.py. The spec names its engine and carries the channel's
+    brand layer (factory/engines.py)."""
+    spec, total, starts, warn = _compile(con, p, preview)
     spec["engine"] = engines.engine_of(spec)
     brand = _brand(con, p)
     if brand:
@@ -471,8 +509,10 @@ def _brand(con, p):
         return None
 
 
-def _compile(con, p):
+def _compile(con, p, preview=True):
     d, fmt = p["data"], formats.for_data(p["format"], p["data"])
+    if talk.is_talk(d):
+        return talk.compile_spec(con, p, fmt, preview)
     if explainer.is_explainer(d):
         return explainer.compile_spec(con, p, fmt, VO_START)
     if d.get("look"):
@@ -603,7 +643,7 @@ def _compile(con, p):
 def shown_timeline(con, p):
     """What the Studio shows: the spec that was actually rendered once a video is finished, else the compiled draft."""
     path = None
-    if explainer.is_explainer(p["data"]):
+    if explainer.is_explainer(p["data"]) or talk.is_talk(p["data"]):
         return timeline(con, p)
     for sub in ("style", "cine"):
         cand = os.path.join(ROOT, "specs", sub, f"{p['name']}.json") if p.get("name") else None
@@ -645,7 +685,7 @@ def design(con, prod_id, note=""):
 
 def art_directed(d):
     """Footage productions are art-directed by Opus (factory/artdirector.py) unless switched off with data.art = False."""
-    return not explainer.is_explainer(d) and d.get("art", True)
+    return not explainer.is_explainer(d) and not talk.is_talk(d) and d.get("art", True)
 
 
 def direct(con, prod_id, note=""):
@@ -694,7 +734,7 @@ def preview(con, prod_id):
 def render(con, prod_id):
     p = get(con, prod_id)
     assign_name(con, p)
-    spec, total, _, warn = timeline(con, p)
+    spec, total, _, warn = timeline(con, p, preview=False)
     sub = engines.spec_dir(spec)
     os.makedirs(os.path.join(ROOT, "specs", sub), exist_ok=True)
     path = os.path.join(ROOT, "specs", sub, f"{p['name']}.json")
@@ -705,9 +745,10 @@ def render(con, prod_id):
     save(con, p, "render", f"{real_total:.1f} s")
     beats = [{"t0": t["start"], "t1": t["end"], "text": t["text"]} for t in spec["text"]]
     prev = ((p["qa"] or {}).get("visual") or {}).get("issues")
+    notes = (explainer.QA_HTML_NOTES if spec.get("engine") == "html" else explainer.QA_NOTES) if explainer.is_explainer(p["data"]) \
+        else talk.QA_NOTES if talk.is_talk(p["data"]) else ""
     report = qa.review(dst, {"beats": beats}, real_total, p["name"], previous=prev, model="sonnet",
-                       size=engines.canvas(spec),
-                       notes=(explainer.QA_HTML_NOTES if spec.get("engine") == "html" else explainer.QA_NOTES) if explainer.is_explainer(p["data"]) else "")
+                       size=engines.canvas(spec), notes=notes)
     # held shots are this style's point: the "motion stalls" check belongs to the old montage look
     tech = report["technical"]
     tech["problems"] = [x for x in tech["problems"] if not x.startswith("motion stalls")]
@@ -717,6 +758,7 @@ def render(con, prod_id):
     report["pass"] = not tech["problems"] and report["visual"].get("pass", False) and not any(
         i.get("severity") == "critical" for i in report["visual"].get("issues", []))
     report["lint"] = warn
+    report["sound"] = sound_check(dst, spec, real_total)
     p["qa"] = report
     save(con, p, "QA", "geçti" if report["pass"] else "bulgular var")
     try:   # cover / thumbnail candidates in the channel's colours (free, Pillow)
@@ -730,10 +772,27 @@ def render(con, prod_id):
     return dst
 
 
+def sound_check(dst, spec, total):
+    """The ears (factory/soundqa.py) on the final file: findings + a sound sheet next to the work files."""
+    try:
+        from . import soundqa
+        placed = os.path.join(ROOT, "work", "sound", f"{spec['name']}.json")
+        pl = json.load(open(placed)) if os.path.exists(placed) else {}
+        rep = soundqa.review(dst, pl.get("cues"), pl.get("words"), pl.get("voice_offset", 0.0), total)
+        sheet = os.path.join(ROOT, "work", "sound", f"{spec['name']}.png")
+        soundqa.sheet(dst, sheet, pl.get("cues"), pl.get("words"), pl.get("voice_offset", 0.0), spec["name"])
+        rep["sheet"] = os.path.relpath(sheet, ROOT)
+        return rep
+    except Exception as e:     # the ears must never fail a render
+        return {"error": f"{type(e).__name__}: {e}", "findings": []}
+
+
 # ---------- review loop ----------
 def revise(con, prod_id, feedback):
     p = get(con, prod_id)
     d = p["data"]
+    if talk.is_talk(d):
+        return talk.revise(con, p, feedback)
     if explainer.is_explainer(d):
         return explainer.revise(con, p, feedback)
     fmt = formats.for_data(p["format"], d)
@@ -784,7 +843,8 @@ def apply_edit(con, p, new, event, detail):
     if old.get("voice_take") and voice_text(new) == voice_text(old):
         new["voice_take"] = old["voice_take"]
     for k in ("part", "refs", "voice_id", "music_take", "aspect", "narrate", "mute_clips", "topic", "look_pack", "lang",
-              "direction", "art", "eleven_account", "edit_plan"):
+              "direction", "art", "eleven_account", "edit_plan", "recipe", "voice_fx", "captions", "sound", "post_fx",
+              "fps60", "duration_cap", "fiction", "grammar"):
         if k in old:
             new.setdefault(k, old[k])
     if old.get("music_take") and new.get("look") and not voice_text(new) and \

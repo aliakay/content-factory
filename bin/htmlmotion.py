@@ -1,7 +1,12 @@
 """Renderer for Opus-designed explainers (engine "html"): the scenes are HTML/CSS/GSAP written per topic by
 factory/motiondesign.py, shown in motion/templates/explainer_shell.html and captured frame by frame by
 motion/render.mjs (headless Chromium). Same contract as bin/explainer.py: main(spec_path, preview, stills).
-Spec (compiled by factory/explainer.compile_spec): the explainer spec plus engine "html", design (path), line_times.
+Spec (compiled by factory/explainer.compile_spec): the explainer spec plus engine "html", design (path), line_times,
+optional captions ({mode: chunk|word, pos: low|mid, keys: {word: key|danger}}) and sound ({sfx: bool, level}).
+
+Sound: scenes declare their own sound effects and music moments next to the animation (FX.sfx / FX.music in fxlib.js);
+render.mjs --cues hands them back after setup and factory/audiofx.mix puts each sound on its frame (never over a word),
+cuts the music out and back in on the story events and lines the track's drop up with FX.music("drop", t).
 """
 import json, os, subprocess, sys
 
@@ -26,7 +31,7 @@ def make_bundle(spec, design):
                        "lines_t": [{"start": round(x["start"], 3), "end": round(x["end"], 3)} for x in lt[a:b + 1]]})
     w, h = ASPECTS.get(spec.get("aspect", "9:16"), ASPECTS["9:16"])
     return {"palette": design["meta"].get("palette") or {}, "global_css": design.get("global_css", ""), "words": words,
-            "scenes": scenes, "duration": spec["duration"], "w": w, "h": h}
+            "scenes": scenes, "duration": spec["duration"], "w": w, "h": h, "captions": spec.get("captions") or {}}
 
 
 def write_bundle(spec, design):
@@ -49,12 +54,72 @@ def _node(page_hash_bundle, out, dur, extra, fps=30):
     return subprocess.run(cmd, cwd=MOTION, capture_output=True, text=True)
 
 
-def shots(bundle_path, times, outdir):
-    """PNGs of the given moments (free, ~seconds) + the page's JS errors."""
-    r = _node(bundle_path, outdir, 1, ["--opaque", "--shots=" + ",".join(str(t) for t in times)])
+def shots(bundle_path, times, outdir, lint=False):
+    """PNGs of the given moments (free, ~seconds) + the page's JS errors (+ the lint file of text boxes if lint)."""
+    extra = ["--opaque", "--shots=" + ",".join(str(t) for t in times)]
+    lint_path = os.path.join(os.path.dirname(os.path.abspath(bundle_path)), "lint.json") if lint else None
+    if lint_path:
+        extra.append("--lint=" + lint_path)
+    r = _node(bundle_path, os.path.abspath(outdir), 1, extra)
     errs = sorted({ln for ln in (r.stderr or "").splitlines() if "error" in ln.lower()})
     paths = [os.path.join(outdir, f) for f in sorted(os.listdir(outdir)) if f.startswith("shot_")] if os.path.isdir(outdir) else []
-    return paths, errs[:12]
+    return (paths, errs[:12], lint_path) if lint else (paths, errs[:12])
+
+
+def readcheck(bundle_path):
+    """Visible texts every 0.2 s + the timeline's motion lint (render.mjs --readcheck) -> dict."""
+    out = os.path.join(os.path.dirname(os.path.abspath(bundle_path)), "readcheck.json")
+    try:
+        dur = json.load(open(bundle_path)).get("duration", 30)
+    except (OSError, ValueError):
+        dur = 30
+    _node(bundle_path, "/dev/null", round(dur, 2), ["--opaque", "--readcheck=" + out])
+    return json.load(open(out))
+
+
+def post_vf(fx, preview=False):
+    """Film texture after capture (a film style's post): grain, flicker, gate weave, vignette, mono / sepia. Done in
+    ffmpeg because grain drawn in the page makes every frame slow and incompressible. '' = nothing to do."""
+    fx = fx or {}
+    vf = []
+    if fx.get("mono"):
+        vf.append("hue=s=0")
+    if fx.get("sepia"):
+        vf.append("colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131")
+    if fx.get("weave"):      # the frame drifts a pixel or two like film in a gate
+        vf.append("scale=iw*1.01:ih*1.01,crop=iw/1.01:ih/1.01:(iw-ow)/2+1.5*sin(t*11):(ih-oh)/2+1.2*sin(t*7.3)")
+    if fx.get("flicker"):
+        vf.append("eq=brightness='0.025*sin(2*PI*t*9)+0.015*sin(2*PI*t*3.7)':eval=frame")
+    if fx.get("vignette"):
+        vf.append(f"vignette=angle={0.35 + 0.5 * min(1.0, float(fx['vignette'])):.2f}")
+    if fx.get("grain"):
+        vf.append(f"noise=alls={max(2, int(float(fx['grain']) * 22))}:allf=t")
+    return ",".join(vf)
+
+
+def sound_plan(cues_path, spec, total):
+    """Scene cues -> (sfx cues, music settings) for audiofx.mix. Music events: "cut" silences the track until the next
+    "back" (or the end); "drop" is where the track's drop should land."""
+    from factory import sfx
+    try:
+        c = json.load(open(cues_path))
+    except (OSError, ValueError):
+        c = {}
+    snd = spec.get("sound") or {}
+    cues = sfx.clean_cues(c.get("sfx"), total, snd.get("level", "full")) if snd.get("sfx", True) else []
+    mutes, drop, open_at = [], None, None
+    for ev in sorted(c.get("music") or [], key=lambda e: e.get("t", 0)):
+        a, t = ev.get("action"), float(ev.get("t", 0))
+        if a == "cut" and open_at is None:
+            open_at = t
+        elif a == "back" and open_at is not None:
+            mutes.append([open_at, t])
+            open_at = None
+        elif a == "drop" and drop is None:
+            drop = t
+    if open_at is not None:
+        mutes.append([open_at, total + 1])
+    return cues, mutes, drop
 
 
 def main(path, preview=False, stills=None):
@@ -69,28 +134,36 @@ def main(path, preview=False, stills=None):
     out_dir = os.path.join(ROOT, "work", "preview") if preview else os.path.join(ROOT, "out", name)
     os.makedirs(out_dir, exist_ok=True)
     silent = os.path.join(ROOT, "work", "auto", name, "silent.mp4")
-    r = _node(bundle, silent, round(total, 3), ["--opaque", "--scale=0.5"] if preview else ["--opaque"], 15 if preview else 30)
+    cues_path = os.path.join(ROOT, "work", "auto", name, "cues.json")
+    r = _node(bundle, silent, round(total, 3), (["--opaque", "--scale=0.5"] if preview else ["--opaque"]) + ["--cues=" + cues_path],
+              15 if preview else 30)
     if r.returncode or not os.path.exists(silent):
         raise RuntimeError("html render failed: " + (r.stderr or "")[-400:])
     dst = os.path.join(out_dir, f"{name}.mp4")
-    cmd, inputs, chain, mix = [FFMPEG, "-y", "-v", "error", "-i", silent], 1, [], None
-    if spec.get("voice"):
-        ms = int(spec["voice"].get("start", 0) * 1000)
-        cmd += ["-i", os.path.join(ROOT, spec["voice"]["file"])]
-        chain.append(f"[{inputs}:a]aformat=sample_rates=48000:channel_layouts=stereo,adelay={ms}|{ms},apad,atrim=0:{total:.3f}[vo]")
-        mix, inputs = "[vo]", inputs + 1
+    from factory import audiofx
+    cues, mutes, drop = sound_plan(cues_path, spec, total)
+    voice = dict(spec["voice"], file=os.path.join(ROOT, spec["voice"]["file"])) if spec.get("voice") else None
+    music = None
     if spec.get("music"):
         mu = spec["music"]
-        cmd += ["-i", os.path.join(ROOT, mu["file"])]
-        chain.append(f"[{inputs}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume={mu.get('db', -20)}dB,apad,"
-                     f"atrim=0:{total:.3f},afade=t=in:d=0.5,afade=t=out:st={max(0, total - 1.5):.3f}:d=1.5[mus]")
-        chain.append((f"{mix}[mus]amix=inputs=2:normalize=0[mx]" if mix else "[mus]anull[mx]"))
-        mix = "[mx]"
-    if mix:
-        chain.append(f"{mix}loudnorm=I=-14:TP=-1.5:LRA=11,atrim=0:{total:.3f}[a]")
-        cmd += ["-filter_complex", ";".join(chain), "-map", "0:v", "-map", "[a]", "-c:a", "aac", "-b:a", "192k", "-ar", "48000"]
-    cmd += ["-c:v", "copy", "-t", f"{total:.3f}", "-movflags", "+faststart", dst]
-    subprocess.run(cmd, check=True)
+        music = {"file": os.path.join(ROOT, mu["file"]), "db": mu.get("db", -20), "mutes": mutes + (mu.get("mutes") or []),
+                 "seek": mu.get("seek", 0), "delay": mu.get("delay", 0), "drop_t": mu.get("drop_t")}
+        if drop is not None or mu.get("drop_at") is not None:
+            music = audiofx.place_music(music, drop if drop is not None else mu["drop_at"])
+    vs = spec.get("voice_start", 0)
+    words = spec.get("words") or []        # relative to the voice file, which starts at voice_start
+    audiofx.save_placed(name, cues, words, vs)
+    mixed = os.path.join(ROOT, "work", "auto", name, "mixed.mp4")
+    audiofx.mix(silent, mixed, total, voice=voice, music=music, cues=cues, words=words, voice_offset=vs,
+                chain=spec.get("voice_chain"))
+    vpost = post_vf(spec.get("post_fx"), preview)
+    vcodec = ["-vf", vpost, "-c:v", "libx264", "-preset", "veryfast" if preview else "medium", "-crf", "24" if preview else "17",
+              "-tune", "grain", "-pix_fmt", "yuv420p"] if vpost else ["-c:v", "copy"]
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-i", mixed, *vcodec, "-af",
+                    f"loudnorm=I=-14:TP=-1.5:LRA=11,atrim=0:{total:.3f}", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+                    "-t", f"{total:.3f}", "-movflags", "+faststart", dst] if (voice or music or cues) else
+                   [FFMPEG, "-y", "-v", "error", "-i", mixed, *vcodec, "-an", dst], check=True)
+    print(f"sound: {len(cues)} effects, {len(mutes)} music cut(s)" + (f", drop on {drop:.2f}s" if drop is not None else ""), flush=True)
     if spec.get("post") and not preview:
         sys.path.insert(0, os.path.join(ROOT, "bin"))
         import cinecut
