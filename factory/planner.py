@@ -236,7 +236,13 @@ def costs(p):
     else:
         lines.append({"label": "Çizimler (≈7 sahne)", "credits": round(7 * img)})
         lines.append({"label": "Sesler", "credits": round(p["series"]["ep_seconds"] * 15 * tts)})
-    return {"lines": lines, "total": sum(x["credits"] for x in lines), "claude": "abonelikten (Opus/Sonnet)"}
+    out = {"lines": lines, "total": sum(x["credits"] for x in lines), "claude": "abonelikten (Opus/Sonnet)"}
+    if p["kind"] in ("topic", "series_new", "series_episode"):   # code-drawn renders: time on THIS machine, measured
+        from . import renderspeed
+        sec = p.get("seconds") or (p["series"]["ep_seconds"] if p["kind"].startswith("series") else 30)
+        e = renderspeed.estimate(sec, p.get("techniques") or [])
+        out["render"] = {**e, "preview": renderspeed.label(e["preview_s"]), "final": renderspeed.label(e["final_s"])}
+    return out
 
 
 def create(con, prompt, att, user=None):

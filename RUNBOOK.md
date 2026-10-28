@@ -375,3 +375,8 @@ drifting whisper run left prod 17 with 0.05 s scenes and sound/picture out of sy
 - **Fixed**: `FX.split` kept spaces as bare text nodes; GSAP re-inserts elements of a hidden scene before their next
   element sibling while it measures transforms, so a letter or word hopped over a space ("deletes this" ->
   "deletesthis" in `FX.blurWords` / `FX.pop`, "VERY BIG" -> "VER YBIG"). Spaces are now their own spans.
+- **Render time estimates, measured on this machine** (`factory/renderspeed.py`, `data/render_speed.json`, not in
+  git): the catalog job times every demo clip (how heavy each technique's frames are) and then runs a full-size
+  calibration render (browser start-up + seconds per frame); every real final / preview render updates the numbers.
+  Shown per catalog card ("⏱ 30 sn video: önizleme ~… · final ~…"), on the plan card (for the plan's length) and above
+  "Onayla, final render". Motion blur counts as x4 frames; "kaba" means nothing has been measured yet.

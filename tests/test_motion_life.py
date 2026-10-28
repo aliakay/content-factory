@@ -121,3 +121,22 @@ def test_planner_honours_pinned_techniques():
     assert only["techniques"] == ["look.alive"]
     assert "exactly" in planner._pins_note({"pins": ["look.alive"], "pin_mode": "only"})
     assert planner._pins_note({}) == ""
+
+
+def test_render_estimates_follow_this_machines_measurements(tmp_path, monkeypatch):
+    from factory import renderspeed as rs
+    monkeypatch.setattr(rs, "PATH", str(tmp_path / "speed.json"))
+    rough = rs.estimate(30, ["look.alive"])
+    assert not rough["measured"] and rough["blur"] == 1
+    rs.record("calib", 60, 8.0, per_capture=0.1, startup=2.0)
+    m = rs.machine()
+    assert m["measured"] and m["per_capture"] == 0.1 and m["startup"] == 2.0
+    for cid, secs in (("look.alive", 10.0), ("look.kinetic_type", 10.0), ("look.living_world", 10.0), ("look.set3d", 40.0)):
+        rs.record("demo:" + cid, 100, secs)
+    assert rs.weight("look.set3d") > 3 and rs.weight("look.alive") == 1.0 and rs.weight("look.unknown") == 1.0
+    plain, blurred, heavy = rs.estimate(30, ["look.alive"]), rs.estimate(30, ["look.kinetic_type"]), rs.estimate(30, ["look.set3d"])
+    assert blurred["blur"] == 4 and blurred["final_s"] > 3 * plain["final_s"] - 60     # x4 samples
+    assert heavy["final_s"] > plain["final_s"] and plain["preview_s"] < plain["final_s"]
+    rs.record("final", 900, 120.0, post_per_s=1.0)       # a real final render overrides the benchmark
+    assert abs(rs.machine()["per_capture"] - (120.0 - 2.0) / 900) < 1e-6 and rs.machine()["post_per_s"] == 1.0
+    assert rs.label(40) == "~40 sn" and rs.label(400) == "~7 dk" and rs.label(4000) == "~1 sa 7 dk"

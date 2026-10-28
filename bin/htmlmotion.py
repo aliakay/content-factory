@@ -8,7 +8,7 @@ Sound: scenes declare their own sound effects and music moments next to the anim
 render.mjs --cues hands them back after setup and factory/audiofx.mix puts each sound on its frame (never over a word),
 cuts the music out and back in on the story events and lines the track's drop up with FX.music("drop", t).
 """
-import json, os, subprocess, sys
+import json, os, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 from factory.config import ROOT, FFMPEG  # noqa: E402
@@ -166,10 +166,13 @@ def main(path, preview=False, stills=None):
     silent = os.path.join(ROOT, "work", "auto", name, "silent.mp4")
     cues_path = os.path.join(ROOT, "work", "auto", name, "cues.json")
     blur = [] if preview or not spec.get("motion_blur") else [f"--blur={int(spec['motion_blur'])}"]   # real sub-frame blur, final only
+    fps = 15 if preview else 30
+    t0 = time.time()
     r = _node(bundle, silent, round(total, 3), (["--opaque", "--scale=0.5"] if preview else ["--opaque"]) + blur + ["--cues=" + cues_path],
-              15 if preview else 30)
+              fps)
     if r.returncode or not os.path.exists(silent):
         raise RuntimeError("html render failed: " + (r.stderr or "")[-400:])
+    capture_s, t1 = time.time() - t0, time.time()
     dst = os.path.join(out_dir, f"{name}.mp4")
     from factory import audiofx
     cues, mutes, drop = sound_plan(cues_path, spec, total)
@@ -195,6 +198,12 @@ def main(path, preview=False, stills=None):
                     "-t", f"{total:.3f}", "-movflags", "+faststart", dst] if (voice or music or cues) else
                    [FFMPEG, "-y", "-v", "error", "-i", mixed, *vcodec, "-an", dst], check=True)
     print(f"sound: {len(cues)} effects, {len(mutes)} music cut(s)" + (f", drop on {drop:.2f}s" if drop is not None else ""), flush=True)
+    try:   # this machine's real render speed, for the Studio's time estimates (factory/renderspeed.py)
+        from factory import renderspeed
+        renderspeed.record("preview" if preview else "final", round(total * fps) * (int(spec["motion_blur"]) if blur else 1),
+                           capture_s, post_per_s=round((time.time() - t1) / max(1.0, total), 3))
+    except Exception as e:
+        print(f"render speed not recorded: {e}", flush=True)
     if spec.get("post") and not preview:
         sys.path.insert(0, os.path.join(ROOT, "bin"))
         import cinecut

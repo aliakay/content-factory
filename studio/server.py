@@ -159,6 +159,12 @@ def production_detail(con, pid):
     from factory import capabilities, talk
     out["recipe"] = {"direction": (p["data"].get("recipe") or {}).get("direction"),
                      "techniques": capabilities.labels(p["data"]), "seconds": (p["data"].get("recipe") or {}).get("seconds")}
+    from factory import explainer
+    if explainer.is_explainer(p["data"]):
+        from factory import renderspeed   # how long this one's render takes on this machine (measured)
+        sec = (p["data"].get("voice_take") or {}).get("duration") or ((p["data"].get("recipe") or {}).get("seconds") or [0, 30])[-1]
+        e = renderspeed.estimate(float(sec), capabilities.techniques(p["data"]), int(p["data"].get("motion_blur") or 1))
+        out["render_eta"] = {**e, "preview": renderspeed.label(e["preview_s"]), "final": renderspeed.label(e["final_s"])}
     if talk.is_talk(p["data"]):
         try:
             out["talk"] = talk.summary(p["data"])

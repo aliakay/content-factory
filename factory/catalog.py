@@ -6,7 +6,7 @@ choice to the planner ("Opus seçsin"); factory/planner.py honours the pins.
 Demos are rendered once into work/catalog/<id>.mp4 by the job "catalog_demos" (python -m factory.catalog renders them
 by hand); a technique without a demo shows its description, and a film style its bible.
 """
-import json, os, subprocess, sys
+import json, os, subprocess, sys, time
 
 from . import capabilities
 from .config import ROOT
@@ -162,9 +162,13 @@ def render(cid, force=False):
     sys.path.insert(0, os.path.join(ROOT, "bin"))
     import htmlmotion
     flags = ["--opaque", "--scale=0.4"] + ([f"--blur={extra['blur']}"] if extra.get("blur") else [])
+    t0 = time.time()
     r = htmlmotion._node(bpath, out, dur, flags, 24)
     if r.returncode or not os.path.exists(out):
         raise RuntimeError(f"demo {cid}: " + (r.stderr or "")[-300:])
+    if not extra.get("blur"):   # how heavy this technique's frames are on this machine (catalog render estimates);
+        from . import renderspeed   # a blurred demo is left out: its cost is the blur samples, counted on their own
+        renderspeed.record("demo:" + cid, round(dur * 24), time.time() - t0)
     return out
 
 
@@ -177,11 +181,18 @@ def render_all(ids=None, force=False):
         except Exception as e:
             failed.append(f"{cid}: {str(e)[:120]}")
             print(failed[-1], flush=True)
+    try:   # then measure this machine's full-size speed, so every card can say how long 30 s would take
+        from . import renderspeed
+        m = renderspeed.calibrate()
+        print(f"render speed: {m['per_capture']:.3f} s/frame, start-up {m['startup']:.1f} s", flush=True)
+    except Exception as e:
+        failed.append(f"calibration: {str(e)[:120]}")
     return done, failed
 
 
 def listing(kind=None):
     """Every technique for the catalog page: label, area, what it does, where it applies, its demo clip if rendered."""
+    from . import renderspeed
     styles = {"style." + s["id"]: s for s in capabilities._film_styles()}
     out = []
     for cid, v in capabilities.CAPS.items():
@@ -189,10 +200,12 @@ def listing(kind=None):
             continue
         f = demo_file(cid)
         st = styles.get(cid)
+        eta = renderspeed.estimate(30, [cid]) if "topic" in v["kinds"] else None
         out.append({"id": cid, "tr": v["tr"], "area": v["area"], "area_tr": capabilities.AREAS[v["area"]], "what": v["what"],
                     "kinds": list(v["kinds"]), "shape": bool(v.get("shape")), "style": bool(v.get("style")),
                     "demo": ("/media/work/catalog/" + os.path.basename(f) + f"?v={int(os.path.getmtime(f))}") if os.path.exists(f) else None,
                     "can_demo": cid in DEMOS,
+                    **({"eta": {**eta, "preview": renderspeed.label(eta["preview_s"]), "final": renderspeed.label(eta["final_s"])}} if eta else {}),
                     **({"bible": {k: st.get(k) for k in ("colour", "motion", "type", "sound") if st.get(k)}} if st else {})})
     return out
 

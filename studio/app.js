@@ -452,6 +452,7 @@ function planHtml(row) {
       <div class="pipe">${steps.map((t, i) => `<div class="st ${pay(t) ? "pay" : ""}"><span class="n">${i + 1}</span><div><div class="t">${esc(t)}</div>${pay(t) ? '<div class="d">kredi harcar · ayrı onayınla</div>' : ""}</div></div>`).join("")}</div>
       <h3 class="mt16">Tahmini maliyet</h3>
       <div class="costs">${((p.costs || {}).lines || []).map((l) => `<div class="ln"><span class="muted">${esc(l.label)}</span><b>~${num(l.credits)} kr</b></div>`).join("") || '<div class="muted small">ElevenLabs kredisi yok</div>'}
+        ${(p.costs || {}).render ? `<div class="ln"><span class="muted">⏱ Render (${p.costs.render.seconds} sn, bu makinede${p.costs.render.measured ? "" : ", kaba"})</span><b>önizleme ${esc(p.costs.render.preview)} · final ${esc(p.costs.render.final)}</b></div>${p.costs.render.blur > 1 ? '<div class="ln tiny faint"><span>hareket bulanıklığı açık: final ×' + p.costs.render.blur + " örnek</span></div>" : ""}` : ""}
         <div class="ln tiny faint"><span>Claude</span><b style="font-weight:500">${esc((p.costs || {}).claude || "")}</b></div>
         ${p.team ? `<div class="ln tiny faint"><span>Planlama ekibi${p.team.quick ? " (hızlı)" : ""}</span><b style="font-weight:500">~${usd(p.team.cost_usd)}</b></div>` : ""}</div>
     </div></div>
@@ -935,6 +936,7 @@ function actionCard(p, wide) {
   else if (p.stage === "preview") a = `<div class="card actcard st-preview"><h3>Önizleme</h3>${p.preview ? `<div class="player ${wide ? "wide" : ""}"><video src="/media/${esc(p.preview)}?v=${encodeURIComponent(p.updated_at)}" controls playsinline preload="metadata"></video></div>
     <div class="tiny faint mt8">Hızlı taslak (düşük kalite): kurguyu ve yazıları değerlendir.</div>
     ${!p.claims_ok ? `<div class="note warn mt12">Doğrulanmamış iddialar var. <button class="btn sm" data-act="act" data-id="${id}" data-a="verify">Doğrula</button><label class="chk mt8"><input type="checkbox" id="force"> yine de render et</label></div>` : ""}
+    ${p.render_eta ? `<div class="tiny muted mt12">⏱ Final render bu makinede ${esc(p.render_eta.final)} sürer${p.render_eta.blur > 1 ? ` (hareket bulanıklığı ×${p.render_eta.blur})` : ""}${p.render_eta.measured ? "" : " · kaba tahmin"}</div>` : ""}
     <button class="btn accent block mt12" data-act="approveRender" data-id="${id}">${ICON.check}Onayla, final render</button>`
     : `${p.plates_estimate && p.plates_estimate.images ? `<div class="note warn small">Önce çizimler gerekiyor.</div>` : ""}<button class="btn block mt8" data-act="act" data-id="${id}" data-a="preview">${ICON.play}Önizleme oluştur</button>`}${reviseBox(p)}${rejectBox(p)}</div>`;
   else if (p.stage === "ready" || p.stage === "published") { const vid = p.output ? `/media/out/${p.output}/${p.output}.mp4` : "";
@@ -1153,6 +1155,7 @@ function catCard(t, pins) {
   return `<div class="card catcard" style="padding:10px;${on ? "border-color:var(--ch);box-shadow:0 0 0 2px var(--ch)" : ""}" data-id="${esc(t.id)}">
     ${media}<div class="mt8" style="font-weight:680">${esc(t.tr)}</div>
     <div class="tiny faint">${esc(t.area_tr)}${t.shape ? " · hikâye şekli (videoda tek)" : ""}${t.style ? " · film stili (videoda tek)" : ""} · ${t.kinds.map((k) => KIND_TAG[k] || k).join(", ")}</div>
+    ${t.eta ? `<div class="tiny mt8" title="${t.eta.measured ? "Bu makinede ölçülen hıza göre" : "Henüz ölçüm yok: kaba tahmin (örnek klipleri üretince ölçülür)"}">⏱ 30 sn video: önizleme ${esc(t.eta.preview)} · final <b>${esc(t.eta.final)}</b>${t.eta.blur > 1 ? ` <span class="faint">(bulanıklık ×${t.eta.blur})</span>` : ""}${t.eta.weight > 1.15 ? ` <span class="faint">(ağır kare ×${t.eta.weight})</span>` : ""}${t.eta.measured ? "" : ' <span class="faint">· kaba</span>'}</div>` : ""}
     <details class="mt8"><summary class="small muted" style="cursor:pointer">Ne yapar?</summary><div class="small mt8">${esc(t.what)}</div>${bible ? `<div class="tiny muted mt8">${bible}</div>` : ""}</details>
     <button class="btn sm block mt8 ${on ? "accent" : ""}" data-act="pinTech" data-id="${esc(t.id)}">${on ? "📌 Sabitlendi" : "Bunu kullan"}</button></div>`;
 }
