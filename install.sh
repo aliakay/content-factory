@@ -34,6 +34,10 @@ else
   uv pip install -q --python .venv/bin/python -r requirements.txt
 fi
 
+# subject matte model (rembg u2netp, ~5 MB) fetched now so the first render doesn't wait for the download
+.venv/bin/python -c 'from rembg import new_session; new_session("u2netp")' >/dev/null 2>&1 \
+  && echo "   rembg u2netp model ready" || warn "rembg model not ready: frame break / vertigo / text behind subject fall back"
+
 say "Node packages + headless Chromium (motion/)"
 (cd motion && npm ci --silent && npx --yes playwright install chromium)
 echo "   If Chromium fails to start later, run once with root: (cd motion && sudo npx playwright install-deps chromium)"

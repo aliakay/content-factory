@@ -5,5 +5,6 @@ streamlit>=1.40        # old panel (factory/app.py, :8503); the Studio itself is
 faster-whisper>=1.0    # word timings of the voice-over (captions, scene timing)
 av>=14.0               # bin/analyze.py (clip scoring)
 pytest>=8.0            # tests/
+rembg[cpu]>=2.0        # subject mattes (factory/matte.py): text behind subject, frame break, vertigo
 # optional: librosa>=0.10  (better beat tracking; factory/beats.py falls back to numpy without it)
 # optional: fastembed>=0.4 (semantic dedupe in discovery; factory/embed.py falls back to hashed trigrams)

@@ -1,4 +1,4 @@
-"""Subject mattes for text-behind-subject (stylecut layers with "behind": true).
+"""Subject mattes for text-behind-subject (stylecut layers with "behind": true), frame break and vertigo.
 
 Backend: rembg with the small u2netp model (ONNX, ~5 MB, CPU) when installed:
     ~/.local/bin/uv pip install --python .venv/bin/python "rembg[cpu]"

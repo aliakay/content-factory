@@ -109,10 +109,11 @@ folders.
 
 ```bash
 ~/.local/bin/uv pip install --python .venv/bin/python fastembed        # multilingual semantic dedupe + clip search
-~/.local/bin/uv pip install --python .venv/bin/python "rembg[cpu]"     # text behind subject (subject matte)
 ~/.local/bin/uv pip install --python .venv/bin/python pedalboard pyloudnorm   # mastering chain (else ffmpeg loudnorm)
 ```
-Without them the factory falls back (hashed-trigram vectors, text on top, ffmpeg loudnorm).
+Without them the factory falls back (hashed-trigram vectors, ffmpeg loudnorm). `rembg[cpu]` (subject mattes for text
+behind subject, frame break and vertigo) is in requirements.txt; on a VM installed before it, add it with
+`~/.local/bin/uv pip install --python .venv/bin/python "rembg[cpu]"`.
 
 ## Tests
 
