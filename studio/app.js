@@ -1075,11 +1075,16 @@ ACT.styleOp = async (el) => { if (el.dataset.op === "delete" && !confirm("Bu sti
 
 // ================= Keşif =================
 async function discoverHtml(ch) {
-  const d = await api("/api/discover" + (ch ? "?channel=" + encodeURIComponent(ch) : ""));
-  const r = d.run, CAT = d.categories || {};
-  return `<div class="row"><div class="tiny faint">${r ? `Son tarama ${dt(r.at)} · ${r.items} haber → ${r.candidates} aday → ${r.cards} kart · ${usd(r.cost_usd)}${r.note ? " · " + esc(r.note) : ""}` : "Henüz tarama yok"} · tekrar kontrolü: ${esc(d.embed || "")}</div><span class="sp"></span><button class="btn sm" data-act="runDiscover">↻ Şimdi tara</button></div>
+  const reg = S.dreg || "";
+  const d = await api("/api/discover?" + new URLSearchParams({ ...(ch ? { channel: ch } : {}), ...(reg ? { region: reg } : {}) }));
+  const CAT = d.categories || {}, REG = d.regions || {};
+  const runs = (d.runs || []).filter((r) => !reg || (r.scope || "global").split(":")[0] === reg);
+  const runLine = (r) => `${esc(r.scope || "global")} ${dt(r.at)} · ${r.items} haber → ${r.candidates} aday → ${r.cards} kart · ${usd(r.cost_usd)}${r.note ? " · " + esc(r.note) : ""}`;
+  const tabs = [["", "Tümü"], ...Object.entries(REG)].map(([k, t]) => `<span class="chip ${reg === k ? "on" : ""}" data-act="discRegion" data-v="${k}">${esc(t)}</span>`).join("");
+  return `<div class="row"><div class="chips">${tabs}</div><span class="sp"></span><button class="btn sm" data-act="runDiscover">↻ Şimdi tara${reg ? " · " + esc(REG[reg] || reg) : ""}</button></div>
+  <div class="tiny faint mt8">${runs.length ? runs.map(runLine).join("<br>") : "Henüz tarama yok"} · tekrar kontrolü: ${esc(d.embed || "")}</div>
   <div class="grid mt16" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">${d.cards.map((c) => `<div class="card dcard" style="${c.status === "skipped" ? "opacity:.45" : ""}">
-    <div class="row" style="gap:6px"><span class="badge solid">${esc(CAT[c.category] || c.category)}</span><span class="badge">skor ${(c.score || 0).toFixed(1)}</span><span class="badge">${(c.signals || {}).source_count || 1} kaynak</span>
+    <div class="row" style="gap:6px"><span class="badge ${c.region === "tr" ? "warn" : ""}">${esc(REG[c.region] || c.region || "")}</span><span class="badge solid">${esc(CAT[c.category] || c.category)}</span><span class="badge">skor ${(c.score || 0).toFixed(1)}</span><span class="badge">${(c.signals || {}).source_count || 1} kaynak</span>${(c.signals || {}).trend_term ? `<span class="badge ok">↗ trend: ${esc(c.signals.trend_term)}</span>` : ""}
       ${c.paper ? `<span class="badge ${c.paper.kind === "preprint" ? "warn" : "ok"}">${c.paper.kind === "preprint" ? "preprint · " + esc(c.paper.server || "") : "hakemli · " + esc(c.paper.journal || c.paper.venue || "")}</span>` : ""}
       ${(c.flags || []).filter((f) => f !== "preprint").map((f) => `<span class="badge bad">${esc(f)}</span>`).join("")}</div>
     <div style="font-weight:700;font-size:16px;line-height:1.3" class="mt8">${esc(c.title)}</div>
@@ -1089,8 +1094,9 @@ async function discoverHtml(ch) {
     <div class="tiny">${(c.sources || []).map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.source)}</a>`).join(" · ")}${c.paper && c.paper.oa_url ? ` · <a href="${esc(c.paper.oa_url)}" target="_blank" rel="noopener">📄 makale</a>` : ""}</div>
     <div class="row mt8">${c.status === "picked" ? `<span class="badge">seçildi${c.channel_id ? " · " + esc((chan(c.channel_id) || {}).name || "") : ""}</span>` : c.status === "skipped" ? '<span class="tiny faint">geçildi</span>' : `<button class="btn sm accent" data-act="pickCard" data-id="${c.card_id}" data-ch="${esc(ch || "")}">Bunu üret</button><button class="btn sm ghost" data-act="skipCard" data-id="${c.card_id}">Geç</button>`}</div></div>`).join("") || '<div class="empty">Kart yok. “Şimdi tara” ile başlat.</div>'}</div>`;
 }
-ROUTES["#/kesif"] = async () => { crumb(["Keşif"]); const body = await discoverHtml(""); paint(`<h1>Keş<span class="serif">if</span></h1><p class="lead">Her sabah haber, bilim ve makale akışları taranır; aynı hikâye ve daha önce yaptıkların elenir, kalanlar puanlanıp fikir kartı olur.</p><div class="mt16">${body}</div>`, body.length + ""); };
-ACT.runDiscover = async () => { await post("/api/discover/run"); toast("Tarama başladı (~2 dk)"); setTimeout(() => { S.sig = null; route(); }, 90000); };
+ROUTES["#/kesif"] = async () => { crumb(["Keşif"]); const body = await discoverHtml(""); paint(`<h1>Keş<span class="serif">if</span></h1><p class="lead">Global ve Türkiye haber, spor, teknoloji, bilim ve makale akışları her gün konu konu taranır; aynı hikâye ve daha önce yaptıkların elenir, kalanlar puanlanıp fikir kartı olur.</p><div class="mt16">${body}</div>`, body.length + ""); };
+ACT.discRegion = async (el) => { S.dreg = el.dataset.v; S.sig = null; route(); };
+ACT.runDiscover = async () => { await post("/api/discover/run", S.dreg ? { region: S.dreg } : {}); toast("Tarama başladı (~2 dk)"); setTimeout(() => { S.sig = null; route(); }, 90000); };
 ACT.pickCard = async (el) => { const c = el.dataset.ch || S.ch; const r = await post(`/api/discover/card/${el.dataset.id}/pick`, { channel: c }); toast("Araştırma + senaryo başladı (#" + r.job_id + ")"); S.sig = null; route(); };
 ACT.skipCard = async (el) => { await post(`/api/discover/card/${el.dataset.id}/skip`); S.sig = null; route(); };
 
