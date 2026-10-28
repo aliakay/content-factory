@@ -107,7 +107,7 @@ TR RSS (`signals.trend_term`). Turkish keyword exclude list in `REGIONS["tr"]["e
 Dead/empty when tested: NTV RSS, NTVSpor, Fanatik, Fotomaç (stale), Hürriyet Daily News. One run (one Sonnet call,
 ~$0.08-0.14) per region in a scan; `disc_runs.scope` = "global" / "tr:tr_spor" ...; Keşif shows the newest run per
 category, with Tümü / Global / Türkiye tabs ("Şimdi tara" scans the selected tag).
-Cron, one job per topic (UTC): tr_gundem 05:40 · global 07:30 · tr_spor 08:10 · tr_tech 10:20 (`data/discover_cron.log`).
+Cron, one job per topic (UTC): tr_gundem 05:40 · global 07:30 · tr_spor 08:10 + 20:30 (match nights) · tr_tech 10:20 (`data/discover_cron.log`).
 Manual: `python -m factory.discover [--region global|tr] [--only tr_spor,tr_tech]` or Keşif -> Şimdi tara (job kind `discover`).
 Niches/quotas: `discover.NICHES`. Not built: embeddings dedupe, papers sub-pipeline (EurekAlert RSS URLs 404), finance/sports APIs,
 push/email delivery, style system (plan Phases 4-6), engine refactor (Phase 1).
