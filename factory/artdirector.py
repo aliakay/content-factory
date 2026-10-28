@@ -31,7 +31,7 @@ shot fields: clip_id, in/out (video seconds) or dur (photo), speed 1 or 0.5 (50/
   on the music grid, no-voice videos) or at_line (spoken videos: index of the voice line the shot starts on),
   push 0..0.08 (slow push-in), focus [x,y] 0..1 (where the crop/push aims), text "" (unused in styled edits),
   enter: cut | flash (3 white frames) | dip (from black) | whip (motion smear) | glitch (block mosaic) |
-    tiles (rect patches of the new shot over the old) | mask (see below);
+    tiles (rect patches of the new shot over the old) | mask (see below) | match | object | zoom (see below);
   mask: {"shape": circle|iris|band|split|strips|bars|luma|custom, "dur": 0.3-1.5, "angle": deg (band/split/strips),
     "center": [x,y] (circle/iris), "n": count (strips/bars), "soft": 0.005-0.3 edge softness, "line": true (thin white
     editorial line riding the edge), "expr": custom field}. The new shot opens over the previous shot's last frame.
@@ -45,6 +45,18 @@ shot fields: clip_id, in/out (video seconds) or dur (photo), speed 1 or 0.5 (50/
     shot's in where the shapes meet, and nudge "focus" y so the horizons sit at the same height.
   enter "object": OBJECT WIPE, the cut hides inside something passing close to the lens: end the PREVIOUS shot at an
     occlusion's "t" (clip fx.occlusions, peak cover) and the new shot appears through the dark object.
+  enter "zoom": ZOOM-THROUGH CUT, the previous shot dives 2.5x into its "focus" point (a window, a doorway, an eye, a
+    screen) with blur and this shot lands out of a zoom; aim both shots' focus at the matching spot.
+  freeze: {"at": s into the shot, "dur": 0.4-1.5, "flash": true, "mono": true, "punch": 0-0.2}: FREEZE FRAME, the
+    picture holds (white flash, grey, small punch-in), then plays on; pair it with a label layer ("that's me").
+  vertigo: {"amount": 0.15-0.5, "inward": false}: DOLLY ZOOM, the background pulls away (inward: rushes in) while the
+    subject keeps its size (subject matte; without one a soft ellipse around "focus"). One per video, on a clear
+    subject in the middle distance, 1.5-3 s.
+  chroma: {"bg": clip_id | "prev", "color": "0x00d000", "sim": 0.16, "blend": 0.08, "spill": green|blue}: GREEN
+    SCREEN, keys the colour out of this clip and puts it over another clip of the video (or the previous shot's
+    last frame). Only for clips really shot on a green/blue screen.
+  frame_break: {"box": [x, y, w, h] 0..1, "border": 14, "color": "white", "bg": blur|black}: FRAME BREAK, the shot sits
+    in a framed card and the subject (matte) breaks out over its edge; choose a box the subject's head/arms cross.
   audio: {"lead": 0-1.5, "tail": 0-1.5}: J-CUT (this shot's own sound starts `lead` s before its picture, the next
     place is heard before it is seen) / L-CUT (its sound runs on `tail` s over the next shot). Good for water, bells,
     crowds, wind: places bleed into each other. Clips' own sound only (not voice/music).
@@ -86,7 +98,8 @@ SCHEMA = """{
  "outro": {...} or null,
  "shots": [{"clip_id": "IMG_0827.MOV", "in": 0.3, "out": 3.4, "speed": 1, "beats": 4, "at_line": 0, "push": 0.03,
             "focus": [0.5, 0.5], "enter": "mask", "mask": {"shape": "circle", "dur": 0.7, "line": true},
-            "ramp": null, "leak": false, "audio": {"lead": 0.0, "tail": 0.0}, "layer": null, "shows": "what we see"}],
+            "ramp": null, "leak": false, "audio": {"lead": 0.0, "tail": 0.0}, "freeze": null, "vertigo": null,
+            "chroma": null, "frame_break": null, "layer": null, "shows": "what we see"}],
  "music_prompt": "instrumental brief for THIS cut: instruments, mood, BPM, where it builds/drops",
  "learned": [{"name": "short-name", "kind": "mask|html|rule", "what": "the technique", "when": "when it suits",
               "spec": {<the mask dict or the html layer dict that implements it, reusable>}, "source": "url"}],

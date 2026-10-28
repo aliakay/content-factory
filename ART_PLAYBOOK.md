@@ -57,6 +57,27 @@ Status: ✅ in `bin/stylecut.py` / overlay today · 🔧 planned · 🧠 planned
   `rembg[cpu]` on the VM; without it the text is drawn on top).
 - 🧠 **subject pop / outline**: person cut out with a thin white stroke, background darkened or frozen.
 
+### Footage set pieces (`bin/stylecut.py` shot fields)
+- ✅ **zoom-through cut** (`enter: zoom`): the previous shot dives 2.5x into its focus point with blur, the new one lands
+  out of a zoom. Aim both focus points at the matching spot (window, doorway, screen, eye).
+- ✅ **freeze frame** (`freeze: {at, dur, flash, mono, punch}`): the frame holds with a white flash, grey look and a small
+  punch-in, then plays on. Pair it with a label layer.
+- ✅ **vertigo / dolly zoom** (`vertigo: {amount, inward}`): background pulls away (or rushes in) while the subject keeps
+  its size. Scaled about the subject matte's centre (rembg); without a matte a soft ellipse around `focus` is held.
+- ✅ **green screen** (`chroma: {bg, color, sim, blend, spill}`): chromakey + despill over another clip, a photo or the
+  previous shot's last frame.
+- ✅ **frame break** (`frame_break: {box, border, color, bg}`): the shot sits in a framed card on a blurred copy and the
+  matted subject breaks out over the edge (needs rembg; without it the card alone).
+- ✅ speed ramp, digital zoom (`push` + `focus`) as above.
+
+### Motion-design set pieces (`motion/templates/fxlib.js`, explainer scenes)
+- ✅ orbit (`FX.orbit`, `FX.orbit3d`), screen wall (`FX.screenWall`), UI world (`FX.uiWorld`), frame break
+  (`FX.frameBreak`, cut-out PNG), phone mockup (`FX.phone`), checklist (`FX.checklist`), headline wall
+  (`FX.headlineWall`), zoom-through (`FX.zoomThrough`), chart grow (`FX.chart` bar/line/area/donut), paper cut
+  (`FX.paperCut`, `FX.paperSheet`), doodle boil (`FX.boil`, `FX.doodle`), vertigo (`FX.vertigo`), cover story
+  (`FX.coverStory`), glass type (`FX.glassType`), freeze frame (`FX.freezeFrame`); pull-back reveal = `FX.camera`
+  `pull_out`; kinetic captions are drawn by the explainer shell.
+
 ### Looks
 - ✅ grades natural/film/golden/moody/vivid/mono + grain, vignette, letterbox/scope frames
 - ✅ light leak (`leak: true`); 🔧 film burn, halation.

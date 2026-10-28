@@ -26,6 +26,15 @@ Spec:
               "enter": "match" = match cut: a 4-frame dissolve between two shots whose shapes line up (the art
               director aligns them with "focus"); "enter": "object" = object wipe: the previous shot ends while
               something passes close to the lens and the new shot appears through its dark areas
+              "enter": "zoom" = zoom-through cut: the previous shot dives into its focus point (exit "zoom") and this
+              one lands out of a zoom; "freeze": {"at": 1.2, "dur": 0.8, "flash": true, "mono": true, "punch": 0.06}
+              holds the frame at `at` s (with a white flash, grey look and a small punch-in) then plays on;
+              "vertigo": {"amount": 0.3, "inward": false, "r": 0.3}  dolly zoom: the background pulls away (inward =
+              rushes in) while the subject at "focus" keeps its size (subject matte when available, else a soft
+              ellipse of radius r); "chroma": {"bg": "raw/Y.MOV|raw/Y.JPG|prev", "color": "0x00d000", "sim": 0.16,
+              "blend": 0.08} green screen: keys the colour out and puts the shot over bg (prev = the previous shot's
+              last frame); "frame_break": {"box": [0.1, 0.3, 0.8, 0.4], "border": 14, "color": "white", "bg":
+              "blur|black"} the shot sits in a framed card and its subject (matte) breaks out over the edge
               "audio": {"lead": 0.6, "tail": 0.8}  J-cut / L-cut: this shot's own sound starts `lead` s before its
               picture and/or runs on `tail` s over the next shot (faded), so places bleed into each other
   layers    text/graphic layers drawn by motion/templates/overlay.html (see that file for the types); a layer
@@ -191,6 +200,160 @@ def leak_pass(base, out, pic, enc, d=0.7):
          "-pix_fmt", "yuv420p", out])
 
 
+ZOOM_DUR = 0.3
+
+
+def zoom_terms(enter, exit_, dur, freeze=None):
+    """Extra zoom on top of the push: exit "zoom" dives 2.5x into the focus over the last ZOOM_DUR s, enter "zoom"
+    lands from 1.6x; a freeze adds a small punch-in while it holds."""
+    z = ""
+    if exit_ == "zoom":
+        a = dur - ZOOM_DUR
+        z += f"+if(gt(t,{a:.3f}),1.5*pow((t-{a:.3f})/{ZOOM_DUR},3),0)"
+    if enter == "zoom":
+        z += f"+if(lt(t,{ZOOM_DUR}),0.6*pow(1-t/{ZOOM_DUR},3),0)"
+    if freeze:
+        a, d, k = freeze["at"], freeze["dur"], freeze.get("punch", 0.06)
+        z += f"+if(between(t,{a:.3f},{a + d:.3f}),{k}*min((t-{a:.3f})/0.15,1),0)"
+    return z
+
+
+def freeze_setup(s, dur):
+    """Clamped freeze dict ({at, dur, flash, mono, punch}) or None. The frozen frame eats into the shot, its length
+    stays the same."""
+    f = s.get("freeze")
+    if not isinstance(f, dict):
+        return None
+    d = max(0.2, min(float(f.get("dur", 0.8)), dur * 0.7))
+    a = max(0.0, min(float(f.get("at", dur * 0.4)), dur - d))
+    return {"at": a, "dur": d, "flash": f.get("flash", True), "mono": f.get("mono", True),
+            "punch": max(0.0, min(float(f.get("punch", 0.06)), 0.2))}
+
+
+def freeze_filters(f):
+    """(before the scale chain, after it): repeat one frame, then flash and grey it while it holds."""
+    n = round(f["dur"] * FPS)
+    pre = f"loop=loop={n}:size=1:start={round(f['at'] * FPS)},setpts=N/{FPS}/TB,"
+    a, b = f["at"], f["at"] + f["dur"]
+    post = ""
+    if f["mono"]:
+        post += f",hue=s=0:enable='between(t,{a:.3f},{b:.3f})',eq=contrast=1.18:enable='between(t,{a:.3f},{b:.3f})'"
+    if f["flash"]:
+        post += f",eq=brightness=0.45:enable='between(t,{a:.3f},{a + 0.07:.3f})'"
+    return pre, post
+
+
+def subject_matte(src, dur, tmp_out):
+    """Grey subject matte for a rendered shot, or None without a segmentation backend."""
+    try:
+        from factory import matte as matte_mod
+        return matte_mod.matte_video(src, tmp_out, [(0.0, dur)], FPS)
+    except Exception as e:
+        print("subject matte unavailable:", type(e).__name__, e, flush=True)
+        return None
+
+
+def matte_center(m, dur):
+    """(x, y) 0..1 centroid of the subject in the matte's middle frame, or None when it is empty."""
+    r = subprocess.run([FFMPEG, "-v", "error", "-ss", f"{dur / 2:.3f}", "-i", m, "-frames:v", "1", "-vf", "scale=108:192,format=gray",
+                        "-f", "rawvideo", "-"], capture_output=True)
+    px = r.stdout
+    if len(px) != 108 * 192 or not any(px):
+        return None
+    tot = sx = sy = 0
+    for i, p in enumerate(px):
+        if p > 127:
+            tot += 1
+            sx += i % 108
+            sy += i // 108
+    return (round(sx / tot / 107, 3), round(sy / tot / 191, 3)) if tot else None
+
+
+def vertigo_pass(base, out, pic, enc, v, focus, dur):
+    """Dolly zoom: the background scales from 1+a to 1 (inward: 1 to 1+a) about the focus point while the subject is
+    held at 1+a, so it keeps its size and is never smaller than its copy in the background."""
+    pw, ph = pic
+    a = max(0.05, min(float(v.get("amount", 0.3)), 0.6))
+    fx, fy = focus
+    z = f"1+{a}*(t/{dur:.3f})" if v.get("inward") else f"1+{a}*(1-t/{dur:.3f})"
+    zoom = lambda e: (f"scale=w='iw*({e})':h='ih*({e})':eval=frame:flags=bicubic,"
+                      f"crop={pw}:{ph}:x='{pw}*(({e})-1)*{fx}':y='{ph}*(({e})-1)*{fy}',setsar=1")
+    m = subject_matte(base, dur, out + ".matte.mp4") if v.get("matte", True) else None
+    if m:   # scale about the subject's own centre so its (smaller) copy in the background stays hidden behind it
+        fx, fy = matte_center(m, dur) or (fx, fy)
+    inputs = ["-i", base]
+    fc = f"[0:v]split[a][b];[a]{zoom(z)},format=gbrp[bg];[b]{zoom(1 + a)},format=gbrp[fg];"
+    if m:
+        inputs += ["-i", m]
+        fc += f"[1:v]format=gray,scale={pw}:{ph},{zoom(1 + a)},format=gray,format=gbrp[m];"
+    else:
+        r = max(0.1, min(float(v.get("r", 0.3)), 0.6))
+        fc += (f"color=black:s={pw}x{ph}:r={FPS}:d={dur:.3f},format=gray,"
+               f"geq=lum='255*clip((1-hypot((X-W*{fx})/(W*{r * 0.8:.3f}),(Y-H*{fy})/(H*{r:.3f})))/0.25,0,1)',format=gbrp[m];")
+    fc += "[bg][fg][m]maskedmerge,format=yuv420p[v]"
+    run([*inputs, "-filter_complex", fc, "-map", "[v]", "-an", "-c:v", "libx264", "-preset", enc[0], "-crf", enc[1],
+         "-pix_fmt", "yuv420p", out])
+    if m and os.path.exists(m):
+        os.remove(m)
+
+
+def chroma_pass(base, out, pic, enc, c, dur, prev=None):
+    """Green screen: key `color` out of the shot and lay it over bg (a clip, a photo or the previous shot's last frame)."""
+    pw, ph = pic
+    bg = c.get("bg") or "prev"
+    if bg == "prev" and prev:
+        pf = out + ".bg.png"
+        run(["-sseof", "-0.1", "-i", prev, "-frames:v", "1", "-update", "1", pf])
+        src = ["-loop", "1", "-t", f"{dur:.3f}", "-i", pf]
+    elif bg != "prev" and os.path.exists(os.path.join(ROOT, bg)):
+        path = os.path.join(ROOT, bg)
+        img = os.path.splitext(path)[1].lower() in (".jpg", ".jpeg", ".png", ".webp", ".heic")
+        src = (["-loop", "1"] if img else ["-stream_loop", "-1"]) + ["-t", f"{dur:.3f}", "-i", path]
+    else:
+        src = ["-f", "lavfi", "-t", f"{dur:.3f}", "-i", f"color=black:s={pw}x{ph}:r={FPS}"]
+    col = str(c.get("color", "0x00d000"))
+    if not all(ch in "0123456789abcdefABCDEFx#" for ch in col):
+        col = "0x00d000"
+    sim = max(0.01, min(float(c.get("sim", 0.16)), 0.5))
+    blend = max(0.0, min(float(c.get("blend", 0.08)), 0.5))
+    spill = "blue" if c.get("spill") == "blue" else "green"
+    fc = (f"[1:v]scale={pw}:{ph}:force_original_aspect_ratio=increase,crop={pw}:{ph},setsar=1,fps={FPS}[bg];"
+          f"[0:v]chromakey=color={col.replace('#', '0x')}:similarity={sim}:blend={blend},format=gbrap,"
+          f"despill=type={spill}[fg];[bg][fg]overlay=0:0:shortest=1,format=yuv420p[v]")
+    run(["-i", base, *src, "-filter_complex", fc, "-map", "[v]", "-an", "-frames:v", str(round(dur * FPS)),
+         "-c:v", "libx264", "-preset", enc[0], "-crf", enc[1], "-pix_fmt", "yuv420p", out])
+    if os.path.exists(out + ".bg.png"):
+        os.remove(out + ".bg.png")
+
+
+def frame_break_pass(base, out, pic, enc, f, dur):
+    """The shot shrinks into a framed card on a blurred (or black) copy of itself; the subject, cut out with a matte,
+    is drawn on top at full size, so where it reaches past the card it breaks out over the frame."""
+    pw, ph = pic
+    bx, by, bw, bh = (list(f.get("box") or [0.1, 0.3, 0.8, 0.4]) + [0.1, 0.3, 0.8, 0.4][len(f.get("box") or []):])[:4]
+    x, y = int(pw * bx) // 2 * 2, int(ph * by) // 2 * 2
+    w, h = max(64, int(pw * bw) // 2 * 2), max(64, int(ph * bh) // 2 * 2)
+    w, h = min(w, pw - x), min(h, ph - y)
+    b = max(0, min(int(f.get("border", 14)), 60))
+    col = f.get("color", "white")
+    col = col if all(ch.isalnum() or ch in "#@." for ch in str(col)) else "white"
+    back = "boxblur=40:3,eq=brightness=-0.15:saturation=0.8" if f.get("bg", "blur") == "blur" else "lutrgb=r=0:g=0:b=0"
+    m = subject_matte(base, dur, out + ".matte.mp4")
+    inputs = ["-i", base]
+    fc = (f"[0:v]split=3[a][c][s];[a]{back}[bg];[c]crop={w}:{h}:{x}:{y},pad={w + 2 * b}:{h + 2 * b}:{b}:{b}:color={col}[card];"
+          f"[bg][card]overlay={x - b}:{y - b}[comp];")
+    if m:
+        inputs += ["-i", m]
+        fc += (f"[1:v]format=gray,scale={pw}:{ph}[mt];[s]format=yuva420p[sa];[sa][mt]alphamerge[subj];"
+               "[comp][subj]overlay=0:0:format=auto,format=yuv420p[v]")
+    else:
+        fc += "[s]nullsink;[comp]format=yuv420p[v]"
+    run([*inputs, "-filter_complex", fc, "-map", "[v]", "-an", "-c:v", "libx264", "-preset", enc[0], "-crf", enc[1],
+         "-pix_fmt", "yuv420p", out])
+    if m and os.path.exists(m):
+        os.remove(m)
+
+
 def probe_duration(path):
     r = subprocess.run([FFMPEG.replace("ffmpeg", "ffprobe"), "-v", "error", "-show_entries", "format=duration",
                         "-of", "csv=p=0", path], capture_output=True, text=True)
@@ -239,14 +402,23 @@ def shot(s, out, wav, frame, enc, size=(1080, 1920), prev=None):
         dur = s.get("dur", 1.5)
         src = ["-loop", "1", "-t", f"{dur:.3f}", "-i", os.path.join(ROOT, s["photo"])]
         pre = f"fps={FPS},"
-    # cover-crop to the picture size at 2x, then a slow centred push towards the focus point, then down to size
-    z = zoom_expr(push, dur)
+    enter, exit_ = s.get("enter", "cut"), s.get("exit", "cut")
+    frz = freeze_setup(s, dur)
+    frz_pre, frz_post = freeze_filters(frz) if frz else ("", "")
+    pre += frz_pre
+    # cover-crop to the picture size at 2x, then a slow centred push towards the focus point, then down to size.
+    # The crop offsets come from the zoom itself: crop keeps the input size it was configured with, so `iw` there
+    # would be stale once the scaled size changes from frame to frame.
+    z = zoom_expr(push, dur) + zoom_terms(enter, exit_, dur, frz)
     vf = (pre + f"scale={pw * 2}:{ph * 2}:force_original_aspect_ratio=increase:flags=lanczos,"
           f"crop={pw * 2}:{ph * 2},"
           f"scale=w='iw*({z})':h='ih*({z})':eval=frame:flags=bicubic,"
-          f"crop={pw * 2}:{ph * 2}:x='(iw-{pw * 2})*{fx}':y='(ih-{ph * 2})*{fy}',"
-          f"scale={pw}:{ph}:flags=lanczos,setsar=1")
-    enter, exit_ = s.get("enter", "cut"), s.get("exit", "cut")
+          f"crop={pw * 2}:{ph * 2}:x='{pw * 2}*(({z})-1)*{fx}':y='{ph * 2}*(({z})-1)*{fy}',"
+          f"scale={pw}:{ph}:flags=lanczos,setsar=1") + frz_post
+    if enter == "zoom":     # lands out of the dive: blur clears as the zoom settles
+        vf += f",gblur=sigma=14:enable='lt(t,{ZOOM_DUR / 3:.3f})',gblur=sigma=6:enable='between(t,{ZOOM_DUR / 3:.3f},{ZOOM_DUR * 2 / 3:.3f})'"
+    if exit_ == "zoom":
+        vf += f",gblur=sigma=6:enable='between(t,{dur - ZOOM_DUR * 2 / 3:.3f},{dur - ZOOM_DUR / 3:.3f})',gblur=sigma=14:enable='gt(t,{dur - ZOOM_DUR / 3:.3f})'"
     if enter == "flash":
         vf += ",fade=t=in:st=0:d=0.1:color=white"
     elif enter == "dip":
@@ -267,24 +439,37 @@ def shot(s, out, wav, frame, enc, size=(1080, 1920), prev=None):
     use_tiles = enter == "tiles" and prev and dur > TILE_DUR + 0.2
     use_mask = enter == "mask" and prev and dur > 0.6
     use_leak = bool(s.get("leak")) and dur > 0.9
-    target = out + ".base.mp4" if (use_tiles or use_mask or use_leak) else out
+    looks = [(k, s[k]) for k in ("chroma", "vertigo", "frame_break") if isinstance(s.get(k), dict)]
+    passes = len(looks) + bool(use_tiles or use_mask) + use_leak
+    cur = out + ".base.mp4" if passes else out
     run([*src, "-vf", vf, "-frames:v", str(round(dur * FPS)), "-an", "-c:v", "libx264", "-preset", enc[0],
-         "-crf", enc[1], "-pix_fmt", "yuv420p", target])
-    if use_tiles:
+         "-crf", enc[1], "-pix_fmt", "yuv420p", cur])
+    step = [0]
+
+    def then(fn, *args):   # run one post pass from the current file into the next one (the last writes `out`)
+        nonlocal cur
+        step[0] += 1
+        nxt = out if step[0] == passes else f"{out}.p{step[0]}.mp4"
+        fn(cur, nxt, *args)
+        os.remove(cur)
+        cur = nxt
+    # picture effects first (on this shot alone), then the transition over the previous shot, then the leak
+    for k, v in looks:
+        if k == "chroma":
+            then(lambda a, b: chroma_pass(a, b, (pw, ph), enc, v, dur, prev))
+        elif k == "vertigo":
+            then(lambda a, b: vertigo_pass(a, b, (pw, ph), enc, v, (fx, fy), dur))
+        else:
+            then(lambda a, b: frame_break_pass(a, b, (pw, ph), enc, v, dur))
+    if use_tiles or use_mask:
         pf = out + ".prev.png"
         run(["-sseof", "-0.1", "-i", prev, "-frames:v", "1", "-update", "1", pf])
-        tiles_pass(target, pf, out if not use_leak else out + ".t.mp4", size, enc)
-        os.remove(target)
-        target = out + ".t.mp4" if use_leak else out
-    elif use_mask:
-        pf = out + ".prev.png"
-        run(["-sseof", "-0.1", "-i", prev, "-frames:v", "1", "-update", "1", pf])
-        mask_pass(target, pf, out if not use_leak else out + ".m.mp4", (pw, ph), enc, s.get("mask") or {})
-        os.remove(target)
-        target = out + ".m.mp4" if use_leak else out
+        if use_tiles:
+            then(lambda a, b: tiles_pass(a, pf, b, size, enc))
+        else:
+            then(lambda a, b: mask_pass(a, pf, b, (pw, ph), enc, s.get("mask") or {}))
     if use_leak:
-        leak_pass(target, out, (pw, ph), enc)
-        os.remove(target)
+        then(lambda a, b: leak_pass(a, b, (pw, ph), enc))
     lead, tail = audio_overlap(s, prev is not None)
     if "video" in s:
         a0 = max(0.0, s["in"] - lead)

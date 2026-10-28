@@ -249,3 +249,37 @@ def test_styled_keeps_new_effects_and_jl_mix():
     assert "adelay=1400|1400" in parts[1] and "afade=t=in:d=0.600" in parts[1]   # J-cut: heard 0.6 s early
     assert "afade=t=out:st=2.000:d=0.800" in parts[0] and "amix=inputs=2" in mix   # L-cut: runs 0.8 s over
     assert sc.ambience(["x", "y"], [1, 1], 2, -6) is None                          # no overlap: plain concat
+
+
+def test_picture_effects_sanitized_and_built_into_filters():
+    import importlib.util, os
+    from factory import styled
+    d = styled.sanitize({"look": {}, "shots": [
+        {"clip_id": "A", "enter": "zoom", "freeze": {"at": 0.5, "dur": 9, "punch": 1}, "vertigo": {"amount": 2}},
+        {"clip_id": "B", "chroma": {"bg": "A", "color": "red;rm", "sim": 3}, "frame_break": {"box": [0.1, 0.2], "border": 99}},
+        {"clip_id": "C", "freeze": "yes", "vertigo": None}]})
+    a, b, c = d["shots"]
+    assert a["enter"] == "zoom" and a["freeze"]["dur"] == 3.0 and a["freeze"]["punch"] == 0.2 and a["vertigo"]["amount"] == 0.6
+    assert b["chroma"]["color"] == "0x00d000" and b["chroma"]["sim"] == 0.5 and b["chroma"]["bg"] == "A"
+    assert b["frame_break"]["box"] == [0.1, 0.3, 0.8, 0.4] and b["frame_break"]["border"] == 60
+    assert "freeze" not in c and "vertigo" not in c
+    path = os.path.join(os.path.dirname(__file__), "..", "bin", "stylecut.py")
+    sp = importlib.util.spec_from_file_location("stylecut_pfx", path)
+    sc = importlib.util.module_from_spec(sp)
+    sp.loader.exec_module(sc)
+    f = sc.freeze_setup({"freeze": {"at": 5, "dur": 0.5}}, 2.0)
+    assert f["at"] == 1.5 and f["dur"] == 0.5                                     # held inside the shot
+    pre, post = sc.freeze_filters(f)
+    assert "loop=loop=15:size=1:start=45" in pre and "hue=s=0" in post and "brightness=0.45" in post
+    z = sc.zoom_terms("zoom", "zoom", 2.0, f)
+    assert "gt(t,1.700)" in z and "lt(t,0.3)" in z and "between(t,1.500,2.000)" in z
+    assert sc.zoom_terms("cut", "cut", 2.0) == ""
+
+
+def test_fxlib_has_set_pieces():
+    import os, re
+    js = open(os.path.join(os.path.dirname(__file__), "..", "motion", "templates", "fxlib.js")).read()
+    names = set(re.findall(r"FX\.(\w+) = ", js))
+    assert {"orbit", "orbit3d", "screenWall", "uiWorld", "frameBreak", "phone", "checklist", "headlineWall", "zoomThrough",
+            "chart", "paperSheet", "paperCut", "boil", "doodle", "vertigo", "coverStory", "glassType", "freezeFrame"} <= names
+    assert "Math.random" not in js and "setTimeout" not in js and "requestAnimationFrame" not in js

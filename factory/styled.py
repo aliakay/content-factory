@@ -10,7 +10,7 @@ from . import beats as beatmod
 
 from .config import ROOT
 LAYERS = ("title_serif", "title_bold", "scramble", "editorial", "words", "quote", "pin", "hook", "caption", "window", "html")
-ENTERS = ("cut", "flash", "dip", "whip", "glitch", "tiles", "mask", "match", "object")
+ENTERS = ("cut", "flash", "dip", "whip", "glitch", "tiles", "mask", "match", "object", "zoom")
 MASK_SHAPES = ("circle", "iris", "band", "split", "strips", "bars", "luma", "custom")
 GRADES = ("natural", "film", "golden", "moody", "vivid", "mono")
 FRAMES = ("full", "letterbox", "scope")
@@ -104,6 +104,7 @@ def sanitize(d):
         else:
             s.pop("ramp", None)
         s["leak"] = bool(s.get("leak"))
+        _picture_fx(s)
         a = s.get("audio")
         if isinstance(a, dict) and (a.get("lead") or a.get("tail")):   # J-cut / L-cut
             s["audio"] = {"lead": max(0.0, min(float(a.get("lead") or 0), 1.5)),
@@ -117,6 +118,47 @@ def sanitize(d):
     m = d.get("music")
     d["music"] = m if isinstance(m, dict) and m.get("prompt") else None
     return d
+
+
+def _num(v, lo, hi, default):
+    try:
+        return max(lo, min(float(v), hi))
+    except (TypeError, ValueError):
+        return default
+
+
+def _picture_fx(s):
+    """Keep the per-shot picture effects (freeze, vertigo, chroma, frame_break) only in their clamped shape."""
+    f = s.get("freeze")
+    if isinstance(f, dict):
+        s["freeze"] = {"at": _num(f.get("at"), 0.0, 10.0, 0.8), "dur": _num(f.get("dur"), 0.2, 3.0, 0.8),
+                       "flash": bool(f.get("flash", True)), "mono": bool(f.get("mono", True)),
+                       "punch": _num(f.get("punch"), 0.0, 0.2, 0.06)}
+    else:
+        s.pop("freeze", None)
+    v = s.get("vertigo")
+    if isinstance(v, dict):
+        s["vertigo"] = {"amount": _num(v.get("amount"), 0.05, 0.6, 0.3), "inward": bool(v.get("inward")),
+                        "r": _num(v.get("r"), 0.1, 0.6, 0.3)}
+    else:
+        s.pop("vertigo", None)
+    c = s.get("chroma")
+    if isinstance(c, dict):
+        col = str(c.get("color") or "0x00d000")
+        s["chroma"] = {"bg": str(c.get("bg") or "prev"), "sim": _num(c.get("sim"), 0.01, 0.5, 0.16),
+                       "blend": _num(c.get("blend"), 0.0, 0.5, 0.08), "spill": "blue" if c.get("spill") == "blue" else "green",
+                       "color": col if all(ch in "0123456789abcdefABCDEFx#" for ch in col) else "0x00d000"}
+    else:
+        s.pop("chroma", None)
+    b = s.get("frame_break")
+    if isinstance(b, dict):
+        box = b.get("box")
+        ok = isinstance(box, list) and len(box) == 4 and all(isinstance(x, (int, float)) for x in box)
+        s["frame_break"] = {"box": [_num(x, 0.0, 1.0, 0.5) for x in box] if ok else [0.1, 0.3, 0.8, 0.4],
+                            "border": int(_num(b.get("border"), 0, 60, 14)), "bg": "black" if b.get("bg") == "black" else "blur",
+                            "color": b.get("color") if str(b.get("color", "")).lstrip("#").isalnum() else "white"}
+    else:
+        s.pop("frame_break", None)
 
 
 def _safe_expr(e):
@@ -185,10 +227,13 @@ def compile_spec(con, p, fmt, line_times=None, voice_file=None, vo_start=0.15):
         rel = os.path.relpath(c["path"], ROOT)
         nxt = shots[k + 1].get("enter") if k + 1 < len(shots) else None
         base = {"push": s.get("push", 0.0), "enter": s.get("enter", "cut"), "focus": s.get("focus", [0.5, 0.5]),
-                "exit": nxt if nxt in ("whip", "glitch") else "cut"}
-        for key in ("mask", "ramp", "audio"):
+                "exit": nxt if nxt in ("whip", "glitch", "zoom") else "cut"}
+        for key in ("mask", "ramp", "audio", "freeze", "vertigo", "frame_break"):
             if s.get(key):
                 base[key] = s[key]
+        if s.get("chroma"):   # green screen: the background is another clip of this video (or the previous shot)
+            bgc = clips.get(s["chroma"]["bg"])
+            base["chroma"] = dict(s["chroma"], bg=os.path.relpath(bgc["path"], ROOT) if bgc else "prev")
         if s.get("leak"):
             base["leak"] = True
         if c["kind"] == "video":

@@ -91,7 +91,25 @@ FX_DOC = """FX LIBRARY (available in every scene's JS as `FX`; deterministic, us
   camera: FX.camera(tl, wrapperEl, T, {move: push_in|pull_out|pan_left|pan_right|tilt_up|tilt_down|hold|zoom_to, focus:[x,y], at, zoom})
   surfaces/backgrounds: FX.glass(el) · FX.aurora(root, T, {colors, seed}) · FX.particles(root, T, {n, color, seed})
   3D (Three.js, rendered per frame): k = FX.three(root, T) -> {THREE, scene, camera, frame(fn(localT))} ·
-          FX.globe(root, T, {color, grid, turn}) · per-frame canvas drawing: FX.onFrame(fn(t)) · seeded random: FX.rand(seed)"""
+          FX.globe(root, T, {color, grid, turn}) · per-frame canvas drawing: FX.onFrame(fn(t)) · seeded random: FX.rand(seed)
+  set pieces (pics = image URL | "<html>" | {img}|{html}; cutout = transparent PNG of the same picture, optional):
+          orbit: FX.orbit(tl, el, T, {from: -35, turn: 70, tilt}) (CSS 3D turn + sheen) · k = FX.orbit3d(root, T, {radius, turn})
+          screen wall: FX.screenWall(tl, root, at, pics, {cols, rows, focus: i, focusAt}) (grid of screens, flies into i)
+          UI world: FX.uiWorld(tl, root, T, [{html|img, x, y, z, w}]) (camera flies through floating glass cards)
+          frame break: FX.frameBreak(tl, root, at, {img, cutout, box: [x, y, w, h]}) (subject breaks out of the frame)
+          phone: p = FX.phone(root, {img|html, w, x, y}) -> {el, screen}; animate p.el, scroll content inside p.screen
+          checklist: FX.checklist(tl, root, at, ["item", ..], {every, strike, size, y})
+          headline wall: FX.headlineWall(tl, root, at, [{title, source}], {highlight: i}) (newspaper clippings slam in)
+          zoom-through: FX.zoomThrough(tl, fromEl, toEl, at, {focus: [x, y]}) (dive into a point, next layer grows out)
+          charts: FX.chart(tl, root, at, {type: bar|line|area|donut, data, labels, highlight, prefix, suffix, x, y, w, h})
+          paper cut: FX.paperCut(tl, root, at, {colors, top, dur}) (torn layered hills) · FX.paperSheet(root, {x, y, w, h,
+            html, color}) (torn note with grain + shadow)
+          doodle boil: FX.boil(el, T, {amount}) (hand-drawn wobble at 12 fps) · FX.doodle(tl, root, at, "M.. path", {T, color})
+          vertigo: FX.vertigo(tl, bgEl, cutoutEl, T, {amount, inward, focus}) (dolly zoom: bg moves, subject holds)
+          cover story: FX.coverStory(tl, root, at, {img, cutout, masthead, issue, kicker, headline, lines})
+          glass type: FX.glassType(tl, root, at, "WORD", {bg: same picture URL, size, y}) (frosted glass letters)
+          freeze frame: FX.freezeFrame(tl, root, at, {target: pictureEl, label}) (stop your other tweens at `at`)
+          (pull-back reveal = FX.camera move pull_out; digital zoom = zoom_to)"""
 
 TASTE = """DESIGN TASTE IN NUMBERS (binding):
 - Type: max 2 families per video; scale steps ~1.25-1.333 (e.g. 28 / 36 / 48 / 64 / 88 / 120 px on 1080 wide); headlines
