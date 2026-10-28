@@ -350,3 +350,28 @@ the ledger (estimated cost, ok=0). `motiondesign.build` keeps the raw reply in `
 **Voice alignment** (2026-10-28): `productions.align` derives line times from `explainer.align_words` (one whisper pass,
 Turkish-aware `_norm`, temperature 0; a weak match (<80 % of words) is retried without the script prompt). Before, a
 drifting whisper run left prod 17 with 0.05 s scenes and sound/picture out of sync.
+
+## Living drawings, kinetic type, the technique catalog, gates before the preview (2026-10-28)
+- **Alive kit** (after rossark-motion-skill, MIT) in `motion/templates/fxlib.js`: `FX.alive` (gliding gaze, blinks every
+  3-4 s, breathing, moving holds), `FX.act` (pose chains read with a monotone flow + follow-through), `FX.land` /
+  `FX.hop` / `FX.float`, idle loops by subject (`FX.sway`, `FX.flicker`, `FX.steam`, `FX.ripples`, `FX.weather`, ...),
+  and `FX.character`, an illustrated lead with a live face (sliding pupils, lids, happy squint, talking mouth). Motion
+  lint flags frozen characters ("frozen") and pose chains that stop dead ("robot").
+- **Kinetic kit** (after the scenario-kinetic-film skill; method only, no engine code copied): `FX.B(k)` beat grid
+  (bundles carry the music's BPM; beat 0 = the drop line), `FX.kinetic` (slam / punch3d / stack / split / pair / cut),
+  `FX.ground`, `FX.cutRun`, `FX.charge`, `FX.hitFx`, `FX.zoomLetter`, `FX.tvOff`, `FX.typePrompt`, `FX.picture`.
+  Finals can take real motion blur (`render.mjs --blur=4`, spec `motion_blur`) and bloom (`post_fx.bloom`).
+- **Techniques** for the planner: `look.alive`, `look.living_world`, `look.kinetic_type`, `look.picture_alive`,
+  `look.motion_blur`, `story.beat_film`. References get a motion study (`factory/motionref.py`: bob / sway / squash in %
+  + period + pace); the numbers reach the planner's catalogue and the designer (`REFERENCE MOTION`).
+- **Gates before the preview**: `motiondesign.draft_qa` renders a free draft (quarter size, 15 fps) every design round
+  and measures holds, still share (kinetic films), flashes and broken frames; blocking findings go back to the designer
+  and a 2nd round runs only when a gate still fails. The motion card shows the numbers ("⚡ Taslak render ölçümü").
+- **Technique catalog** (Studio → Teknik kataloğu, `#/katalog`): every technique with a 3-6 s looping demo clip drawn
+  by the engine (`factory/catalog.py`, job `catalog_demos`: button "örnek klibi üret", free, ~6 min for all; by hand
+  `python -m factory.catalog [ids]`; clips live in `work/catalog/`, not in git, so a new machine renders them once).
+  "Bunu kullan" pins a technique into the composer; "Opus ekleyebilir" = pins + the planner's own choices, "Sadece
+  bunlar" = exactly the pins. Without pins Opus chooses and writes `technique_why` per technique on the plan card.
+- **Fixed**: `FX.split` kept spaces as bare text nodes; GSAP re-inserts elements of a hidden scene before their next
+  element sibling while it measures transforms, so a letter or word hopped over a space ("deletes this" ->
+  "deletesthis" in `FX.blurWords` / `FX.pop`, "VERY BIG" -> "VER YBIG"). Spaces are now their own spans.

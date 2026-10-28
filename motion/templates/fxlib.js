@@ -15,7 +15,9 @@
     el.textContent = "";
     const parts = by === "chars" ? [...text] : text.split(/(\s+)/);
     return parts.map((p) => {
-      if (/^\s+$/.test(p)) { el.appendChild(document.createTextNode(p)); return null; }
+      // whitespace in its own (plain inline) span, never a bare text node: GSAP measures transforms in a hidden scene by
+      // re-inserting each element before its next ELEMENT sibling, which would hop a letter over a text-node space
+      if (/^\s+$/.test(p)) { const g = document.createElement("span"); g.textContent = p; el.appendChild(g); return null; }
       const s = document.createElement("span");
       s.textContent = p; s.style.display = "inline-block"; s.style.whiteSpace = "pre";
       el.appendChild(s); return s;

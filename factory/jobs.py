@@ -374,6 +374,10 @@ def run(job_id):
                 s = series.get(con, int(o["id"]))
                 s["job_id"] = None
                 series.save(con, s)
+        elif kind == "catalog_demos":   # the technique catalog's demo clips (headless render, no Claude / credits)
+            from . import catalog
+            done, failed = catalog.render_all(jload(arg, {}).get("ids") or None, bool(jload(arg, {}).get("force")))
+            result = f"{len(done)} örnek klip" + (f", {len(failed)} hata: {failed[0]}" if failed else "")
         elif kind == "style_extract":
             o = jload(arg, {})
             result = "stil: " + styles.extract(o["files"], o.get("note", ""))

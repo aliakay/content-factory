@@ -1043,6 +1043,10 @@ class Handler(shorts.Handler):
                    "voice_id": b.get("voice_id") if b.get("voice_id") in voice_ids(accounts.default_eleven()) else None,
                    "channel": channels.resolve(con, b.get("channel"), fmt["mode"])}
             return {"job_id": jobs.queue(con, "p_ideas", json.dumps(arg, ensure_ascii=False))}
+        if path == "/api/catalog/demos":
+            from factory import catalog
+            ids = [x for x in b.get("ids") or [] if x in catalog.DEMOS] or None
+            return {"job_id": jobs.queue(con, "catalog_demos", json.dumps({"ids": ids, "force": bool(b.get("force"))}))}
         if path == "/api/discover/run":
             sc = {"region": b.get("region") if b.get("region") in discover.REGIONS else None,
                   "only": [k for k in (b.get("only") or []) if k in discover.NICHES["categories"]] or None}
@@ -1050,7 +1054,11 @@ class Handler(shorts.Handler):
         # ---- composer / planner ----
         if path == "/api/plan":
             att = b.get("attachments") if isinstance(b.get("attachments"), dict) else {}
-            att = {k: att[k] for k in ("places", "refs", "series_id", "channel", "links", "clips") if att.get(k)}
+            att = {k: att[k] for k in ("places", "refs", "series_id", "channel", "links", "clips", "pins", "pin_mode") if att.get(k)}
+            if att.get("pins"):    # techniques the creator pinned in the catalog (planner must use them)
+                from factory import capabilities
+                att["pins"] = [x for x in att["pins"] if isinstance(x, str) and x in capabilities.CAPS][:12]
+                att["pin_mode"] = "only" if att.get("pin_mode") == "only" else "add"
             pid = planner.create(con, b.get("prompt", ""), att, uid)
             voices = [{"voice_id": v["voice_id"], "name": v.get("name"), "language": v.get("language")}
                       for v in eleven_info(accounts.default_eleven())["voices"]]
@@ -1349,6 +1357,10 @@ class Handler(shorts.Handler):
             n = {r["format"]: r["n"] for r in con.execute(
                 "SELECT format, COUNT(*) n FROM productions WHERE stage!='rejected' GROUP BY format")}
             return [{**f, "count": n.get(f["id"], 0)} for f in formats.FORMATS]
+        if path == "/api/catalog":
+            from factory import catalog
+            kind = (q.get("kind") or [None])[0]
+            return {"items": catalog.listing(kind), "missing": len(catalog.missing())}
         if path == "/api/techniques":
             from factory import capabilities
             return capabilities.chips((q.get("kind") or [None])[0])

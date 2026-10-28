@@ -92,3 +92,32 @@ def test_bloom_and_beat_grid():
     assert vf.startswith("split[bl_a][bl_b]") and "blend=all_mode=screen" in vf and "noise=" in vf
     assert htmlmotion.beat_grid({}) == {}
     assert htmlmotion.beat_grid({"music": {"file": "does/not/exist.mp3"}}) == {}
+
+
+def test_catalog_lists_every_technique_with_demos_where_drawable():
+    from factory import catalog
+    items = catalog.listing()
+    ids = {t["id"] for t in items}
+    assert {c for c, v in capabilities.CAPS.items() if not v.get("always")} == ids
+    assert set(catalog.DEMOS) <= ids                         # every demo belongs to a real technique
+    for cid in catalog.DEMOS:                                # and builds a bundle the shell can load
+        b, dur, _ = catalog._bundle(cid)
+        assert b["scenes"][0]["end"] == dur and (b["scenes"][0]["js"] or b["words"])
+    styles = [t for t in items if t["style"]]
+    assert styles and all(t.get("bible") for t in styles)
+
+
+def test_planner_honours_pinned_techniques():
+    from factory import planner
+    cat = {"channels": [{"id": "c", "mode": "topic", "name": "x"}], "presets": [{"id": "explainer_short", "mode": "topic"}],
+           "looks": ["auto"], "voices": [], "footage": {"places": []}, "refs": [], "series": []}
+    plan = {"kind": "topic", "techniques": ["story.rules_arc", "look.acting"], "technique_why": {"look.acting": "faces", "x": "y"},
+            "treatments": [{"label_tr": "A", "techniques": ["sound.event_sfx"]}]}
+    p = planner.clean(plan, {"pins": ["look.alive", "story.beat_film"], "pin_mode": "add"}, cat)
+    assert p["techniques"][:2] == ["look.alive", "story.beat_film"] and "story.rules_arc" not in p["techniques"]   # pinned shape wins
+    assert p["treatments"][0]["techniques"][:2] == ["look.alive", "story.beat_film"]
+    assert p["technique_why"] == {"look.acting": "faces"} and any(t["pinned"] for t in p["technique_labels"])
+    only = planner.clean(plan, {"pins": ["look.alive"], "pin_mode": "only"}, cat)
+    assert only["techniques"] == ["look.alive"]
+    assert "exactly" in planner._pins_note({"pins": ["look.alive"], "pin_mode": "only"})
+    assert planner._pins_note({}) == ""

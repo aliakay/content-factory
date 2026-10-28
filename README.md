@@ -42,6 +42,7 @@ factory/                        the pipeline (Python package)
   embed.py        text embeddings (fastembed if installed, offline fallback) for dedupe and clip search
   fxdetect.py     measured effect material per clip (horizons, motion, occlusions) for match cuts / object wipes
   motionref.py    how a reference really moves: full-frame-rate sheets, subject bob / sway / squash in % + period, colours
+  catalog.py      the technique catalog page (Studio → Teknik kataloğu): every technique + an engine-drawn demo clip
   matte.py        subject mattes for text-behind-subject (rembg if installed)
   thumbs.py       cover / thumbnail candidates per finished video
   jobs.py         job queue: the Studio writes a row, each job runs as its own process
