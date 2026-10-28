@@ -383,7 +383,11 @@ def build(con, p, note=""):
     d = p["data"]
     spec, _, _, _ = productions.timeline(con, p)          # draft or real timing, look_pack "auto" compiles like any explainer
     from . import memory
-    design, meta, _ = author(spec, d, note or d.get("motion_note", ""), memory.designer_note(con))
+    design, meta, raw = author(spec, d, note or d.get("motion_note", ""), memory.designer_note(con))
+    keep = os.path.join(ROOT, "data", "auto", f"{p['prod_id']}")
+    os.makedirs(keep, exist_ok=True)
+    with open(os.path.join(keep, "author_raw.txt"), "w") as f:   # an expensive reply: never lose it to a parse error
+        f.write(raw)
     missing = [sc["id"] for sc in spec["scenes"] if not (design["scenes"].get(sc["id"]) or {}).get("html")]
     if missing:
         raise RuntimeError(f"design has no markup for scenes {missing}")

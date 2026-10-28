@@ -331,6 +331,10 @@ through the plan row, live progress in `plan.progress`, then `plan.team` with ti
 The chosen treatment's frame, concept, palette and fix travel in `recipe.sketch` (designer gets its code as the
 approved style frame), the scout's research in `recipe.research` (writer re-verifies every fact). `attachments.quick`
 (composer "⚡ hızlı plan") = only memory + art director. A full plan costs ~$1-1.5 of Claude, quick ~$0.3-0.5.
-**Reasoning effort** per role: `llm.EFFORT` (e.g. art director / critic / script high, motion design xhigh, scout /
-sketch / checks medium, connector calls low); override with `CF_EFFORT_<MODULE>_<FUNCTION>` or `CF_EFFORT`; passed
-as `claude --effort`; an older CLI without the flag is detected and called without it.
+**Reasoning effort** per role: `llm.EFFORT`. Owner's rule (2026-10-28): **nothing above medium** (`llm.MAX_EFFORT` caps the
+table, `CF_EFFORT_<MODULE>_<FUNCTION>` / `CF_EFFORT` overrides and `effort=`); connector calls low. Passed as
+`claude --effort`; an older CLI without the flag is detected and called without it. Why: prod 17's xhigh motion design
+thought ~30 min, cost ~$7 and overflowed one reply.
+**Split replies**: calls use `--output-format stream-json --verbose`; `llm._stream` joins every text block after the last
+tool call (the CLI's `result` is only the last message, which once dropped prod 17's hook scene). Timeouts are written to
+the ledger (estimated cost, ok=0). `motiondesign.build` keeps the raw reply in `data/auto/<prod>/author_raw.txt`.

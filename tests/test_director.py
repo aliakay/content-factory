@@ -166,9 +166,26 @@ def test_every_role_gets_a_reasoning_effort(monkeypatch):
     monkeypatch.setattr(llm, "_record", lambda *a: None)
     from factory import accounts
     monkeypatch.setattr(accounts, "claude_env", lambda: {})
-    assert llm.effort_for("motiondesign.author", "opus") == "xhigh" and llm.effort_for("x.y", "sonnet") == "medium"
-    assert llm.effort_for("eleven.tts", "sonnet") == "low" and llm.effort_for("x.y", "opus") == "high"
+    assert llm.effort_for("motiondesign.author", "opus") == "medium" and llm.effort_for("x.y", "sonnet") == "medium"
+    assert llm.effort_for("eleven.tts", "sonnet") == "low" and llm.effort_for("x.y", "opus") == "medium"
     llm.ask_text("hi", model="sonnet", effort="low")
     assert seen["cmd"][seen["cmd"].index("--effort") + 1] == "low"
     monkeypatch.setenv("CF_EFFORT_DIRECTOR_CRITIC", "max")
-    assert llm.effort_for("director.critic", "opus") == "max"
+    assert llm.effort_for("director.critic", "opus") == "medium"     # capped: nothing runs above medium
+    llm.ask_text("hi", model="sonnet", effort="xhigh")
+    assert seen["cmd"][seen["cmd"].index("--effort") + 1] == "medium"
+
+
+def test_split_reply_is_joined():
+    """A reply over the output cap arrives as several messages; the result event holds only the last one."""
+    ev = [{"type": "assistant", "message": {"id": "a", "content": [{"type": "text", "text": "looking"}],
+                                             "usage": {"output_tokens": 5}}},
+          {"type": "user", "message": {"content": [{"type": "tool_result", "content": "x"}]}},
+          {"type": "assistant", "message": {"id": "b", "content": [{"type": "text", "text": "@@META {} @@SCENE hook @@HTML <di"}],
+                                             "usage": {"output_tokens": 10}}},
+          {"type": "assistant", "message": {"id": "c", "content": [{"type": "text", "text": "v></div> @@END"}],
+                                             "usage": {"output_tokens": 3}}},
+          {"type": "result", "result": "v></div> @@END", "total_cost_usd": 0.1}]
+    out, reply, used = llm._stream("\n".join(json.dumps(e) for e in ev))
+    assert out["total_cost_usd"] == 0.1 and reply == "@@META {} @@SCENE hook @@HTML <div></div> @@END"
+    assert llm._stream(json.dumps({"result": "{}"}))[1] == ""
