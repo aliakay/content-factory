@@ -755,6 +755,14 @@ function storyboard(p) {
     shots = sc.map((s, i) => {
       const src = d.scenes[i] || {}, bg = src.bg, sb = s.bg;
       const plate = (p.plates || {})[s.id];
+      if (d.motion) {   // Opus-designed HTML scenes: show the rendered frame and the spoken lines, not the script-stage plan
+        const mid = (s.start + s.end) / 2, [a, b] = src.lines || s.lines || [0, -1];
+        const said = ((d.voice || {}).lines || []).slice(a, b + 1);
+        const frame = p.preview || p.output ? `<img loading="lazy" src="/thumb/prod/${p.prod_id}?t=${mid.toFixed(1)}&v=${encodeURIComponent(p.updated_at)}" data-act="open" data-src="/thumb/prod/${p.prod_id}?t=${mid.toFixed(1)}&v=${encodeURIComponent(p.updated_at)}" data-photo="1" alt="">`
+          : `<div class="ph" style="display:grid;place-items:center;padding:10px;text-align:center"><span class="faint">önizlemeden sonra</span></div>`;
+        return `<div class="shot ${d.aspect === "16:9" ? "wide" : ""}" style="${d.aspect === "16:9" ? "" : "width:150px"}">${frame}<div class="m"><b>${i + 1}</b> · ${esc(s.id)} · ${sec(s.end - s.start)} <span class="faint">@${s.start.toFixed(1)}s</span></div>
+          ${said.map((l) => `<div class="m">“${esc(l)}”</div>`).join("")}</div>`;
+      }
       const pic = plate ? `<img loading="lazy" src="${esc(plate)}" data-act="open" data-src="${esc(plate)}" data-photo="1" alt="">`
         : sb ? (sb.type === "clip" ? `<img loading="lazy" src="/thumb/clip/${encodeURIComponent((bg || {}).clip_id || "")}?t=${(sb.in || 0) + 0.5}" alt="">` : `<img loading="lazy" src="/media/stock/${encodeURIComponent(String(sb.file).split("/").pop())}" alt="">`)
         : `<div class="ph" style="display:grid;place-items:center;padding:10px;text-align:center" class="tiny">${src.plate ? "🖌 " + esc(src.plate.prompt.slice(0, 90)) : '<span class="faint">düz arka plan</span>'}</div>`;
@@ -771,7 +779,7 @@ function storyboard(p) {
   }
   const txts = (spec.text || []).map((t) => `<div class="txt" title="${esc(t.text)}" style="left:${(t.start / total) * 100}%;width:${Math.max(0.5, ((t.end - t.start) / total) * 100)}%"></div>`).join("");
   return `<div class="card"><div class="row"><h3 style="margin:0">Storyboard</h3><span class="sp"></span><span class="small muted">${isEx ? (spec.scenes || []).length + " sahne" : (spec.shots || []).length + " çekim"} · ${sec(tl.total)}</span></div>
-    <div class="tl">${segs}${txts}</div><div class="tiny faint">${isEx ? "sahneler" : "üst: çekimler · alt: ekrandaki yazılar"}</div>
+    <div class="tl">${segs}${txts}</div><div class="tiny faint">${isEx ? (d.motion ? "sahneler · videodan kareler ve söylenen cümleler" : "sahneler") : "üst: çekimler · alt: ekrandaki yazılar"}</div>
     <div class="strip mt12">${shots}</div>
     ${(tl.warn || []).length ? `<div class="note warn mt12">${tl.warn.map((w) => "⚠ " + esc(w)).join("<br>")}</div>` : ""}
     ${tl.error ? `<div class="note err mt12">${esc(tl.error)}</div>` : ""}</div>`;

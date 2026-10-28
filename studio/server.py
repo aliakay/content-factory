@@ -121,6 +121,8 @@ def production_detail(con, pid):
     out = {**p, "format_info": fmt, "busy": busy(con, p), "claims_ok": P.claims_ok(p)}
     try:
         spec, total, starts, warn = P.shown_timeline(con, p)
+        if p["data"].get("motion"):   # HTML-designed scenes: the script-stage stock photos are not used
+            warn = [w for w in warn if "açık lisanslı görsel" not in w]
         out["timeline"] = {"spec": spec, "total": total, "starts": starts, "warn": warn}
     except Exception as e:
         out["timeline"] = {"error": f"{type(e).__name__}: {e}"}
@@ -707,6 +709,26 @@ def clip_thumb(con, clip_id, t):
     return dst if os.path.exists(dst) else None
 
 
+def prod_thumb(con, prod_id, t):
+    """A frame at `t` s of a production's latest video (final if rendered, else the preview): the storyboard of an
+    Opus-designed (HTML) explainer shows what was really rendered, not the script-stage scene plan."""
+    p = P.get(con, int(prod_id))
+    src = os.path.join(OUT, p["output"], p["output"] + ".mp4") if p["output"] else None
+    if not (src and os.path.exists(src)) and p["preview"]:
+        src = os.path.join(ROOT, p["preview"])
+    if not src or not os.path.exists(src):
+        return None
+    t = max(0.0, float(t or 0))
+    key = hashlib.sha1(f"{src}:{os.path.getmtime(src)}:{t:.1f}".encode()).hexdigest()
+    dst = os.path.join(THUMBS, key + ".jpg")
+    with thumb_lock:
+        if not os.path.exists(dst):
+            os.makedirs(THUMBS, exist_ok=True)
+            subprocess.run([FFMPEG, "-v", "error", "-y", "-ss", f"{t:.2f}", "-i", src, "-frames:v", "1",
+                            "-vf", "scale=270:-2", "-q:v", "5", dst], capture_output=True, timeout=60)
+    return dst if os.path.exists(dst) else None
+
+
 # ---------- HTTP ----------
 LOGIN_PAGE = """<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Studio giriş</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f1115;
@@ -1264,6 +1286,15 @@ class Handler(shorts.Handler):
             con = connect()
             try:
                 t = clip_thumb(con, path[len("/thumb/clip/"):], (q.get("t") or ["0"])[0])
+            finally:
+                con.close()
+            if t:
+                return self.send_file(t, "image/jpeg", head, cache="private, max-age=604800")
+        m = re.fullmatch(r"/thumb/prod/(\d+)", path)
+        if m:
+            con = connect()
+            try:
+                t = prod_thumb(con, m.group(1), (q.get("t") or ["0"])[0])
             finally:
                 con.close()
             if t:
