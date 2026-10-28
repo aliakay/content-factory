@@ -1,6 +1,7 @@
 // Deterministic HTML -> transparent video renderer (headless Chromium + ffmpeg).
 //
-// Usage: node render.mjs <page.html> <out.mov> <duration_s> [fps=30] [w=1080] [h=1920] [--opaque]
+// Usage: node render.mjs <page.html> <out.mov> <duration_s> [fps=30] [w=1080] [h=1920] [--opaque] [--scale=0.5]
+//        [--shots=t1,t2 [--lint=boxes.json]] [--cues=cues.json]
 //
 // The page must define `window.render(t)` (draw the state at t seconds; may return a Promise) and may set
 // `window.ready` (a Promise) before the first frame. Each frame is captured with a transparent background and
@@ -21,6 +22,9 @@ const fps = Number(fpsS), W = Number(wS), H = Number(hS), frames = Math.round(Nu
 const opaque = flags.includes("--opaque");
 const scale = Number((flags.find((f) => f.startsWith("--scale=")) || "--scale=1").slice(8));
 const shots = (flags.find((f) => f.startsWith("--shots=")) || "").slice(8).split(",").filter(Boolean).map(Number);
+const cuesOut = (flags.find((f) => f.startsWith("--cues=")) || "").slice(7);   // write the page's sound cues (window.cues)
+const lintOut = (flags.find((f) => f.startsWith("--lint=")) || "").slice(7);   // with --shots: text boxes per shot (window.lintBoxes)
+const readOut = (flags.find((f) => f.startsWith("--readcheck=")) || "").slice(12);   // visible texts every 0.2 s + motion lint
 const libs = cfg.chromeLibs;
 
 // ES modules don't load from file://, so serve the project root on a loopback-only port for the page
@@ -49,13 +53,36 @@ await page.goto(base + "/" + path.relative(ROOT, path.resolve(file)) + (hash ? "
 await page.waitForFunction(() => typeof window.render === "function", null, { timeout: 30000 });
 await page.evaluate(async () => { if (window.ready) await window.ready; if (document.fonts) await document.fonts.ready; });
 
+if (cuesOut) {
+  const { writeFile } = await import("node:fs/promises");
+  const c = await page.evaluate(() => (typeof window.cues === "function" ? window.cues() : { sfx: [], music: [] }));
+  await writeFile(cuesOut, JSON.stringify(c));
+}
+
+if (readOut) {   // no screenshots: which texts are readable when, and what the timeline says about the motion
+  const { writeFile } = await import("node:fs/promises");
+  const samples = [];
+  for (let t = 0; t < Number(durS); t += 0.2) {
+    await page.evaluate((x) => window.render(x), t);
+    const b = await page.evaluate(() => (window.lintBoxes ? window.lintBoxes().boxes.map((x) => [x.scene, x.text]) : []));
+    samples.push([+t.toFixed(2), b]);
+  }
+  const motion = await page.evaluate(() => (window.lintMotion ? window.lintMotion() : []));
+  await writeFile(readOut, JSON.stringify({ step: 0.2, samples, motion }));
+  await browser.close(); server.close(); process.exit(0);
+}
+
 if (shots.length) {  // --shots=t1,t2: PNGs of those moments into the directory `out` (no video)
-  const { mkdir } = await import("node:fs/promises");
+  const { mkdir, writeFile } = await import("node:fs/promises");
   await mkdir(out, { recursive: true });
+  const lint = {};
   for (const t of shots) {
     await page.evaluate((x) => window.render(x), t);
-    await page.screenshot({ path: `${out}/shot_${t.toFixed(2).padStart(6, "0")}.png`, type: "png" });
+    const file = `${out}/shot_${t.toFixed(2).padStart(6, "0")}.png`;
+    await page.screenshot({ path: file, type: "png" });
+    if (lintOut) lint[t.toFixed(2)] = { file, ...(await page.evaluate(() => (window.lintBoxes ? window.lintBoxes() : { boxes: [] }))) };
   }
+  if (lintOut) await writeFile(lintOut, JSON.stringify(lint));
   await browser.close(); server.close(); process.exit(0);
 }
 

@@ -18,6 +18,7 @@ ENGINES = {
     "style": ("stylecut", "style", "referans stili: beat kesme, kadraj, renk, efekt ve yazı katmanları"),
     "explainer": ("explainer", "explainer", "kodla çizilen motion grafik (Pillow) + kinetik altyazı"),
     "html": ("htmlmotion", "explainer", "Opus'un HTML/GSAP ile tasarladığı sahneler (Chromium)"),
+    "talk": ("talkcut", "talk", "konuşma videosu kurgusu: kesme, yüz takipli kadraj, punch-in, kodla B-roll, altyazı"),
 }
 CORNERS = ("tl", "tr", "bl", "br")
 
@@ -27,6 +28,8 @@ def engine_of(spec):
     e = spec.get("engine")
     if e in ENGINES:
         return e
+    if "segments" in spec:
+        return "talk"
     if "scenes" in spec:
         return "explainer"
     if "frame" in spec:

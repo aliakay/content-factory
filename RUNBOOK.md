@@ -267,3 +267,70 @@ sub-pipeline (arXiv / bioRxiv / medRxiv / PubMed top journals; OpenAlex OA link 
 video refs measured; drafts need approval (3 preview stills) on `#/stiller`.
 **QA**: flash windows (photosensitivity), broken frames, slideshow gate for explainers; three cover candidates per final
 (`out/<name>/thumb_*.jpg`).
+
+## Studio 3 — techniques instead of formats, art-director planner, talking-head edits, ears (2026-10-28)
+The creator wants the planner to know every technique the studio can execute and combine them per idea (no named
+genre templates). Distilled (reverse-engineered, never copied) from shared workflows (stickman horror story, explainer
+reel, 30 s product ad, talking-head ad) and repos (superpowers brainstorming, lemo-opuscar DIRECTOR/TECHNIQUE + style
+bibles, mcp-for-blender scene guides, ClaudeAnimationBase acting, LottieFiles motion-design principles, earshot QA,
+HyperFrames captions/sound/review).
+- **Catalogue** `factory/capabilities.py`: ~58 techniques in areas story / style / look / sound / voice / captions /
+  edit / check. Each carries writer notes, designer notes and data switches (`voice_fx`, `captions`, `sound`,
+  `post_fx`, `fps60`); `apply(recipe, d)` pins them, `writer_notes(d)` / `designer_notes(d)` feed explainer.generate,
+  motiondesign.author, artdirector.direct and talk.decide. One story shape and one film style per video. Film styles
+  live in `data/film_styles.json` (essence / not / render / composition / colour / type / motion / camera /
+  transitions / sound / post).
+- **Planner** (Opus now): direction, benchmark (learn / avoid), techniques, seconds, three treatments, one question.
+  Plan card: pick a treatment, remove / add technique chips (`/api/techniques?kind=`), edit the direction. `start`
+  passes `recipe` to `p_ideas` (or `talk_new`). Fallback without Claude still picks techniques from keywords.
+- **FX kit** (`motion/templates/fxlib.js`): `FX.sfx/FX.music` cues (collected by `render.mjs --cues`), stickman rig
+  (poses, walk, wave, on twos) + `FX.emotions` (19 emotions: anticipation -> take -> settle, emotes, idle per emotion,
+  no twins), story kit (hud, rule, choice, flipCard, lightsOut/On, slash, shatter, shake), devices (phone, alert, tap),
+  transitions (iris, brushWipe, whip/whipIn, dipCut, colorFlood), `FX.boil`, `FX.set3d` (real-scale blockout, light
+  rigs, lens, practicals, dolly). Shell captions: `captions.mode word|chunk`, `pos mid|low`, `energy high|talk|calm`,
+  key / danger colour roles.
+- **Sound** `factory/audiofx.py` + `factory/sfx.py`: 19 synthesised kinds (knock, buzz, clunk, swish, glass, impact,
+  logo_hit, typing, notify, click, heartbeat, drone, alarm, flip + the old 5), sync offsets (clicks lead, impacts land a
+  frame after), rotating takes, pitch-climbing runs, density cap (~9 / 10 s), no-mask placement, voice chains
+  (clean / room), real-silence tightening, carve at 2.6 kHz + sidechain duck, music cut/back windows, drop alignment,
+  auto music level (voice ~10 dB over music). htmlmotion mixes the scenes' own cues and applies film `post_fx`
+  (grain / flicker / weave / vignette / mono) in ffmpeg. Voice post on TTS takes: `data.voice_fx`
+  {tempo, pitch, tighten, fit} runs before alignment.
+- **Checks**: `factory/layoutlint.py` on every design round (safe zone, caption band, overlap, contrast, tiny text;
+  readcheck = every text visible long enough; motion lint = linear spatial easing, long staggers, creeping titles,
+  dead stretches) -> fed to the Opus self-check together with review sheets (`factory/sheets.py`: scene start/middle,
+  strips across every cut, phone width) and P0/P1/P2 notes. `factory/soundqa.py` on every final render
+  (`qa.sound`, sound sheet in `work/sound/<name>.png`, shown on the production page).
+- **Talking-head edits** (`factory/talk.py`, `bin/talkcut.py`, engine "talk", format `talking_head`, mode "talk"):
+  composer "🎙 Konuşma videosu" uploads to `raw/talk/` (X-Talk header), the plan becomes kind "talk", job `talk_new`
+  analyses (faster-whisper with fillers kept, phrases, retake / false-start / stutter flags, OpenCV face track if
+  installed, accent colour from the footage; cached in `data/talk/<stem>.json`), Claude decides the cut (order, trims,
+  hook + options, punch-ins, B-roll, keywords, grade, music brief; deterministic rough cut as fallback) -> stage idea
+  shows the kept / cut transcript -> approve -> preview -> final (60 fps with `edit.fps60`). Segments are
+  frame-aligned (audio and picture cut on the same grid, no drift); voice chain "room"; hook behind the speaker when
+  rembg is installed. Revisions re-run the decision with the note.
+- Not built yet: Blender sets (we use Three.js `FX.set3d`; needs Blender on the VM), licensed real-recording SFX
+  (all effects are synthesised), lip-sync for code-drawn characters.
+
+## The director's team — research, memory, sketches, critic (2026-10-28)
+Planning is no longer one call. `planner.think` -> `factory/director.py` (Python orchestrator; agents share work only
+through the plan row, live progress in `plan.progress`, then `plan.team` with time + cost per stage):
+1. **memory** (code, `factory/memory.py`): recent recipes from `productions` (techniques, concept, notes, views from
+   `posts`), treatments picked / passed over in `plans`, dislikes from `playbook` + rejections -> overused (half of
+   the last 6, or a style / shape twice in the last 3), unexplored (spread across areas), picked / passed,
+   best / weakest, `novelty()` 0..1 per treatment. Also fed to the motion designer (`memory.designer_note`).
+2. **scout** (Sonnet + WebSearch/WebFetch): insight, misconception, sourced facts, prior art + metaphors, clichés, real
+   questions, 3 original metaphors (fiction: genre research).
+3. **art director** (`planner.draft`, Opus): request + catalogue + research + memory -> direction, benchmark, three
+   treatments that differ from each other and from memory.recent (one bold from unexplored), each with a `moment`.
+   The creator never has to say how it should look.
+4. **sketch artists** (Sonnet x3 in parallel): each writes its treatment's hook frame as a real scene with the FX kit
+   -> Chromium stills in `work/plans/<plan>/t<i>/` (+ layout check), served at `/media/plans/`.
+5. **critic** (Opus + Read): reads the frames, scores clarity / hook / novelty / feasibility / fit, recommends one,
+   writes one fix per treatment. The recommendation is applied; the creator can pick another on the card.
+The chosen treatment's frame, concept, palette and fix travel in `recipe.sketch` (designer gets its code as the
+approved style frame), the scout's research in `recipe.research` (writer re-verifies every fact). `attachments.quick`
+(composer "⚡ hızlı plan") = only memory + art director. A full plan costs ~$1-1.5 of Claude, quick ~$0.3-0.5.
+**Reasoning effort** per role: `llm.EFFORT` (e.g. art director / critic / script high, motion design xhigh, scout /
+sketch / checks medium, connector calls low); override with `CF_EFFORT_<MODULE>_<FUNCTION>` or `CF_EFFORT`; passed
+as `claude --effort`; an older CLI without the flag is detected and called without it.

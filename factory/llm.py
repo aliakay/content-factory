@@ -3,6 +3,46 @@ import json, os, re, subprocess
 
 from .config import CLAUDE, WORK as WORKDIR
 MODEL = "opus"  # creative steps (script, motion design, art direction, revise, style); checks/tools pass "sonnet"
+EFFORTS = ("low", "medium", "high", "xhigh", "max")
+# Reasoning effort per agent role (the calling step, "module.function"). Judgement-heavy creative roles think hard,
+# researchers and checkers think enough, connector / tagging calls stay light. Unlisted steps: high on Opus, medium
+# otherwise. Override one step with CF_EFFORT_<MODULE>_<FUNCTION>=level, or every call with CF_EFFORT=level.
+EFFORT = {
+    "planner.draft": "high",            # art director: direction + three treatments
+    "director.scout": "medium",         # research brief (mostly searching and reading)
+    "director.sketch": "medium",        # one style frame each, three in parallel
+    "director.critic": "high",          # judging the three frames
+    "explainer.generate": "high",       # research + script
+    "explainer.revise": "medium",
+    "motiondesign.author": "xhigh",     # writes every scene as code: the most decisive creative call
+    "motiondesign.critique": "high",
+    "artdirector.direct": "high",
+    "artdirector.review": "medium",
+    "talk.decide": "high",              # the edit decision of a talking-head video
+    "series.write_bible": "high",
+    "series.write_episode": "high",
+    "productions.generate": "high",
+    "productions.revise": "medium",
+    "productions.plan_edit": "medium",
+    "ideas.check_claims": "medium",
+    "qa.review": "medium",
+    "discover.make_cards": "medium",
+    "refs.describe": "low",
+    "refs.describe_recipes": "medium",
+}
+_NO_EFFORT_FLAG = False   # set when the installed CLI does not know --effort (then calls run without it)
+
+
+def effort_for(step, model):
+    """The reasoning effort for a call: env override > per-step table > model default."""
+    env = os.environ.get("CF_EFFORT_" + re.sub(r"\W", "_", step).upper()) or os.environ.get("CF_EFFORT")
+    if env in EFFORTS:
+        return env
+    if step in EFFORT:
+        return EFFORT[step]
+    if step.startswith("eleven"):
+        return "low"
+    return "high" if (model or MODEL) == "opus" else "medium"
 
 
 class LLMError(RuntimeError):
@@ -68,12 +108,12 @@ def extract_json(text):
     raise LLMError("unterminated JSON in model output")
 
 
-def ask(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=False):
-    text, meta = ask_text(prompt, tools, timeout, model, retries, mcp)
+def ask(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=False, effort=None):
+    text, meta = ask_text(prompt, tools, timeout, model, retries, mcp, effort)
     return extract_json(text), meta
 
 
-def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=False):
+def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=False, effort=None):
     """Run one headless Claude turn; ask() returns (parsed_json, meta), ask_text() the raw reply text.
 
     Slim mode: no skills/slash commands and no MCP connectors are loaded (the craft rules travel in the prompt),
@@ -86,6 +126,10 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
     if not mcp:  # connectors (e.g. ElevenLabs) are only loaded when a step needs them
         cmd.append("--strict-mcp-config")
     cmd += ["--model", model or MODEL]
+    global _NO_EFFORT_FLAG
+    level = effort if effort in EFFORTS else effort_for(_caller(), model)
+    if not _NO_EFFORT_FLAG:
+        cmd += ["--effort", level]
     os.makedirs(WORKDIR, exist_ok=True)
     from . import accounts
     try:
@@ -103,10 +147,16 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
             out = json.loads(p.stdout) if p.stdout.strip() else None
         except ValueError:
             pass
+        if "--effort" in cmd and not out and "effort" in (p.stderr or "").lower() and "unknown" in (p.stderr or "").lower():
+            _NO_EFFORT_FLAG = True        # an older CLI: drop the flag and try again
+            i = cmd.index("--effort")
+            del cmd[i:i + 2]
+            continue
         if out:
             _record(out, model or MODEL, p.returncode == 0 and not out.get("is_error"))
         if p.returncode == 0 and out and not out.get("is_error"):
-            return out.get("result", ""), {"cost_usd": out.get("total_cost_usd"), "turns": out.get("num_turns")}
+            return out.get("result", ""), {"cost_usd": out.get("total_cost_usd"), "turns": out.get("num_turns"),
+                                           "effort": level}
         last = (f"exit {p.returncode}: " + ((out or {}).get("result") or p.stderr[-300:] or p.stdout[-300:])).strip()
         if "limit" in last.lower() and "usage" in last.lower():
             break  # subscription usage limit: retrying won't help

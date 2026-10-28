@@ -25,6 +25,9 @@ html,body{margin:0;background:#000;overflow:hidden}
   font:900 84px/1.05 "Inter Tight",sans-serif;text-transform:uppercase;letter-spacing:-.01em;color:var(--capInk,#fff);
   -webkit-text-stroke:14px var(--capStroke,#000);paint-order:stroke fill;z-index:50}
 #cap b{font-weight:900;color:var(--capActive,var(--accent,#2ee6c5))}
+#cap .k{color:var(--capKey,#b8ff3c)}
+#cap .d{color:var(--capDanger,#ff453a)}
+#cap b.k,#cap b.d{text-decoration:underline;text-decoration-thickness:8px;text-underline-offset:10px}
 </style>
 <div id="stage"><div id="cap"></div></div>
 <script src="/motion/node_modules/gsap/dist/gsap.min.js"></script>
@@ -33,6 +36,9 @@ html,body{margin:0;background:#000;overflow:hidden}
 const norm = (w) => String(w).toLowerCase().replace(/[^\p{L}\p{N}%$.]/gu, "");
 let tl, B, chunks = [];
 window.render = (t) => { if (tl) { tl.time(t, false); for (const f of FX._hooks) f(t); caps(t); } };
+// sound + music cues the scenes declared (FX.sfx / FX.music), read by render.mjs --cues after setup
+window.cues = () => ({ sfx: FX._cues, music: FX._music });
+let CAP = { mode: "chunk", pos: "low", keys: {} };
 window.ready = (async () => {
   const hash = new URLSearchParams(location.hash.slice(1));
   B = await (await fetch(hash.get("b"))).json();
@@ -47,6 +53,11 @@ window.ready = (async () => {
     Object.assign(capEl.style, { top: "880px", height: "150px", left: "160px", right: "160px", fontSize: "68px",
                                  webkitTextStroke: "11px var(--capStroke,#000)" });
   }
+  // captions: "chunk" (<=3 words, active word coloured) or "word" (one big word at a time); "low" band or "mid" frame;
+  // keys = {word: "key"|"danger"} -> key words green, danger words red (story / horror captions)
+  CAP = Object.assign(CAP, B.captions || {});
+  if (CAP.pos === "mid") Object.assign(capEl.style, B.w > B.h ? { top: "640px" } : { top: "1080px", height: "220px" });
+  if (CAP.mode === "word") capEl.style.fontSize = (B.w > B.h ? 92 : 118) + "px";
   const g = document.createElement("style"); g.textContent = B.global_css || ""; document.head.appendChild(g);
   const stage = document.getElementById("stage");
   gsap.ticker.lagSmoothing(0);
@@ -62,6 +73,7 @@ window.ready = (async () => {
         return w ? w.s : sc.start + fb; } };
     tl.set(sec, { display: "block" }, sc.start);
     tl.set(sec, { display: "none" }, sc.end);
+    FX._scene = sc.id;
     try { new Function("tl", "root", "T", "gsap", "$", "FX", sc.js || "")(tl, sec, T, gsap, (q) => sec.querySelectorAll(q), FX); }
     catch (e) { console.error("scene " + sc.id + " js: " + e.message); }
   }
@@ -69,14 +81,75 @@ window.ready = (async () => {
   // kinetic captions: <=3 words / <=16 chars, the active word in the accent colour
   let cur = [];
   const flush = () => { if (cur.length) chunks.push(cur); cur = []; };
+  // group size by energy: high 2-3 words, talk 3-5, calm 4-6; a pause of 150 ms also breaks a group
+  const [maxW, maxC] = CAP.mode === "word" ? [1, 16] : ({ high: [3, 16], talk: [4, 24], calm: [6, 30] }[CAP.energy] || [3, 16]);
+  let prevEnd = null;
   for (const w of B.words) {   // like bin/explainer.py: also break after , . : ? ! so a chunk never spans two sentences
-    if (cur.length && (cur.length >= 3 || cur.map((x) => x.w).join(" ").length + w.w.length > 16)) flush();
+    if (cur.length && (cur.length >= maxW || cur.map((x) => x.w).join(" ").length + w.w.length > maxC || (prevEnd !== null && w.s - prevEnd >= 0.15))) flush();
+    prevEnd = w.e;
     cur.push(w);
     if (/[,.:?!]$/.test(w.w)) flush();
   }
   flush();
   if (document.fonts) await document.fonts.ready;
 })();
+// layout lint (render.mjs --lint): every visible text run of the current scene with its tight box, colour and size
+window.lintBoxes = () => {
+  const out = [], vis = [...document.querySelectorAll("section.scene")].filter((s) => getComputedStyle(s).display !== "none");
+  const opac = (el) => { let o = 1; for (let e = el; e && e.nodeType === 1; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.visibility === "hidden" || cs.display === "none") return 0; o *= +cs.opacity; } return o; };
+  for (const sec of vis) {
+    const walker = document.createTreeWalker(sec, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const txt = n.textContent.trim(), el = n.parentElement;
+      if (!txt || !el || opac(el) < 0.35) continue;
+      const r = document.createRange(); r.selectNodeContents(n); const b0 = r.getBoundingClientRect();
+      // what is really visible: the text box clipped by every overflow-hidden ancestor (masked text reveals)
+      let L = b0.left, T = b0.top, R = b0.right, Bt = b0.bottom, flip = false;
+      for (let e = el; e && e !== document.body; e = e.parentElement) {
+        const cs2 = getComputedStyle(e);
+        if (cs2.backfaceVisibility === "hidden") flip = true;
+        if (cs2.overflow !== "visible" || cs2.overflowX !== "visible") { const q = e.getBoundingClientRect(); L = Math.max(L, q.left); T = Math.max(T, q.top); R = Math.min(R, q.right); Bt = Math.min(Bt, q.bottom); }
+      }
+      const b = { left: L, top: T, width: R - L, height: Bt - T };
+      if (b.width < 2 || b.height < 2) continue;
+      const cs = getComputedStyle(el);
+      out.push({ scene: sec.id.slice(2), text: txt.slice(0, 48), x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), flip,
+                 color: cs.color, size: parseFloat(cs.fontSize), clipText: cs.webkitBackgroundClip === "text" || cs.color === "rgba(0, 0, 0, 0)" });
+    }
+  }
+  const cap = document.getElementById("cap"); const cb = cap.getBoundingClientRect();
+  return { boxes: out, cap: cap.textContent.trim() ? { x: Math.round(cb.left), y: Math.round(cb.top), w: Math.round(cb.width), h: Math.round(cb.height) } : null };
+};
+// motion lint (render.mjs --readcheck): what the timeline itself says about the motion, per scene
+window.lintMotion = () => {
+  const out = [], SPATIAL = ["x", "y", "left", "top", "xPercent", "yPercent", "scale", "scaleX", "scaleY", "rotation"];
+  const tweens = tl.getChildren(true, true, false);
+  const sceneOf = (t) => B.scenes.find((s) => t >= s.start - 0.01 && t < s.end) || B.scenes[B.scenes.length - 1];
+  const isText = (el) => el && el.nodeType === 1 && el.textContent.trim().length > 0 && !el.querySelector("svg,canvas,img");
+  const active = {};
+  for (const tw of tweens) {
+    const st = tw.startTime(), d = tw.duration(), v = tw.vars || {}, sc = sceneOf(st + 0.001);
+    const props = Object.keys(v).filter((k) => SPATIAL.includes(k));
+    const ease = typeof v.ease === "string" ? v.ease : (tw.vars.ease && tw.vars.ease.name) || "";
+    const targets = tw.targets ? tw.targets() : [];
+    if (d > 0.04) (active[sc.id] = active[sc.id] || []).push([st, st + d]);
+    if (props.length && d > 0.2 && /^(none|linear)/.test(ease) && !props.includes("rotation"))
+      out.push({ kind: "linear", scene: sc.id, t: +st.toFixed(2), detail: `linear ease on ${props.join("/")} over ${d.toFixed(2)} s (spatial moves ease in and out)` });
+    const stg = typeof v.stagger === "number" ? v.stagger : (v.stagger && v.stagger.each) || 0;
+    if (stg && targets.length > 1 && stg * (targets.length - 1) > 0.6)
+      out.push({ kind: "stagger", scene: sc.id, t: +st.toFixed(2), detail: `stagger runs ${(stg * (targets.length - 1)).toFixed(2)} s across ${targets.length} items (keep it under 0.5 s)` });
+    if (props.some((k) => k.startsWith("scale") || k === "x" || k === "y") && d > 3.5 && targets.some(isText))
+      out.push({ kind: "creep", scene: sc.id, t: +st.toFixed(2), detail: `text keeps moving for ${d.toFixed(1)} s after it lands (land it, then hold it still)` });
+  }
+  for (const sc of B.scenes) {   // dead stretches: > 3 s with no tween running and no per-frame drawing in the scene
+    if (FX._hooks.some((f) => f.scene === sc.id)) continue;
+    const iv = (active[sc.id] || []).map(([a, b]) => [Math.max(a, sc.start), Math.min(b, sc.end)]).filter(([a, b]) => b > a).sort((p, q) => p[0] - q[0]);
+    let t = sc.start;
+    for (const [a, b] of iv) { if (a - t > 3) out.push({ kind: "dead", scene: sc.id, t: +t.toFixed(2), detail: `${(a - t).toFixed(1)} s with nothing moving` }); t = Math.max(t, b); }
+    if (sc.end - t > 3) out.push({ kind: "dead", scene: sc.id, t: +t.toFixed(2), detail: `${(sc.end - t).toFixed(1)} s with nothing moving at the end of the scene` });
+  }
+  return out;
+};
 let lastKey = null;
 function caps(t) {
   const el = document.getElementById("cap");
@@ -89,7 +162,8 @@ function caps(t) {
       if (t >= a && t < b) {
         const act = c.reduce((k, w, j) => (t >= w.s ? j : k), 0);
         key = i + ":" + act;
-        html = c.map((w, j) => (j === act ? `<b>${w.w}</b>` : w.w)).join(" ");
+        const role = (w) => ({ key: "k", danger: "d" }[CAP.keys[norm(w.w).replace(/\.+$/, "")]] || "");
+        html = c.map((w, j) => { const r = role(w); return j === act ? `<b class="${r}">${w.w}</b>` : r ? `<span class="${r}">${w.w}</span>` : w.w; }).join(" ");
         break;
       }
     }

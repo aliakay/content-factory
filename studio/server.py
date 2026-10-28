@@ -154,6 +154,17 @@ def production_detail(con, pid):
     out["posts"] = [x for x in tracking.posts(con) if x["prod_id"] == pid]
     out["channel"] = channels.of(con, p)
     out["brand_on"] = p["data"].get("brand") is not False
+    from factory import capabilities, talk
+    out["recipe"] = {"direction": (p["data"].get("recipe") or {}).get("direction"),
+                     "techniques": capabilities.labels(p["data"]), "seconds": (p["data"].get("recipe") or {}).get("seconds")}
+    if talk.is_talk(p["data"]):
+        try:
+            out["talk"] = talk.summary(p["data"])
+        except (OSError, ValueError, KeyError) as e:
+            out["talk"] = {"error": str(e)}
+    snd = (p.get("qa") or {}).get("sound") or {}
+    if snd.get("sheet"):
+        out["sound_sheet"] = "/media/" + snd["sheet"]
     if illustrate.needs_plates(p["data"]) or p["data"].get("plates"):
         out["plates_estimate"] = illustrate.estimate(con, p["data"], aid)
         out["plates"] = {k: "/media/assets/" + v["file"].split("assets/", 1)[-1] for k, v in (p["data"].get("plates") or {}).items()}
@@ -845,6 +856,31 @@ class Handler(shorts.Handler):
             con.close()
         return self.json(200, {"ok": True, "job_id": jid})
 
+    def talk_upload(self, n, name):
+        """The creator's raw talking video -> raw/talk/ (never modified); the composer attaches it to the next plan."""
+        from factory import talk
+        if not name.lower().endswith(talk.VIDEO_EXT) or not 0 < n <= MAX_UPLOAD:
+            self.rfile.read(min(n, 1 << 20))
+            return self.json(400, {"error": "MP4/MOV video, en fazla 600 MB"})
+        os.makedirs(talk.RAW, exist_ok=True)
+        stem, ext = os.path.splitext(name)
+        safe = re.sub(r"[^\w-]", "_", stem)[:60]
+        dst = os.path.join(talk.RAW, f"{safe}_{int(time.time())}{ext.lower()}")
+        part = dst + ".part"
+        with open(part, "wb") as f:
+            left = n
+            while left:
+                chunk = self.rfile.read(min(1 << 20, left))
+                if not chunk:
+                    break
+                f.write(chunk)
+                left -= len(chunk)
+        if left:
+            os.remove(part)
+            return self.json(400, {"error": "yükleme yarıda kaldı"})
+        os.replace(part, dst)
+        return self.json(200, {"ok": True, "file": os.path.relpath(dst, ROOT), "name": name})
+
     def upload(self):
         """A reference video sent as the raw request body (phone browser fetch with the File as body)."""
         n = int(self.headers.get("Content-Length") or 0)
@@ -852,6 +888,8 @@ class Handler(shorts.Handler):
         name = re.sub(r"[^\w.\- ]", "_", name)[:120] or "ref.mp4"
         if self.headers.get("X-Style") == "1":
             return self.style_upload(n, name)
+        if self.headers.get("X-Talk") == "1":
+            return self.talk_upload(n, name)
         if not name.lower().endswith((".mp4", ".mov", ".m4v") + refs.REF_PHOTO_EXT) or not 0 < n <= MAX_UPLOAD:
             self.rfile.read(min(n, 1 << 20))
             return self.json(400, {"error": "MP4/MOV ya da JPG/PNG/WEBP fotoğraf, en fazla 600 MB"})
@@ -1192,11 +1230,16 @@ class Handler(shorts.Handler):
         if path.startswith("/media/work/"):
             f = self.inside(os.path.join(ROOT, "work"), path[len("/media/work/"):])
             if f:
-                ctype = "video/mp4" if f.endswith(".mp4") else "image/jpeg" if f.endswith(".jpg") else None
+                ctype = "video/mp4" if f.endswith(".mp4") else "image/jpeg" if f.endswith(".jpg") else \
+                    "image/png" if f.endswith(".png") else None
                 if ctype:
                     return self.send_file(f, ctype, head, cache="no-store")
         if path.startswith("/media/art/"):  # stills of the auto art directions
             f = self.inside(os.path.join(ROOT, "work", "explainer"), path[len("/media/art/"):])
+            if f and f.endswith(".png"):
+                return self.send_file(f, "image/png", head, cache="private, max-age=3600")
+        if path.startswith("/media/plans/"):  # the director team's sketch frames (work/plans/<plan>/t<i>/shot_*.png)
+            f = self.inside(os.path.join(ROOT, "work", "plans"), path[len("/media/plans/"):])
             if f and f.endswith(".png"):
                 return self.send_file(f, "image/png", head, cache="private, max-age=3600")
         if path.startswith("/media/research/"):  # screenshots the art director looked at while researching
@@ -1257,6 +1300,9 @@ class Handler(shorts.Handler):
             n = {r["format"]: r["n"] for r in con.execute(
                 "SELECT format, COUNT(*) n FROM productions WHERE stage!='rejected' GROUP BY format")}
             return [{**f, "count": n.get(f["id"], 0)} for f in formats.FORMATS]
+        if path == "/api/techniques":
+            from factory import capabilities
+            return capabilities.chips((q.get("kind") or [None])[0])
         if path == "/api/modes":
             return formats.MODES
         if path == "/api/places":

@@ -11,9 +11,12 @@ Detailed operating guide: [RUNBOOK.md](RUNBOOK.md). Art rules for the designers:
 
 ## How it is built
 
-Everything starts in one composer: write what you want (and attach places, reference videos, a series or links); the
-planner (`factory/planner.py`) turns it into an editable plan (kind, channel, preset, look, canvas, steps, rough cost)
-and only your approval starts work. Kinds: own footage, a topic explainer (tech / paper / auto / illustrated / custom
+Everything starts in one composer: write what you want (and attach places, reference videos, a series, links or a raw
+video of yourself talking); the planner (`factory/planner.py`) acts as producer **and art director**: it reads the
+studio's technique catalogue (`factory/capabilities.py`), writes an art direction with a benchmark (what to learn /
+what not to take), proposes three different treatments and combines the techniques that serve this idea (story
+shapes, film styles, code-drawn characters, rebuilt UI, sound design, voice post, caption styles, talking-head
+editing). The plan card is editable (treatments, technique chips, direction) and only your approval starts work. Kinds: own footage, a topic explainer (tech / paper / auto / illustrated / custom
 looks), a new story series, or the next episode of a series. Videos live inside **channels** (logo, colour, language,
 niche, defaults, discovery categories); the logo is burned in by the shared post-pass.
 
@@ -24,7 +27,13 @@ shorts/server.py                Shorts panel: finished videos, download, caption
 factory/app.py                  old Streamlit panel: clips, Reference Lab, brand kit        :8503
 
 factory/                        the pipeline (Python package)
-  planner.py      the composer's planner: request + attachments -> editable plan -> jobs
+  planner.py      the composer's planner / art director: request + attachments -> direction + techniques -> jobs
+  capabilities.py the technique catalogue every stage reads (writer notes, designer notes, data switches) + film styles
+  talk.py         talking-head editor: transcript, filler / retake / false-start cuts, face reframe, punch-ins, B-roll
+  audiofx.py      sound engineering: voice chain, real-silence tightening, carve + duck, music cut/back, drop alignment
+  soundqa.py      the ears: measures a finished mix (loudness arc, clicks, tail, low end, density, masking) + a sheet
+  layoutlint.py   design checks on HTML scenes: safe zones, overlaps, contrast, tiny text, readcheck, motion lint
+  sheets.py       review sheets (scene start/middle, strips across cuts, phone width)
   channels.py     channels (identity, niche, defaults, brand layer); every production/post belongs to one
   engines.py      render engine registry + shared post-pass (logo watermark, end card, audio mastering)
   series.py       story series: bible + mini book -> character sheets -> episodes
@@ -43,9 +52,11 @@ factory/                        the pipeline (Python package)
   eleven*.py      ElevenLabs (claude.ai connector or API key), credit estimates + monthly cap
   accounts.py     Studio users; members can bring their own Claude + ElevenLabs accounts
   config.py       machine-specific settings (paths, host, ports) from config.env
-bin/            renderers (cinecut, stylecut, explainer, htmlmotion), iCloud fetch, user admin, start script
+bin/            renderers (cinecut, stylecut, explainer, htmlmotion, talkcut), iCloud fetch, user admin, start script
 motion/         node + Playwright: HTML → video frames, research screenshots; templates/fxlib.js = the FX + 3D recipe
-                library the motion designer uses
+                library the motion designer uses (story kit, stickman rig with acting, UI/phone kit, transitions, 3D
+                sets, sound cues); templates/talk_overlay.html = captions / hook / B-roll of talking-head edits
+data/film_styles.json  the film-style bibles (riso, ink wash, cut paper, blueprint, newsreel, swiss, cel, HUD, ...)
 radar/          Viral Radar: YouTube reference videos, scored daily (cron)
 tests/          pytest
 ```
@@ -110,9 +121,10 @@ folders.
 ```bash
 ~/.local/bin/uv pip install --python .venv/bin/python fastembed        # multilingual semantic dedupe + clip search
 ~/.local/bin/uv pip install --python .venv/bin/python pedalboard pyloudnorm   # mastering chain (else ffmpeg loudnorm)
+~/.local/bin/uv pip install --python .venv/bin/python opencv-python-headless   # face tracking for talking-head reframes
 ```
-Without them the factory falls back (hashed-trigram vectors, ffmpeg loudnorm). `rembg[cpu]` (subject mattes for text
-behind subject, frame break and vertigo) is in requirements.txt; on a VM installed before it, add it with
+Without them the factory falls back (hashed-trigram vectors, ffmpeg loudnorm, centred crop). `rembg[cpu]` (subject
+mattes for text behind subject, frame break and vertigo) is in requirements.txt; on a VM installed before it, add it with
 `~/.local/bin/uv pip install --python .venv/bin/python "rembg[cpu]"`.
 
 ## Tests

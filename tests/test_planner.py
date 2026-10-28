@@ -9,6 +9,9 @@ from factory.store import SCHEMA
 
 @pytest.fixture
 def con(tmp_path, monkeypatch):
+    def no_cli(*a, **k):      # never reach the real Claude CLI from a test (sketch artists use ask_text)
+        raise llm.LLMError("offline")
+    monkeypatch.setattr(llm, "ask_text", no_cli)
     monkeypatch.setattr(channels, "DIR", str(tmp_path / "ch"))
     c = sqlite3.connect(tmp_path / "t.db")
     c.row_factory = sqlite3.Row

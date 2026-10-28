@@ -49,3 +49,5 @@ __pycache__/
 # editor / manual backups
 *.bak*
 *~
+assets/sfx/takes/
+data/talk/
