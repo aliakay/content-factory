@@ -115,6 +115,20 @@ FX_DOC = """FX LIBRARY (available in every scene's JS as `FX`; deterministic, us
           man = FX.stickman(root, {x, y (feet), h, color, head, ink, face, pose, prop: "<svg markup in the right hand>"}) ·
           FX.pose(tl, man, "stand|wave|point|scared|shrug|knock|hold|crouch|cheer|sad|run", at, {dur}) · man.walk(at, dur, dx) ·
           FX.wave(tl, man, at, dur) · man.mouth("smile|grin|flat|o|frown") · FX.shake(tl, el, at, {amp, dur})
+          kid = FX.character(root, {x, y (feet), h, skin, hair, style: pigtails|bob|short|bald, hat: colour|false, shirt,
+          pants, shoes, stripes, prop}) = an ILLUSTRATED character with a live face (eye whites + sliding pupils, lids,
+          happy-squint cheek, a mouth that opens); same poses / FX.act / FX.alive as the stickman. Use it when the film
+          needs a lead people care about (a mascot, a kid, a customer); the stickman for diagrams and crowds.
+  life (drawn things that feel alive; seconds of the render clock; see ALIVE in the doctrine):
+          FX.alive(man, {look: [[t, gx, gy], ...] (-1..1), lid, amount, cheek: [[t, 0..1]], talk: [[from, to]]}) gliding
+          gaze + blinks + breathing + moving holds (+ happy squint and talking mouth on FX.character) ·
+          FX.act(man, [[t, "pose" | {sR: -90, ...}], ...]) a pose chain that FLOWS (use instead of several FX.pose; FX.wave
+          rides on it) · FX.land(man, at, {from}) · FX.hop(man, at, {h}) · FX.float(el | man, {at, out, shadow: el})
+          idle loops on any element / SVG group, pivot = CSS origin or [x, y] drawing units: FX.sway(el | [root..tip],
+          {deg, period, pivot}) · FX.breathe(el) · FX.bob(el) · FX.flicker(flame, {inner}) · FX.glow(el) · FX.spin(el,
+          {period}) · FX.drift(el, {period, span}) · FX.steam(root, {x, y}) · FX.ripples(root, {x, y, r}) ·
+          FX.weather(root, {kind: rain|snow|leaves|stars, n}) · FX.buzz(el, at, {bursts}) · FX.jiggle(el, {from, to})
+          math: FX.life.wave / loop / bell / seg / seeded / track (one move) / flow (through poses) / EASE_IO / EASE_OUT
   story kit: FX.hud(root, {label: "NIGHT 1", place, times: [[t, "2:17 AM"], ...]}) (top-left clock that jumps forward) ·
           FX.rule(tl, root, at, n, "KILL THE\nBIG LIGHTS", {y}) (red RULE #N tag + condensed headline) ·
           FX.choice(tl, root, at, {q, a, b, sub}) (end question + two answer buttons + "comment below") ·
@@ -160,6 +174,15 @@ MOTION_DOCTRINE = """MOTION DOCTRINE (character-animation and motion-design craf
   rings; every scene entering the same way; everything fading and sliding up; three cards in a row; a dark void with
   small floating things and glow; a logo docked small in a corner. A character's idle breathing and overshoot are acting
   and are fine.
+- ALIVE (drawn characters, creatures and sets; method after rossark-motion-skill): never teleport (everything
+  interpolates; a face never swaps drawings without a squint or blink to hide it) · never a frozen frame while a
+  character is on screen (FX.alive: breathing, drifting limbs, a blink every 3-4 s; close 0.11 s, reopen 0.19 s) · poses
+  flow (FX.act), they never stop dead at each key · parts turn around their real pivots and the outer parts follow a
+  beat later (0.06-0.15 s at 0.3-0.6 strength) · left and right never mirror · the eyes lead, the head follows, the body
+  last; blink on a head turn · small amplitudes (breath 1-2 %, sway 1.5-4°, head tilt 3-6°) · landings squash 15-20 %
+  and keep the volume; anything in the air hangs its feet and its shadow shrinks with the height · props enter from
+  off frame already moving and the eyes follow them · one main action per scene + 2-3 idle loops, out of phase, seeded,
+  never on titles / UI · every move gets enough frames (nothing under ~0.1 s except a cut).
 - Every seam has a transition with a cause (3-5 kinds per film, at most a third hard cuts); every on-screen line
   holds ~0.3 s a word + 0.5 s; something meaningful changes at least every 3 s."""
 

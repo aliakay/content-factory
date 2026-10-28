@@ -149,6 +149,11 @@ window.lintMotion = () => {
     for (const [a, b] of iv) { if (a - t > 3) out.push({ kind: "dead", scene: sc.id, t: +t.toFixed(2), detail: `${(a - t).toFixed(1)} s with nothing moving` }); t = Math.max(t, b); }
     if (sc.end - t > 3) out.push({ kind: "dead", scene: sc.id, t: +t.toFixed(2), detail: `${(sc.end - t).toFixed(1)} s with nothing moving at the end of the scene` });
   }
+  for (const c of FX._cast || []) {   // characters: frozen between moves, or stopping dead at every pose
+    const sc = B.scenes.find((s) => s.id === c.scene), t = sc ? +sc.start.toFixed(2) : 0;
+    if (!c.man.live) out.push({ kind: "frozen", scene: c.scene, t, detail: "a character with no idle life between its moves: FX.alive(man) (gliding gaze, blinks, breathing, moving holds) or FX.emotions" });
+    if ((c.man.poses || 0) >= 3 && !c.man.poseAt) out.push({ kind: "robot", scene: c.scene, t, detail: `${c.man.poses} FX.pose tweens: the body stops dead at every pose; chain them with FX.act(man, [[t, pose], ...]) so they flow` });
+  }
   return out;
 };
 let lastKey = null;

@@ -60,8 +60,10 @@ def catalogue(con, user_voices=None):
         """SELECT p.place_id, p.name, p.day, COUNT(c.clip_id) n FROM places p JOIN clips c ON c.place_id=p.place_id
            AND c.usable=1 GROUP BY p.place_id ORDER BY p.day""")]
     try:
-        refs = [{"ref_id": r["ref_id"], "title": r["title"], "theme": r["theme"]}
-                for r in con.execute("SELECT ref_id, title, theme FROM ref_videos ORDER BY rowid DESC LIMIT 30")]
+        from . import motionref
+        refs = [{"ref_id": r["ref_id"], "title": r["title"], "theme": r["theme"],
+                 **({"motion": motionref.summary(json.loads(r["motion"]))} if r["motion"] else {})}
+                for r in con.execute("SELECT ref_id, title, theme, motion FROM ref_videos ORDER BY rowid DESC LIMIT 30")]
     except Exception:
         refs = []
     ser = [{"id": s["series_id"], "title": s["title"], "status": s["status"], "channel": s["channel_id"],
@@ -385,9 +387,13 @@ def start(con, plan_id, queue):
                                                    "channel": p["channel"], "aspect": p["aspect"], "recipe": recipe_of(p)},
                                                   ensure_ascii=False)))
     elif p["kind"] in ("footage", "topic"):
+        rec = recipe_of(p)
+        if p["kind"] == "topic" and p.get("refs"):   # how the attached references really move, measured
+            from .refs import motion_for
+            rec["ref_motion"] = motion_for(con, p["refs"])
         arg = {"format": p["format"], "n": p["n"], "brief": p["brief"], "places": p["places"], "refs": p["refs"],
                "aspect": p["aspect"], "narrate": p["narrate"], "look": p["look"], "voice_id": p["voice_id"],
-               "channel": p["channel"], "recipe": recipe_of(p)}
+               "channel": p["channel"], "recipe": rec}
         jobs_.append(queue("p_ideas", json.dumps(arg, ensure_ascii=False)))
     elif p["kind"] == "series_new":
         s = p["series"]

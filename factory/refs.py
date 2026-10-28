@@ -163,7 +163,7 @@ RECIPE_SCHEMA = """{"theme": "gezi|vlog|manzara|motivasyon|diğer",
 def ensure_library(con):
     ensure(con)
     cols = {r[1] for r in con.execute("PRAGMA table_info(ref_videos)")}
-    for col in ("theme", "title", "bpm", "grid", "recipe", "source", "kind"):
+    for col in ("theme", "title", "bpm", "grid", "recipe", "source", "kind", "motion"):
         if col not in cols:
             con.execute(f"ALTER TABLE ref_videos ADD COLUMN {col} TEXT")
     con.commit()
@@ -238,7 +238,36 @@ def scan_library(con):
             con.commit()
             n += 1
             print(f"ref {name}: {dur:.1f}s · {stats['shots']} shots · avg {stats['avg_shot_s']}s · {bpm} BPM", flush=True)
+    study_motion(con)
     return n
+
+
+def study_motion(con):
+    """Measure how the subject moves in the longest shot of every video reference that has no motion study yet
+    (factory/motionref.py: bob / sway / squash as % of the subject, the period). A few seconds of decode each."""
+    from . import motionref
+    rows = [dict(r) for r in con.execute("SELECT ref_id, path, duration, cuts FROM ref_videos WHERE motion IS NULL "
+                                         "AND COALESCE(kind, 'video') = 'video' AND duration > 0")]
+    for r in rows:
+        try:
+            start, dur = motionref.window(r["duration"], jload(r["cuts"], []))
+            m = motionref.study(r["path"], start, dur)
+        except Exception as e:  # unreadable file: mark it so the scan does not retry it forever
+            m = {"verdict": f"not measured ({str(e)[:80]})"}
+        con.execute("UPDATE ref_videos SET motion=? WHERE ref_id=?", (json.dumps(m), r["ref_id"]))
+        con.commit()
+    return len(rows)
+
+
+def motion_for(con, ref_ids):
+    """Measured motion of the attached references, one line each (for the art director and the motion designer)."""
+    from . import motionref
+    if not ref_ids:
+        return []
+    ensure_library(con)
+    q = f"SELECT ref_id, title, motion FROM ref_videos WHERE motion IS NOT NULL AND ref_id IN ({','.join('?' * len(ref_ids))})"
+    return [{"ref": r["ref_id"], "title": r["title"], "motion": motionref.summary(jload(r["motion"], {}))}
+            for r in con.execute(q, list(ref_ids)) if motionref.summary(jload(r["motion"], {}))]
 
 
 def describe_recipes(con, model="sonnet"):
@@ -322,7 +351,8 @@ def recipes_for(con, ref_ids):
     if not ref_ids:
         return []
     ensure_library(con)
-    q = f"SELECT ref_id, title, theme, duration, bpm, shot_stats, recipe FROM ref_videos WHERE ref_id IN " \
+    from . import motionref
+    q = f"SELECT ref_id, title, theme, duration, bpm, shot_stats, recipe, motion FROM ref_videos WHERE ref_id IN " \
         f"({','.join('?' * len(ref_ids))})"
     out = []
     for r in con.execute(q, list(ref_ids)):
@@ -330,5 +360,6 @@ def recipes_for(con, ref_ids):
         out.append({"ref": r["ref_id"], "title": r["title"], "theme": r["theme"], "duration": round(r["duration"], 1),
                     "bpm": r["bpm"], "avg_shot_s": (jload(r["shot_stats"], {}) or {}).get("avg_shot_s"),
                     "recipe": rec.get("recipe"), "style_rules": rec.get("style_rules"),
-                    "unsupported": rec.get("unsupported")})
+                    "unsupported": rec.get("unsupported"),
+                    **({"motion": motionref.summary(jload(r["motion"], {}))} if r["motion"] else {})})
     return out

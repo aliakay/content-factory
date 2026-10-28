@@ -249,6 +249,35 @@ CAPS = {
                     "(emotions: see FX.EMOTIONS); cause first, then the reaction, in sequence (never on top of each other); "
                     "the eyes lead, the body follows.",
     },
+    "look.alive": {
+        "area": "look", "tr": "Canlı karakter (hiç donmaz)", "kinds": ("topic",),
+        "what": "Drawn characters and creatures feel ALIVE instead of a slideshow of poses: eyes glide to what they look at "
+                "and blink every 3-4 s (on every big glance too), the body breathes, every limb drifts on its own period "
+                "(moving holds: never a frozen frame, left and right never mirror), poses FLOW through each other instead "
+                "of stopping dead, forearms / tails / hair follow a beat later, landings squash and keep the volume, "
+                "anything in the air hangs its feet over a shadow that shrinks with the height.",
+        "designer": "A lead character is an illustrated FX.character (live face; designed for THIS film: skin, hair, "
+                    "outfit, a prop); FX.stickman stays for diagrams and crowds. "
+                    "Every character gets FX.alive(man, {look: [[t, gx, gy], ...]}) (gaze at what matters in the scene, "
+                    "e.g. the prop as it comes; tired: lid 0.35) and its pose chain as ONE FX.act(man, [[t, 'stand'], "
+                    "[t2, 'point'], [t3, 'point'], ...]) (repeat a pose to hold it), not several FX.pose tweens; arrivals "
+                    "with FX.land / FX.hop / FX.float; joy = FX.alive cheek squint, speech = FX.alive talk windows. "
+                    "Small amplitudes: when unsure, halve them. Per scene ONE main action "
+                    "(the story beat); everything else only says 'this is alive'.",
+    },
+    "look.living_world": {
+        "area": "look", "tr": "Yaşayan dünya (idle döngüler)", "kinds": ("topic",),
+        "what": "The drawn set lives too: one main action per scene plus 2-3 quiet idle loops picked by subject (plants "
+                "and signs sway from their base, a flame leans and stretches, steam rises and fades, water ripples, rain / "
+                "snow / leaves / stars each with their own phase, clouds drift in parallax, gears turn, a phone buzzes in "
+                "bursts, a gift jiggles waiting to be tapped). Nothing in sync, nothing random per frame; UI and titles "
+                "stay still once they land.",
+        "designer": "Pick 2-3 idle loops that suit the place, from FX.sway (array = root-to-tip chain), FX.breathe, FX.bob, "
+                    "FX.flicker, FX.glow, FX.spin, FX.drift, FX.steam, FX.ripples, FX.weather({kind}), FX.buzz, FX.jiggle; "
+                    "draw every moving part as its own SVG group and give it its real pivot (stem base, hinge, hook). "
+                    "Repeated items differ by FX.life.seeded(i); things on one screen breathe out of phase. Never on "
+                    "captions, titles or UI chrome.",
+    },
     "look.handmade": {
         "area": "look", "tr": "El yapımı titreşim (boil) + on twos", "kinds": ("topic",),
         "what": "Hand-drawn feel: lines boil (re-drawn 12 times a second), characters animate on twos, no text on screen "
@@ -436,7 +465,7 @@ def apply(rec, d, kind="topic"):
         d["duration_cap"] = int(sec[1])
     d["recipe"] = {"direction": str(rec.get("direction") or "")[:1500], "techniques": rec["techniques"],
                    **({"seconds": [int(sec[0]), int(sec[1])]} if sec else {}),
-                   **{k: rec[k] for k in ("sketch", "research") if rec.get(k)}}
+                   **{k: rec[k] for k in ("sketch", "research", "ref_motion") if rec.get(k)}}
     return d
 
 
@@ -500,6 +529,10 @@ def designer_notes(d):
     notes = _notes(d, "designer")
     if notes:
         out.append("TECHNIQUES chosen for this video (use every one):\n" + "\n".join(notes))
+    if r.get("ref_motion"):
+        out.append("REFERENCE MOTION (measured frame by frame in the creator's references; their life is in these numbers, "
+                   "reproduce the amplitudes and periods, not just the poses): "
+                   + "; ".join(f"{m['ref']}: {m['motion']}" for m in r["ref_motion"]))
     sk = r.get("sketch") or {}
     if sk.get("design"):
         code = sketch_code(sk["design"])
