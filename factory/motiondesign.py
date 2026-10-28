@@ -116,9 +116,14 @@ FX_DOC = """FX LIBRARY (available in every scene's JS as `FX`; deterministic, us
           FX.pose(tl, man, "stand|wave|point|scared|shrug|knock|hold|crouch|cheer|sad|run", at, {dur}) · man.walk(at, dur, dx) ·
           FX.wave(tl, man, at, dur) · man.mouth("smile|grin|flat|o|frown") · FX.shake(tl, el, at, {amp, dur})
           kid = FX.character(root, {x, y (feet), h, skin, hair, style: pigtails|bob|short|bald, hat: colour|false, shirt,
-          pants, shoes, stripes, prop}) = an ILLUSTRATED character with a live face (eye whites + sliding pupils, lids,
-          happy-squint cheek, a mouth that opens); same poses / FX.act / FX.alive as the stickman. Use it when the film
-          needs a lead people care about (a mascot, a kid, a customer); the stickman for diagrams and crowds.
+          pants, shoes, stripes, bow: colour|false, prop}) = an ILLUSTRATED character with a live face (eye whites +
+          sliding pupils, lids, happy-squint cheek, a mouth that opens); same poses / FX.act / FX.alive as the stickman.
+          Use it when the film needs a lead people care about (a mascot, a kid, a customer); the stickman for diagrams
+          and crowds. species: "dog"|"cat"|"budgie" = an upright cartoon animal on the same rig (skin = fur / feathers;
+          dog {belly, ear, nose, collar}, cat {belly, ear, nose, stripe, whisker}, budgie {belly, face, bars, cheek, beak,
+          cere, tail, feet}; blue budgie: skin #6fb6e8, belly #9fd0f2, face #f4f4f4, tail #2f4fa8; hen cere #c9a27a):
+          its tail sways by itself (a dog wags harder on cheek), ears drag / twitch, budgie wings are the arms (wave
+          = a wing wave) and its beak opens for talk.
   life (drawn things that feel alive; seconds of the render clock; see ALIVE in the doctrine):
           FX.alive(man, {look: [[t, gx, gy], ...] (-1..1), lid, amount, cheek: [[t, 0..1]], talk: [[from, to]]}) gliding
           gaze + blinks + breathing + moving holds (+ happy squint and talking mouth on FX.character) ·
