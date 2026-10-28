@@ -4,6 +4,7 @@ import json, os, sqlite3, subprocess
 import pytest
 
 from factory import channels, eleven, illustrate, llm, productions as P, series
+from factory.config import FFMPEG
 from factory.store import SCHEMA
 
 BIBLE = {"title": "Pip & the Lighthouse", "logline": "A robot keeps a lighthouse.", "tone": "warm", "world": "A rocky isle.",
@@ -83,7 +84,7 @@ def test_series_bible_sheets_episode_and_plates(con, monkeypatch):
 def test_cast_voice_joins_takes(con, monkeypatch, tmp_path):
     def tts(con, text, vid, model, approved=None, account=None):
         f = tmp_path / f"{vid}_{abs(hash(text)) % 999}.mp3"
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=f=440:d=0.4", str(f)], check=True)
+        subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "sine=f=440:d=0.4", str(f)], check=True)
         return str(f), 10.0
     monkeypatch.setattr(eleven, "tts", tts)
     monkeypatch.setattr(P, "ROOT", str(tmp_path))
