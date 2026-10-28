@@ -581,93 +581,214 @@
      shirt + overalls, hands, boots and a floor shadow that shrinks as it leaves the ground. Same joints and poses as
      FX.stickman, so FX.pose / FX.act / FX.wave / FX.alive / FX.land / FX.hop / FX.float / man.walk all drive it.
      const kid = FX.character(root, {x: 540, y: 1500, h: 520, skin: "#c98a5e", hair: "#2b1a12", style: "pigtails" | "bob" |
-       "short" | "bald", hat: "#f4a6b8" | false, shirt: "#e8645a", pants: "#3d6fd6", shoes: "#3f9a55", stripes: true})
+       "short" | "bald", hat: "#f4a6b8" | false, shirt: "#e8645a", pants: "#3d6fd6", shoes: "#3f9a55", stripes: true,
+       bow: "#b57cf0" | false})
+     species: "dog" | "cat" | "budgie" draws an upright cartoon animal on the same rig instead (no clothes; hair / shirt /
+     pants / shoes are ignored; skin = fur or body feathers). Its tail sways on its own (a dog wags harder when happy:
+     cheek), dog ears drag behind the head, cat ears twitch now and then, the budgie's wings are its arms and its beak
+     opens for the mouth. Colours: dog {skin, belly, ear, nose, collar | false}; cat {skin, belly, ear (inner), nose,
+     stripe | false, whisker}; budgie {skin, belly, face (mask + wing base), bars, cheek, beak, cere, tail, feet}
+       (a blue budgie: skin "#6fb6e8", belly "#9fd0f2", face "#f4f4f4", tail "#2f4fa8"; a hen's cere: "#c9a27a").
      Face channels (FX.alive sets them): kid.gaze [-1..1, -1..1], kid.lid 0..1, kid.cheek 0..1, kid.mouth 0..1. ---- */
+  const SPECIES = {
+    human: {},
+    dog: { skin: "#c8894a", belly: "#f4dfbf", ear: "#8a5530", nose: "#2b1d18", collar: "#e8483f" },
+    cat: { skin: "#e8964b", belly: "#fbe8d3", ear: "#f7a8b8", nose: "#f28aa0", stripe: "#c46f2c", whisker: "rgba(60,35,25,.55)" },
+    budgie: { skin: "#79c84a", belly: "#a6dc6a", face: "#f4dc3c", bars: "#2b2b2b", cheek: "#5a5fd8", beak: "#f1c27d",
+              cere: "#5b8fe0", tail: "#3a63c4", feet: "#d9a7a0" },
+  };
   FX.character = (root, o = {}) => {
     const h = o.h || 440, k = h / 400, NS = "http://www.w3.org/2000/svg", id = "fxc" + ((FX._men = (FX._men || 0) + 1));
+    const sp = SPECIES[o.species] ? o.species : "human", furry = sp === "dog" || sp === "cat", bird = sp === "budgie";
     const C = Object.assign({ skin: "#c98a5e", hair: "#2b1a12", shirt: "#e8645a", pants: "#3d6fd6", shoes: "#3f9a55", ink: "#1e1414",
-                              white: "#ffffff", mouth: "#6b2222", blush: "#ff7a7a", hat: false, style: "bob" }, o);
+                              white: "#ffffff", mouth: "#6b2222", blush: "#ff7a7a", hat: false, bow: false, style: "bob" }, SPECIES[sp], o);
+    // where the joints sit (drawing units, feet at y 0): the budgie is an egg on short legs, its wings hang from the body
+    const L = bird ? { hip: -60, neck: [0, -214], legTop: -48, thigh: 24, shoulder: -200, upper: 60, arm: 64, eye: [30, -296, 28, 36] }
+                   : { hip: -112, neck: [0, -206], legTop: -112, thigh: 54, shoulder: -192, upper: 44, arm: 46, eye: furry ? [32, -288, 34, 44] : [31, -282, 34, 44] };
     const svg = document.createElementNS(NS, "svg");
     svg.setAttribute("width", 320 * k); svg.setAttribute("height", 500 * k); svg.setAttribute("viewBox", "-160 -470 320 500");
     Object.assign(svg.style, { position: "absolute", left: (o.x ?? 540) - 160 * k + "px", top: (o.y ?? 1500) - 470 * k + "px", overflow: "visible", zIndex: o.z || 5 });
     root.appendChild(svg);
     const mk = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const [a, v] of Object.entries(attrs)) e.setAttribute(a, v); (parent || svg).appendChild(e); return e; };
     const pill = (cx, cy, w, hh) => { const r = Math.min(w, hh) / 2, x = cx - w / 2, y = cy - hh / 2; return `M${x + r} ${y}H${x + w - r}A${r} ${r} 0 0 1 ${x + w} ${y + r}V${y + hh - r}A${r} ${r} 0 0 1 ${x + w - r} ${y + hh}H${x + r}A${r} ${r} 0 0 1 ${x} ${y + hh - r}V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}Z`; };
+    const round = { "stroke-linecap": "round", fill: "none" };
     const defs = mk("defs", {});
-    const shadow = mk("ellipse", { cx: 0, cy: 2, rx: 78, ry: 13, fill: o.shadow || "rgba(0,0,0,.16)" });
+    const shadow = mk("ellipse", { cx: 0, cy: 2, rx: bird ? 70 : 78, ry: 13, fill: o.shadow || "rgba(0,0,0,.16)" });
     const g = mk("g", {}), body = mk("g", {}, g);
-    const neck = [0, -206], hip = -112;
+    // the tail sits behind everything and sways from its base on its own clock: [group, base x, base y, angle(t, cheek)]
+    let tail = null;
+    if (furry || bird) {
+      const tg = mk("g", {}, body);
+      if (sp === "dog") {
+        mk("path", { d: "M22,-118 Q72,-118 80,-186", stroke: C.skin, "stroke-width": 18, ...round }, tg);
+        mk("circle", { cx: 80, cy: -188, r: 9, fill: C.belly }, tg);
+        tail = [tg, 22, -118, (t, ch) => 6 * Math.sin(t * 2 * Math.PI / 1.6) + 16 * ch * Math.sin(t * 2 * Math.PI / 0.36)];
+      } else if (sp === "cat") {
+        mk("path", { d: "M24,-116 C92,-112 66,-204 104,-252", stroke: C.skin, "stroke-width": 15, ...round }, tg);
+        if (C.stripe) for (const [x1, y1, x2, y2] of [[66, -150, 82, -146], [80, -192, 94, -190], [94, -226, 106, -228]])
+          mk("line", { x1, y1, x2, y2, stroke: C.stripe, "stroke-width": 6, ...round }, tg);
+        tail = [tg, 24, -116, (t) => 7 * Math.sin(t * 2 * Math.PI / 2.8) + 3 * Math.sin(t * 2 * Math.PI / 1.1)];
+      } else {
+        mk("path", { d: "M10,-104 L36,-120 L104,-26 Q100,-12 86,-16 Z", fill: C.tail }, tg);   // long tail feathers out to one side
+        mk("path", { d: "M24,-110 L94,-22", stroke: "rgba(0,0,0,.18)", "stroke-width": 3, ...round }, tg);
+        tail = [tg, 22, -110, (t) => 3 * Math.sin(t * 2 * Math.PI / 3.2)];
+      }
+    }
     // back hair turns with the head but sits behind the body
     const back = mk("g", {}, body);
-    if (C.style === "bob" || C.style === "pigtails") mk("ellipse", { cx: 0, cy: -282, rx: 94, ry: 88, fill: C.hair }, back);
-    if (C.style === "pigtails") for (const sx of [-1, 1]) { mk("circle", { cx: 100 * sx, cy: -238, r: 27, fill: C.hair }, back); mk("circle", { cx: 84 * sx, cy: -254, r: 8, fill: C.shirt }, back); }
-    if (C.style === "short") mk("ellipse", { cx: 0, cy: -298, rx: 86, ry: 80, fill: C.hair }, back);
-    // legs (thigh + shin with a boot) from the hips
+    if (sp === "human") {
+      if (C.style === "bob" || C.style === "pigtails") mk("ellipse", { cx: 0, cy: -282, rx: 94, ry: 88, fill: C.hair }, back);
+      if (C.style === "pigtails") for (const sx of [-1, 1]) { mk("circle", { cx: 100 * sx, cy: -238, r: 27, fill: C.hair }, back); mk("circle", { cx: 84 * sx, cy: -254, r: 8, fill: C.shirt }, back); }
+      if (C.style === "short") mk("ellipse", { cx: 0, cy: -298, rx: 86, ry: 80, fill: C.hair }, back);
+    }
+    // legs (thigh + shin with a boot, a paw or bird toes) from the hips
     const leg = (x) => {
-      const a = mk("g", {}, body);
-      mk("line", { x1: x, y1: hip, x2: x, y2: hip + 54, stroke: C.skin, "stroke-width": 22, "stroke-linecap": "round" }, a);
+      const a = mk("g", {}, body), top = L.legTop, knee = top + L.thigh;
+      if (bird) {
+        mk("line", { x1: x, y1: top, x2: x, y2: knee, stroke: C.feet, "stroke-width": 9, ...round }, a);
+        const b = mk("g", {}, a);
+        mk("line", { x1: x, y1: knee, x2: x, y2: -5, stroke: C.feet, "stroke-width": 8, ...round }, b);
+        for (const dx of [-13, 0, 13]) mk("line", { x1: x, y1: -5, x2: x + dx, y2: 2, stroke: C.feet, "stroke-width": 6, ...round }, b);
+        return [a, b, x];
+      }
+      mk("line", { x1: x, y1: top, x2: x, y2: knee, stroke: C.skin, "stroke-width": 22, "stroke-linecap": "round" }, a);
       const b = mk("g", {}, a);
-      mk("line", { x1: x, y1: hip + 54, x2: x, y2: hip + 98, stroke: C.skin, "stroke-width": 21, "stroke-linecap": "round" }, b);
-      mk("path", { d: `M${x - 15},${hip + 82} h30 v14 q0,10 -10,10 h-24 q-12,0 -12,-10 q0,-8 10,-8 Z`, fill: C.shoes }, b);
+      mk("line", { x1: x, y1: knee, x2: x, y2: top + 98, stroke: C.skin, "stroke-width": 21, "stroke-linecap": "round" }, b);
+      if (furry) {
+        mk("ellipse", { cx: x + Math.sign(x) * 4, cy: top + 104, rx: 19, ry: 10, fill: C.skin }, b);
+        for (const dx of [-6, 4]) mk("line", { x1: x + dx + Math.sign(x) * 4, y1: top + 99, x2: x + dx + Math.sign(x) * 4, y2: top + 106, stroke: "rgba(0,0,0,.2)", "stroke-width": 2.5, ...round }, b);
+      } else mk("path", { d: `M${x - 15},${top + 82} h30 v14 q0,10 -10,10 h-24 q-12,0 -12,-10 q0,-8 10,-8 Z`, fill: C.shoes }, b);
       return [a, b, x];
     };
-    const legL = leg(-20), legR = leg(20);
-    // torso: shirt, overall bib + shorts, straps, buttons
+    const legL = leg(bird ? -22 : -20), legR = leg(bird ? 22 : 20);
+    // torso: shirt + overalls, a furry body with a belly patch (and a dog's collar), or the budgie's egg
     const torso = mk("g", {}, body);
-    mk("path", { d: "M-50,-196 Q-52,-206 -40,-208 H40 Q52,-206 50,-196 L46,-104 Q46,-96 38,-96 H-38 Q-46,-96 -46,-104 Z", fill: C.shirt }, torso);
-    if (o.stripes !== false) for (const y of [-186, -170, -154, -138, -122]) mk("rect", { x: -48, y, width: 96, height: 5, fill: "rgba(255,255,255,.35)" }, torso);
-    mk("path", { d: `M-34,-160 H34 V-112 H52 Q54,-84 30,-80 H-30 Q-54,-84 -52,-112 H-34 Z`, fill: C.pants }, torso);
-    for (const sx of [-1, 1]) { mk("line", { x1: 30 * sx, y1: -158, x2: 40 * sx, y2: -204, stroke: C.pants, "stroke-width": 9, "stroke-linecap": "round" }, torso); mk("circle", { cx: 26 * sx, cy: -150, r: 4.5, fill: "#f5d36b" }, torso); }
-    mk("rect", { x: -14, y: -140, width: 28, height: 18, rx: 4, fill: "rgba(0,0,0,.12)" }, torso);
-    // arms: sleeve, forearm, hand
+    if (bird) {
+      mk("ellipse", { cx: 0, cy: -150, rx: 80, ry: 112, fill: C.skin }, torso);
+      mk("ellipse", { cx: 0, cy: -126, rx: 54, ry: 80, fill: C.belly }, torso);
+    } else if (furry) {
+      mk("path", { d: "M-48,-198 Q-50,-210 -36,-210 H36 Q50,-210 48,-198 L52,-112 Q52,-90 30,-88 H-30 Q-52,-90 -52,-112 Z", fill: C.skin }, torso);
+      mk("ellipse", { cx: 0, cy: -138, rx: 30, ry: 42, fill: C.belly }, torso);
+      if (sp === "dog" && C.collar) { mk("rect", { x: -40, y: -214, width: 80, height: 13, rx: 6.5, fill: C.collar }, torso); mk("circle", { cx: 0, cy: -196, r: 7, fill: "#f5d36b" }, torso); }
+    } else {
+      mk("path", { d: "M-50,-196 Q-52,-206 -40,-208 H40 Q52,-206 50,-196 L46,-104 Q46,-96 38,-96 H-38 Q-46,-96 -46,-104 Z", fill: C.shirt }, torso);
+      if (o.stripes !== false) for (const y of [-186, -170, -154, -138, -122]) mk("rect", { x: -48, y, width: 96, height: 5, fill: "rgba(255,255,255,.35)" }, torso);
+      mk("path", { d: `M-34,-160 H34 V-112 H52 Q54,-84 30,-80 H-30 Q-54,-84 -52,-112 H-34 Z`, fill: C.pants }, torso);
+      for (const sx of [-1, 1]) { mk("line", { x1: 30 * sx, y1: -158, x2: 40 * sx, y2: -204, stroke: C.pants, "stroke-width": 9, "stroke-linecap": "round" }, torso); mk("circle", { cx: 26 * sx, cy: -150, r: 4.5, fill: "#f5d36b" }, torso); }
+      mk("rect", { x: -14, y: -140, width: 28, height: 18, rx: 4, fill: "rgba(0,0,0,.12)" }, torso);
+    }
+    // arms: sleeve + forearm + hand, a furry arm with a paw, or a wing (covert feathers + the flight-feather tip)
     const arm = (x) => {
-      const a = mk("g", {}, body);
-      mk("line", { x1: x, y1: -192, x2: x, y2: -148, stroke: C.shirt, "stroke-width": 19, "stroke-linecap": "round" }, a);
+      const a = mk("g", {}, body), top = L.shoulder, elbow = top + L.upper;
+      if (bird) {
+        mk("path", { d: `M${x},${top - 6} Q${x + 22},${top + 10} ${x + 20},${elbow - 10} L${x + 14},${elbow + 2} H${x - 14} L${x - 20},${elbow - 10} Q${x - 22},${top + 10} ${x},${top - 6} Z`, fill: C.face }, a);
+        for (const y of [top + 16, top + 32, top + 48]) mk("path", { d: `M${x - 16},${y} Q${x},${y + 10} ${x + 16},${y}`, stroke: C.bars, "stroke-width": 4, ...round }, a);
+        const b = mk("g", {}, a);
+        mk("path", { d: `M${x - 14},${elbow} H${x + 14} Q${x + 12},${elbow + 40} ${x},${elbow + 56} Q${x - 12},${elbow + 40} ${x - 14},${elbow} Z`, fill: C.tail }, b);
+        mk("path", { d: `M${x},${elbow + 4} V${elbow + 46}`, stroke: "rgba(0,0,0,.2)", "stroke-width": 3, ...round }, b);
+        return [a, b, x];
+      }
+      mk("line", { x1: x, y1: top, x2: x, y2: elbow, stroke: furry ? C.skin : C.shirt, "stroke-width": furry ? 17 : 19, "stroke-linecap": "round" }, a);
       const b = mk("g", {}, a);
-      mk("line", { x1: x, y1: -148, x2: x, y2: -110, stroke: C.skin, "stroke-width": 15, "stroke-linecap": "round" }, b);
-      mk("circle", { cx: x, cy: -104, r: 12.5, fill: C.skin }, b);
+      mk("line", { x1: x, y1: elbow, x2: x, y2: -110, stroke: C.skin, "stroke-width": 15, "stroke-linecap": "round" }, b);
+      mk("circle", { cx: x, cy: -104, r: furry ? 13.5 : 12.5, fill: C.skin }, b);
+      if (furry) mk("ellipse", { cx: x, cy: -101, rx: 6, ry: 4.5, fill: C.belly }, b);
       return [a, b, x];
     };
-    const armL = arm(-46), armR = arm(46);
-    if (o.prop) mk("g", {}, armR[1]).innerHTML = o.prop;   // optional SVG markup in the right hand (around (46, -104))
-    // head
-    const headG = mk("g", {}, body);
-    mk("rect", { x: -13, y: -222, width: 26, height: 22, fill: C.skin }, headG);
-    for (const sx of [-1, 1]) mk("circle", { cx: 80 * sx, cy: -274, r: 15, fill: C.skin }, headG);
-    mk("ellipse", { cx: 0, cy: -280, rx: 82, ry: 76, fill: C.skin }, headG);
+    const armL = arm(-L.arm), armR = arm(L.arm);
+    if (o.prop) mk("g", {}, armR[1]).innerHTML = o.prop;   // optional SVG markup in the right hand (around (46, -104); a wing tip ~(64, -90))
+    // head (ears that move on their own: [group, pivot x, pivot y, angle(t, head)])
+    const headG = mk("g", {}, body), ears = [];
+    const ph = (o.seed ?? FX._men * 1.7) * 0.37;
+    if (sp === "cat") for (const sx of [-1, 1]) {
+      const eg = mk("g", {}, headG);
+      mk("path", { d: `M${36 * sx},-336 L${70 * sx},-392 L${86 * sx},-318 Z`, fill: C.skin, "stroke-linejoin": "round", stroke: C.skin, "stroke-width": 8 }, eg);
+      mk("path", { d: `M${48 * sx},-334 L${69 * sx},-374 L${78 * sx},-326 Z`, fill: C.ear }, eg);
+      // a twitch every ~4 s, each ear on its own phase
+      ears.push([eg, 62 * sx, -330, (t) => { const p = (t + ph + (sx > 0 ? 1.9 : 0)) % 4.3; return p < 0.28 ? -10 * sx * Math.sin((p / 0.28) * Math.PI) : 0; }]);
+    }
+    if (sp === "human") {
+      mk("rect", { x: -13, y: -222, width: 26, height: 22, fill: C.skin }, headG);
+      for (const sx of [-1, 1]) mk("circle", { cx: 80 * sx, cy: -274, r: 15, fill: C.skin }, headG);
+      mk("ellipse", { cx: 0, cy: -280, rx: 82, ry: 76, fill: C.skin }, headG);
+    } else if (furry) {
+      mk("ellipse", { cx: 0, cy: -282, rx: 86, ry: 74, fill: C.skin }, headG);
+      if (sp === "cat") for (const sx of [-1, 1]) mk("path", { d: `M${80 * sx},-262 L${98 * sx},-248 L${82 * sx},-238 L${94 * sx},-226 L${72 * sx},-224 Z`, fill: C.skin }, headG);
+      if (sp === "cat" && C.stripe) for (const [x, len] of [[-18, 18], [0, 24], [18, 18]]) mk("line", { x1: x, y1: -352, x2: x * 0.8, y2: -352 + len, stroke: C.stripe, "stroke-width": 7, ...round }, headG);
+    } else {
+      mk("circle", { cx: 0, cy: -290, r: 84, fill: C.skin }, headG);
+      const hc = mk("clipPath", { id: id + "h" }, defs); mk("circle", { cx: 0, cy: -290, r: 84 }, hc);
+      const barsG = mk("g", { "clip-path": `url(#${id}h)` }, headG);   // the barred crown and nape, around the yellow mask
+      for (const sx of [-1, 1]) for (const y of [-350, -330, -310, -290]) mk("path", { d: `M${50 * sx},${y - 8} Q${70 * sx},${y + 4} ${90 * sx},${y - 12}`, stroke: C.bars, "stroke-width": 4, ...round }, barsG);
+      mk("ellipse", { cx: 0, cy: -332, rx: 52, ry: 32, fill: C.face }, headG);
+      mk("ellipse", { cx: 0, cy: -262, rx: 72, ry: 64, fill: C.face }, headG);
+    }
+    const lidCol = bird ? C.face : C.skin, [ex, ey, ew, eh] = L.eye;
     const faceG = mk("g", {}, headG), eyes = [];
     for (const sx of [-1, 1]) {
-      const cx = 31 * sx, cy = -282, w = 34, hh = 44, cid = `${id}e${sx > 0 ? "R" : "L"}`;
+      const cx = ex * sx, cy = ey, w = ew, hh = eh, cid = `${id}e${sx > 0 ? "R" : "L"}`;
       const c1 = mk("clipPath", { id: cid }, defs); mk("path", { d: pill(cx, cy, w, hh) }, c1);
       const c2 = mk("clipPath", { id: cid + "s" }, defs); mk("path", { d: pill(cx, cy, w + 2, hh + 2) }, c2);
       mk("path", { d: pill(cx, cy, w, hh), fill: C.white }, faceG);
       const inner = mk("g", { "clip-path": `url(#${cid})` }, faceG);
       const pupil = mk("g", {}, inner);
-      mk("rect", { x: cx - 9, y: cy - hh / 2 + 11, width: 18, height: 25, rx: 9, fill: C.ink }, pupil);
-      mk("circle", { cx: cx - 3, cy: cy - hh / 2 + 18, r: 4.2, fill: C.white }, pupil);
+      const pw = w * 0.53, ph2 = hh * 0.57;
+      mk("rect", { x: cx - pw / 2, y: cy - hh / 2 + hh * 0.25, width: pw, height: ph2, rx: pw / 2, fill: C.ink }, pupil);
+      mk("circle", { cx: cx - pw / 6, cy: cy - hh / 2 + hh * 0.41, r: w * 0.124, fill: C.white }, pupil);
       const skinG = mk("g", { "clip-path": `url(#${cid}s)` }, faceG);
-      const lid = mk("rect", { x: cx - w / 2 - 2, y: cy - hh / 2 - 2, width: w + 4, height: 0, fill: C.skin }, skinG);
+      const lid = mk("rect", { x: cx - w / 2 - 2, y: cy - hh / 2 - 2, width: w + 4, height: 0, fill: lidCol }, skinG);
       const lash = mk("line", { x1: cx - w / 2 - 2, x2: cx + w / 2 + 2, y1: 0, y2: 0, stroke: C.ink, "stroke-width": 3.5, "stroke-opacity": 0 }, skinG);
-      const cheek = mk("rect", { x: cx - w / 2 - 2, y: cy + hh / 2 + 2, width: w + 4, height: 0, fill: C.skin }, skinG);
+      const cheek = mk("rect", { x: cx - w / 2 - 2, y: cy + hh / 2 + 2, width: w + 4, height: 0, fill: lidCol }, skinG);
       const closed = mk("path", { d: `M${cx - sx * w * 0.4} ${cy + 2}H${cx + sx * w * 0.12}Q${cx + sx * w * 0.34} ${cy + 2} ${cx + sx * w * 0.4} ${cy + 2 + hh * 0.16}`, stroke: C.ink, "stroke-width": 5, "stroke-linecap": "round", fill: "none", "stroke-opacity": 0 }, faceG);
       const happy = mk("path", { d: `M${cx - w * 0.42} ${cy + 4}Q${cx} ${cy - hh * 0.5} ${cx + w * 0.42} ${cy + 4}`, stroke: C.ink, "stroke-width": 5, "stroke-linecap": "round", fill: "none", "stroke-opacity": 0 }, faceG);
       eyes.push({ cx, cy, w, hh, pupil, lid, lash, cheek, closed, happy });
     }
-    for (const sx of [-1, 1]) mk("ellipse", { cx: 54 * sx, cy: -248, rx: 14, ry: 8, fill: C.blush, opacity: 0.45 }, faceG);
-    mk("path", { d: "M-6,-258 Q0,-252 6,-258", stroke: "rgba(0,0,0,.28)", "stroke-width": 4, fill: "none", "stroke-linecap": "round" }, faceG);
-    const mouth = mk("path", { fill: C.mouth, stroke: C.mouth, "stroke-width": 4.5, "stroke-linejoin": "round" }, faceG);
-    // front hair over the forehead, then the hat
-    if (C.style !== "bald") mk("path", { d: C.style === "short" ? "M-84,-292 Q-80,-370 0,-366 Q80,-370 84,-292 Q70,-326 40,-322 Q10,-342 -20,-322 Q-60,-332 -84,-292 Z"
+    if (!bird) for (const sx of [-1, 1]) mk("ellipse", { cx: 54 * sx, cy: -248, rx: 14, ry: 8, fill: C.blush, opacity: 0.45 }, faceG);
+    let mouth = null, beakLo = null, mw = 1;
+    if (sp === "human") {
+      mk("path", { d: "M-6,-258 Q0,-252 6,-258", stroke: "rgba(0,0,0,.28)", "stroke-width": 4, fill: "none", "stroke-linecap": "round" }, faceG);
+    } else if (sp === "dog") {
+      mk("ellipse", { cx: 0, cy: -246, rx: 42, ry: 28, fill: C.belly }, faceG);
+      mw = 0.9;
+    } else if (sp === "cat") {
+      for (const sx of [-1, 1]) mk("ellipse", { cx: 13 * sx, cy: -246, rx: 17, ry: 12, fill: C.belly }, faceG);
+      mw = 0.75;
+    } else {   // budgie: cheek patches, throat spots, the cere, a lower beak that drops to talk, the hooked upper beak over it
+      for (const sx of [-1, 1]) mk("ellipse", { cx: 50 * sx, cy: -246, rx: 13, ry: 17, fill: C.cheek }, faceG);
+      for (const [x, y] of [[-40, -218], [-15, -210], [15, -210], [40, -218]]) mk("circle", { cx: x, cy: y, r: 5, fill: C.bars }, faceG);
+      beakLo = mk("g", {}, faceG);
+      mk("path", { d: "M-9,-252 Q0,-248 9,-252 Q7,-236 0,-232 Q-7,-236 -9,-252 Z", fill: "#d9a564" }, beakLo);
+      mk("path", { d: "M-15,-266 Q0,-272 15,-266 Q14,-246 2,-230 Q-12,-244 -15,-266 Z", fill: C.beak }, faceG);
+      mk("rect", { x: -14, y: -280, width: 28, height: 11, rx: 5.5, fill: C.cere }, faceG);
+    }
+    if (!bird) mouth = mk("path", { fill: C.mouth, stroke: C.mouth, "stroke-width": 4.5, "stroke-linejoin": "round" }, faceG);
+    if (sp === "dog") mk("path", { d: "M-12,-268 Q0,-275 12,-268 Q11,-256 0,-252 Q-11,-256 -12,-268 Z", fill: C.nose }, faceG);
+    if (sp === "cat") {
+      mk("path", { d: "M-8,-260 H8 L0,-251 Z", fill: C.nose, stroke: C.nose, "stroke-width": 3, "stroke-linejoin": "round" }, faceG);
+      for (const sx of [-1, 1]) for (const dy of [-12, 0, 12]) mk("line", { x1: 28 * sx, y1: -248 + dy * 0.3, x2: 100 * sx, y2: -250 + dy, stroke: C.whisker, "stroke-width": 2.5, ...round }, faceG);
+    }
+    // dog ears hang in front of the head and drag behind its turns
+    if (sp === "dog") for (const sx of [-1, 1]) {
+      const eg = mk("g", {}, headG);
+      mk("path", { d: `M${58 * sx},-346 Q${100 * sx},-344 ${106 * sx},-282 Q${108 * sx},-236 ${84 * sx},-234 Q${62 * sx},-238 ${58 * sx},-292 Z`, fill: C.ear }, eg);
+      ears.push([eg, 70 * sx, -340, (t, head) => -0.6 * head + 2.5 * Math.sin((t + ph) * 2 * Math.PI / 2.4 + sx)]);
+    }
+    // front hair over the forehead, then the hat or a bow
+    if (sp === "human" && C.style !== "bald") mk("path", { d: C.style === "short" ? "M-84,-292 Q-80,-370 0,-366 Q80,-370 84,-292 Q70,-326 40,-322 Q10,-342 -20,-322 Q-60,-332 -84,-292 Z"
       : "M-86,-284 Q-84,-372 0,-368 Q84,-372 86,-284 Q64,-330 30,-318 Q0,-340 -30,-318 Q-64,-330 -86,-284 Z", fill: C.hair }, headG);
     if (C.hat) {
       mk("path", { d: "M-70,-338 Q-70,-424 0,-424 Q70,-424 70,-338 Z", fill: C.hat }, headG);
       mk("rect", { x: -70, y: -356, width: 140, height: 14, fill: "rgba(255,255,255,.55)" }, headG);
       mk("ellipse", { cx: 0, cy: -338, rx: 124, ry: 22, fill: C.hat }, headG);
       mk("circle", { cx: 42, cy: -350, r: 9, fill: "#fff" }, headG); mk("circle", { cx: 42, cy: -350, r: 4, fill: "#f5c542" }, headG);
+    } else if (C.bow) {
+      const bx = bird ? 34 : 46, by = bird ? -362 : -350;
+      for (const sx of [-1, 1]) mk("path", { d: `M${bx},${by} L${bx + 30 * sx},${by - 20} Q${bx + 36 * sx},${by} ${bx + 30 * sx},${by + 20} Z`, fill: C.bow, "stroke-linejoin": "round", stroke: C.bow, "stroke-width": 5 }, headG);
+      mk("circle", { cx: bx, cy: by, r: 9, fill: C.bow, stroke: "rgba(0,0,0,.15)", "stroke-width": 3 }, headG);
     }
     const s = Object.assign({ x: 0 }, POSES[o.pose || "stand"]);
     const walks = [];
-    const man = { svg, g, s, k, face: {}, seed: o.seed ?? FX._men * 1.7, layers: [], gaze: [0, 0], lid: 0, cheek: 0, mouth: 0, rig: "character",
+    const man = { svg, g, s, k, face: {}, seed: o.seed ?? FX._men * 1.7, layers: [], gaze: [0, 0], lid: 0, cheek: 0, mouth: 0, rig: "character", species: sp,
       walk(at, dur, dx, o2 = {}) { walks.push({ at, dur, dx, steps: o2.steps || Math.max(2, Math.round(dur * 2.2)) }); },
       mouthShape() {} };
     FX.onFrame((t0) => {
@@ -676,13 +797,15 @@
       g.setAttribute("transform", `translate(${(R.x / k).toFixed(1)} ${R.y.toFixed(1)}) scale(${(1 + R.sq * 0.6).toFixed(3)} ${(1 - R.sq).toFixed(3)})`);
       const up = Math.max(0, -R.lift), sh = Math.max(0.35, 1 - up / 520);
       shadow.setAttribute("transform", `translate(${(R.x / k).toFixed(1)} 0) scale(${sh.toFixed(3)})`);
-      body.setAttribute("transform", `rotate(${R.lean.toFixed(2)} 0 ${hip})`);
-      rot(legL[0], R.hL, legL[2], hip); rot(legL[1], R.kL, legL[2], hip + 54);
-      rot(legR[0], R.hR, legR[2], hip); rot(legR[1], R.kR, legR[2], hip + 54);
-      rot(armL[0], R.sL, armL[2], -192); rot(armL[1], R.eL, armL[2], -148);
-      rot(armR[0], R.sR, armR[2], -192); rot(armR[1], R.eR, armR[2], -148);
-      rot(headG, R.head, ...neck); rot(back, R.head, ...neck);
+      body.setAttribute("transform", `rotate(${R.lean.toFixed(2)} 0 ${L.hip})`);
+      rot(legL[0], R.hL, legL[2], L.legTop); rot(legL[1], R.kL, legL[2], L.legTop + L.thigh);
+      rot(legR[0], R.hR, legR[2], L.legTop); rot(legR[1], R.kR, legR[2], L.legTop + L.thigh);
+      rot(armL[0], R.sL, armL[2], L.shoulder); rot(armL[1], R.eL, armL[2], L.shoulder + L.upper);
+      rot(armR[0], R.sR, armR[2], L.shoulder); rot(armR[1], R.eR, armR[2], L.shoulder + L.upper);
+      rot(headG, R.head, ...L.neck); rot(back, R.head, ...L.neck);
       const [gx, gy] = man.gaze, lid = Math.min(1, Math.max(0, man.lid)), ch = Math.min(1, Math.max(0, man.cheek)), m = Math.max(0, man.mouth);
+      if (tail) rot(tail[0], tail[3](t + ph, ch), tail[1], tail[2]);
+      for (const [eg, px, py, f] of ears) rot(eg, f(t, R.head), px, py);
       faceG.setAttribute("transform", `translate(${(3 * gx).toFixed(2)} ${(2 * gy).toFixed(2)})`);
       for (const e of eyes) {
         const H = e.hh + 4, y = e.cy - e.hh / 2 - 2 + lid * H;
@@ -694,8 +817,11 @@
         e.cheek.setAttribute("y", (e.cy + e.hh / 2 + 2 - ch * H).toFixed(2)); e.cheek.setAttribute("height", (ch * H).toFixed(2));
         e.happy.setAttribute("stroke-opacity", Math.min(1, Math.max(0, (ch - 0.86) / 0.14)).toFixed(3));
       }
-      const wd = 15 + 3 * ch, smile = 5 + 3 * ch;   // the mouth opens downward from a smile line
-      mouth.setAttribute("d", `M${-wd},-238 Q0,${-238 + smile} ${wd},-238 Q0,${(-238 + smile + 1 + 26 * m).toFixed(2)} ${-wd},-238 Z`);
+      if (beakLo) beakLo.setAttribute("transform", `translate(0 ${(10 * Math.min(1, m)).toFixed(2)})`);   // the beak drops open
+      if (mouth) {
+        const wd = (15 + 3 * ch) * mw, smile = 5 + 3 * ch;   // the mouth opens downward from a smile line
+        mouth.setAttribute("d", `M${-wd},-238 Q0,${-238 + smile} ${wd},-238 Q0,${(-238 + smile + 1 + 26 * m * mw).toFixed(2)} ${-wd},-238 Z`);
+      }
     });
     (FX._cast = FX._cast || []).push({ man, scene: FX._scene });
     return man;

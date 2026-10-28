@@ -39,6 +39,13 @@ def test_fxlib_has_life_kinetic_and_rig():
     assert "Math.random" not in js and "setTimeout" not in js and "requestAnimationFrame" not in js
 
 
+def test_character_rig_draws_animals():
+    js = open(os.path.join(ROOT, "motion", "templates", "fxlib.js")).read()
+    for sp in ("dog", "cat", "budgie"):
+        assert f'sp === "{sp}"' in js and sp in motiondesign.fx_doc()
+    assert "budgie" in capabilities.CAPS["look.alive"]["designer"]
+
+
 def test_motion_study_measures_a_subtle_bob():
     import tempfile
     with tempfile.TemporaryDirectory() as tmp:

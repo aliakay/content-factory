@@ -276,7 +276,7 @@ CAPS = {
                 "of stopping dead, forearms / tails / hair follow a beat later, landings squash and keep the volume, "
                 "anything in the air hangs its feet over a shadow that shrinks with the height.",
         "designer": "A lead character is an illustrated FX.character (live face; designed for THIS film: skin, hair, "
-                    "outfit, a prop); FX.stickman stays for diagrams and crowds. "
+                    "outfit, a prop; or an animal lead with species dog | cat | budgie); FX.stickman stays for diagrams and crowds. "
                     "Every character gets FX.alive(man, {look: [[t, gx, gy], ...]}) (gaze at what matters in the scene, "
                     "e.g. the prop as it comes; tired: lid 0.35) and its pose chain as ONE FX.act(man, [[t, 'stand'], "
                     "[t2, 'point'], [t3, 'point'], ...]) (repeat a pose to hold it), not several FX.pose tweens; arrivals "
