@@ -102,7 +102,7 @@ def posts(con):
     """Every tracked post with its latest stats and a short history for sparklines."""
     ensure(con)
     out = []
-    for p in con.execute("""SELECT p.*, pr.format, pr.title AS prod_title FROM posts p
+    for p in con.execute("""SELECT p.*, pr.format, pr.title AS prod_title, pr.channel_id AS prod_channel FROM posts p
                             LEFT JOIN productions pr ON pr.prod_id = p.prod_id ORDER BY p.posted_at DESC"""):
         d = dict(p)
         hist = [dict(r) for r in con.execute("SELECT * FROM post_stats WHERE post_id=? ORDER BY at", (p["post_id"],))]

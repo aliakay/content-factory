@@ -11,9 +11,9 @@ The production's `data` is the single source of truth (shots on real clips, voic
 `timeline()` compiles it deterministically into a bin/cinecut.py spec, so edits are small JSON changes, never
 hand-written ffmpeg.
 """
-import difflib, json, os, re, subprocess, sys
+import difflib, json, os, re, subprocess
 
-from . import credits, explainer, formats, ideas, llm, qa, refs, styled, tracking
+from . import credits, engines, explainer, formats, ideas, llm, qa, refs, styled, tracking
 from .store import ROOT, jload, now
 
 from .config import FFMPEG
@@ -82,6 +82,8 @@ spoken formats, "text" only in calm formats (the first shot's text is the hook).
 def ensure(con):
     con.execute(SCHEMA)
     tracking.ensure(con)
+    from . import channels
+    channels.ensure(con)
 
 
 def get(con, prod_id):
@@ -108,17 +110,19 @@ def save(con, p, event=None, detail=""):
     con.commit()
 
 
-def create(con, fmt_id, data, brief=""):
-    from . import accounts
+def create(con, fmt_id, data, brief="", channel_id=None):
+    from . import accounts, channels
     data.setdefault("eleven_account", accounts.default_eleven())   # the creator's own ElevenLabs account by default
     ensure(con)
+    channel_id = channels.resolve(con, channel_id, "topic" if explainer.is_explainer(data) else "footage")
     if not isinstance(data.get("title"), str):
         data["title"] = str((data.get("title") or {}).get("text") or "untitled") if isinstance(data.get("title"), dict) \
             else "untitled"
     hist = [{"at": now(), "event": "fikir", "detail": "Claude önerdi"}]
-    cur = con.execute("INSERT INTO productions (created_at, updated_at, format, title, stage, brief, data, history) "
-                      "VALUES (?,?,?,?,?,?,?,?)", (now(), now(), fmt_id, data.get("title"), "idea", brief,
-                                                    json.dumps(data, ensure_ascii=False), json.dumps(hist)))
+    cur = con.execute("INSERT INTO productions (created_at, updated_at, format, title, stage, brief, data, history, "
+                      "channel_id) VALUES (?,?,?,?,?,?,?,?,?)", (now(), now(), fmt_id, data.get("title"), "idea", brief,
+                                                                 json.dumps(data, ensure_ascii=False), json.dumps(hist),
+                                                                 channel_id))
     con.commit()
     return cur.lastrowid
 
@@ -177,13 +181,16 @@ def series_part(con, fmt_id):
 
 
 def generate(con, fmt_id, n=3, brief="", place_ids=None, ref_ids=None, voice_id=None, aspect="9:16",
-             narrate="auto", look="tech"):
+             narrate="auto", look="tech", channel_id=None):
+    from . import channels
     ensure(con)
     fmt = formats.get(fmt_id)
     if fmt["status"] != "ready":
         raise ValueError(f"format {fmt_id} is not built yet")
+    channel_id = channels.resolve(con, channel_id, fmt["mode"])
+    chan = channels.get(con, channel_id)
     if fmt.get("source") == "topic":
-        return explainer.generate(con, fmt, n, brief, voice_id, look)
+        return explainer.generate(con, fmt, n, brief, voice_id, look, aspect=aspect, channel=chan)
     ctx = context(con, place_ids)
     if not ctx["inventory"]:
         raise ValueError("no usable clips for this selection — add an iCloud album first")
@@ -194,6 +201,7 @@ def generate(con, fmt_id, n=3, brief="", place_ids=None, ref_ids=None, voice_id=
     prompt = f"""You are the social-media expert and editor of a travel channel (TikTok, YouTube Shorts, Reels;
 global English audience). The creator films everything themselves; use ONLY clips from the inventory, with exact
 clip_id values.
+{channels.prompt_note(chan)}
 
 FORMAT: {fmt['name']} — {fmt['guide']}{part}
 Duration {fmt['duration'][0]}-{fmt['duration'][1]} s. Voice: {NARRATE_NOTE[narrate if not fmt['voice'] else "on"]}
@@ -223,7 +231,7 @@ could work are hypotheses. Reply with ONLY JSON in this schema:
             d["voice_id"] = voice_id
         d["aspect"] = aspect if aspect in formats.ASPECTS else "9:16"
         if d["shots"]:
-            ids.append(create(con, fmt_id, d, brief))
+            ids.append(create(con, fmt_id, d, brief, channel_id))
     return ids, meta
 
 
@@ -356,8 +364,11 @@ def make_voice(con, prod_id, approved):
     text = voice_text(d)
     if not text:
         raise ValueError("no spoken lines")
-    path, cost = eleven.tts(con, text, d.get("voice_id") or formats.VOICE_ID, formats.VOICE_MODEL, approved=approved,
-                            account=eleven_account(d))
+    if multi_voice(d):
+        path, cost = cast_voice(con, d, approved)
+    else:
+        path, cost = eleven.tts(con, text, d.get("voice_id") or formats.VOICE_ID, formats.VOICE_MODEL, approved=approved,
+                                account=eleven_account(d))
     times, dur = align(path, d["voice"]["lines"], d.get("lang", "en"))
     d["voice_take"] = {"file": os.path.relpath(path, ROOT), "text": text, "duration": dur, "lines": times,
                        "credits": round(cost), "at": now()}
@@ -366,6 +377,48 @@ def make_voice(con, prod_id, approved):
     p["stage"] = "preview"
     save(con, p, "ses", f"{round(cost)} kredi · {dur:.1f} s")
     return path, cost
+
+
+def multi_voice(d):
+    """Series episodes: a narrator and characters, each line spoken by its speaker's voice."""
+    v = d.get("voice") or {}
+    sp, cast = v.get("speakers"), d.get("cast_voices") or {}
+    return bool(sp) and len(sp) == len(v.get("lines") or []) and len({cast.get(x) for x in sp if cast.get(x)}) > 1
+
+
+def cast_voice(con, d, approved):
+    """One take per run of lines with the same voice, joined with short pauses into one file (then aligned as usual).
+    The approved credits are shared out by characters, so every call stays inside its own part of the approval."""
+    import hashlib
+    from . import eleven
+    lines, sp, cast = d["voice"]["lines"], d["voice"]["speakers"], d.get("cast_voices") or {}
+    default = d.get("voice_id") or formats.VOICE_ID
+    runs = []
+    for ln, who in zip(lines, sp):
+        vid = cast.get(who) or default
+        if runs and runs[-1][0] == vid:
+            runs[-1][1].append(ln)
+        else:
+            runs.append((vid, [ln]))
+    total_chars = max(1, len(voice_text(d)))
+    parts, cost = [], 0.0
+    for vid, group in runs:
+        text = " ".join(group)
+        share = max(1, round(approved * len(text) / total_chars) + 1)
+        path, c = eleven.tts(con, text, vid, formats.VOICE_MODEL, approved=share, account=eleven_account(d))
+        parts.append(path)
+        cost += c
+    key = hashlib.sha1("|".join(parts).encode()).hexdigest()[:16]
+    out = os.path.join(ROOT, "assets", "eleven", f"cast_{key}.mp3")
+    if not os.path.exists(out):
+        inputs, chain = [], []
+        for i, f in enumerate(parts):
+            inputs += ["-i", f]
+            chain.append(f"[{i}:a]aformat=sample_rates=48000:channel_layouts=mono,apad=pad_dur=0.25[p{i}]")
+        chain.append("".join(f"[p{i}]" for i in range(len(parts))) + f"concat=n={len(parts)}:v=0:a=1[a]")
+        subprocess.run([FFMPEG, "-v", "error", "-y", *inputs, "-filter_complex", ";".join(chain), "-map", "[a]",
+                        "-c:a", "libmp3lame", "-q:a", "2", out], check=True)
+    return out, cost
 
 
 # ---------- timeline (data -> cinecut spec) ----------
@@ -398,7 +451,27 @@ def line_times(d):
 
 def timeline(con, p):
     """Compile a production into a renderer spec + lint warnings. Deterministic; no Claude involved.
-    Styled productions (with a `look`) go to bin/stylecut.py, the rest to bin/cinecut.py."""
+    Explainers go to bin/explainer.py (or bin/htmlmotion.py), styled productions (with a `look`) to bin/stylecut.py,
+    the rest to bin/cinecut.py. The spec names its engine and carries the channel's brand layer (factory/engines.py)."""
+    spec, total, starts, warn = _compile(con, p)
+    spec["engine"] = engines.engine_of(spec)
+    brand = _brand(con, p)
+    if brand:
+        spec["brand"] = brand
+    return spec, total, starts, warn
+
+
+def _brand(con, p):
+    """The brand layer of the production's channel (logo watermark / end card), or None."""
+    try:
+        from . import channels
+        return channels.brand(con, p)
+    except Exception as e:   # a broken channel setting must never stop a render
+        print("brand:", e, flush=True)
+        return None
+
+
+def _compile(con, p):
     d, fmt = p["data"], formats.for_data(p["format"], p["data"])
     if explainer.is_explainer(d):
         return explainer.compile_spec(con, p, fmt, VO_START)
@@ -508,7 +581,7 @@ def timeline(con, p):
     if d.get("aspect") == "16:9":
         for t in text:
             t["text"] = wrap(t["text"].replace("\\N", " "), 52)
-    spec = {"name": p["name"] or "draft", "aspect": d.get("aspect", "9:16"), "ambient_db": ambient,
+    spec = {"name": p["name"] or "draft", "engine": "cine", "aspect": d.get("aspect", "9:16"), "ambient_db": ambient,
             "shots": out_shots, "text": text}
     if d.get("music_take"):
         spec["music"] = {"file": d["music_take"]["file"], "db": -8 if voice else -5}
@@ -555,25 +628,9 @@ def assign_name(con, p):
     return p["name"]
 
 
-def _cinecut():
-    sys.path.insert(0, os.path.join(ROOT, "bin"))
-    import cinecut
-    return cinecut
-
-
 def _renderer(spec):
-    """(module, spec folder) for a compiled spec: styled specs carry a frame/layers."""
-    sys.path.insert(0, os.path.join(ROOT, "bin"))
-    if spec.get("engine") == "html":
-        import htmlmotion
-        return htmlmotion, "explainer"
-    if "scenes" in spec:
-        import explainer as renderer
-        return renderer, "explainer"
-    if "frame" in spec:
-        import stylecut
-        return stylecut, "style"
-    return _cinecut(), "cine"
+    """(module, spec folder) for a compiled spec (kept for callers outside the factory; see factory/engines.py)."""
+    return engines.module(engines.engine_of(spec)), engines.spec_dir(spec)
 
 
 def design(con, prod_id, note=""):
@@ -602,9 +659,12 @@ def direct(con, prod_id, note=""):
 
 
 def preview(con, prod_id):
+    from . import illustrate
     p = get(con, prod_id)
     assign_name(con, p)
-    if p["data"].get("look_pack") == "auto":  # Opus designs the scenes itself (factory/motiondesign.py)
+    if illustrate.needs_plates(p["data"]) and illustrate.missing(p["data"]):
+        raise ValueError("Önce çizimleri üret (Çizimler kartı)")
+    if p["data"].get("look_pack") in ("auto", "illustrated"):  # Opus designs the scenes itself (factory/motiondesign.py)
         from . import motiondesign
         motiondesign.build(con, p)
         save(con, p, "hareket tasarımı", (p["data"]["motion"].get("concept") or "")[:120])
@@ -614,7 +674,7 @@ def preview(con, prod_id):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     spec, total, starts, warn = timeline(con, p)
     json.dump(spec, open(path, "w"), ensure_ascii=False, indent=1)
-    dst, _ = _renderer(spec)[0].main(path, preview=True)
+    dst, _ = engines.render(path, preview=True)
     if (p["data"].get("direction") or {}).get("reviewed") is False:  # the director checks its own render once
         from . import artdirector
         changed = artdirector.review(con, p, dst, starts, total)
@@ -623,7 +683,7 @@ def preview(con, prod_id):
         if changed:
             spec, total, starts, warn = timeline(con, p)
             json.dump(spec, open(path, "w"), ensure_ascii=False, indent=1)
-            dst, _ = _renderer(spec)[0].main(path, preview=True)
+            dst, _ = engines.render(path, preview=True)
     p["preview"] = os.path.relpath(dst, ROOT)
     p["stage"] = "preview"
     p["note"] = "; ".join(warn) or None
@@ -635,27 +695,38 @@ def render(con, prod_id):
     p = get(con, prod_id)
     assign_name(con, p)
     spec, total, _, warn = timeline(con, p)
-    mod, sub = _renderer(spec)
+    sub = engines.spec_dir(spec)
     os.makedirs(os.path.join(ROOT, "specs", sub), exist_ok=True)
     path = os.path.join(ROOT, "specs", sub, f"{p['name']}.json")
     json.dump(spec, open(path, "w"), ensure_ascii=False, indent=1)
-    dst, real_total = mod.main(path)
+    dst, real_total = engines.render(path)
     p["output"] = p["name"]
     p["stage"] = "ready"
     save(con, p, "render", f"{real_total:.1f} s")
     beats = [{"t0": t["start"], "t1": t["end"], "text": t["text"]} for t in spec["text"]]
     prev = ((p["qa"] or {}).get("visual") or {}).get("issues")
     report = qa.review(dst, {"beats": beats}, real_total, p["name"], previous=prev, model="sonnet",
-                       size=formats.ASPECTS.get(p["data"].get("aspect", "9:16")),
+                       size=engines.canvas(spec),
                        notes=(explainer.QA_HTML_NOTES if spec.get("engine") == "html" else explainer.QA_NOTES) if explainer.is_explainer(p["data"]) else "")
     # held shots are this style's point: the "motion stalls" check belongs to the old montage look
     tech = report["technical"]
     tech["problems"] = [x for x in tech["problems"] if not x.startswith("motion stalls")]
+    static = (tech.get("frames") or {}).get("static_share", 0)
+    if explainer.is_explainer(p["data"]) and static > 0.4:   # anti-slideshow gate: graphics videos must keep moving
+        tech["problems"].append(f"plays like a slideshow: {round(static * 100)} % of seconds barely move")
     report["pass"] = not tech["problems"] and report["visual"].get("pass", False) and not any(
         i.get("severity") == "critical" for i in report["visual"].get("issues", []))
     report["lint"] = warn
     p["qa"] = report
     save(con, p, "QA", "geçti" if report["pass"] else "bulgular var")
+    try:   # cover / thumbnail candidates in the channel's colours (free, Pillow)
+        from . import channels, thumbs
+        ch = channels.of(con, p) or {}
+        logo = os.path.join(ROOT, ch["logo"]) if ch.get("logo") else None
+        thumbs.make(dst, os.path.dirname(dst), p["data"].get("hook") or p["title"], p["data"].get("aspect", "9:16"),
+                    ch.get("color") or "#FFD93D", logo, p["data"].get("lang", "en"))
+    except Exception as e:
+        print("thumbs:", type(e).__name__, e, flush=True)
     return dst
 
 
@@ -672,8 +743,9 @@ def revise(con, prod_id, feedback):
     inv = inventory(con, places or None)
     keep = {k: v for k, v in d.items() if k not in ("voice_take", "music_take", "edit_plan")}
     recipes = refs.recipes_for(con, d.get("refs") or [])
+    from . import channels
     prompt = f"""You edit one short video for the creator's travel channel. Apply the creator's feedback to the
-current version and return the full revised idea in the same schema. Change only what the feedback asks for (plus
+current version and return the full revised idea in the same schema. {channels.prompt_note(channels.of(con, p))} Change only what the feedback asks for (plus
 what it forces), use ONLY clips from the inventory.
 FORMAT: {fmt['name']} — {fmt['guide']}  Duration {fmt['duration'][0]}-{fmt['duration'][1]} s.
 {canvas_note(d.get("aspect", "9:16"))}

@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 from factory.config import ROOT, FFMPEG  # noqa: E402
 MOTION = os.path.join(ROOT, "motion")
 SHELL = "/motion/templates/explainer_shell.html"
+ASPECTS = {"9:16": (1080, 1920), "16:9": (1920, 1080)}
 
 
 def make_bundle(spec, design):
@@ -23,8 +24,9 @@ def make_bundle(spec, design):
         scenes.append({"id": sc["id"], "start": sc["start"], "end": sc["end"], "hide_captions": sc.get("hide_captions", False),
                        "html": d.get("html", ""), "css": d.get("css", ""), "js": d.get("js", ""),
                        "lines_t": [{"start": round(x["start"], 3), "end": round(x["end"], 3)} for x in lt[a:b + 1]]})
+    w, h = ASPECTS.get(spec.get("aspect", "9:16"), ASPECTS["9:16"])
     return {"palette": design["meta"].get("palette") or {}, "global_css": design.get("global_css", ""), "words": words,
-            "scenes": scenes, "duration": spec["duration"]}
+            "scenes": scenes, "duration": spec["duration"], "w": w, "h": h}
 
 
 def write_bundle(spec, design):
@@ -38,7 +40,12 @@ def write_bundle(spec, design):
 def _node(page_hash_bundle, out, dur, extra, fps=30):
     page = os.path.join(MOTION, "templates", "explainer_shell.html")
     rel = "/" + os.path.relpath(page_hash_bundle, ROOT)
-    cmd = ["node", os.path.join(MOTION, "render.mjs"), f"{page}#b={rel}", out, str(dur), str(fps), "1080", "1920", *extra]
+    try:
+        b = json.load(open(page_hash_bundle))
+        w, h = b.get("w", 1080), b.get("h", 1920)
+    except (OSError, ValueError):
+        w, h = 1080, 1920
+    cmd = ["node", os.path.join(MOTION, "render.mjs"), f"{page}#b={rel}", out, str(dur), str(fps), str(w), str(h), *extra]
     return subprocess.run(cmd, cwd=MOTION, capture_output=True, text=True)
 
 

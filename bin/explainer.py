@@ -2,7 +2,7 @@
 
 Python + Pillow frames are piped as raw RGB into ffmpeg (no Chromium, no AI video: text and numbers stay sharp).
 Spec (compiled by factory/explainer.py, all times absolute seconds):
-  {name, aspect "9:16", duration, voice {file, start}, music {file, db}, header "AI UPDATE · OCT 2026",
+  {name, aspect "9:16" | "16:9", duration, voice {file, start}, music {file, db}, header "AI UPDATE · OCT 2026",
    words [[word, start, end], ...], scenes [{id, start, end, hide_captions, elements [{type, at, ...}]}], post {...}}
 Usage: python bin/explainer.py specs/explainer/<name>.json [--preview] [--still T [T ...]]
 """
@@ -15,6 +15,13 @@ from factory.config import ROOT, FFMPEG  # noqa: E402
 FONT = os.path.join(ROOT, "fonts", "InterTight[wght].ttf")
 W, H = 1080, 1920
 FPS = 30
+# Canvas. The graphics are always laid out on a 1080-wide "stage" (VIS_TOP..VIS_BOT, centre x 540). On 9:16 the stage is
+# the canvas itself; on 16:9 it is drawn on its own layer and placed, scaled by STAGE_K, in the middle of the wide frame,
+# while background, header, source line and captions use the real canvas (CX, *_Y below).
+SW = 1080
+CX, HEADER_Y, CAP_SIZE = 540, 205, 66
+LANDSCAPE = False
+STAGE_K, STAGE_TOP = 1.0, 0
 
 # design tokens
 BG_TOP, BG_BOT = (6, 9, 20), (10, 22, 46)
@@ -36,21 +43,64 @@ PAPER = dict(name="paper", BG_TOP=(242, 236, 223), BG_BOT=(242, 236, 223), TEAL=
              STROKE=(242, 236, 223), DARK=0.72, PAPER=True)
 YELLOW, INK, CREAM, CARD = (255, 210, 0), (22, 21, 19), (242, 236, 223), (251, 247, 238)
 THEMES = {"tech": TECH, "paper": PAPER}
+# Deeper style tokens (factory/styles.py, Level 2). Missing keys fall back to what the look did before, so "tech" and
+# "paper" render exactly as they always did:
+#   HIGHLIGHT  highlighter / active-caption block colour (paper: yellow)
+#   FONT_DISPLAY, FONT_BODY, WGHT_DISPLAY  font files in fonts/ for big type and for body/labels, display weight
+#   UPPER      big type and captions in capitals (True) or as written
+#   TRACKING   extra letter spacing of labels/header in px
+#   RADIUS, SHADOW  card corner radius and "hard" / "soft" / "none" shadow; GRID "lines" / "dots" / "none"
+#   ENTRANCE   "pop" (scale with overshoot + rise), "slap" (1.15 -> 1, no overshoot), "rise" (slide up), "fade"
+#   POP_DUR    entrance length in s; TRANSITION between scenes "fade" / "sheet" (paper wipe) / "cut"
+STYLE_DEFAULTS = {
+    "tech": dict(HIGHLIGHT=YELLOW, FONT_DISPLAY="InterTight[wght].ttf", FONT_BODY="InterTight[wght].ttf", WGHT_DISPLAY=900,
+                 UPPER=True, TRACKING=7, RADIUS=36, SHADOW="none", GRID="lines", ENTRANCE="pop", POP_DUR=0.22,
+                 TRANSITION="fade"),
+    "paper": dict(HIGHLIGHT=YELLOW, FONT_DISPLAY="InterTight[wght].ttf", FONT_BODY="InterTight[wght].ttf", WGHT_DISPLAY=900,
+                  UPPER=True, TRACKING=7, RADIUS=10, SHADOW="hard", GRID="dots", ENTRANCE="slap", POP_DUR=0.5,
+                  TRANSITION="sheet"),
+}
+HIGHLIGHT, FONT_DISPLAY, FONT_BODY, WGHT_DISPLAY, UPPER, TRACKING = YELLOW, FONT, FONT, 900, True, 7
+RADIUS, SHADOW, GRID, ENTRANCE, POP_DUR, TRANSITION = 36, "none", "lines", "pop", 0.22, "fade"
 
 
 def set_theme(name):
     g = globals()
-    for k, v in THEMES.get(name, TECH).items():
-        if k != "name":
-            g[k] = v
-    g["LOOK"] = THEMES.get(name, TECH)["name"]
-    for fn in (_text_img, _card_img, background, glow, bg_photo, grain, dots):
+    th = THEMES.get(name, TECH)
+    base = STYLE_DEFAULTS["paper" if th.get("PAPER") else "tech"]
+    for k, v in {**base, **th}.items():
+        if k == "name":
+            continue
+        if k in ("FONT_DISPLAY", "FONT_BODY"):
+            v = os.path.join(ROOT, "fonts", os.path.basename(str(v)))
+            v = v if os.path.exists(v) else FONT
+        if k == "HIGHLIGHT" or (isinstance(v, list) and k not in ("name",)):
+            v = tuple(v) if isinstance(v, (list, tuple)) else v
+        g[k] = v
+    g["YELLOW"] = g["HIGHLIGHT"]
+    g["LOOK"] = th["name"]
+    for fn in (_text_img, _card_img, background, glow, bg_photo, grain, dots, font):
         fn.cache_clear()
 
 
 LOOK = "tech"
-VIS_TOP, VIS_BOT = 300, 1250      # visual area; header ~200, source ~1260, captions ~1600
+VIS_TOP, VIS_BOT = 300, 1250      # visual area of the stage; header ~200, source ~1260, captions ~1600 (on 9:16)
 SOURCE_Y, CAPTION_Y = 1262, 1600
+STAGE_CROP = (VIS_TOP - 60, VIS_BOT + 60)   # the part of the stage shown on a 16:9 canvas
+
+
+def set_canvas(aspect):
+    """Switch every canvas-dependent position for "9:16" (1080x1920) or "16:9" (1920x1080)."""
+    g = globals()
+    if aspect == "16:9":
+        g.update(W=1920, H=1080, CX=960, HEADER_Y=62, SOURCE_Y=902, CAPTION_Y=984, CAP_SIZE=56, LANDSCAPE=True,
+                 STAGE_K=0.78, STAGE_TOP=104, STAGE_CROP=(VIS_TOP - 20, VIS_BOT + 20))
+    else:
+        g.update(W=1080, H=1920, CX=540, HEADER_Y=205, SOURCE_Y=1262, CAPTION_Y=1600, CAP_SIZE=66, LANDSCAPE=False,
+                 STAGE_K=1.0, STAGE_TOP=0, STAGE_CROP=(VIS_TOP - 60, VIS_BOT + 60))
+    g["PARTS"] = particles()
+    for fn in (background, glow, bg_photo, grain, dots):
+        fn.cache_clear()
 HEIGHTS = {"label": 64, "title": 150, "hero": 210, "text": 110, "stat_card": 400, "counter": 250, "bars": 120,
            "checks": 100, "strike": 270, "price": 230, "cta": 560}
 GAP = 34
@@ -62,6 +112,8 @@ LANG = "en"
 
 def up(text):
     """Upper-case with Turkish rules (i -> İ, ı -> I) when the video is Turkish."""
+    if not UPPER:
+        return text
     if LANG == "tr":
         text = text.replace("i", "İ").replace("ı", "I")
     return text.upper()
@@ -82,20 +134,28 @@ def out_back(p, s=1.70158):
 
 # ---------- text sprites ----------
 @functools.lru_cache(maxsize=None)
-def font(size, wght=800):
-    f = ImageFont.truetype(FONT, size)
-    f.set_variation_by_axes([wght])
+def font(size, wght=800, path=None):
+    f = ImageFont.truetype(path or FONT, size)
+    try:
+        f.set_variation_by_axes([wght])
+    except (OSError, AttributeError):   # a static font (Anton, DM Serif ...) has one weight
+        pass
     return f
 
 
+def face(wght):
+    """Big type (weight >= 850) uses the style's display font, everything else its body font."""
+    return FONT_DISPLAY if wght >= 850 else FONT_BODY
+
+
 def text_img(text, size, wght=800, fill=None, stroke=0, track=0):
-    return _text_img(text, size, wght, fill or TEXT, stroke, track, STROKE)
+    return _text_img(text, size, wght, fill or TEXT, stroke, track, STROKE, face(wght))
 
 
 @functools.lru_cache(maxsize=4096)
-def _text_img(text, size, wght, fill, stroke, track, stroke_fill):
+def _text_img(text, size, wght, fill, stroke, track, stroke_fill, path=None):
     """Tight RGBA sprite of one line of text; `track` = extra letter spacing in px."""
-    f = font(size, wght)
+    f = font(size, WGHT_DISPLAY if wght >= 850 else wght, path)
     pad = stroke + 6
     if track:
         widths = [f.getlength(ch) + track for ch in text]
@@ -136,21 +196,35 @@ def blit(img, spr, cx, cy, alpha=1.0, scale=1.0, dy=0.0, rot=0.0):
     a = spr.getchannel("A")
     if alpha < 1:
         a = a.point(lambda v: int(v * alpha))
-    img.paste(spr, (int(cx - spr.width / 2), int(cy + dy - spr.height / 2)), a)
+    x, y = int(cx - spr.width / 2), int(cy + dy - spr.height / 2)
+    if img.mode == "RGBA":   # the 16:9 stage layer: composite so soft edges keep their alpha
+        layer = spr.copy()
+        layer.putalpha(a)
+        sx, sy = max(0, -x), max(0, -y)
+        if sx < layer.width and sy < layer.height and x + layer.width > 0 and y + layer.height > 0:
+            img.alpha_composite(layer, (max(0, x), max(0, y)), (sx, sy))
+        return
+    img.paste(spr, (x, y), a)
 
 
-def pop(t, t0, dur=0.22):
-    """(alpha, scale, dy) of the shared 'pop' entrance: fade in, scale 0.85->1 with ease-out-back, rise 40 px."""
-    p = (t - t0) / (max(dur, 0.5) if PAPER else dur)
+def pop(t, t0, dur=None):
+    """(alpha, scale, dy) of the shared entrance (style token ENTRANCE): pop = fade in, scale 0.85->1 with ease-out-back,
+    rise 40 px; slap = scale 1.15 -> 1 on power3.out (no overshoot), fast fade, no rise; rise = slide up; fade = fade."""
+    d = POP_DUR if dur is None else max(dur, POP_DUR if ENTRANCE == "slap" else 0)
+    p = (t - t0) / max(d, 0.05)
     if p <= 0:
         return 0.0, 1.0, 0.0
-    if PAPER:  # slap-in: scale 1.15 -> 1 on power3.out (no overshoot), fast fade, no rise
+    if ENTRANCE == "slap":
         return clamp(p * 3), 1.15 - 0.15 * out_cubic(p), 0.0
+    if ENTRANCE == "rise":
+        return clamp(p * 1.5), 1.0, (1 - out_cubic(p)) * 70
+    if ENTRANCE == "fade":
+        return clamp(p), 1.0, 0.0
     return clamp(p), 0.85 + 0.15 * out_back(p), (1 - out_cubic(p)) * 40
 
 
 def card_img(w, h, border=None, bw=3, r=36):
-    return _card_img(w, h, border or TEAL, bw, r, LOOK)
+    return _card_img(w, h, border or TEAL, bw, min(r, RADIUS) if not PAPER else RADIUS, LOOK)
 
 
 @functools.lru_cache(maxsize=256)
@@ -158,11 +232,19 @@ def _card_img(w, h, border, bw, r, look):
     if PAPER:  # ink-outlined paper card with a hard offset shadow (no blur)
         img = Image.new("RGBA", (w + 12, h + 14), (0, 0, 0, 0))
         d = ImageDraw.Draw(img)
-        d.rounded_rectangle((10, 12, w + 9, h + 11), 10, fill=INK + (44,))
-        d.rounded_rectangle((0, 0, w - 1, h - 1), 10, fill=CARD + (255,), outline=INK + (255,), width=4)
+        if SHADOW != "none":
+            d.rounded_rectangle((10, 12, w + 9, h + 11), r, fill=TEXT + (44,))
+        d.rounded_rectangle((0, 0, w - 1, h - 1), r, fill=CARD + (255,), outline=TEXT + (255,), width=4)
         return img
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    pad = 14 if SHADOW != "none" else 0
+    img = Image.new("RGBA", (w + pad, h + pad), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
+    if SHADOW == "hard":
+        d.rounded_rectangle((pad, pad, w + pad - 1, h + pad - 1), r, fill=(0, 0, 0, 90))
+    elif SHADOW == "soft":
+        sh = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        ImageDraw.Draw(sh).rounded_rectangle((pad // 2, pad, w + pad // 2 - 1, h + pad - 1), r, fill=(0, 0, 0, 110))
+        img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(10)))
     d.rounded_rectangle((0, 0, w - 1, h - 1), r, fill=(255, 255, 255, 15), outline=border + (255,), width=bw)
     return img
 
@@ -205,27 +287,35 @@ def dots():
     for y in range(0, H + 60, 30):
         for x in range(0, W + 60, 30):
             r = 2 if (x // 30 + y // 30) % 2 else 3
-            d.ellipse((x - r, y - r, x + r, y + r), fill=INK + (26,))
+            d.ellipse((x - r, y - r, x + r, y + r), fill=TEXT + (26,))
     return img
 
 
 @functools.lru_cache(maxsize=1)
 def background():
     if PAPER:
-        return Image.new("RGB", (W, H), CREAM)
+        img = Image.new("RGB", (W, H), BG_TOP)
+        if GRID == "lines":   # e.g. a cream page with thin coloured grid lines
+            g = ImageDraw.Draw(img)
+            for x in range(0, W, 90):
+                g.line((x, 0, x, H), fill=tuple((a * 5 + b) // 6 for a, b in zip(BG_TOP, TEAL)))
+            for y in range(0, H, 90):
+                g.line((0, y, W, y), fill=tuple((a * 5 + b) // 6 for a, b in zip(BG_TOP, TEAL)))
+        return img
     img = Image.new("RGB", (W, H))
     px = img.load()
     rows = [tuple(int(BG_TOP[i] + (BG_BOT[i] - BG_TOP[i]) * y / (H - 1)) for i in range(3)) for y in range(H)]
     d = ImageDraw.Draw(img)
     for y, c in enumerate(rows):
         d.line((0, y, W, y), fill=c)
-    grid = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    g = ImageDraw.Draw(grid)
-    for x in range(0, W, 90):
-        g.line((x, 0, x, H), fill=(120, 160, 220, 14))
-    for y in range(0, H, 90):
-        g.line((0, y, W, y), fill=(120, 160, 220, 14))
-    img.paste(grid, (0, 0), grid)
+    if GRID == "lines":
+        grid = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        g = ImageDraw.Draw(grid)
+        for x in range(0, W, 90):
+            g.line((x, 0, x, H), fill=(120, 160, 220, 14))
+        for y in range(0, H, 90):
+            g.line((0, y, W, y), fill=(120, 160, 220, 14))
+        img.paste(grid, (0, 0), grid)
     return img
 
 
@@ -239,20 +329,25 @@ def glow():
     return img.filter(ImageFilter.GaussianBlur(120))
 
 
-PARTS = [(random.Random(i + 300).random() * W, random.Random(i).random() * H, random.Random(i + 99).uniform(8, 26),
-          random.Random(i + 5).choice([2, 2, 3, 4])) for i in range(40)]
+def particles():
+    return [(random.Random(i + 300).random() * W, random.Random(i).random() * H, random.Random(i + 99).uniform(8, 26),
+             random.Random(i + 5).choice([2, 2, 3, 4])) for i in range(40)]
+
+
+PARTS = particles()
 
 
 def draw_background(t):
     img = background().copy()
     if PAPER:  # nothing glows: dot field pans in 12 fps steps, then the paper grain
-        o = int(t * 12) * 0.75 % 30
-        d = dots()
-        img.paste(d, (-int(o) - 15, -int(o) - 15), d)
+        if GRID == "dots":
+            o = int(t * 12) * 0.75 % 30
+            d = dots()
+            img.paste(d, (-int(o) - 15, -int(o) - 15), d)
         g = grain()
         img.paste(g, (0, 0), g)
         return img
-    blit(img, glow(), 540 + 140 * math.sin(t * 0.35), 700 + 90 * math.cos(t * 0.27), 0.9)
+    blit(img, glow(), W / 2 + 140 * math.sin(t * 0.35), H * 0.365 + 90 * math.cos(t * 0.27), 0.9)
     d = ImageDraw.Draw(img)
     for x0, y0, v, r in PARTS:
         x, y = (x0 + 6 * math.sin(t * 0.4 + y0)) % W, (y0 - v * t) % H
@@ -295,7 +390,7 @@ def draw_element(img, el, t, fade):
     a *= fade
     cy, ty = el.get("_cy", 0), el["type"]
     if ty == "label":
-        lab = text_img(up(el["text"]), 40, 800, INK if PAPER else TEAL, track=7)
+        lab = text_img(up(el["text"]), 40, 800, TEXT if PAPER else TEAL, track=TRACKING)
         if PAPER:
             swipe(img, 540, cy, lab.width + 36, 58, t, t0)
         blit(img, lab, 540, cy, a, sc, dy)
@@ -321,7 +416,7 @@ def draw_element(img, el, t, fade):
                 blit(img, text_img(ch, size, 900, HERO), x + cw / 2, cy, la * fade, ls, ld)
             x += cw + gap
     elif ty == "stat_card":
-        big = fit_text(el["big"], 190, 700, 900, fill=INK if PAPER else TEAL)
+        big = fit_text(el["big"], 190, 700, 900, fill=TEXT if PAPER else TEAL)
         cap = el.get("caption") or []
         cap = [cap] if isinstance(cap, str) else cap
         card = card_img(860, 400).copy()
@@ -401,7 +496,7 @@ def draw_element(img, el, t, fade):
         card = card_img(940, 360, TEAL, 3, 44).copy()
         parts = [(fit_text(ln, 96, 860, 900), 110 + i * 120) for i, ln in enumerate(q[:2])]
         blit(img, compose(card, parts), 540, cy - 80, a, sc, dy, tilt(5))
-        sub = text_img(el.get("sub", "Follow for more"), 54, 800, INK if PAPER else TEAL)
+        sub = text_img(el.get("sub", "Follow for more"), 54, 800, TEXT if PAPER else TEAL)
         # pulse ring: outline grows and fades on a 1.1 s loop
         phase = 0.0 if PAPER else ((t - t0) % 1.1) / 1.1
         pad = 14 + 60 * phase
@@ -411,7 +506,7 @@ def draw_element(img, el, t, fade):
         pa, ps, pd = pop(t, t0 + 0.5)
         pill = Image.new("RGBA", (sub.width + 140, 120), (0, 0, 0, 0))
         ImageDraw.Draw(pill).rounded_rectangle((0, 0, pill.width - 1, 119), 60, fill=(YELLOW + (255,)) if PAPER else TEAL + (40,),
-                                               outline=(INK if PAPER else TEAL) + (255,), width=4 if PAPER else 3)
+                                               outline=(TEXT if PAPER else TEAL) + (255,), width=4 if PAPER else 3)
         pill.alpha_composite(sub, (70, int(60 - sub.height / 2)))
         blit(img, pill, 540, cy + 200, pa * fade, ps, pd)
         if not PAPER:
@@ -421,22 +516,22 @@ def draw_element(img, el, t, fade):
 def draw_source(img, el, t, fade):
     if t >= el["at"]:
         a, _, _ = pop(t, el["at"], 0.3)
-        blit(img, fit_text(el["text"], 36, 900, 600, fill=SRC), 540, SOURCE_Y, a * fade)
+        blit(img, fit_text(el["text"], 36, 900 if not LANDSCAPE else 1300, 600, fill=SRC), CX, SOURCE_Y, a * fade)
 
 
 def draw_header(img, text, t):
     a, sc, dy = pop(t, -0.3, 0.3)
-    spr = text_img(up(text), 30, 800, TEXT, track=5)
+    spr = text_img(up(text), 30, 800, TEXT, track=max(0, TRACKING - 2))
     pill = Image.new("RGBA", (spr.width + 100, 66), (0, 0, 0, 0))
     d = ImageDraw.Draw(pill)
     if PAPER:
-        d.rounded_rectangle((0, 0, pill.width - 1, 65), 8, fill=CARD + (255,), outline=INK + (255,), width=3)
-        d.rectangle((24, 23, 42, 41), fill=YELLOW + (255,), outline=INK + (255,), width=2)
+        d.rounded_rectangle((0, 0, pill.width - 1, 65), 8, fill=CARD + (255,), outline=TEXT + (255,), width=3)
+        d.rectangle((24, 23, 42, 41), fill=YELLOW + (255,), outline=TEXT + (255,), width=2)
     else:
         d.rounded_rectangle((0, 0, pill.width - 1, 65), 33, fill=(255, 255, 255, 18), outline=TEAL + (200,), width=2)
         d.ellipse((26, 25, 42, 41), fill=TEAL + (255,))
     pill.alpha_composite(spr, (60, int(33 - spr.height / 2)))
-    blit(img, pill, 540, 205, a, sc, dy)
+    blit(img, pill, CX, HEADER_Y, a, sc, dy)
 
 
 # ---------- captions ----------
@@ -472,13 +567,14 @@ def draw_captions(img, chunks, t):
     sprs = []
     for i, w in enumerate(ch):
         on = i == active
-        s = text_img(up(w[0]), 66, 900, TEXT if PAPER else (TEAL if on else TEXT), stroke=6)
+        s = text_img(up(w[0]), CAP_SIZE, 900, TEXT if PAPER else (TEAL if on else TEXT), stroke=6)
         sprs.append(s.resize((int(s.width * 1.04), int(s.height * 1.04)), Image.BILINEAR) if on else s)
     total = sum(s.width for s in sprs) + 12 * (len(sprs) - 1)
-    x = 540 - total / 2
+    x = CX - total / 2
+    hh = CAP_SIZE * 2 / 3
     for i, s in enumerate(sprs):
         if PAPER and i == active:  # the active word sits on a yellow highlighter block
-            ImageDraw.Draw(img).rectangle((x - 8, CAPTION_Y - 44, x + s.width + 8, CAPTION_Y + 44), fill=YELLOW)
+            ImageDraw.Draw(img).rectangle((x - 8, CAPTION_Y - hh, x + s.width + 8, CAPTION_Y + hh), fill=YELLOW)
         blit(img, s, x + s.width / 2, CAPTION_Y)
         x += s.width + 12
 
@@ -568,17 +664,28 @@ def make_frame(spec, chunks, t, still=False):
     last = i == len(spec["scenes"]) - 1
     img = with_background(img, sc, t, last, still)
     draw_header(img, spec.get("header", ""), t)
-    fade = 1.0 if (last or PAPER) else clamp((sc["end"] - t) / 0.3)
+    fade = 1.0 if (last or TRANSITION != "fade") else clamp((sc["end"] - t) / 0.3)
+    stage = Image.new("RGBA", (SW, STAGE_CROP[1]), (0, 0, 0, 0)) if LANDSCAPE else img
     for el in sc["elements"]:
         if el["type"] == "source":
             draw_source(img, el, t, fade)
         elif el["type"] != "orb":
-            draw_element(img, el, t, fade)
+            draw_element(stage, el, t, fade)
+    if LANDSCAPE:
+        place_stage(img, stage)
     if not sc.get("hide_captions"):
         draw_captions(img, chunks, t)
-    if PAPER:
+    if TRANSITION == "sheet":
         sheet_wipe(img, spec["scenes"], t)
     return img
+
+
+def place_stage(img, stage):
+    """16:9: the stage's visual band, scaled by STAGE_K, centred on the wide canvas."""
+    band = stage.crop((0, STAGE_CROP[0], SW, STAGE_CROP[1]))
+    k = STAGE_K
+    band = band.resize((int(band.width * k), int(band.height * k)), Image.BILINEAR)
+    img.paste(band, (int(CX - band.width / 2), STAGE_TOP), band)
 
 
 def sheet_wipe(img, scenes, t):
@@ -590,9 +697,9 @@ def sheet_wipe(img, scenes, t):
             q = p * p * (3 - 2 * p)
             x = -1.15 * W + q * 2.3 * W
             d = ImageDraw.Draw(img)
-            d.rectangle((x, 0, x + W, H), fill=CREAM)
-            d.rectangle((x - 8, 0, x, H), fill=INK)
-            d.rectangle((x + W, 0, x + W + 8, H), fill=INK)
+            d.rectangle((x, 0, x + W, H), fill=BG_TOP)
+            d.rectangle((x - 8, 0, x, H), fill=TEXT)
+            d.rectangle((x + W, 0, x + W + 8, H), fill=TEXT)
             return
 
 
@@ -608,6 +715,7 @@ def main(path, preview=False, stills=None):
     spec = json.load(open(path))
     global LANG
     LANG = spec.get("lang", "en")
+    set_canvas(spec.get("aspect", "9:16"))
     if spec.get("theme"):  # custom look extracted from the creator's references (factory/styles.py)
         t = {k: tuple(v) if isinstance(v, list) else v for k, v in spec["theme"].items()}
         THEMES[spec["look"]] = {"name": spec["look"], **t}
@@ -629,7 +737,7 @@ def main(path, preview=False, stills=None):
     dst = os.path.join(out_dir, f"{name}.mp4")
     global FRAME_FPS
     fps = FRAME_FPS = 15 if preview else FPS
-    size = (540, 960) if preview else (W, H)
+    size = (W // 2, H // 2) if preview else (W, H)
     cmd = [FFMPEG, "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{size[0]}x{size[1]}",
            "-r", str(fps), "-i", "-"]
     inputs, chain, mix = 1, [], None

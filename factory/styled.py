@@ -10,7 +10,7 @@ from . import beats as beatmod
 
 from .config import ROOT
 LAYERS = ("title_serif", "title_bold", "scramble", "editorial", "words", "quote", "pin", "hook", "caption", "window", "html")
-ENTERS = ("cut", "flash", "dip", "whip", "glitch", "tiles", "mask")
+ENTERS = ("cut", "flash", "dip", "whip", "glitch", "tiles", "mask", "match", "object")
 MASK_SHAPES = ("circle", "iris", "band", "split", "strips", "bars", "luma", "custom")
 GRADES = ("natural", "film", "golden", "moody", "vivid", "mono")
 FRAMES = ("full", "letterbox", "scope")
@@ -104,8 +104,16 @@ def sanitize(d):
         else:
             s.pop("ramp", None)
         s["leak"] = bool(s.get("leak"))
+        a = s.get("audio")
+        if isinstance(a, dict) and (a.get("lead") or a.get("tail")):   # J-cut / L-cut
+            s["audio"] = {"lead": max(0.0, min(float(a.get("lead") or 0), 1.5)),
+                          "tail": max(0.0, min(float(a.get("tail") or 0), 1.5))}
+        else:
+            s.pop("audio", None)
         lay = s.get("layer")
         s["layer"] = lay if isinstance(lay, dict) and lay.get("type") in LAYERS and (lay.get("text") or lay.get("html")) else None
+        if s["layer"] is not None:
+            s["layer"]["behind"] = bool(s["layer"].get("behind"))
     m = d.get("music")
     d["music"] = m if isinstance(m, dict) and m.get("prompt") else None
     return d
@@ -178,7 +186,7 @@ def compile_spec(con, p, fmt, line_times=None, voice_file=None, vo_start=0.15):
         nxt = shots[k + 1].get("enter") if k + 1 < len(shots) else None
         base = {"push": s.get("push", 0.0), "enter": s.get("enter", "cut"), "focus": s.get("focus", [0.5, 0.5]),
                 "exit": nxt if nxt in ("whip", "glitch") else "cut"}
-        for key in ("mask", "ramp"):
+        for key in ("mask", "ramp", "audio"):
             if s.get(key):
                 base[key] = s[key]
         if s.get("leak"):
@@ -223,7 +231,7 @@ def compile_spec(con, p, fmt, line_times=None, voice_file=None, vo_start=0.15):
                                  else "lower" if lay["type"] in ("pin", "caption") else "center")
         layers.append({"type": lay["type"], "start": round(a, 2), "end": round(end, 2), "text": lay.get("text", ""),
                        "kicker": lay.get("kicker"), "pos": pos,
-                       **{k: lay[k] for k in ("html", "css", "js", "font", "color") if lay.get(k)}})
+                       **{k: lay[k] for k in ("html", "css", "js", "font", "color", "behind") if lay.get(k)}})
         busy_until = end if lay["type"] not in ("pin", "caption") else busy_until
     if d.get("outro"):
         o = d["outro"]

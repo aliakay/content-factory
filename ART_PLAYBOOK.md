@@ -36,21 +36,25 @@ Status: ✅ in `bin/stylecut.py` / overlay today · 🔧 planned · 🧠 planned
   gallery: circle portal with white rings, tilted stacked strips, vertical bar strips).
 - ✅ **luma wipe** (`mask.shape: luma`): the next shot appears through the brightness of the current one (sky first, then land)
   or along a soft gradient; feels organic for landscapes.
-- 🔧 **object wipe (natural mask)**: a person/pole/tree passing close to the lens fills the frame -> cut hidden inside
-  it. Needs a clip with a foreground pass; detect big dark/near-frame motion in the motion profile.
-- 🔧 **match cut**: two shots with the same shape/position/movement (horizon line, arch, circle, walking direction)
-  cut on the action. Chosen by the AD from contact sheets.
+- ✅ **object wipe (natural mask)** (`enter: object`): a person/pole/tree passing close to the lens fills the frame ->
+  the previous shot ends at the occlusion peak and the new shot opens through the dark object. Occlusions are measured
+  per clip (`factory/fxdetect.py`, clips.fx) and handed to the art director.
+- ✅ **match cut** (`enter: match`): two shots with the same shape/position/movement (horizon line, walking direction)
+  joined by a 4-frame dissolve; horizons and motion direction are measured (`fxdetect.match_pairs`), the AD aligns
+  them with `focus`.
 - ✅ **speed ramp** (`ramp: {in, out, x}`): normal -> fast (x4-x8 with blur) into the cut -> slow out on the new place. Works on 50/60 fps
   clips; slow down on arrival at the landmark, speed up while leaving (Splice travel guides).
-- 🔧 **J-cut / L-cut audio**: the next place's ambient sound starts 0.5-1 s before its picture.
+- ✅ **J-cut / L-cut audio** (`audio: {lead, tail}`): the next place's ambient sound starts before its picture / the
+  current one runs on over the next shot, faded.
 
 ### Text & graphic treatments
 - ✅ title_serif, title_bold, scramble, editorial, words, quote, pin, hook, caption (motion/templates/overlay.html)
 - ✅ **text as window** (layer `window`): huge letters ("ALPS") filled with the footage, the rest black/blurred, then the letters
   scale up until the footage fills the frame.
 - 🔧 **split reveal**: title revealed by a diagonal band that crosses the frame (CapCut "Your name" speedramp tile).
-- 🧠 **text behind subject**: title sits between background and the person/mountain; 3-layer stack (original ->
-  text -> masked subject). Needs a matte per frame.
+- ✅ **text behind subject** (layer `behind: true`): title sits between background and the person/mountain; 3-layer
+  stack (original -> text -> masked subject) with a per-frame matte from `factory/matte.py` (rembg u2netp; install
+  `rembg[cpu]` on the VM; without it the text is drawn on top).
 - 🧠 **subject pop / outline**: person cut out with a thin white stroke, background darkened or frozen.
 
 ### Looks

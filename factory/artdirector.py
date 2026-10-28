@@ -40,7 +40,17 @@ shot fields: clip_id, in/out (video seconds) or dur (photo), speed 1 or 0.5 (50/
     shows where F < progress), e.g. a diagonal staircase or a ring.
   ramp: {"in": s, "out": s, "x": 2-10}: speed ramp, the first/last seconds run x faster with motion blur (needs
     movement in the clip; reads as energy into/out of a cut). leak: true = warm light leak over the first 0.7 s.
-  layer: one text/graphic layer that starts with the shot (see layer types) or null.
+  enter "match": MATCH CUT, a 4-frame dissolve between two shots whose shapes/lines/movement line up. Use the measured
+    "match_pairs" and each clip's fx.horizon_y / fx.motion_pct_per_s: put the outgoing shot's out and the incoming
+    shot's in where the shapes meet, and nudge "focus" y so the horizons sit at the same height.
+  enter "object": OBJECT WIPE, the cut hides inside something passing close to the lens: end the PREVIOUS shot at an
+    occlusion's "t" (clip fx.occlusions, peak cover) and the new shot appears through the dark object.
+  audio: {"lead": 0-1.5, "tail": 0-1.5}: J-CUT (this shot's own sound starts `lead` s before its picture, the next
+    place is heard before it is seen) / L-CUT (its sound runs on `tail` s over the next shot). Good for water, bells,
+    crowds, wind: places bleed into each other. Clips' own sound only (not voice/music).
+  layer: one text/graphic layer that starts with the shot (see layer types) or null. "behind": true on a layer =
+    TEXT BEHIND SUBJECT: the words sit between the background and the person/mountain in front (per-frame subject
+    matte); use it for one big title over a shot with a clear foreground subject, 2-4 s.
 title_card / outro: a layer dict + "dur" (title_card starts at 0, it is the cover).
 layer types: title_serif (kicker + big gold serif), title_bold (chunky popping word), scramble (thin caps decoding),
   editorial (stacked heavy sans words), words (serif line word by word, >= 2.5 s), quote (small italic serif),
@@ -76,7 +86,7 @@ SCHEMA = """{
  "outro": {...} or null,
  "shots": [{"clip_id": "IMG_0827.MOV", "in": 0.3, "out": 3.4, "speed": 1, "beats": 4, "at_line": 0, "push": 0.03,
             "focus": [0.5, 0.5], "enter": "mask", "mask": {"shape": "circle", "dur": 0.7, "line": true},
-            "ramp": null, "leak": false, "layer": null, "shows": "what we see"}],
+            "ramp": null, "leak": false, "audio": {"lead": 0.0, "tail": 0.0}, "layer": null, "shows": "what we see"}],
  "music_prompt": "instrumental brief for THIS cut: instruments, mood, BPM, where it builds/drops",
  "learned": [{"name": "short-name", "kind": "mask|html|rule", "what": "the technique", "when": "when it suits",
               "spec": {<the mask dict or the html layer dict that implements it, reusable>}, "source": "url"}],
@@ -115,6 +125,16 @@ def _clips(con):
         if c["note"]:
             item["note"] = c["note"]
         out.append(item)
+    try:   # measured effect material: horizons, motion direction, objects passing the lens
+        from . import fxdetect
+        fx = fxdetect.for_clips(con)
+        for item in out:
+            if fx.get(item["clip_id"]):
+                item["fx"] = fxdetect.summary(fx[item["clip_id"]])
+        if out:
+            out.append({"match_pairs": fxdetect.match_pairs(fx)})
+    except Exception as e:
+        print("fx detect:", type(e).__name__, e, flush=True)
     return out
 
 

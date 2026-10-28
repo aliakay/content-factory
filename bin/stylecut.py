@@ -23,7 +23,14 @@ Spec:
               shot opens through an animated shape (see MASKS); "luma" opens through the previous frame's brightness
               "ramp": {"in": 0.35, "out": 0.35, "x": 5}  speed ramp: the first/last seconds run x times faster (with
               motion blur), the rest at "speed"; "leak": true = warm light leak washing over the first 0.7 s
-  layers    text/graphic layers drawn by motion/templates/overlay.html (see that file for the types)
+              "enter": "match" = match cut: a 4-frame dissolve between two shots whose shapes line up (the art
+              director aligns them with "focus"); "enter": "object" = object wipe: the previous shot ends while
+              something passes close to the lens and the new shot appears through its dark areas
+              "audio": {"lead": 0.6, "tail": 0.8}  J-cut / L-cut: this shot's own sound starts `lead` s before its
+              picture and/or runs on `tail` s over the next shot (faded), so places bleed into each other
+  layers    text/graphic layers drawn by motion/templates/overlay.html (see that file for the types); a layer
+            with "behind": true is text-behind-subject: it sits between the background and the moving subject
+            (person, mountain) using a per-frame subject matte (factory/matte.py; drawn on top when no matte backend)
   music     {"file": "assets/eleven/x.mp3", "start": 0.0, "db": -4, "fade_out": 1.5}   optional
   ambient_db  level of the clips' own sound (default -6 with music, -2 without)
   voice     {"file": "...", "start": 0.3}  optional; ducks music and ambience
@@ -106,6 +113,7 @@ MASKS = {
     "split": "abs((X-W/2)*cos({a})+(Y-H/2)*sin({a}))/(W*abs(cos({a}))+H*abs(sin({a})))*2",
     "strips": "if(mod(floor((Y+X*tan({a}))/(H/{n})),2),X/W,1-X/W)*0.65+mod(floor((Y+X*tan({a}))/(H/{n})),{n})/{n}*0.35",
     "bars": "if(mod(floor(X/(W/{n})),2),Y/H,1-Y/H)*0.7+floor(X/(W/{n}))/{n}*0.3",
+    "dissolve": "0.5",
 }
 SAFE_EXPR = set("XYWHPIhypotabsfloormodcossintanminmaxifltgtexpsqrtclippow0123456789.+-*/(),_ ")
 
@@ -147,6 +155,9 @@ def mask_pass(base, prev_frame, out, pic, enc, m):
           f"trim=0:{h},setpts=PTS-STARTPTS,format=gbrp,split[prev][pl];[head]format=gbrp[new];")
     if m.get("shape") == "luma":   # bright parts of the old frame give way first (sky before land)
         fc += f"[pl]format=gray,geq=lum='clip(({P}*(1+{soft})-lum(X,Y)/255)/{soft},0,1)*255',format=gbrp[m];"
+        F = None
+    elif m.get("shape") == "dark":   # object wipe: the dark object filling the old frame opens first
+        fc += f"[pl]format=gray,geq=lum='clip(({P}*(1+{soft})-(1-lum(X,Y)/255))/{soft},0,1)*255',format=gbrp[m];"
         F = None
     else:
         F = mask_field(m)
@@ -249,6 +260,10 @@ def shot(s, out, wav, frame, enc, size=(1080, 1920), prev=None):
         vf += f",avgblur=sizeX=35:sizeY=1:enable='between(t,{dur - 0.13:.3f},{dur - 0.07:.3f})',avgblur=sizeX=90:sizeY=1:enable='gt(t,{dur - 0.07:.3f})'"
     elif exit_ == "glitch":
         vf += f",pixelize=width=40:height=40:enable='gt(t,{dur - 0.07:.3f})'"
+    if enter == "match":    # match cut: a short dissolve keeps the matched shapes reading as one movement
+        enter, s = "mask", dict(s, mask={"shape": "dissolve", "dur": 0.25, "soft": 1.0})
+    elif enter == "object":   # object wipe: through the dark object of the previous shot's last frame
+        enter, s = "mask", dict(s, mask={"shape": "dark", "dur": 0.35, "soft": 0.25})
     use_tiles = enter == "tiles" and prev and dur > TILE_DUR + 0.2
     use_mask = enter == "mask" and prev and dur > 0.6
     use_leak = bool(s.get("leak")) and dur > 0.9
@@ -270,24 +285,61 @@ def shot(s, out, wav, frame, enc, size=(1080, 1920), prev=None):
     if use_leak:
         leak_pass(target, out, (pw, ph), enc)
         os.remove(target)
+    lead, tail = audio_overlap(s, prev is not None)
     if "video" in s:
-        run(["-ss", str(s["in"]), "-t", f"{dur:.3f}", "-i", os.path.join(ROOT, s["video"]), "-vn",
-             "-af", f"apad,atrim=0:{dur:.3f}", "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", wav])
+        a0 = max(0.0, s["in"] - lead)
+        lead = s["in"] - a0                     # the clip may not have that much sound before the in-point
+        span = lead + dur + tail
+        run(["-ss", f"{a0:.3f}", "-t", f"{span:.3f}", "-i", os.path.join(ROOT, s["video"]), "-vn",
+             "-af", f"apad,atrim=0:{span:.3f}", "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", wav])
     else:
+        lead = tail = 0.0
         run(["-f", "lavfi", "-t", f"{dur:.3f}", "-i", "anullsrc=r=48000:cl=stereo", "-c:a", "pcm_s16le", wav])
+    AUDIO[wav] = (lead, tail)
     return round(dur * FPS) / FPS
 
 
-def overlay(spec, total, tmp, size=(1080, 1920)):
-    """Render the text layers to a transparent ProRes clip (None if there are none)."""
-    layers = spec.get("layers") or []
+AUDIO = {}   # wav path -> (lead, tail) seconds actually taken (J/L cuts)
+
+
+def audio_overlap(s, has_prev):
+    a = s.get("audio") if isinstance(s.get("audio"), dict) else {}
+    lead = max(0.0, min(float(a.get("lead") or 0), 1.5)) if has_prev else 0.0
+    tail = max(0.0, min(float(a.get("tail") or 0), 1.5))
+    return lead, tail
+
+
+def ambience(wavs, durs, total, db):
+    """(inputs, filter) for the clips' own sound. Plain concat, unless a shot has a J/L cut: then every shot's sound is
+    placed at its own start minus its lead, faded in over the lead and out over its tail, and the layers are mixed."""
+    ov = [AUDIO.get(w, (0.0, 0.0)) for w in wavs]
+    n = len(wavs)
+    if not any(a or b for a, b in ov):
+        return None
+    starts = [sum(durs[:i]) for i in range(n)]
+    parts = []
+    for i, (lead, tail) in enumerate(ov):
+        at = max(0.0, starts[i] - lead)
+        ms = int(at * 1000)
+        span = lead + durs[i] + tail
+        fi = f"afade=t=in:d={lead:.3f}," if lead else ""
+        fo = f"afade=t=out:st={max(0.0, span - tail):.3f}:d={tail:.3f}," if tail else ""
+        parts.append(f"[{{k{i}}}:a]{fi}{fo}adelay={ms}|{ms},apad,atrim=0:{total:.3f}[am{i}]")
+    mix = "".join(f"[am{i}]" for i in range(n)) + f"amix=inputs={n}:normalize=0,volume={db}dB[amb]"
+    return parts, mix
+
+
+def overlay(spec, total, tmp, size=(1080, 1920), behind=False):
+    """Render the text layers to a transparent ProRes clip (None if there are none). behind=True renders only the
+    text-behind-subject layers (to their own clip), behind=False the others."""
+    layers = [x for x in spec.get("layers") or [] if bool(x.get("behind")) == behind]
     if not layers:
         return None
     pw, ph, y = geometry(spec.get("frame", "full"), *size)
     data = {"w": size[0], "h": size[1], "band": {"top": y, "h": ph} if ph < size[1] else None, "layers": layers}
-    jpath = os.path.join(tmp, "layers.json")
+    jpath = os.path.join(tmp, "layers_behind.json" if behind else "layers.json")
     json.dump(data, open(jpath, "w"), ensure_ascii=False)
-    out = os.path.join(tmp, "layers.mov")
+    out = os.path.join(tmp, "layers_behind.mov" if behind else "layers.mov")
     page = os.path.join(ROOT, "motion", "templates", "overlay.html") + "#spec=" + os.path.relpath(jpath, ROOT)
     subprocess.run(["node", os.path.join(ROOT, "motion", "render.mjs"), page, out, f"{total:.3f}", str(FPS),
                     str(size[0]), str(size[1])],
@@ -313,6 +365,7 @@ def main(spec_path, preview=False):
         wavs.append(a)
     total = sum(durs)
     ov = overlay(spec, total, tmp, size)
+    ovb = overlay(spec, total, tmp, size, behind=True)
 
     look = spec.get("look", {})
     grade = GRADES.get(look.get("grade", "natural"), GRADES["natural"])
@@ -326,15 +379,48 @@ def main(spec_path, preview=False):
              + (f",noise=alls={round(4 + 14 * float(look['grain']))}:allf=t" if look.get("grain") else "")
              + (f",pad={W}:{H}:0:{y}:black" if ph < H else "") + ",format=yuv420p[base]"]
     k = 2 * n
+    matte = None
+    if ovb:   # text behind the subject: render the graded picture once, segment the subject where the layers show
+        base_mp4 = os.path.join(tmp, "base.mp4")
+        run([*inputs, "-filter_complex", chain[0].replace("[base]", "[b0]") + ";[b0]null[bv]", "-map", "[bv]", "-an",
+             "-r", str(FPS), "-c:v", "libx264", "-preset", "veryfast", "-crf", "12", "-pix_fmt", "yuv420p", base_mp4])
+        windows = [(x["start"], x["end"]) for x in spec["layers"] if x.get("behind")]
+        try:
+            sys.path.insert(0, ROOT)
+            from factory import matte as matte_mod
+            matte = matte_mod.matte_video(base_mp4, os.path.join(tmp, "matte.mp4"), windows, FPS)
+        except Exception as e:   # no segmentation backend: the text simply sits on top
+            print("text-behind-subject: no matte,", type(e).__name__, e, flush=True)
+            matte = None
+    if ovb:
+        inputs += ["-i", ovb]
+        chain.append(f"[base][{k}:v]overlay=0:0:format=auto[bb]")
+        k += 1
+        if matte:
+            inputs += ["-i", matte]
+            chain[0] = chain[0].replace(",format=yuv420p[base]", ",format=yuv420p,split[base][basecopy]")
+            chain.append(f"[{k}:v]format=gray,scale={W}:{H}[mt];[basecopy]format=yuva420p[bc];[bc][mt]alphamerge[subj];"
+                         "[bb][subj]overlay=0:0:format=auto[bs]")
+            k += 1
+            last = "[bs]"
+        else:
+            last = "[bb]"
+    else:
+        last = "[base]"
     if ov:
         inputs += ["-i", ov]
-        chain.append(f"[base][{k}:v]overlay=0:0:format=auto,format=yuv420p[v]")
+        chain.append(f"{last}[{k}:v]overlay=0:0:format=auto,format=yuv420p[v]")
         k += 1
     else:
-        chain.append("[base]null[v]")
+        chain.append(f"{last}null[v]")
     music, voice = spec.get("music"), spec.get("voice")
     amb_db = spec.get("ambient_db", -6 if music else -2)
-    chain.append("".join(f"[{n + i}:a]" for i in range(n)) + f"concat=n={n}:v=0:a=1,volume={amb_db}dB[amb]")
+    jl = ambience(wavs, durs, total, amb_db)
+    if jl:
+        parts, mix_ = jl
+        chain += [p.replace(f"{{k{i}}}", str(n + i)) for i, p in enumerate(parts)] + [mix_]
+    else:
+        chain.append("".join(f"[{n + i}:a]" for i in range(n)) + f"concat=n={n}:v=0:a=1,volume={amb_db}dB[amb]")
     mix = ["[amb]"]
     if music:
         inputs += ["-ss", str(music.get("start", 0)), "-i", os.path.join(ROOT, music["file"])]

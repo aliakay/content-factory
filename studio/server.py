@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
-from factory import accounts, claudeauth, credits, discover, eleven_api, explainer, styles, formats, jobs, productions as P, refs, signals, tracking, usage  # noqa: E402
+from factory import accounts, channels, claudeauth, credits, discover, eleven_api, explainer, illustrate, planner, series, styles, formats, jobs, productions as P, refs, signals, tracking, usage  # noqa: E402
 from factory.store import connect  # noqa: E402
 
 # the Shorts panel's module (caption parsing, out/ listing, thumbnails, range streaming), loaded by path because
@@ -22,7 +22,7 @@ _spec = importlib.util.spec_from_file_location("shorts_panel", os.path.join(ROOT
 shorts = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(shorts)
 
-from factory.config import FFMPEG, HOST, STUDIO_PORT  # noqa: E402
+from factory.config import FFMPEG, HOST, ROOT, STUDIO_PORT  # noqa: E402  (data root may differ from the code dir: CF_ROOT)
 THUMBS = os.path.join(ROOT, "work", "thumbs")
 PROFILE = os.path.join(ROOT, "data", "eleven_profile.json")
 MAX_UPLOAD = 600 * 1024 * 1024
@@ -50,23 +50,43 @@ def busy(con, p):
     return dict(j) if j and j["status"] in ("queued", "running") else None
 
 
+_timeline_cache = {}   # (prod_id, updated_at) -> (total, warnings): compiling every timeline on every poll was slow
+
+
 def prod_summary(con, p):
     d = p["data"] or {}
     shots = d.get("shots") or [{}]
-    try:
-        _, total, _, warn = P.shown_timeline(con, p)
-    except Exception:
-        total, warn = None, ["zaman çizelgesi hesaplanamadı"]
+    key = (p["prod_id"], p["updated_at"])
+    if key not in _timeline_cache:
+        try:
+            _, total, _, warn = P.shown_timeline(con, p)
+        except Exception:
+            total, warn = None, ["zaman çizelgesi hesaplanamadı"]
+        if len(_timeline_cache) > 2000:
+            _timeline_cache.clear()
+        _timeline_cache[key] = (total, warn)
+    total, warn = _timeline_cache[key]
+    thumb = None
+    if d.get("plates"):   # illustrated / series: the first illustration is the cover
+        first = next(iter(d["plates"].values()))
+        thumb = "/media/assets/" + first["file"].split("assets/", 1)[-1] if first.get("file") else None
+    elif p["output"]:
+        thumb = f"/thumb/out/{p['output']}/{p['output']}.mp4"
     return {"prod_id": p["prod_id"], "title": p["title"], "format": p["format"], "stage": p["stage"],
             "updated_at": p["updated_at"], "created_at": p["created_at"], "hook": d.get("hook"),
-            "thumb": shots[0].get("clip_id"), "thumb_t": shots[0].get("in", 0), "duration": total,
+            "thumb": shots[0].get("clip_id"), "thumb_t": shots[0].get("in", 0), "thumb_url": thumb, "duration": total,
             "warn": len(warn), "busy": busy(con, p), "output": p["output"], "name": p["name"],
-            "voice": bool(d.get("voice")), "qa_pass": (p["qa"] or {}).get("pass"), "aspect": d.get("aspect", "9:16")}
+            "voice": bool(d.get("voice")), "qa_pass": (p["qa"] or {}).get("pass"), "aspect": d.get("aspect", "9:16"),
+            "channel_id": p.get("channel_id"), "kind": "series" if d.get("series") else d.get("kind") or "footage",
+            "look": d.get("look_pack"), "series": d.get("series")}
 
 
-def all_prods(con):
+def all_prods(con, channel=None):
     P.ensure(con)
-    rows = con.execute("SELECT prod_id FROM productions ORDER BY updated_at DESC").fetchall()
+    q, args = "SELECT prod_id FROM productions", []
+    if channel:
+        q, args = q + " WHERE channel_id=?", [channel]
+    rows = con.execute(q + " ORDER BY updated_at DESC", args).fetchall()
     return [prod_summary(con, P.get(con, r["prod_id"])) for r in rows]
 
 
@@ -74,23 +94,25 @@ NEXT_STEP = {"idea": "Fikri onayla veya değiştir", "voice": "Ses metnini ve kr
              "preview": "Önizlemeyi izle, onayla", "ready": "Paylaş ve linki ekle"}
 
 
-def overview(con):
-    prods = all_prods(con)
+def overview(con, channel=None):
+    prods = all_prods(con, channel)
     counts = {s: 0 for s in P.STAGES}
     for p in prods:
         counts[p["stage"]] = counts.get(p["stage"], 0) + 1
+    has_preview = {r["prod_id"] for r in con.execute("SELECT prod_id FROM productions WHERE preview IS NOT NULL")}
     pending = [{**p, "next": NEXT_STEP[p["stage"]]} for p in prods if p["stage"] in NEXT_STEP and not p["busy"]
-               and not (p["stage"] == "preview" and not P.get(con, p["prod_id"])["preview"])]
+               and not (p["stage"] == "preview" and p["prod_id"] not in has_preview)]
     month = time.strftime("%Y-%m-01")
     made = con.execute("SELECT COUNT(*) n FROM productions WHERE stage IN ('ready','published') AND updated_at>=?",
                        (month,)).fetchone()["n"]
     clips = con.execute("SELECT COUNT(*) n, SUM(kind='video') v, SUM(described_at IS NOT NULL) d FROM clips").fetchone()
-    return {"counts": counts, "pending": pending, "jobs": job_rows(con, 8), "made_this_month": made,
+    jr = job_rows(con, 8)
+    return {"counts": counts, "pending": pending, "jobs": jr, "made_this_month": made,
             "budget": {"spent": round(credits.month_spent(con)), "cap": credits.MONTHLY_CAP},
             "tracking": tracking.summary(con),
             "clips": {"total": clips["n"] or 0, "videos": clips["v"] or 0, "described": clips["d"] or 0},
             "albums": [dict(r) for r in con.execute("SELECT * FROM albums ORDER BY last_sync DESC")],
-            "busy": any(j["status"] in ("queued", "running") for j in job_rows(con, 8))}
+            "busy": any(j["status"] in ("queued", "running") for j in jr), "recent": prods[:12]}
 
 
 def production_detail(con, pid):
@@ -127,7 +149,21 @@ def production_detail(con, pid):
         cap = os.path.join(folder, "caption.txt")
         out["caption"] = shorts.parse_caption(open(cap).read()) if os.path.exists(cap) else None
         out["caption_copy"] = shorts.copy_text(out["caption"])
+        out["thumbs"] = sorted(f for f in os.listdir(folder) if f.startswith("thumb_") and f.endswith(".jpg")) \
+            if os.path.isdir(folder) else []
     out["posts"] = [x for x in tracking.posts(con) if x["prod_id"] == pid]
+    out["channel"] = channels.of(con, p)
+    out["brand_on"] = p["data"].get("brand") is not False
+    if illustrate.needs_plates(p["data"]) or p["data"].get("plates"):
+        out["plates_estimate"] = illustrate.estimate(con, p["data"], aid)
+        out["plates"] = {k: "/media/assets/" + v["file"].split("assets/", 1)[-1] for k, v in (p["data"].get("plates") or {}).items()}
+    if p["data"].get("series"):
+        try:
+            s = series.get(con, p["data"]["series"]["id"])
+            out["series_info"] = {"id": s["series_id"], "title": s["title"],
+                                  "characters": [{k: c.get(k) for k in ("id", "name")} for c in s["data"].get("characters") or []]}
+        except ValueError:
+            pass
     return out
 
 
@@ -336,6 +372,31 @@ def act(con, pid, body):
             queue_for(con, p, "p_revise", json.dumps({"id": pid, "feedback": "Re-edit this video in the style of "
                       "the attached reference videos (frame, grade, pace on the beat, title card and text layers). "
                       "Keep the story and the best shots."}))
+    elif a == "set_channel":
+        cid = body.get("channel")
+        if not channels.get(con, cid):
+            raise ValueError("kanal bulunamadı")
+        con.execute("UPDATE productions SET channel_id=? WHERE prod_id=?", (cid, pid))
+        con.commit()
+        P.save(con, P.get(con, pid), "kanal", channels.get(con, cid)["name"])
+    elif a == "set_brand":
+        p["data"]["brand"] = bool(body.get("on"))
+        if p["stage"] == "preview":
+            p["preview"] = None
+        P.save(con, p, "marka katmanı", "açık" if p["data"]["brand"] else "kapalı")
+        if p["stage"] == "preview" and (not fmt["voice"] or p["data"].get("voice_take")):
+            queue_for(con, p, "p_preview", str(pid))
+    elif a == "approve_plates":
+        est = illustrate.estimate(con, p["data"], P.eleven_account(p["data"]))
+        approved = int(body.get("approved") or 0)
+        if not est["images"]:
+            raise ValueError("Bütün çizimler hazır")
+        if est["unknown"] or approved < est["credits"]:
+            raise ValueError("Onaylanan kredi güncel tahminden düşük; sayfayı yenile")
+        if not est["budget"]["ok"]:
+            raise ValueError("Aylık kredi tavanı aşılır")
+        P.save(con, p, "kredi onayı", f"çizimler {est['credits']} kredi ({est['images']} görsel)")
+        queue_for(con, p, "p_plates", json.dumps({"id": pid, "approved": est["credits"]}))
     elif a == "set_aspect":
         asp = body.get("aspect")
         if asp not in formats.ASPECTS:
@@ -364,6 +425,12 @@ def act(con, pid, body):
         p["data"]["aspect"] = asp
         if p["stage"] == "preview":
             p["preview"] = None
+        if explainer.is_explainer(p["data"]) and p["data"].get("motion"):
+            # an Opus design is laid out for one canvas: design again for the new one before any preview
+            p["data"]["look_pack"] = "illustrated" if p["data"].get("illustrated") else "auto"
+            P.save(con, p, "kadraj", label + " · yeniden tasarım")
+            queue_for(con, p, "p_design", json.dumps({"id": pid, "note": f"The canvas changed to {asp}: lay every scene out for it."}))
+            return production_detail(con, pid)
         P.save(con, p, "kadraj", label)
         if p["stage"] == "preview" and (not fmt["voice"] or (p["data"].get("voice_take") and
                                                              p["data"]["voice_take"].get("text") == P.voice_text(p["data"]))):
@@ -394,6 +461,28 @@ def act(con, pid, body):
             prof_default = eleven_profile().get("defaults", {}).get(p["data"].get("lang", "en"))
             p["data"]["voice_id"] = prof_default if prof_default in vids else (sorted(vids)[0] if vids else None)
         P.save(con, p, "ElevenLabs hesabı", (accounts.eleven(aid) or {}).get("name", aid))
+    elif a == "reroll_plate":   # one illustration again (a new take), after its own credit approval
+        sid = body.get("scene")
+        if sid not in (p["data"].get("plates") or {}):
+            raise ValueError("bu sahnenin çizimi yok")
+        est = credits.estimate([{"kind": "image", "model": "gpt-image-2", "units": 1, "unit": "img"}])
+        if int(body.get("approved") or 0) < est["total"]:
+            raise ValueError("Onaylanan kredi tahminden düşük")
+        for sc in p["data"]["scenes"]:
+            if sc["id"] == sid and sc.get("plate"):
+                sc["plate"]["take"] = int(sc["plate"].get("take") or 1) + 1   # a new prompt variant = a new image
+                if body.get("note"):
+                    sc["plate"]["prompt"] = (sc["plate"]["prompt"] + " " + str(body["note"])[:300]).strip()
+        p["data"]["plates"].pop(sid)
+        P.save(con, p, "çizim yeniden", sid)
+        queue_for(con, p, "p_plates", json.dumps({"id": pid, "approved": est["total"]}))
+    elif a == "set_grammar":
+        from factory import motiondesign
+        g = body.get("grammar")
+        if g not in motiondesign.GRAMMARS:
+            raise ValueError("bilinmeyen gramer")
+        p["data"]["grammar"] = g
+        P.save(con, p, "anlatım grameri", g)
     elif a == "set_look":
         look = body.get("look")
         if not styles.valid(look) or not explainer.is_explainer(p["data"]):
@@ -435,13 +524,78 @@ def act(con, pid, body):
         p["data"].pop("music_take", None)
         P.save(con, p, "müzik kaldırıldı")
     elif a == "publish":
-        tracking.add_post(con, body.get("url", ""), out_name=p["output"], prod_id=pid)
+        post_id = tracking.add_post(con, body.get("url", ""), out_name=p["output"], prod_id=pid)
+        con.execute("UPDATE posts SET channel_id=? WHERE post_id=?", (p.get("channel_id"), post_id))
         p = P.get(con, pid)
         p["stage"] = "published"
         P.save(con, p, "yayın", body.get("url", ""))
     else:
         raise ValueError(f"bilinmeyen işlem {a}")
     return production_detail(con, pid)
+
+
+def channel_tracking(con, cid):
+    rows = [x for x in tracking.posts(con) if x.get("channel_id") == cid or
+            (x.get("channel_id") is None and x.get("prod_channel") == cid)]
+    views = [(x.get("latest") or {}).get("views") or 0 for x in rows]
+    return {"posts": len(rows), "views": sum(views), "best": max(views, default=0),
+            "rows": [{k: x.get(k) for k in ("post_id", "platform", "url", "prod_title", "title", "posted_at", "history")}
+                     | {"views": (x.get("latest") or {}).get("views")} for x in rows[:20]]}
+
+
+def series_detail(con, sid):
+    s = series.get(con, sid)
+    d = s["data"]
+    aid = accounts.default_eleven()
+    prods = {}
+    for e in d.get("episodes") or []:
+        if e.get("prod_id"):
+            try:
+                prods[e["n"]] = prod_summary(con, P.get(con, e["prod_id"]))
+            except ValueError:
+                pass
+    job = None
+    if s.get("job_id"):
+        j = con.execute("SELECT job_id, kind, status FROM jobs WHERE job_id=?", (s["job_id"],)).fetchone()
+        job = dict(j) if j and j["status"] in ("queued", "running") else None
+    asset = lambda f: "/media/assets/" + f.split("assets/", 1)[-1] if f else None  # noqa: E731
+    return {**s, "styles": {k: v[0] for k, v in series.STYLES.items()}, "busy": job, "episodes_made": prods,
+            "cast_estimate": series.cast_estimate(con, s, aid), "voices": eleven_info(aid)["voices"],
+            "sheets": {c["id"]: asset((c.get("sheet") or {}).get("file")) for c in d.get("characters") or []},
+            "channel": channels.get(con, s["channel_id"])}
+
+
+def clip_search(con, text, k=24):
+    """Clips ranked by how close their description / place / tags are to `text` (factory/embed.py)."""
+    from factory import embed
+    text = (text or "").strip()
+    rows = [dict(r) for r in con.execute("""SELECT c.clip_id, c.kind, c.description, c.tags, c.mood, c.duration, p.name place
+                                             FROM clips c LEFT JOIN places p ON p.place_id=c.place_id WHERE c.usable=1""")]
+    if not text or not rows:
+        return []
+    docs = [" ".join(x for x in (r["description"], r["place"], r["mood"], " ".join(json.loads(r["tags"] or "[]"))) if x) for r in rows]
+    mat = embed.vectors(docs, con)
+    qv = embed.vectors([text], con)[0]
+    sims = mat @ qv
+    order = sims.argsort()[::-1][:k]
+    return [{**rows[i], "score": round(float(sims[i]), 3)} for i in order if sims[i] > 0.05]
+
+
+def search(con, text):
+    """Command palette: productions, channels, series and pages matching `text`."""
+    t = (text or "").strip().lower()
+    out = []
+    for c in channels.listing(con, counts=False):
+        if not t or t in c["name"].lower():
+            out.append({"kind": "kanal", "label": c["name"], "href": f"#/c/{c['id']}"})
+    for s in series.listing(con):
+        if not t or t in (s["title"] or "").lower():
+            out.append({"kind": "seri", "label": s["title"], "href": f"#/s/{s['series_id']}"})
+    if t:
+        for r in con.execute("SELECT prod_id, title, stage FROM productions WHERE lower(title) LIKE ? ORDER BY updated_at DESC "
+                             "LIMIT 12", (f"%{t}%",)):
+            out.append({"kind": "video", "label": r["title"], "href": f"#/p/{r['prod_id']}", "stage": r["stage"]})
+    return out[:30]
 
 
 def eleven_info(aid, fresh=False):
@@ -635,6 +789,18 @@ class Handler(shorts.Handler):
             return
         if urllib.parse.urlsplit(self.path).path == "/api/refs/upload":
             return self.upload()
+        m = re.fullmatch(r"/api/channels/([\w-]+)/logo", urllib.parse.urlsplit(self.path).path)
+        if m:
+            n = int(self.headers.get("Content-Length") or 0)
+            data = self.rfile.read(min(n, 11 << 20))
+            name = os.path.basename(urllib.parse.unquote(self.headers.get("X-Filename") or "logo.png"))
+            con = connect()
+            try:
+                return self.json(200, channels.set_logo(con, m.group(1), data, name))
+            except ValueError as e:
+                return self.json(400, {"error": str(e)})
+            finally:
+                con.close()
         n = int(self.headers.get("Content-Length") or 0)
         try:
             body = json.loads(self.rfile.read(n) or b"{}")
@@ -656,14 +822,21 @@ class Handler(shorts.Handler):
 
     def style_upload(self, n, name):
         """One reference IMAGE (png/jpg/webp) -> job style_extract -> a saved custom look (factory/styles.py)."""
-        if not name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) or not 0 < n <= 25 << 20:
+        video = name.lower().endswith(styles.VIDEO_EXT)
+        if not (name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) or video) or not 0 < n <= (200 << 20 if video else 25 << 20):
             self.rfile.read(min(n, 1 << 20))
-            return self.json(400, {"error": "PNG/JPG/WEBP, en fazla 25 MB"})
+            return self.json(400, {"error": "PNG/JPG/WEBP (25 MB) ya da MP4/MOV video (200 MB)"})
         inbox = os.path.join(styles.DIR, "_inbox")
         os.makedirs(inbox, exist_ok=True)
         dst = os.path.join(inbox, f"{int(time.time())}_{name}")
         with open(dst, "wb") as f:
-            f.write(self.rfile.read(n))
+            left = n
+            while left:
+                chunk = self.rfile.read(min(1 << 20, left))
+                if not chunk:
+                    break
+                f.write(chunk)
+                left -= len(chunk)
         note = urllib.parse.unquote(self.headers.get("X-Style-Note") or "")[:300]
         con = connect()
         try:
@@ -796,10 +969,91 @@ class Handler(shorts.Handler):
                    "aspect": b.get("aspect") if b.get("aspect") in formats.ASPECTS else "9:16",
                    "narrate": b.get("narrate") if b.get("narrate") in ("auto", "on", "off") else "auto",
                    "look": b.get("look") if styles.valid(b.get("look")) else "tech",
-                   "voice_id": b.get("voice_id") if b.get("voice_id") in voice_ids(accounts.default_eleven()) else None}
+                   "voice_id": b.get("voice_id") if b.get("voice_id") in voice_ids(accounts.default_eleven()) else None,
+                   "channel": channels.resolve(con, b.get("channel"), fmt["mode"])}
             return {"job_id": jobs.queue(con, "p_ideas", json.dumps(arg, ensure_ascii=False))}
         if path == "/api/discover/run":
             return {"job_id": jobs.queue(con, "discover", "")}
+        # ---- composer / planner ----
+        if path == "/api/plan":
+            att = b.get("attachments") if isinstance(b.get("attachments"), dict) else {}
+            att = {k: att[k] for k in ("places", "refs", "series_id", "channel", "links", "clips") if att.get(k)}
+            pid = planner.create(con, b.get("prompt", ""), att, uid)
+            voices = [{"voice_id": v["voice_id"], "name": v.get("name"), "language": v.get("language")}
+                      for v in eleven_info(accounts.default_eleven())["voices"]]
+            jid = jobs.queue(con, "plan", json.dumps({"id": pid, "voices": voices}, ensure_ascii=False))
+            return {"plan_id": pid, "job_id": jid}
+        m = re.fullmatch(r"/api/plan/(\d+)/(update|start|cancel)", path)
+        if m:
+            pid = int(m.group(1))
+            if m.group(2) == "update":
+                voices = [{"voice_id": v["voice_id"], "name": v.get("name")} for v in eleven_info(accounts.default_eleven())["voices"]]
+                return planner.update(con, pid, b.get("changes") or {}, voices)
+            if m.group(2) == "cancel":
+                planner.cancel(con, pid)
+                return planner.get(con, pid)
+            return planner.start(con, pid, lambda kind, arg: jobs.queue(con, kind, arg))
+        # ---- channels ----
+        if path == "/api/channels":
+            return channels.create(con, b.get("name"), b)
+        m = re.fullmatch(r"/api/channels/([\w-]+)/(update|delete|logo_delete|reorder)", path)
+        if m:
+            cid, op = m.group(1), m.group(2)
+            if op == "update":
+                return channels.update(con, cid, b)
+            if op == "logo_delete":
+                return channels.drop_logo(con, cid)
+            if op == "reorder":
+                channels.reorder(con, [x for x in b.get("ids") or [] if isinstance(x, str)])
+                return channels.listing(con)
+            return {"moved_to": channels.delete(con, cid, b.get("move_to"))}
+        # ---- series ----
+        m = re.fullmatch(r"/api/series/(\d+)/(revise|approve|cast|voice|episode|delete)", path)
+        if m:
+            sid, op = int(m.group(1)), m.group(2)
+            s = series.get(con, sid)
+            if s.get("job_id") and op != "voice":
+                j = con.execute("SELECT status FROM jobs WHERE job_id=?", (s["job_id"],)).fetchone()
+                if j and j["status"] in ("queued", "running"):
+                    raise Conflict("Bu seri için bir iş zaten çalışıyor")
+            if op == "revise":
+                fb = (b.get("feedback") or "").strip()
+                if not fb:
+                    raise ValueError("Ne değişsin? Kısa bir not yaz.")
+                return {"job_id": jobs.queue(con, "series_bible", json.dumps({"id": sid, "feedback": fb}, ensure_ascii=False))}
+            if op == "approve":
+                return series_detail(con, series.approve_bible(con, sid)["series_id"])
+            if op == "cast":
+                aid = accounts.default_eleven()
+                est = series.cast_estimate(con, s, aid)
+                approved = int(b.get("approved") or 0)
+                if est["unknown"] or approved < est["credits"]:
+                    raise ValueError("Onaylanan kredi güncel tahminden düşük; sayfayı yenile")
+                if not est["budget"]["ok"]:
+                    raise ValueError("Aylık kredi tavanı aşılır")
+                return {"job_id": jobs.queue(con, "series_cast", json.dumps({"id": sid, "approved": est["credits"], "account": aid}))}
+            if op == "voice":
+                vid = b.get("voice_id")
+                if vid and vid not in voice_ids(accounts.default_eleven()):
+                    raise ValueError("Bu ses hesabında yok")
+                series.set_voice(con, sid, b.get("who"), vid)
+                return series_detail(con, sid)
+            if op == "episode":
+                return {"job_id": jobs.queue(con, "series_episode", json.dumps({"id": sid, "n": int(b.get("n") or 1),
+                                                                                "note": b.get("note", "")}, ensure_ascii=False))}
+            con.execute("DELETE FROM series WHERE series_id=?", (sid,))
+            con.commit()
+            return {"ok": True}
+        # ---- styles ----
+        m = re.fullmatch(r"/api/styles/([\w-]+)/(approve|delete|stills)", path)
+        if m:
+            if m.group(2) == "approve":
+                styles.approve(m.group(1))
+            elif m.group(2) == "delete":
+                styles.delete(m.group(1))
+            else:
+                styles.preview_stills(m.group(1))
+            return styles.listing()
         m = re.fullmatch(r"/api/discover/card/(\d+)/(pick|skip)", path)
         if m:
             row = con.execute("SELECT * FROM disc_cards WHERE card_id=?", (int(m.group(1)),)).fetchone()
@@ -810,10 +1064,14 @@ class Handler(shorts.Handler):
                 return {"ok": True}
             card = json.loads(row["data"])
             voice = b.get("voice_id") if b.get("voice_id") in voice_ids(accounts.default_eleven()) else None
-            arg = {"format": "explainer_short", "n": 1, "brief": discover.brief_for(card), "aspect": "9:16",
-                   "look": b.get("look") if styles.valid(b.get("look")) else "tech", "voice_id": voice}
+            cid = channels.resolve(con, b.get("channel"), "topic")
+            ch = channels.get(con, cid)
+            arg = {"format": "explainer_short", "n": 1, "brief": discover.brief_for(card),
+                   "aspect": b.get("aspect") if b.get("aspect") in formats.ASPECTS else ch["defaults"]["aspect"],
+                   "look": b.get("look") if styles.valid(b.get("look")) else (ch["defaults"]["look"] if styles.valid(ch["defaults"]["look"]) else "auto"),
+                   "voice_id": voice or ch["defaults"].get("voice_id"), "channel": cid}
             jid = jobs.queue(con, "p_ideas", json.dumps(arg, ensure_ascii=False))
-            discover.set_status(con, row["card_id"], "picked", jid)
+            discover.set_status(con, row["card_id"], "picked", jid, cid)
             return {"job_id": jid}
         if path == "/api/refs/delete":
             return delete_ref(con, b.get("ref_id"))
@@ -891,6 +1149,29 @@ class Handler(shorts.Handler):
         if path in ("/", "/index.html"):
             with open(os.path.join(HERE, "index.html"), "rb") as f:
                 return self.send_bytes(200, f.read(), "text/html; charset=utf-8", head)
+        if path.startswith("/static/"):   # the Studio's own css / js (read per request, like index.html)
+            f = self.inside(HERE, path[len("/static/"):])
+            types = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml"}
+            if f and os.path.splitext(f)[1] in types:
+                with open(f, "rb") as fh:
+                    return self.send_bytes(200, fh.read(), types[os.path.splitext(f)[1]], head)
+        if path.startswith("/fonts/"):
+            f = self.inside(os.path.join(ROOT, "fonts"), path[len("/fonts/"):])
+            if f and f.endswith(".ttf"):
+                return self.send_file(f, "font/ttf", head, cache="private, max-age=604800")
+        m = re.fullmatch(r"/media/channel/([\w-]+)/logo", path)
+        if m:
+            con = connect()
+            try:
+                f = channels.logo_path(con, m.group(1))
+            finally:
+                con.close()
+            if f:
+                return self.send_file(f, "image/png", head, cache="private, max-age=60")
+        if path.startswith("/media/styles/"):
+            f = self.inside(styles.DIR, path[len("/media/styles/"):])
+            if f and f.endswith((".png", ".jpg")):
+                return self.send_file(f, "image/png" if f.endswith(".png") else "image/jpeg", head, cache="no-store")
         if path.startswith("/api/"):
             con = connect()
             try:
@@ -906,6 +1187,8 @@ class Handler(shorts.Handler):
             f = self.inside(OUT, path[len("/media/out/"):])
             if f and f.endswith(".mp4"):
                 return self.send_file(f, "video/mp4", head, download="dl" in q)
+            if f and f.endswith(".jpg"):   # cover / thumbnail candidates
+                return self.send_file(f, "image/jpeg", head, download="dl" in q, cache="no-store")
         if path.startswith("/media/work/"):
             f = self.inside(os.path.join(ROOT, "work"), path[len("/media/work/"):])
             if f:
@@ -932,6 +1215,8 @@ class Handler(shorts.Handler):
             f = self.inside(os.path.join(ROOT, "assets"), path[len("/media/assets/"):])
             if f and f.endswith(".mp3"):
                 return self.send_file(f, "audio/mpeg", head)
+            if f and f.endswith(".png"):   # illustrations and character sheets
+                return self.send_file(f, "image/png", head, cache="private, max-age=604800")
         if path.startswith("/thumb/clip/"):
             con = connect()
             try:
@@ -964,17 +1249,45 @@ class Handler(shorts.Handler):
         self.send_bytes(404, b"Not found\n", "text/plain; charset=utf-8", head)
 
     def get_api(self, con, path, q):
+        ch = (q.get("channel") or [None])[0]
         if path == "/api/overview":
-            return overview(con)
+            return overview(con, ch)
         if path == "/api/formats":
             P.ensure(con)
             n = {r["format"]: r["n"] for r in con.execute(
                 "SELECT format, COUNT(*) n FROM productions WHERE stage!='rejected' GROUP BY format")}
             return [{**f, "count": n.get(f["id"], 0)} for f in formats.FORMATS]
+        if path == "/api/modes":
+            return formats.MODES
         if path == "/api/places":
             return places(con)
         if path == "/api/productions":
-            return all_prods(con)
+            return all_prods(con, ch)
+        if path == "/api/channels":
+            P.ensure(con)
+            return channels.listing(con)
+        m = re.fullmatch(r"/api/channels/([\w-]+)", path)
+        if m:
+            c = channels.get(con, m.group(1))
+            if not c:
+                raise ValueError("kanal bulunamadı")
+            return {**c, "overview": overview(con, c["id"]), "series": series.listing(con, c["id"]),
+                    "tracking": channel_tracking(con, c["id"])}
+        if path == "/api/plans":
+            return planner.recent(con)
+        m = re.fullmatch(r"/api/plan/(\d+)", path)
+        if m:
+            return planner.get(con, int(m.group(1)))
+        if path == "/api/series":
+            return series.listing(con, ch)
+        m = re.fullmatch(r"/api/series/(\d+)", path)
+        if m:
+            return series_detail(con, int(m.group(1)))
+        if path == "/api/clips/search":   # semantic search over the footage library (descriptions + places)
+            from factory import embed
+            return {"results": clip_search(con, (q.get("q") or [""])[0]), "backend": embed.backend()}
+        if path == "/api/search":   # command palette
+            return search(con, (q.get("q") or [""])[0])
         m = re.fullmatch(r"/api/production/(\d+)", path)
         if m:
             return production_detail(con, int(m.group(1)))
@@ -1008,7 +1321,8 @@ class Handler(shorts.Handler):
             prof["spent"], prof["cap"] = round(credits.month_spent(con, aid)), credits.MONTHLY_CAP
             return prof
         if path == "/api/discover":
-            return discover.cards(con)
+            cats = (channels.get(con, ch) or {}).get("discover") if ch else None
+            return discover.cards(con, categories=cats or None)
         if path == "/api/styles":
             return styles.listing()
         if path == "/api/signals":

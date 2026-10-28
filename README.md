@@ -11,12 +11,29 @@ Detailed operating guide: [RUNBOOK.md](RUNBOOK.md). Art rules for the designers:
 
 ## How it is built
 
+Everything starts in one composer: write what you want (and attach places, reference videos, a series or links); the
+planner (`factory/planner.py`) turns it into an editable plan (kind, channel, preset, look, canvas, steps, rough cost)
+and only your approval starts work. Kinds: own footage, a topic explainer (tech / paper / auto / illustrated / custom
+looks), a new story series, or the next episode of a series. Videos live inside **channels** (logo, colour, language,
+niche, defaults, discovery categories); the logo is burned in by the shared post-pass.
+
 ```
-studio/server.py + index.html   Studio web app (stdlib HTTP server, single page)            :8501
+studio/server.py + index.html   Studio web app (stdlib HTTP server)                         :8501
+studio/app.js + app.css         the single-page UI (channel rail, composer, boards, series, styles; no build step)
 shorts/server.py                Shorts panel: finished videos, download, caption copy       :8095
 factory/app.py                  old Streamlit panel: clips, Reference Lab, brand kit        :8503
 
 factory/                        the pipeline (Python package)
+  planner.py      the composer's planner: request + attachments -> editable plan -> jobs
+  channels.py     channels (identity, niche, defaults, brand layer); every production/post belongs to one
+  engines.py      render engine registry + shared post-pass (logo watermark, end card, audio mastering)
+  series.py       story series: bible + mini book -> character sheets -> episodes
+  illustrate.py   illustrated look: per-scene AI illustrations on one ElevenLabs flow, animated by Opus
+  discover.py     daily discovery (news + papers: arXiv, bioRxiv/medRxiv, PubMed, OpenAlex), embedding dedupe
+  embed.py        text embeddings (fastembed if installed, offline fallback) for dedupe and clip search
+  fxdetect.py     measured effect material per clip (horizons, motion, occlusions) for match cuts / object wipes
+  matte.py        subject mattes for text-behind-subject (rembg if installed)
+  thumbs.py       cover / thumbnail candidates per finished video
   jobs.py         job queue: the Studio writes a row, each job runs as its own process
   productions.py  one video's way through the factory (stages, preview, render, QA)
   explainer.py    topic-first "faceless explainer" format (research, script, scenes)
@@ -27,7 +44,8 @@ factory/                        the pipeline (Python package)
   accounts.py     Studio users; members can bring their own Claude + ElevenLabs accounts
   config.py       machine-specific settings (paths, host, ports) from config.env
 bin/            renderers (cinecut, stylecut, explainer, htmlmotion), iCloud fetch, user admin, start script
-motion/         node + Playwright: HTML → video frames, research screenshots
+motion/         node + Playwright: HTML → video frames, research screenshots; templates/fxlib.js = the FX + 3D recipe
+                library the motion designer uses
 radar/          Viral Radar: YouTube reference videos, scored daily (cron)
 tests/          pytest
 ```
@@ -86,6 +104,15 @@ folders.
   and per video.
 - **ElevenLabs:** every generation needs an approved credit estimate. A hard monthly cap is enforced in code
   (`factory/credits.py`).
+
+### Optional packages (install on the VM with uv when wanted)
+
+```bash
+~/.local/bin/uv pip install --python .venv/bin/python fastembed        # multilingual semantic dedupe + clip search
+~/.local/bin/uv pip install --python .venv/bin/python "rembg[cpu]"     # text behind subject (subject matte)
+~/.local/bin/uv pip install --python .venv/bin/python pedalboard pyloudnorm   # mastering chain (else ffmpeg loudnorm)
+```
+Without them the factory falls back (hashed-trigram vectors, text on top, ffmpeg loudnorm).
 
 ## Tests
 

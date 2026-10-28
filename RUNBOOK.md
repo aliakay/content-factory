@@ -235,3 +235,35 @@ Machine-specific values live in `factory/config.py` (env / `config.env` / defaul
 else PATH, claude ~/.local/bin else PATH, host = CF_HOST else Tailscale IP); node helpers read `motion/config.mjs`.
 Secrets (`.env`, `config.env`, `data/users.json`, `data/eleven_accounts.json`), DBs, media and per-production state are
 gitignored: back them up separately. Commit and push code changes after each working change.
+
+## Studio 2 — channels, one composer, series (2026-10-27, night)
+**UI** (`studio/index.html` shell + `studio/app.js` + `studio/app.css`, served by `/static/`, read per request): channel
+rail (logo, colour tints the UI, pending counts), sidebar, ⌘K palette, phone tab bar. Home = one composer: prompt +
+attachments (places, refs, series, links) -> job `plan` (`factory/planner.py`, Sonnet; keyword fallback without Claude)
+-> editable plan card -> `/api/plan/<id>/start` queues `p_ideas` / `series_bible` / `series_episode`. Formats are presets
+now: modes footage / topic / series (`formats.MODES`); `this_looks_unreal` -> `cinematic_calm`, `day_vlog` -> `story_vo`
+(ids stay valid), `facts_listicle` is ready.
+**Channels** (`factory/channels.py`, table `channels`; `productions/posts/disc_cards.channel_id`): first run files old
+productions under "seyahat" (footage) and "bilgi" (explainers). Description + audience go into every idea/script prompt.
+Brand layer: logo watermark (corner picker with the TikTok UI zones on a phone mock) + optional end card, burned in by
+`engines.finish` for previews and finals; per video switch `data.brand = false`. Logos in `data/channels/<id>/`.
+**Engines** (`factory/engines.py`): `spec.engine` = cine | style | explainer | html; `render()` = engine + brand pass +
+(final only) mastering to -14 LUFS / -1.5 dBTP. Explainers render 9:16 or 16:9 (Pillow: scaled stage on the wide canvas;
+HTML: canvas-aware prompt + shell). A canvas switch on an Opus design queues a redesign.
+**Illustrated look** (`look_pack "illustrated"`, `factory/illustrate.py`): script writes `art_style` + per-scene `plate`;
+Çizimler card = estimate + approval -> job `p_plates` (`eleven.image`, one flow, same-place plates and series characters
+made FROM their nodes) -> Opus animates with `motion/templates/fxlib.js` (camera, boxes, pins, draw-on, 3D). One plate can
+be re-rolled (`reroll_plate`, its own approval). Prompts for images are always English.
+**Series** (`factory/series.py`, table `series`, page `#/s/<id>`): premise -> bible + mini book (Opus) -> approve ->
+character sheets (approval) -> voices per character -> episode n -> production `series_episode` with speakers;
+`productions.cast_voice` voices each run with its speaker's voice and joins them before alignment.
+**Motion design**: FX library docs, taste numbers, 8 grammars (`data.grammar`, chips on the production page), a @@SPEC
+build spec before code, scored self-critique with an anti-slideshow rule.
+**Effects**: J/L cuts (`audio.lead/tail`), `enter: match`, `enter: object`, layers `behind: true` (rembg matte);
+measured material in `clips.fx` (`factory/fxdetect.py`).
+**Discovery**: embedding dedupe (`factory/embed.py`, fastembed or hashed trigrams), history check (21 days), papers
+sub-pipeline (arXiv / bioRxiv / medRxiv / PubMed top journals; OpenAlex OA link on picked cards).
+**Styles** level 2: type class -> OFL fonts, case, tracking, cards/shadow/grid, entrance/pace/transition, highlight colour;
+video refs measured; drafts need approval (3 preview stills) on `#/stiller`.
+**QA**: flash windows (photosensitivity), broken frames, slideshow gate for explainers; three cover candidates per final
+(`out/<name>/thumb_*.jpg`).
