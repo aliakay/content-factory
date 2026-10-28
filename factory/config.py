@@ -57,4 +57,6 @@ CLAUDE_TRANSCRIPTS = os.path.join(os.path.expanduser("~/.claude/projects"), WORK
 
 for _k, _v in (("CF_ROOT", ROOT), ("CF_FFMPEG", FFMPEG), ("CF_FFPROBE", FFPROBE), ("CF_CLAUDE", CLAUDE),
                ("CF_CHROME_LIBS", CHROME_LIBS)):
-    os.environ.setdefault(_k, _v)
+    # an empty KEY= line in config.env means "automatic", so it must not mask the resolved value
+    if not os.environ.get(_k):
+        os.environ[_k] = _v
