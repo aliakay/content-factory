@@ -42,6 +42,7 @@ let CAP = { mode: "chunk", pos: "low", keys: {} };
 window.ready = (async () => {
   const hash = new URLSearchParams(location.hash.slice(1));
   B = await (await fetch(hash.get("b"))).json();
+  document.documentElement.lang = B.lang || "en";   // locale-aware text-transform (Turkish "biri" -> "BİRİ", not "BIRI")
   if (B.three !== false) {   // Three.js for scenes that build 3D with FX.three / FX.globe (deterministic, driven by render)
     try { window.THREE = await import("/motion/node_modules/three/build/three.module.min.js"); } catch (e) { console.error("three: " + e.message); }
   }

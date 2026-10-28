@@ -31,7 +31,8 @@ def make_bundle(spec, design):
                        "lines_t": [{"start": round(x["start"], 3), "end": round(x["end"], 3)} for x in lt[a:b + 1]]})
     w, h = ASPECTS.get(spec.get("aspect", "9:16"), ASPECTS["9:16"])
     return {"palette": design["meta"].get("palette") or {}, "global_css": design.get("global_css", ""), "words": words,
-            "scenes": scenes, "duration": spec["duration"], "w": w, "h": h, "captions": spec.get("captions") or {}}
+            "scenes": scenes, "duration": spec["duration"], "w": w, "h": h, "captions": spec.get("captions") or {},
+            "lang": spec.get("lang", "en")}   # sets <html lang>: CSS uppercase then maps i -> İ in Turkish
 
 
 def write_bundle(spec, design):
