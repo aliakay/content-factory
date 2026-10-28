@@ -38,6 +38,7 @@ let tl, B, chunks = [];
 window.render = (t) => { if (tl) { tl.time(t, false); for (const f of FX._hooks) f(t); caps(t); } };
 // sound + music cues the scenes declared (FX.sfx / FX.music), read by render.mjs --cues after setup
 window.cues = () => ({ sfx: FX._cues, music: FX._music });
+window.cutTimes = () => (B ? B.scenes.slice(1).map((s) => s.start) : []);   // render.mjs --blur keeps the shutter off the cuts
 let CAP = { mode: "chunk", pos: "low", keys: {} };
 window.ready = (async () => {
   const hash = new URLSearchParams(location.hash.slice(1));
@@ -46,6 +47,8 @@ window.ready = (async () => {
   if (B.three !== false) {   // Three.js for scenes that build 3D with FX.three / FX.globe (deterministic, driven by render)
     try { window.THREE = await import("/motion/node_modules/three/build/three.module.min.js"); } catch (e) { console.error("three: " + e.message); }
   }
+  FX._W = B.w || 1080; FX._H = B.h || 1920;   // the stage, for the kinetic kit
+  if (B.bpm) { FX.BPM = B.bpm; FX.beat0 = B.beat0 || 0; }   // the music's beat grid: FX.B(k)
   const root = document.documentElement;
   for (const [k, v] of Object.entries(B.palette || {})) root.style.setProperty("--" + k, v);
   const stg = document.getElementById("stage"), capEl = document.getElementById("cap");

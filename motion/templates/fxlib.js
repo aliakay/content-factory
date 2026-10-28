@@ -1020,6 +1020,7 @@
   const bodies = new Map();
   const pct = (v, size) => (/%$/.test(v) ? (parseFloat(v) / 100) * size : parseFloat(v) || 0);
   const pivotOf = (el, pivot) => {
+    if (typeof pivot === "function") return pivot(el);
     if (Array.isArray(pivot)) return pivot;
     const [px, py] = String(pivot || "50% 100%").replace(/\bleft\b|\btop\b/g, "0%").replace(/\bcenter\b/g, "50%").replace(/\bright\b|\bbottom\b/g, "100%").split(/\s+/);
     if (el instanceof SVGGraphicsElement) { const bb = el.getBBox(); return [bb.x + pct(px, bb.width), bb.y + pct(py ?? "50%", bb.height)]; }
@@ -1035,7 +1036,7 @@
       FX.onFrame((t) => {
         let x = 0, y = 0, r = 0, sx = 1, sy = 1;
         for (const f of b.fns) { const v = f(t) || {}; x += v.x || 0; y += v.y || 0; r += v.rot || 0; sx *= v.sx ?? 1; sy *= v.sy ?? 1; }
-        if (!b.pivot) b.pivot = pivotOf(el, pivot);   // measured once, on the first frame (the element is laid out)
+        if (!b.pivot) { if (!el.getClientRects().length) return; b.pivot = pivotOf(el, pivot); }   // measured once, on the first frame it is laid out (a hidden scene measures 0)
         // CSS applies translate · rotate · scale around the element's transform-origin o; turn "around the pivot p" into
         // a translate: T = (x, y) + (p - o) - R·S·(p - o)
         const cs = getComputedStyle(el), [ox, oy] = cs.transformOrigin.split(" ").map(parseFloat);
@@ -1268,6 +1269,195 @@
     }
     if (o.shadow) living(o.shadow, (t) => { const s = Math.max(0.3, 1 - (0.5 * Math.max(0, height(t))) / h); return { sx: s, sy: s }; }, "50% 50%");
     return el;
+  };
+
+
+  /* ---- KINETIC: high-energy type on the beat (launch films, teasers, promos, hooks; craft after the
+     scenario-kinetic-film method): one idea per beat, one or two words that fill the frame width, the ground flips
+     colour on phrase changes, transitions are moves (whips, a zoom through a letter, a collapse to a point), runs of
+     cuts accelerate (1, 1, 1, ½, ½, ¼ beat, flash), and nothing parks: after a word lands it keeps scaling or sliding.
+     FX.B(k) = the time of beat k (FX.BPM, anchored on FX.beat0 = the music's drop when the bundle knows it).
+     FX.kinetic(tl, root, at, {style: slam | punch3d | stack | split | pair | cut, text: "WORD" | [a, b], until, ground,
+       color, accent, y, font, fx: punch | hit | beat | none, second, big, sfx}) -> {el}
+     FX.ground(tl, root, at, colour) · FX.hitFx(tl, root, at, {rays, ring, flash, shake}) · FX.charge(tl, root, at, dur)
+     FX.cutRun(tl, root, at, ["WORDS", ...], {beats: [1, 1, 1, .5, .5, .25, .25], grounds}) · FX.tvOff(tl, el, at)
+     FX.zoomLetter(tl, wrapEl, letterSpan, at, {dur}) (fly through a letter's counter: O D 0 A B P R)
+     FX.typePrompt(tl, root, at, {label, text: [["plain "], ["keyword", 1]], cps, enterAt}) (a brief typed with a caret,
+       keywords pop, then the camera pushes into Enter and the accent floods the frame: the drop)
+     FX.picture(tl, root, at, dur, {src, words: [[t, "TEXT", colour]], focus: [fx, fy], tint, weather, cutIns: [[t, scale,
+       [fx, fy], dur]]}) (a picture never parks: push, pan, slight 3D tilt, punch-in on every word, cut-ins to details) ---- */
+  FX.BPM = FX.BPM || 100; FX.beat0 = 0;
+  FX.B = (k) => FX.beat0 + (k * 60) / FX.BPM;
+  const KW = () => FX._W || 1080, KH = () => FX._H || 1920;
+  const box = (root, css) => { const d = document.createElement("div"); Object.assign(d.style, { position: "absolute", left: 0, top: 0, width: "100%", height: "100%", pointerEvents: "none" }, css || {}); root.appendChild(d); return d; };
+  const NI = { immediateRender: false };   // a tween whose start state is visible must not show before it plays
+  const word = (parent, text, o) => {
+    // a full-width row centred by layout (transforms stay free for the motion), the word in a measured inline block
+    const el = document.createElement("div"), inner = document.createElement("span");
+    Object.assign(el.style, { position: "absolute", left: 0, width: "100%", textAlign: "center", top: (o.y ?? KH() * 0.45) + "px", marginTop: "-0.45em", whiteSpace: "nowrap",
+      font: `${o.weight || 900} ${o.size || 200}px/0.9 ${o.font || "'Anton', 'Inter Tight', sans-serif"}`, textTransform: "uppercase", letterSpacing: o.track || "-0.01em",
+      color: o.color || "var(--ink, #fff)", opacity: 0 });
+    inner.style.display = "inline-block"; inner.textContent = text; el.appendChild(inner); parent.appendChild(el);
+    const spans = split(inner, "chars");
+    // fit to the frame width on the first visible frame (fonts are loaded by then), never before it is laid out
+    let fitted = false;
+    FX.onFrame(() => { if (fitted || !inner.offsetWidth) return; const want = (o.width ?? 0.86) * KW(); el.style.fontSize = Math.max(60, Math.min(o.max || 520, (parseFloat(el.style.fontSize) * want) / inner.offsetWidth)) + "px"; fitted = true; });
+    return { el, spans };
+  };
+  FX.ground = (tl, root, at, color) => { const g = box(root, { background: color, opacity: 0, zIndex: 0 }); root.prepend(g); tl.set(g, { opacity: 1 }, at); return g; };
+  FX.hitFx = (tl, root, at, o = {}) => {
+    const W0 = KW(), H0 = KH(), [cx, cy] = o.at || [W0 / 2, H0 * 0.45], col = o.color || "var(--accent, #ffc21a)";
+    if (o.rays !== false) {
+      const svg = FX.svg(root, W0, H0); svg.style.zIndex = 40; const n = o.n || 14, r = FX.rand(o.seed || 5);
+      const rays = [...Array(n)].map((_, i) => { const a = (i / n) * Math.PI * 2 + r() * 0.2, l = FX.el(svg, "line", { x1: cx + Math.cos(a) * 140, y1: cy + Math.sin(a) * 140, x2: cx + Math.cos(a) * (420 + r() * 300), y2: cy + Math.sin(a) * (420 + r() * 300), stroke: col, "stroke-width": 10, "stroke-linecap": "round", opacity: 0 }); return l; });
+      rays.forEach((l) => { const len = 600; l.style.strokeDasharray = len; tl.fromTo(l, { opacity: 1, strokeDashoffset: len }, { strokeDashoffset: -len, duration: 0.32, ease: "power3.out", ...NI }, at); tl.set(l, { opacity: 0 }, at + 0.32); });
+    }
+    if (o.ring !== false) {
+      const ring = box(root, { left: cx - 100 + "px", top: cy - 100 + "px", width: "200px", height: "200px", borderRadius: "50%", border: `10px solid ${col}`, opacity: 0, zIndex: 40, boxSizing: "border-box" });
+      tl.fromTo(ring, { opacity: 1, scale: 0.4 }, { opacity: 0, scale: 5, duration: 0.45, ease: "expo.out", ...NI }, at);
+    }
+    if (o.flash !== false) { const f = box(root, { background: o.flashColor || "#fff", opacity: 0, zIndex: 60 }); tl.fromTo(f, { opacity: 0.85 }, { opacity: 0, duration: 0.12, ease: "power2.out", ...NI }, at); }
+    if (o.shake !== false) FX.shake(tl, o.target || root.firstElementChild || root, at, { amp: o.amp || 16, dur: 0.3 });
+    if (o.sfx !== false) FX.sfx(o.sfx || (o.big ? "impact" : "hit"), at);
+  };
+  FX.kinetic = (tl, root, at, o = {}) => {
+    const st = o.style || "slam", texts = Array.isArray(o.text) ? o.text : [o.text], until = o.until ?? at + 1.2, sec = o.second ?? 0.18;
+    const layer = box(root, { zIndex: 20, display: "none" });
+    tl.set(layer, { display: "block" }, at); tl.set(layer, { display: "none" }, until);
+    if (o.ground) FX.ground(tl, layer, at, o.ground);
+    const col = o.color || "var(--ink, #fff)", acc = o.accent || "var(--accent, #ffc21a)", y = o.y ?? KH() * 0.45, out = { el: layer, words: [] };
+    const alive = (el, from) => living(el, (t) => (t > from && t < until ? { sx: 1 + 0.03 * (t - from), sy: 1 + 0.03 * (t - from) } : {}), "50% 50%");   // never park
+    const land = (w, t0, o2 = {}) => {
+      tl.set(w.el, { opacity: 1 }, t0);
+      if (o2.tumble !== false) tl.fromTo(w.spans, { opacity: 0, y: -90, rotation: (i) => (i % 2 ? 30 : -30) }, { opacity: 1, y: 0, rotation: 0, duration: 0.2, stagger: 0.018, ease: "power3.out" }, t0);
+      tl.fromTo(w.el, { scale: o2.from ?? 1.6 }, { scale: 1, duration: 0.2, ease: "expo.out" }, t0);
+      alive(w.el, t0 + 0.2);
+    };
+    if (st === "slam" || st === "cut") {
+      const w = word(layer, texts[0], { y, color: col, ...o }); out.words.push(w);
+      if (st === "cut") { tl.set(w.el, { opacity: 1 }, at); alive(w.el, at); } else land(w, at, o);
+      if (st === "slam" && o.echo !== false) for (const dy of [-1, 1]) {   // ghost rows scroll past above and below
+        const g = word(layer, `${texts[0]} ${texts[0]} ${texts[0]}`, { y: y + dy * (o.rowGap || 0.16) * KH(), color: "transparent", width: 2.4, ...o });
+        g.el.style.webkitTextStroke = `3px ${col}`; g.el.style.opacity = 0;
+        tl.set(g.el, { opacity: 0.22 }, at + 0.1);
+        living(g.el, (t) => ({ x: dy * 70 * (t - at) }), "50% 50%");
+      }
+    } else if (st === "punch3d") {
+      const w = word(layer, texts[0], { y, color: col, ...o }); out.words.push(w);
+      const side = o.side || "var(--accent2, #8a5a00)";
+      w.el.style.textShadow = [...Array(14)].map((_, i) => `${i + 1}px ${i + 1}px 0 ${side}`).join(",");
+      tl.set(w.el, { opacity: 1 }, at);
+      tl.fromTo(w.el, { scale: 0.15, rotationX: 35, filter: "blur(10px)" }, { scale: 1, rotationX: 0, filter: "blur(0px)", duration: 0.28, ease: "expo.out" }, at);
+      for (let i = 1; i <= 2; i++) {   // echo trail: copies that lag behind and fade
+        const e = word(layer, texts[0], { y, color: acc, ...o }); e.el.style.zIndex = -i;
+        tl.fromTo(e.el, { opacity: 0.5 / i, scale: 0.15 }, { opacity: 0, scale: 1 + 0.12 * i, duration: 0.28 + 0.08 * i, ease: "expo.out", ...NI }, at + 0.03 * i);
+      }
+      alive(w.el, at + 0.28);
+    } else {   // stack [kicker, word] · split [small, big] · pair [line1, line2]
+      const a = word(layer, texts[0], { y: y - 0.09 * KH(), color: st === "stack" ? acc : col, width: st === "pair" ? 0.8 : 0.5, ...o });
+      const b = word(layer, texts[1] || "", { y: y + (st === "stack" ? 0.04 : 0.07) * KH(), color: col, width: st === "pair" ? 0.8 : 0.9, ...o });
+      out.words.push(a, b);
+      if (st === "pair") {
+        tl.set([a.el, b.el], { opacity: 1 }, at);
+        tl.fromTo(a.el, { x: -KW() }, { x: 0, duration: 0.24, ease: "expo.out" }, at);
+        tl.fromTo(b.el, { x: KW() }, { x: 0, duration: 0.24, ease: "expo.out" }, at + sec);
+        alive(a.el, at + 0.24); alive(b.el, at + sec + 0.24);
+      } else {
+        land(a, at, { from: 1.3 });
+        tl.set(b.el, { opacity: 1 }, at + sec);
+        tl.fromTo(b.el, { x: st === "split" ? KW() : 0, scale: st === "split" ? 1 : 1.8 }, { x: 0, scale: 1, duration: 0.2, ease: "expo.out" }, at + sec);
+        alive(b.el, at + sec + 0.2);
+        if (st === "stack") { const bar = box(layer, { left: "8%", width: "84%", top: y - 0.035 * KH() + "px", height: "14px", background: acc, transformOrigin: "0 50%" }); tl.fromTo(bar, { scaleX: 0 }, { scaleX: 1, duration: 0.2, ease: "expo.out" }, at + sec); }
+      }
+    }
+    const fx = o.fx || (st === "cut" ? "beat" : "hit"), hitT = st === "stack" || st === "split" || st === "pair" ? at + sec : at;
+    if (fx === "punch") FX.hitFx(tl, layer, hitT, { big: o.big, sfx: o.sfx });
+    else if (fx === "hit") FX.hitFx(tl, layer, hitT, { rays: false, ring: false, sfx: o.sfx || "hit", amp: 10 });
+    else if (fx === "beat") { tl.fromTo(layer, { scale: 1.04 }, { scale: 1, duration: 0.15, ease: "power2.out", ...NI }, hitT); if (o.sfx !== false) FX.sfx(o.sfx || "tick", hitT); }
+    return out;
+  };
+  FX.cutRun = (tl, root, at, words, o = {}) => {   // runs of beat cuts accelerate, then a flash
+    const beats = o.beats || [1, 1, 1, 0.5, 0.5, 0.25, 0.25, 0.25], b = 60 / FX.BPM, grounds = o.grounds || ["var(--bg, #0b1020)", "var(--accent, #ffc21a)", "var(--paper, #f3eee3)"];
+    const inks = o.inks || ["var(--paper, #f3eee3)", "var(--bg, #0b1020)", "var(--bg, #0b1020)"];   // type follows the ground
+    let t = at;
+    words.forEach((w, i) => { const d = beats[Math.min(i, beats.length - 1)] * b; FX.kinetic(tl, root, t, { style: "cut", text: w, until: t + d, ground: grounds[i % grounds.length], color: inks[i % inks.length], fx: "beat" }); t += d; });
+    FX.hitFx(tl, root, t, { rays: false, ring: false, shake: false, sfx: "whoosh" });
+    return t;
+  };
+  FX.charge = (tl, root, at, dur = 0.8, o = {}) => {   // converging speed lines into a glowing point before the first hit
+    const W0 = KW(), H0 = KH(), [cx, cy] = o.at || [W0 / 2, H0 * 0.45], svg = FX.svg(root, W0, H0), r = FX.rand(o.seed || 9), col = o.color || "var(--accent, #ffc21a)";
+    svg.style.zIndex = 30; svg.style.opacity = 0;
+    tl.set(svg, { opacity: 1 }, at); tl.set(svg, { opacity: 0 }, at + dur);
+    for (let i = 0; i < (o.n || 26); i++) {
+      const a = r() * Math.PI * 2, R = 700 + r() * 600, l = FX.el(svg, "line", { x1: cx + Math.cos(a) * R, y1: cy + Math.sin(a) * R, x2: cx + Math.cos(a) * (R + 260), y2: cy + Math.sin(a) * (R + 260), stroke: col, "stroke-width": 4 + r() * 6, "stroke-linecap": "round" });
+      tl.fromTo(l, { attr: { x1: cx + Math.cos(a) * R, y1: cy + Math.sin(a) * R, x2: cx + Math.cos(a) * (R + 260), y2: cy + Math.sin(a) * (R + 260) } },
+        { attr: { x1: cx, y1: cy, x2: cx + Math.cos(a) * 40, y2: cy + Math.sin(a) * 40 }, duration: dur * (0.6 + 0.4 * r()), ease: "power2.in" }, at);
+    }
+    const dot = FX.el(svg, "circle", { cx, cy, r: 18, fill: "#fff", style: `filter: drop-shadow(0 0 30px ${col})` });
+    tl.fromTo(dot, { attr: { r: 2 } }, { attr: { r: 26 }, duration: dur, ease: "power2.in" }, at);
+    FX.sfx("riser", at);
+    return svg;
+  };
+  FX.tvOff = (tl, el, at, o = {}) => {   // squash to a glowing line, then to a point (out of a section)
+    tl.to(el, { scaleY: 0.012, filter: "brightness(3)", duration: 0.12, ease: "power3.in" }, at);
+    tl.to(el, { scaleX: 0, duration: 0.12, ease: "power3.in" }, at + 0.12);
+    if (o.sfx !== false) FX.sfx("swish", at);
+  };
+  FX.zoomLetter = (tl, wrap, letter, at, o = {}) => {   // fly through a letter's counter into what is behind it
+    const dur = o.dur || 0.45;
+    living(wrap, (t) => { const k = 1 + (o.zoom || 60) * LIFE.EASE_IN(LIFE.seg(t, at, at + dur, "inOut") ** 1.6); return { sx: k, sy: k }; },
+      () => { const a = wrap.getBoundingClientRect(), b = letter.getBoundingClientRect(), sc = a.width / (wrap.offsetWidth || 1) || 1; return [(b.left + b.width / 2 - a.left) / sc, (b.top + b.height * (o.cy ?? 0.55) - a.top) / sc]; });
+    if (o.sfx !== false) FX.sfx("whoosh", at);
+  };
+  FX.typePrompt = (tl, root, at, o = {}) => {
+    const W0 = KW(), H0 = KH(), cps = o.cps || 22, acc = o.accent || "var(--accent, #ffc21a)";
+    const push = box(root, { zIndex: 10 }), cam = box(push), panel = box(cam, { left: "7%", width: "86%", top: H0 * 0.32 + "px", height: "auto", minHeight: "260px", border: "6px solid var(--ink, #fff)", borderRadius: "28px", padding: "70px 44px 50px", boxSizing: "border-box",
+      font: "500 62px/1.25 'JetBrains Mono', 'Inter Tight', monospace", color: "var(--ink, #fff)", clipPath: "inset(0 100% 0 0)", paddingBottom: "130px" });
+    tl.to(panel, { clipPath: "inset(0 0% 0 0)", duration: 0.4, ease: "power2.inOut" }, at);
+    const lab = document.createElement("div"); lab.textContent = o.label || "BRIEF.md"; Object.assign(lab.style, { position: "absolute", top: "14px", left: "44px", font: "800 26px 'Inter Tight'", letterSpacing: ".12em", opacity: 0.7 }); panel.appendChild(lab);
+    const body = document.createElement("div"); panel.appendChild(body);
+    let t = at + 0.5;
+    const caret = document.createElement("span"); caret.textContent = "▌"; caret.style.color = acc;
+    for (const [txt, key] of o.text || [["write the brief"]]) {
+      const sp = document.createElement("span"); body.appendChild(sp);
+      const chars = [...txt].map((ch) => { const c = document.createElement("span"); c.textContent = ch; c.style.opacity = 0; sp.appendChild(c); return c; });
+      chars.forEach((c, i) => { tl.set(c, { opacity: 1 }, t + i / cps); if (i % 3 === 0) FX.sfx("typing", t + i / cps, { db: -20 }); });
+      t += chars.length / cps;
+      if (key) { Object.assign(sp.style, { borderRadius: "8px", padding: "0 6px", display: "inline-block" }); tl.fromTo(sp, { backgroundColor: "rgba(0,0,0,0)", scale: 1 }, { backgroundColor: acc, color: "var(--bg, #111)", scale: 1.12, duration: 0.18, ease: "back.out(3)" }, t); tl.to(sp, { scale: 1, duration: 0.2 }, t + 0.18); }
+    }
+    body.appendChild(caret);
+    FX.onFrame((tt) => { caret.style.opacity = tt > at + 0.5 && Math.floor(tt * 2.5) % 2 ? 0 : 1; });
+    const key = document.createElement("div"); key.textContent = "ENTER ⏎"; Object.assign(key.style, { position: "absolute", right: "30px", bottom: "22px", padding: "16px 28px", background: acc, color: "var(--bg, #111)", font: "900 34px 'Inter Tight'", borderRadius: "14px" }); panel.appendChild(key);
+    living(cam, (tt) => { const k = 1 + 0.07 * LIFE.seg(tt, at + 0.5, t, "inOut"); return { sx: k, sy: k, y: -12 * LIFE.seg(tt, at + 0.5, t, "inOut") }; }, "50% 40%");   // the camera follows the typing
+    const enter = o.enterAt ?? t + 0.6;
+    FX.zoomLetter(tl, push, key, enter - 0.45, { zoom: 40, dur: 0.45, sfx: false });   // its own layer: one writer per element
+    FX.colorFlood(tl, root, enter - 0.05, acc, { z: 70, dur: 0.12 });
+    FX.sfx("click", enter - 0.45);
+    return { el: cam, enter };
+  };
+  FX.picture = (tl, root, at, dur, o = {}) => {
+    const W0 = KW(), H0 = KH(), [fx, fy] = o.focus || [0.5, 0.45];
+    const frame = box(root, { overflow: "hidden", zIndex: 5, perspective: "1400px", display: "none" });
+    const img = document.createElement("img"); img.src = o.src;
+    Object.assign(img.style, { position: "absolute", left: 0, top: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: `${fx * 100}% ${fy * 100}%` });
+    frame.appendChild(img);
+    if (o.tint) box(frame, { background: `rgba(0,0,0,${o.tint})` });
+    tl.set(frame, { display: "block" }, at); tl.set(frame, { display: "none" }, at + dur);
+    tl.fromTo(frame, { clipPath: "polygon(0 0, 0 0, 0 100%, 0 100%)" }, { clipPath: "polygon(0 0, 100% 0, 120% 100%, 0 100%)", duration: 0.28, ease: "expo.out" }, at);
+    FX.sfx("swish", at);
+    const words = o.words || [], cuts = o.cutIns || [];
+    living(img, (t) => {   // push fast, pan, a slight 3D tilt, a punch-in on every word, hard cut-ins to details
+      const u = (t - at) / dur;
+      let k = 1.08 + 0.16 * u, x = -40 * (u - 0.5) * W0 / 1080, rot = 0;
+      for (const [wt] of words) { const d = t - wt; if (d > 0 && d < 0.5) k += 0.05 * Math.exp(-d * 8); }
+      // a cut-in scales about the detail (cx, cy) instead of the focus: shift by (c - focus)·(1 - scale)
+      for (const [ct, sc, [cx, cy], cd = 0.6] of cuts) if (t >= ct && t < ct + cd) return { sx: sc, sy: sc, x: (cx - fx) * W0 * (1 - sc), y: (cy - fy) * H0 * (1 - sc) };
+      return { sx: k, sy: k, x, rot: 0.6 * (u - 0.5) + rot };
+    }, `${fx * 100}% ${fy * 100}%`);
+    for (const [ct] of cuts) FX.sfx("hit", ct, { db: -14 });
+    words.forEach(([wt, text, color], i) => FX.kinetic(tl, frame, wt, { style: "cut", text, until: (words[i + 1] || [at + dur])[0], color: color || "#fff", y: o.y ?? H0 * 0.7, width: o.wordWidth || 0.7, fx: "beat" }));
+    if (o.weather) FX.weather(frame, { kind: o.weather === "dust" ? "snow" : o.weather, n: o.weather === "dust" ? 60 : undefined, color: o.weather === "dust" ? "rgba(255,240,210,.5)" : undefined, size: o.weather === "dust" ? 0.6 : 1, z: 8 });
+    return frame;
   };
 
   window.FX = FX;

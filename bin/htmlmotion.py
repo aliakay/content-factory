@@ -32,7 +32,32 @@ def make_bundle(spec, design):
     w, h = ASPECTS.get(spec.get("aspect", "9:16"), ASPECTS["9:16"])
     return {"palette": design["meta"].get("palette") or {}, "global_css": design.get("global_css", ""), "words": words,
             "scenes": scenes, "duration": spec["duration"], "w": w, "h": h, "captions": spec.get("captions") or {},
-            "lang": spec.get("lang", "en")}   # sets <html lang>: CSS uppercase then maps i -> İ in Turkish
+            "lang": spec.get("lang", "en"),   # sets <html lang>: CSS uppercase then maps i -> İ in Turkish
+            **beat_grid(spec)}
+
+
+def beat_grid(spec):
+    """The music's tempo and where its beats fall in the video, for FX.B(k) (kinetic type on the beat): the drop lands
+    on the drop line when the spec asks for it (audiofx.place_music), so beat 0 = the drop; otherwise the track starts
+    at 0 and beat 0 = its first beat. Measured once per music file (a .beats.json next to it)."""
+    mu = spec.get("music") or {}
+    path = os.path.join(ROOT, mu["file"]) if mu.get("file") else None
+    if not path or not os.path.exists(path):
+        return {}
+    side = path + ".beats.json"
+    try:
+        g = json.load(open(side))
+    except (OSError, ValueError):
+        try:
+            from factory import beats
+            b = beats.beats(path)
+            g = {"bpm": b["bpm"], "first": b["beats"][0] if b["beats"] else 0.0}
+            json.dump(g, open(side, "w"))
+        except Exception:
+            return {}
+    if not g.get("bpm"):
+        return {}
+    return {"bpm": g["bpm"], "beat0": round(mu["drop_at"] if mu.get("drop_at") is not None else g.get("first", 0.0), 3)}
 
 
 def write_bundle(spec, design):
@@ -79,10 +104,14 @@ def readcheck(bundle_path):
 
 
 def post_vf(fx, preview=False):
-    """Film texture after capture (a film style's post): grain, flicker, gate weave, vignette, mono / sepia. Done in
-    ffmpeg because grain drawn in the page makes every frame slow and incompressible. '' = nothing to do."""
+    """Film texture after capture (a film style's post): bloom, grain, flicker, gate weave, vignette, mono / sepia. Done
+    in ffmpeg because grain or glow drawn in the page makes every frame slow and incompressible. '' = nothing to do."""
     fx = fx or {}
     vf = []
+    if fx.get("bloom"):      # the bright parts glow: a blurred copy of the highlights screened back on (kinetic hits, neon)
+        a = min(1.0, float(fx["bloom"]))
+        vf.append(f"split[bl_a][bl_b];[bl_b]curves=all='0/0 0.62/0 1/1',gblur=sigma={10 if preview else 22}[bl_g];"
+                  f"[bl_a][bl_g]blend=all_mode=screen:all_opacity={0.25 + 0.5 * a:.2f}")
     if fx.get("mono"):
         vf.append("hue=s=0")
     if fx.get("sepia"):
@@ -136,7 +165,8 @@ def main(path, preview=False, stills=None):
     os.makedirs(out_dir, exist_ok=True)
     silent = os.path.join(ROOT, "work", "auto", name, "silent.mp4")
     cues_path = os.path.join(ROOT, "work", "auto", name, "cues.json")
-    r = _node(bundle, silent, round(total, 3), (["--opaque", "--scale=0.5"] if preview else ["--opaque"]) + ["--cues=" + cues_path],
+    blur = [] if preview or not spec.get("motion_blur") else [f"--blur={int(spec['motion_blur'])}"]   # real sub-frame blur, final only
+    r = _node(bundle, silent, round(total, 3), (["--opaque", "--scale=0.5"] if preview else ["--opaque"]) + blur + ["--cues=" + cues_path],
               15 if preview else 30)
     if r.returncode or not os.path.exists(silent):
         raise RuntimeError("html render failed: " + (r.stderr or "")[-400:])

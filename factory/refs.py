@@ -252,6 +252,8 @@ def study_motion(con):
         try:
             start, dur = motionref.window(r["duration"], jload(r["cuts"], []))
             m = motionref.study(r["path"], start, dur)
+            from . import qa
+            m["energy"] = qa.energy(r["path"])   # how much of it stands still, its holds, cuts per 10 s
         except Exception as e:  # unreadable file: mark it so the scan does not retry it forever
             m = {"verdict": f"not measured ({str(e)[:80]})"}
         con.execute("UPDATE ref_videos SET motion=? WHERE ref_id=?", (json.dumps(m), r["ref_id"]))

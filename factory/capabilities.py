@@ -69,6 +69,25 @@ CAPS = {
         "designer": "A big '#n' badge per item; one animated card per item that shows what it does (app window, terminal, "
                     "checklist, phone).",
     },
+    "story.beat_film": {
+        "area": "story", "tr": "Beat'te kinetik tanıtım filmi", "shape": True, "words": [40, 95], "seconds": [15, 50],
+        "kinds": ("topic",),
+        "what": "A launch film / teaser / promo in kinetic type on a fast beat (the viral motion-design reel): huge words on "
+                "every beat, one claim per phrase, a turn every 3-4 phrases (a denial, a gag, a number, a reveal), the "
+                "biggest visual change on the music's drop, ends on the name and holds. Music-led energy, the voice short "
+                "and punchy.",
+        "writer": "STORY SHAPE (replaces the explainer's hook/beat plan): write it as a short spoken script cut into "
+                  "phrases of 2-8 words, ONE claim each, concrete nouns and verbs (THEY STOMP., not AMAZING VISUALS); a "
+                  "turn every 3-4 phrases: a denial ('No timeline. No plugins.'), a gag, a number, a reveal; the last "
+                  "line is the name. Numbers only from the brief or a source. Write sound.music_prompt: an instrumental "
+                  "at 160-175 BPM for a teaser (120-128 for a calm brand film), 'eight bars of build, then a huge drop, "
+                  "punchy kick on every downbeat, ends on one hard final hit, no vocals'; set sound.drop_line to the turn "
+                  "line. Every scene hide_captions: true (the type on screen IS the words).",
+        "designer": "Build on the beat: FX.B(k) is beat k (beat 0 = the drop). One idea per beat or half beat with "
+                    "FX.kinetic (slam / punch3d / stack / split / pair / cut), the ground flipping colour on phrase "
+                    "changes, FX.cutRun for runs of denials, FX.charge before the first hit, the drop = the biggest change.",
+        "data": {"motion_blur": 4, "post_fx": {"bloom": 0.35, "grain": 0.25}},
+    },
     "story.hook_options": {
         "area": "story", "tr": "3 hook seçeneği", "kinds": ("topic", "talk"),
         "what": "Write 3 clearly different hooks; the creator picks one before voice credits are spent.",
@@ -277,6 +296,35 @@ CAPS = {
                     "draw every moving part as its own SVG group and give it its real pivot (stem base, hinge, hook). "
                     "Repeated items differ by FX.life.seeded(i); things on one screen breathe out of phase. Never on "
                     "captions, titles or UI chrome.",
+    },
+    "look.kinetic_type": {
+        "area": "look", "tr": "Kinetik tipografi (hiç park etmez)", "kinds": ("topic",),
+        "what": "Words as the visuals, at motion-design-reel energy: one or two words filling the frame width per beat, "
+                "letters tumbling in with ghost rows scrolling past, extruded words punching out of depth, colour flips "
+                "of the whole ground, accelerating cut runs, a zoom through a letter's hole into the next scene, a typed "
+                "prompt that pushes into Enter on the drop; nothing ever parks (measured: <= 40 % still frames, no hold "
+                "over 0.6 s). Real motion blur and bloom in the final render.",
+        "designer": "FX.kinetic(tl, root, at, {style, text, until, ground, fx}) per beat (FX.B(k)); FX.ground flips on "
+                    "phrase changes; FX.hitFx only on the biggest hits; transitions are moves (FX.whip / FX.whipIn, "
+                    "FX.zoomLetter through an O D 0 A B P R, FX.tvOff); FX.typePrompt for an input -> result moment; "
+                    "FX.picture for any picture (it pushes, pans, punches in per word, cuts in to details). After a word "
+                    "lands it keeps moving; the camera always drifts. Only the end card rests.",
+        "data": {"motion_blur": 4, "post_fx": {"bloom": 0.3}},
+    },
+    "look.picture_alive": {
+        "area": "look", "tr": "Görsel asla durmaz (push + punch-in)", "kinds": ("topic",),
+        "what": "Every picture (key art, a product shot, a screenshot, a stock photo) keeps moving: it cuts in along a "
+                "slash, pushes and pans with a slight 3D tilt, punches in on every word, hard-cuts in to a detail on a "
+                "beat and can carry rain / snow / dust over it. A picture is the easiest place for a film to park.",
+        "designer": "Show pictures with FX.picture(tl, root, at, dur, {src, words, focus, tint, cutIns, weather}); "
+                    "tint for type instead of asking an image for empty space; cut-ins above 1.7x look soft.",
+    },
+    "look.motion_blur": {
+        "area": "look", "tr": "Gerçek hareket bulanıklığı + bloom", "kinds": ("topic",),
+        "what": "The final render averages sub-frame samples into real motion blur (180° shutter, never across a cut) "
+                "and adds a soft bloom on the highlights: fast moves read as film, not as a slideshow. Costs render "
+                "time (x4), nothing else.",
+        "data": {"motion_blur": 4, "post_fx": {"bloom": 0.3}},
     },
     "look.handmade": {
         "area": "look", "tr": "El yapımı titreşim (boil) + on twos", "kinds": ("topic",),

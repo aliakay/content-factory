@@ -151,11 +151,14 @@ def summary(m):
     """One line for prompts."""
     if not m:
         return ""
+    en = m.get("energy") or {}
+    pace = (f"; pace: {round(100 * en['still_share'])} % still frames, longest hold {en['longest_hold_s']} s, "
+            f"{en['cuts_per_10s']} cuts / 10 s") if en.get("still_share") is not None else ""
     if "bob_pct" not in m:
-        return m.get("verdict", "")
+        return m.get("verdict", "") + pace
     per = f", period {m['period_s']} s" if m.get("period_s") else ""
     return (f"{m['verdict']}: bob {m['bob_pct']} %, sway {m['sway_pct']} %, squash {m['squash_pct']} %, widen "
-            f"{m['widen_pct']} % of the subject{per} (measured at {m['fps']} fps, {m['window'][0]}-{m['window'][1]} s)")
+            f"{m['widen_pct']} % of the subject{per} (measured at {m['fps']} fps, {m['window'][0]}-{m['window'][1]} s)" + pace)
 
 
 def main(argv=None):
