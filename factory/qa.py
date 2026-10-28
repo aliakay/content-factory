@@ -85,12 +85,48 @@ def frozen_time(path, threshold=0.35, fps=10):
     Target: total <= ~1 s per 30 s and no single hold > 0.6 s except the final CTA."""
     rows = media.motion_profile(path, fps=fps)
     frozen = [t for t, m, _ in rows[1:] if (m or 0) < threshold]
-    longest, run, prev = 0.0, 0.0, None
+    longest, run, prev, runs = 0.0, 0.0, None, []
     for t in frozen:
-        run = run + 1 / fps if prev is not None and abs(t - prev - 1 / fps) < 1e-6 else 1 / fps
+        if prev is not None and abs(t - prev - 1 / fps) < 1e-6:
+            run += 1 / fps
+        else:
+            run = 1 / fps
+            runs.append([round(t, 2), 0.0])
+        runs[-1][1] = round(run, 2)
         longest, prev = max(longest, run), t
     return {"frozen_s": round(len(frozen) / fps, 1), "longest_hold_s": round(longest, 1),
-            "first_frozen_at": [round(t, 1) for t in frozen[:20]]}
+            "first_frozen_at": [round(t, 1) for t in frozen[:20]], "holds": [r for r in runs if r[1] >= 0.6]}
+
+
+def energy(path, fps=None, width=180):
+    """How dynamic the motion is (the never-park measures of kinetic motion design), on small grey frames:
+    still_share   frames where under 1.5 % of the frame changes (holds)
+    holds         still stretches of 0.6 s or more [[start, seconds], ...]; longest_hold_s
+    cuts_per_10s  frames where most of the frame changes at once (hard cuts, flashes, colour flips)
+    The fastest reference reels run ~16 % still with no hold over ~0.4 s; calm brand films 23-53 %."""
+    import numpy as np
+    fps = fps or min(30.0, float(media.probe_video(path).get("fps") or 30))
+    h = int(width * 16 / 9) // 2 * 2
+    raw = subprocess.run([media.FFMPEG, "-v", "error", "-i", path, "-vf", f"fps={fps:g},scale={width}:{h}", "-f", "rawvideo",
+                          "-pix_fmt", "gray", "-"], capture_output=True, check=True).stdout
+    n = len(raw) // (width * h)
+    if n < 3:
+        return {"still_share": 0.0, "holds": [], "longest_hold_s": 0.0, "cuts_per_10s": 0.0}
+    fr = np.frombuffer(raw[: n * width * h], np.uint8).reshape(n, h, width).astype(np.int16)
+    area = (np.abs(np.diff(fr, axis=0)) > 24).mean(axis=(1, 2))
+    still = area < 0.015
+    holds, start = [], None
+    for i, v in enumerate(list(still) + [False]):
+        if v and start is None:
+            start = i
+        elif not v and start is not None:
+            if (i - start) / fps >= 0.6:
+                holds.append([round((start + 1) / fps, 2), round((i - start) / fps, 2)])
+            start = None
+    dl = np.abs(np.diff(fr.mean(axis=(1, 2))))
+    cuts = int(((area > 0.45) & ((dl > 18) | (area > 0.6))).sum())
+    return {"still_share": round(float(still.mean()), 3), "holds": holds,
+            "longest_hold_s": max((d for _, d in holds), default=0.0), "cuts_per_10s": round(cuts / (n / fps) * 10, 2)}
 
 
 def beat_frames(path, beats, total, name, extra_times=()):

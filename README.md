@@ -41,6 +41,8 @@ factory/                        the pipeline (Python package)
   discover.py     daily discovery (news + papers: arXiv, bioRxiv/medRxiv, PubMed, OpenAlex), embedding dedupe
   embed.py        text embeddings (fastembed if installed, offline fallback) for dedupe and clip search
   fxdetect.py     measured effect material per clip (horizons, motion, occlusions) for match cuts / object wipes
+  motionref.py    how a reference really moves: full-frame-rate sheets, subject bob / sway / squash in % + period, colours
+  catalog.py      the technique catalog page (Studio → Teknik kataloğu): every technique + an engine-drawn demo clip
   matte.py        subject mattes for text-behind-subject (rembg if installed)
   thumbs.py       cover / thumbnail candidates per finished video
   jobs.py         job queue: the Studio writes a row, each job runs as its own process
@@ -53,9 +55,12 @@ factory/                        the pipeline (Python package)
   accounts.py     Studio users; members can bring their own Claude + ElevenLabs accounts
   config.py       machine-specific settings (paths, host, ports) from config.env
 bin/            renderers (cinecut, stylecut, explainer, htmlmotion, talkcut), iCloud fetch, user admin, start script
-motion/         node + Playwright: HTML → video frames, research screenshots; templates/fxlib.js = the FX + 3D recipe
-                library the motion designer uses (story kit, stickman rig with acting, UI/phone kit, transitions, 3D
-                sets, sound cues); templates/talk_overlay.html = captions / hook / B-roll of talking-head edits
+motion/         node + Playwright: HTML → video frames (render.mjs --blur=N: real sub-frame motion blur), research
+                screenshots; templates/fxlib.js = the FX + 3D recipe library the motion designer uses (story kit,
+                stickman rig + illustrated FX.character with a live face, the ALIVE kit: gaze, blinks, moving holds,
+                flowing poses, idle loops by subject; the KINETIC kit: type on the beat, cut runs, zoom through a
+                letter, never-parked pictures; UI/phone kit, transitions, 3D sets, sound cues);
+                templates/talk_overlay.html = captions / hook / B-roll of talking-head edits
 data/film_styles.json  the film-style bibles (riso, ink wash, cut paper, blueprint, newsreel, swiss, cel, HUD, ...)
 radar/          Viral Radar: YouTube reference videos, scored daily (cron)
 tests/          pytest

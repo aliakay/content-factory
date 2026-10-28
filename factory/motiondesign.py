@@ -115,6 +115,28 @@ FX_DOC = """FX LIBRARY (available in every scene's JS as `FX`; deterministic, us
           man = FX.stickman(root, {x, y (feet), h, color, head, ink, face, pose, prop: "<svg markup in the right hand>"}) ·
           FX.pose(tl, man, "stand|wave|point|scared|shrug|knock|hold|crouch|cheer|sad|run", at, {dur}) · man.walk(at, dur, dx) ·
           FX.wave(tl, man, at, dur) · man.mouth("smile|grin|flat|o|frown") · FX.shake(tl, el, at, {amp, dur})
+          kid = FX.character(root, {x, y (feet), h, skin, hair, style: pigtails|bob|short|bald, hat: colour|false, shirt,
+          pants, shoes, stripes, prop}) = an ILLUSTRATED character with a live face (eye whites + sliding pupils, lids,
+          happy-squint cheek, a mouth that opens); same poses / FX.act / FX.alive as the stickman. Use it when the film
+          needs a lead people care about (a mascot, a kid, a customer); the stickman for diagrams and crowds.
+  life (drawn things that feel alive; seconds of the render clock; see ALIVE in the doctrine):
+          FX.alive(man, {look: [[t, gx, gy], ...] (-1..1), lid, amount, cheek: [[t, 0..1]], talk: [[from, to]]}) gliding
+          gaze + blinks + breathing + moving holds (+ happy squint and talking mouth on FX.character) ·
+          FX.act(man, [[t, "pose" | {sR: -90, ...}], ...]) a pose chain that FLOWS (use instead of several FX.pose; FX.wave
+          rides on it) · FX.land(man, at, {from}) · FX.hop(man, at, {h}) · FX.float(el | man, {at, out, shadow: el})
+          idle loops on any element / SVG group, pivot = CSS origin or [x, y] drawing units: FX.sway(el | [root..tip],
+          {deg, period, pivot}) · FX.breathe(el) · FX.bob(el) · FX.flicker(flame, {inner}) · FX.glow(el) · FX.spin(el,
+          {period}) · FX.drift(el, {period, span}) · FX.steam(root, {x, y}) · FX.ripples(root, {x, y, r}) ·
+          FX.weather(root, {kind: rain|snow|leaves|stars, n}) · FX.buzz(el, at, {bursts}) · FX.jiggle(el, {from, to})
+          math: FX.life.wave / loop / bell / seg / seeded / track (one move) / flow (through poses) / EASE_IO / EASE_OUT
+  kinetic (type on the beat; FX.B(k) = beat k of the music, beat 0 = the drop; see KINETIC in the doctrine):
+          FX.kinetic(tl, root, at, {style: slam|punch3d|stack|split|pair|cut, text: "WORD" | [a, b], until, ground, color,
+          y, fx: punch|hit|beat|none, big}) (fits the frame width, keeps moving after it lands) · FX.ground(tl, root, at,
+          colour) · FX.hitFx(tl, root, at, {rays, ring, flash, shake}) · FX.charge(tl, root, at, dur) · FX.cutRun(tl,
+          root, at, ["NO", "TIMELINE", ...]) (accelerating cuts + flash) · FX.tvOff(tl, el, at) · FX.zoomLetter(tl,
+          wrapEl, letterSpan, at) (fly through a letter's hole) · FX.typePrompt(tl, root, at, {label, text: [["plain "],
+          ["keyword", 1]]}) -> {enter} (the push into Enter floods the accent: the drop) · FX.picture(tl, root, at, dur,
+          {src, words: [[t, "TEXT", colour]], focus, tint, cutIns: [[t, scale, [x, y], dur]], weather: rain|snow|dust})
   story kit: FX.hud(root, {label: "NIGHT 1", place, times: [[t, "2:17 AM"], ...]}) (top-left clock that jumps forward) ·
           FX.rule(tl, root, at, n, "KILL THE\nBIG LIGHTS", {y}) (red RULE #N tag + condensed headline) ·
           FX.choice(tl, root, at, {q, a, b, sub}) (end question + two answer buttons + "comment below") ·
@@ -160,6 +182,23 @@ MOTION_DOCTRINE = """MOTION DOCTRINE (character-animation and motion-design craf
   rings; every scene entering the same way; everything fading and sliding up; three cards in a row; a dark void with
   small floating things and glow; a logo docked small in a corner. A character's idle breathing and overshoot are acting
   and are fine.
+- ALIVE (drawn characters, creatures and sets; method after rossark-motion-skill): never teleport (everything
+  interpolates; a face never swaps drawings without a squint or blink to hide it) · never a frozen frame while a
+  character is on screen (FX.alive: breathing, drifting limbs, a blink every 3-4 s; close 0.11 s, reopen 0.19 s) · poses
+  flow (FX.act), they never stop dead at each key · parts turn around their real pivots and the outer parts follow a
+  beat later (0.06-0.15 s at 0.3-0.6 strength) · left and right never mirror · the eyes lead, the head follows, the body
+  last; blink on a head turn · small amplitudes (breath 1-2 %, sway 1.5-4°, head tilt 3-6°) · landings squash 15-20 %
+  and keep the volume; anything in the air hangs its feet and its shadow shrinks with the height · props enter from
+  off frame already moving and the eyes follow them · one main action per scene + 2-3 idle loops, out of phase, seeded,
+  never on titles / UI · every move gets enough frames (nothing under ~0.1 s except a cut).
+- KINETIC (when the film is type on the beat; method after the scenario-kinetic-film skill): one idea per beat or
+  half beat, one or two words filling the frame width (split a phrase rather than shrink a word); one new thing per
+  beat (a word, a colour, a cut, a hit: two at once cancel out); flip the ground on phrase changes; runs of cuts
+  accelerate (1, 1, 1, ½, ½, ¼ beat, then a flash); transitions are moves (whips alternating horizontal / vertical, a
+  zoom through a letter's counter, a collapse to a point, a TV switch-off), fades only on the end card's small lines;
+  outlined words for what is not yet true, filled when it is; rays and rings only on the biggest hits; NEVER PARK: the
+  camera always drifts and a landed word keeps scaling 2-5 %/s (a draft render is measured: <= 40 % still frames, no
+  hold over 0.6 s before the end card). Here the breathing / scaling of landed type is the craft, not a banned default.
 - Every seam has a transition with a cause (3-5 kinds per film, at most a third hard cuts); every on-screen line
   holds ~0.3 s a word + 0.5 s; something meaningful changes at least every 3 s."""
 
@@ -375,6 +414,48 @@ def resolve_plates(design, d):
             sc[k] = re.sub(r"\{\{plate:([\w-]+)\}\}", lambda m: urls.get(m.group(1), own), sc[k])
 
 
+KINETIC = ("look.kinetic_type", "story.beat_film")
+
+
+def draft_qa(htmlmotion, bundle, spec, d, outdir):
+    """The measured checks the final QA would fail, run on a cheap draft render BEFORE anyone sees a preview (quarter
+    size, 15 fps, no sound, no Claude cost): flashing, frozen holds, how much of the film stands still, and the motion
+    lint of the characters. -> (blocking findings for the designer, metrics). Kinetic films are held to the never-park
+    gates (<= 40 % still frames, no hold over 0.6 s); other films to no hold over 1.2 s."""
+    from . import qa
+    os.makedirs(outdir, exist_ok=True)
+    mp4 = os.path.join(outdir, "draft.mp4")
+    total = spec["duration"]
+    r = htmlmotion._node(bundle, mp4, round(total, 3), ["--opaque", "--scale=0.25"], 15)
+    if r.returncode or not os.path.exists(mp4):
+        return [], {"error": (r.stderr or "")[-300:]}
+    kinetic = any(capabilities.has(d, k) for k in KINETIC)
+    en, fc = qa.energy(mp4, fps=15), qa.frame_checks(mp4)
+    scene_at = lambda t: next((sc["id"] for sc in spec["scenes"] if sc["start"] <= t < sc["end"]), spec["scenes"][-1]["id"])  # noqa: E731
+    out = []
+    if kinetic:   # never park: under 1.5 % of the frame changing counts as still (idle life is not enough here)
+        holds = [(t, dur) for t, dur in en["holds"] if dur > 0.6 and t < total - 1.5]   # the end card may rest
+    else:         # the same frozen-frame bar the final QA applies (qa.technical): idle life and slow pushes pass
+        fz = qa.frozen_time(mp4)
+        en["frozen_s"] = fz["frozen_s"]
+        holds = [(t, dur) for t, dur in fz["holds"] if dur > 1.2 and t < total - 1.5]
+        if fz["frozen_s"] > max(1.0, total / 30) and not holds:
+            out.append(f"P1 · whole film · {fz['frozen_s']}s near-frozen in total (final QA limit {max(1.0, total / 30):.1f}s) "
+                       f"around {fz['first_frozen_at'][:6]} s -> a slow push, idle life or a sooner cut there")
+    for t, dur in holds:
+        out.append(f"P0 · t={t}s · scene {scene_at(t)} · the frame stands still for {dur}s (limit {0.6 if kinetic else 1.2}s) "
+                   "-> keep something moving: a camera drift, the word scaling 2-5 %/s, idle life, the next beat sooner")
+    if kinetic and en["still_share"] > 0.40:
+        out.append(f"P0 · whole film · {round(100 * en['still_share'])} % of frames stand still (kinetic limit 40 %) -> "
+                   "never park: move the camera every frame, keep landed words alive, cut on more beats")
+    for t in fc["flash_windows"]:
+        out.append(f"P0 · t={t}s · scene {scene_at(t)} · more than 3 flashes in one second (photosensitivity risk) -> "
+                   "fewer white flashes / colour flips in a row, or slower ones")
+    for t in fc["broken_frames"]:
+        out.append(f"P1 · t={t}s · scene {scene_at(t)} · a frame looks broken (half drawn / corrupt) -> check that scene's JS")
+    return out, {**en, "flash_windows": fc["flash_windows"], "kinetic": kinetic}
+
+
 def build(con, p, note=""):
     """Design, check and save the motion for production `p` (mutates p['data']; the caller saves)."""
     from . import productions
@@ -398,17 +479,21 @@ def build(con, p, note=""):
     spec["name"] = f"auto-{p['prod_id']}"
     log = []
     hide = [sc["id"] for sc in spec["scenes"] if sc.get("hide_captions")]
-    for rnd in range(1, 2):   # one self-check round (a 2nd round cost ~$0.7 and rarely found anything new)
-        shutil.rmtree(shotdir, ignore_errors=True)
+    gates, energy = [], {}
+    for rnd in range(1, 3):   # self-check: round 1 always; round 2 only when a measured gate still fails (a free
+        shutil.rmtree(shotdir, ignore_errors=True)   # 2nd look cost ~$0.7 and rarely found anything new)
         bundle = htmlmotion.write_bundle(spec, design)
         times, labels = sheets.review_times(spec["scenes"])
         paths, errs, found = layoutlint.run(bundle, times, shotdir, spec.get("aspect", "9:16"), hide)
-        lint = layoutlint.as_text(found)
+        gates, energy = draft_qa(htmlmotion, bundle, spec, d, os.path.join(shotdir, "draft"))
+        if rnd > 1 and not gates and not errs:
+            break
+        lint = layoutlint.as_text(found) + [f"MEASURED ON A DRAFT RENDER (blocking): {g}" for g in gates]
         ok, fixed, m = critique(spec, d, design, review_sheets(paths, times, labels, shotdir), errs, rnd, lint)
         cost += m.get("cost_usd") or 0
-        log.append({"round": rnd, "errors": errs, "lint": lint, "ok": ok, "fixed": sorted(fixed["scenes"]),
-                    "scores": fixed.get("scores"), "notes": (fixed.get("notes") or "")[:2000]})
-        if ok and not errs:
+        log.append({"round": rnd, "errors": errs, "lint": lint, "gates": gates, "energy": energy, "ok": ok,
+                    "fixed": sorted(fixed["scenes"]), "scores": fixed.get("scores"), "notes": (fixed.get("notes") or "")[:2000]})
+        if ok and not errs and not gates:
             break
         for sid, sc in fixed["scenes"].items():
             if sid in design["scenes"] and sc.get("html"):
@@ -420,6 +505,8 @@ def build(con, p, note=""):
     shutil.rmtree(shotdir, ignore_errors=True)            # final stills of the finished design
     bundle = htmlmotion.write_bundle(spec, design)
     paths, errs, found = layoutlint.run(bundle, times, shotdir, spec.get("aspect", "9:16"), hide)
+    if log and log[-1]["fixed"]:   # measure the fixed design too, so the card shows what the preview will be
+        gates, energy = draft_qa(htmlmotion, bundle, spec, d, os.path.join(shotdir, "draft"))
     review = review_sheets(paths, times, labels, shotdir)
     rel = os.path.join("data", "auto", f"{p['prod_id']}", "design.json")
     os.makedirs(os.path.join(ROOT, os.path.dirname(rel)), exist_ok=True)
@@ -427,6 +514,7 @@ def build(con, p, note=""):
     d["motion"] = {"design": rel, "concept": design["meta"].get("concept"), "refs": design["meta"].get("refs") or [],
                    "spec": (design.get("spec") or "")[:3000], "grammar": d.get("grammar") or "auto",
                    "palette": design["meta"].get("palette"), "log": log, "errors": errs, "lint": layoutlint.as_text(found),
+                   "gates": gates, "energy": energy,
                    "cost_usd": round(cost, 2),
                    "shots": [os.path.relpath(x, os.path.join(ROOT, "work", "explainer")) for x in paths],
                    "sheets": [os.path.relpath(x, os.path.join(ROOT, "work", "explainer")) for x in review if x.endswith(".png")]}

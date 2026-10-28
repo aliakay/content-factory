@@ -15,7 +15,9 @@
     el.textContent = "";
     const parts = by === "chars" ? [...text] : text.split(/(\s+)/);
     return parts.map((p) => {
-      if (/^\s+$/.test(p)) { el.appendChild(document.createTextNode(p)); return null; }
+      // whitespace in its own (plain inline) span, never a bare text node: GSAP measures transforms in a hidden scene by
+      // re-inserting each element before its next ELEMENT sibling, which would hop a letter over a text-node space
+      if (/^\s+$/.test(p)) { const g = document.createElement("span"); g.textContent = p; el.appendChild(g); return null; }
       const s = document.createElement("span");
       s.textContent = p; s.style.display = "inline-block"; s.style.whiteSpace = "pre";
       el.appendChild(s); return s;
@@ -501,6 +503,28 @@
     run: { sL: -60, eL: -80, sR: 60, eR: 80, hL: -40, kL: 60, hR: 40, kR: 10, lean: -14, head: -6, y: -4 },
   };
   FX.POSES = POSES;
+  const rot = (el, a, x, y) => el.setAttribute("transform", `rotate(${a.toFixed(2)} ${x} ${y})`);
+  // one rig's joint values at t: base pose (FX.pose tweens, or FX.act's flow) + emotion acting (man.act) + additive
+  // layers (FX.alive idle, FX.wave, FX.land / FX.hop / FX.float) + walking; y in drawing units, x in px
+  function solve(man, walks, t) {
+    const s = man.s, a = man.act || {}, P = man.poseAt ? Object.assign({}, s, man.poseAt(t)) : s;
+    const L = {};
+    for (const f of man.layers) { const v = f(t) || {}; for (const key in v) L[key] = (L[key] || 0) + v[key]; }
+    const l = (key) => L[key] || 0;
+    let x = s.x + (a.x || 0) + l("x"), swing = 0;
+    for (const w of walks) {
+      if (t >= w.at + w.dur) x += w.dx;
+      else if (t > w.at) { const p = (t - w.at) / w.dur; x += w.dx * p; swing = Math.sin(p * w.steps * Math.PI); }
+    }
+    const lift = (a.y || 0) + l("y");
+    man._x = x; man._lift = lift;
+    return { x, y: P.y + (swing ? Math.abs(swing) * -8 : 0) + lift, lift, sq: (a.sq || 0) + l("sq"),   // squash (+) / stretch (-), volume kept, pivots at the feet
+             lean: P.lean + (a.lean ?? 0) + l("lean"), head: P.head + (a.head || 0) + l("head"),
+             hL: P.hL + l("hL") + swing * 26, kL: P.kL + l("kL") + Math.max(0, -swing) * 30,
+             hR: P.hR + l("hR") - swing * 26, kR: P.kR + l("kR") + Math.max(0, swing) * -30,
+             sL: (a.sL ?? P.sL) + l("sL") - swing * 22, eL: P.eL + l("eL"),
+             sR: (a.sR ?? P.sR) + l("sR") + swing * 22, eR: (a.eR ?? P.eR) + l("eR") };
+  }
   FX.stickman = (root, o = {}) => {
     const h = o.h || 440, k = h / 400, NS = "http://www.w3.org/2000/svg", col = o.color || "#f1f1f1", sw = (o.stroke || 13);
     const svg = document.createElementNS(NS, "svg");
@@ -518,42 +542,169 @@
     const headG = mk("g", {}, body);
     mk("circle", { cx: 0, cy: -338, r: 44, fill: o.head || col, stroke: col, "stroke-width": 4 }, headG);
     const face = {};
-    if (o.face !== false) {
+    if (o.face !== false) {   // the face turns a little with the gaze (faceG), the eyes glide and blink on their own (eyeG)
       const ink = o.ink || "#111";
-      face.eyes = [mk("circle", { cx: -14, cy: -344, r: 5.5, fill: ink }, headG), mk("circle", { cx: 14, cy: -344, r: 5.5, fill: ink }, headG)];
-      face.mouth = mk("path", { d: "M-13,-318 Q0,-312 13,-318", stroke: ink, "stroke-width": 4, fill: "none", "stroke-linecap": "round" }, headG);
+      face.g = mk("g", {}, headG); face.eyeG = mk("g", {}, face.g);
+      face.eyes = [mk("circle", { cx: -14, cy: -344, r: 5.5, fill: ink }, face.eyeG), mk("circle", { cx: 14, cy: -344, r: 5.5, fill: ink }, face.eyeG)];
+      face.mouth = mk("path", { d: "M-13,-318 Q0,-312 13,-318", stroke: ink, "stroke-width": 4, fill: "none", "stroke-linecap": "round" }, face.g);
     }
     if (o.prop) mk("g", {}, armR[1]).innerHTML = o.prop;   // optional SVG markup held in the right hand (e.g. a phone)
     const s = Object.assign({ x: 0 }, POSES[o.pose || "stand"]);
     FX._men = (FX._men || 0) + 1;
     const walks = [];
-    const man = { svg, g, s, face, k, seed: o.seed ?? FX._men * 1.7,
+    const man = { svg, g, s, face, k, seed: o.seed ?? FX._men * 1.7, layers: [], gaze: [0, 0], lid: 0,
       walk(at, dur, dx, o2 = {}) { walks.push({ at, dur, dx, steps: o2.steps || Math.max(2, Math.round(dur * 2.2)) }); },
       mouth(kind) { if (!face.mouth) return; face.mouth.setAttribute("d", { smile: "M-15,-322 Q0,-306 15,-322", grin: "M-20,-324 Q0,-298 20,-324 Z", flat: "M-13,-318 L13,-318", o: "M-6,-318 a6,7 0 1,0 12,0 a6,7 0 1,0 -12,0", frown: "M-13,-312 Q0,-322 13,-312" }[kind] || kind); },
     };
-    const rot = (el, a, x, y) => el.setAttribute("transform", `rotate(${a.toFixed(2)} ${x} ${y})`);
     FX.onFrame((t0) => {
       const t = o.twos ? Math.floor(t0 * 12) / 12 : t0;   // characters on twos (12 fps), camera stays smooth
-      const a = man.act || {};
-      let x = s.x + (a.x || 0), swing = 0;
-      for (const w of walks) {
-        if (t >= w.at + w.dur) x += w.dx;
-        else if (t > w.at) { const p = (t - w.at) / w.dur; x += w.dx * p; swing = Math.sin(p * w.steps * Math.PI); }
+      const R = solve(man, walks, t);
+      g.setAttribute("transform", `translate(${(R.x / k).toFixed(1)} ${R.y.toFixed(1)}) scale(${(1 + R.sq * 0.6).toFixed(3)} ${(1 - R.sq).toFixed(3)})`);
+      body.setAttribute("transform", `rotate(${R.lean.toFixed(2)} 0 -170)`);
+      rot(legL[0], R.hL, 0, -170); rot(legL[1], R.kL, 0, -85);
+      rot(legR[0], R.hR, 0, -170); rot(legR[1], R.kR, 0, -85);
+      rot(armL[0], R.sL, 0, -285); rot(armL[1], R.eL, 0, -215);
+      rot(armR[0], R.sR, 0, -285); rot(armR[1], R.eR, 0, -215);
+      rot(headG, R.head, 0, -300);
+      if (face.eyeG) {   // gaze -1..1 slides the eyes (they lead) and the face a little; lid 0..1 closes them at their middle
+        const [gx, gy] = man.gaze, sy = 1 - 0.9 * Math.min(1, Math.max(0, man.lid));
+        face.g.setAttribute("transform", `translate(${(4 * gx).toFixed(2)} ${(2 * gy).toFixed(2)})`);
+        face.eyeG.setAttribute("transform", `translate(${(5 * gx).toFixed(2)} ${(3 * gy - 344 * (1 - sy)).toFixed(2)}) scale(1 ${sy.toFixed(3)})`);
       }
-      const bob = swing ? Math.abs(swing) * -8 : 0;
-      const sq = a.sq || 0;   // squash (+) / stretch (-), volume kept, pivots at the feet
-      g.setAttribute("transform", `translate(${(x / k).toFixed(1)} ${(s.y + bob + (a.y || 0)).toFixed(1)}) scale(${(1 + sq * 0.6).toFixed(3)} ${(1 - sq).toFixed(3)})`);
-      body.setAttribute("transform", `rotate(${(s.lean + (a.lean ?? 0)).toFixed(2)} 0 -170)`);
-      rot(legL[0], s.hL + swing * 26, 0, -170); rot(legL[1], s.kL + Math.max(0, -swing) * 30, 0, -85);
-      rot(legR[0], s.hR - swing * 26, 0, -170); rot(legR[1], s.kR + Math.max(0, swing) * -30, 0, -85);
-      rot(armL[0], (a.sL ?? s.sL) - swing * 22, 0, -285); rot(armL[1], s.eL, 0, -215);
-      rot(armR[0], (a.sR ?? s.sR) + swing * 22, 0, -285); rot(armR[1], a.eR ?? s.eR, 0, -215);
-      rot(headG, s.head + (a.head || 0), 0, -300);
     });
+    (FX._cast = FX._cast || []).push({ man, scene: FX._scene });   // motion lint: a character with no idle life is frozen
     return man;
   };
-  FX.pose = (tl, man, pose, at, o = {}) => { const p = typeof pose === "string" ? POSES[pose] : pose; if (p) tl.to(man.s, { ...p, duration: o.dur || 0.35, ease: o.ease || "power2.inOut" }, at); };
-  FX.wave = (tl, man, at, dur = 1.2, arm = "eR") => { const n = Math.max(2, Math.round(dur / 0.3)); for (let i = 0; i < n; i++) tl.to(man.s, { [arm]: i % 2 ? -25 : -60, duration: dur / n, ease: "sine.inOut" }, at + (i * dur) / n); };
+  /* ---- an illustrated character (SVG puppet) with a LIVE face, for scenes that need more than a stickman: eye whites
+     with pupils that slide (clipped), skin lids and a happy-squint cheek that rise over them (clipped 2 units larger than
+     the white, so a closed eye never shows a ring), a mouth that opens and closes (never swapped), hair, optional hat,
+     shirt + overalls, hands, boots and a floor shadow that shrinks as it leaves the ground. Same joints and poses as
+     FX.stickman, so FX.pose / FX.act / FX.wave / FX.alive / FX.land / FX.hop / FX.float / man.walk all drive it.
+     const kid = FX.character(root, {x: 540, y: 1500, h: 520, skin: "#c98a5e", hair: "#2b1a12", style: "pigtails" | "bob" |
+       "short" | "bald", hat: "#f4a6b8" | false, shirt: "#e8645a", pants: "#3d6fd6", shoes: "#3f9a55", stripes: true})
+     Face channels (FX.alive sets them): kid.gaze [-1..1, -1..1], kid.lid 0..1, kid.cheek 0..1, kid.mouth 0..1. ---- */
+  FX.character = (root, o = {}) => {
+    const h = o.h || 440, k = h / 400, NS = "http://www.w3.org/2000/svg", id = "fxc" + ((FX._men = (FX._men || 0) + 1));
+    const C = Object.assign({ skin: "#c98a5e", hair: "#2b1a12", shirt: "#e8645a", pants: "#3d6fd6", shoes: "#3f9a55", ink: "#1e1414",
+                              white: "#ffffff", mouth: "#6b2222", blush: "#ff7a7a", hat: false, style: "bob" }, o);
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("width", 320 * k); svg.setAttribute("height", 500 * k); svg.setAttribute("viewBox", "-160 -470 320 500");
+    Object.assign(svg.style, { position: "absolute", left: (o.x ?? 540) - 160 * k + "px", top: (o.y ?? 1500) - 470 * k + "px", overflow: "visible", zIndex: o.z || 5 });
+    root.appendChild(svg);
+    const mk = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const [a, v] of Object.entries(attrs)) e.setAttribute(a, v); (parent || svg).appendChild(e); return e; };
+    const pill = (cx, cy, w, hh) => { const r = Math.min(w, hh) / 2, x = cx - w / 2, y = cy - hh / 2; return `M${x + r} ${y}H${x + w - r}A${r} ${r} 0 0 1 ${x + w} ${y + r}V${y + hh - r}A${r} ${r} 0 0 1 ${x + w - r} ${y + hh}H${x + r}A${r} ${r} 0 0 1 ${x} ${y + hh - r}V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}Z`; };
+    const defs = mk("defs", {});
+    const shadow = mk("ellipse", { cx: 0, cy: 2, rx: 78, ry: 13, fill: o.shadow || "rgba(0,0,0,.16)" });
+    const g = mk("g", {}), body = mk("g", {}, g);
+    const neck = [0, -206], hip = -112;
+    // back hair turns with the head but sits behind the body
+    const back = mk("g", {}, body);
+    if (C.style === "bob" || C.style === "pigtails") mk("ellipse", { cx: 0, cy: -282, rx: 94, ry: 88, fill: C.hair }, back);
+    if (C.style === "pigtails") for (const sx of [-1, 1]) { mk("circle", { cx: 100 * sx, cy: -238, r: 27, fill: C.hair }, back); mk("circle", { cx: 84 * sx, cy: -254, r: 8, fill: C.shirt }, back); }
+    if (C.style === "short") mk("ellipse", { cx: 0, cy: -298, rx: 86, ry: 80, fill: C.hair }, back);
+    // legs (thigh + shin with a boot) from the hips
+    const leg = (x) => {
+      const a = mk("g", {}, body);
+      mk("line", { x1: x, y1: hip, x2: x, y2: hip + 54, stroke: C.skin, "stroke-width": 22, "stroke-linecap": "round" }, a);
+      const b = mk("g", {}, a);
+      mk("line", { x1: x, y1: hip + 54, x2: x, y2: hip + 98, stroke: C.skin, "stroke-width": 21, "stroke-linecap": "round" }, b);
+      mk("path", { d: `M${x - 15},${hip + 82} h30 v14 q0,10 -10,10 h-24 q-12,0 -12,-10 q0,-8 10,-8 Z`, fill: C.shoes }, b);
+      return [a, b, x];
+    };
+    const legL = leg(-20), legR = leg(20);
+    // torso: shirt, overall bib + shorts, straps, buttons
+    const torso = mk("g", {}, body);
+    mk("path", { d: "M-50,-196 Q-52,-206 -40,-208 H40 Q52,-206 50,-196 L46,-104 Q46,-96 38,-96 H-38 Q-46,-96 -46,-104 Z", fill: C.shirt }, torso);
+    if (o.stripes !== false) for (const y of [-186, -170, -154, -138, -122]) mk("rect", { x: -48, y, width: 96, height: 5, fill: "rgba(255,255,255,.35)" }, torso);
+    mk("path", { d: `M-34,-160 H34 V-112 H52 Q54,-84 30,-80 H-30 Q-54,-84 -52,-112 H-34 Z`, fill: C.pants }, torso);
+    for (const sx of [-1, 1]) { mk("line", { x1: 30 * sx, y1: -158, x2: 40 * sx, y2: -204, stroke: C.pants, "stroke-width": 9, "stroke-linecap": "round" }, torso); mk("circle", { cx: 26 * sx, cy: -150, r: 4.5, fill: "#f5d36b" }, torso); }
+    mk("rect", { x: -14, y: -140, width: 28, height: 18, rx: 4, fill: "rgba(0,0,0,.12)" }, torso);
+    // arms: sleeve, forearm, hand
+    const arm = (x) => {
+      const a = mk("g", {}, body);
+      mk("line", { x1: x, y1: -192, x2: x, y2: -148, stroke: C.shirt, "stroke-width": 19, "stroke-linecap": "round" }, a);
+      const b = mk("g", {}, a);
+      mk("line", { x1: x, y1: -148, x2: x, y2: -110, stroke: C.skin, "stroke-width": 15, "stroke-linecap": "round" }, b);
+      mk("circle", { cx: x, cy: -104, r: 12.5, fill: C.skin }, b);
+      return [a, b, x];
+    };
+    const armL = arm(-46), armR = arm(46);
+    if (o.prop) mk("g", {}, armR[1]).innerHTML = o.prop;   // optional SVG markup in the right hand (around (46, -104))
+    // head
+    const headG = mk("g", {}, body);
+    mk("rect", { x: -13, y: -222, width: 26, height: 22, fill: C.skin }, headG);
+    for (const sx of [-1, 1]) mk("circle", { cx: 80 * sx, cy: -274, r: 15, fill: C.skin }, headG);
+    mk("ellipse", { cx: 0, cy: -280, rx: 82, ry: 76, fill: C.skin }, headG);
+    const faceG = mk("g", {}, headG), eyes = [];
+    for (const sx of [-1, 1]) {
+      const cx = 31 * sx, cy = -282, w = 34, hh = 44, cid = `${id}e${sx > 0 ? "R" : "L"}`;
+      const c1 = mk("clipPath", { id: cid }, defs); mk("path", { d: pill(cx, cy, w, hh) }, c1);
+      const c2 = mk("clipPath", { id: cid + "s" }, defs); mk("path", { d: pill(cx, cy, w + 2, hh + 2) }, c2);
+      mk("path", { d: pill(cx, cy, w, hh), fill: C.white }, faceG);
+      const inner = mk("g", { "clip-path": `url(#${cid})` }, faceG);
+      const pupil = mk("g", {}, inner);
+      mk("rect", { x: cx - 9, y: cy - hh / 2 + 11, width: 18, height: 25, rx: 9, fill: C.ink }, pupil);
+      mk("circle", { cx: cx - 3, cy: cy - hh / 2 + 18, r: 4.2, fill: C.white }, pupil);
+      const skinG = mk("g", { "clip-path": `url(#${cid}s)` }, faceG);
+      const lid = mk("rect", { x: cx - w / 2 - 2, y: cy - hh / 2 - 2, width: w + 4, height: 0, fill: C.skin }, skinG);
+      const lash = mk("line", { x1: cx - w / 2 - 2, x2: cx + w / 2 + 2, y1: 0, y2: 0, stroke: C.ink, "stroke-width": 3.5, "stroke-opacity": 0 }, skinG);
+      const cheek = mk("rect", { x: cx - w / 2 - 2, y: cy + hh / 2 + 2, width: w + 4, height: 0, fill: C.skin }, skinG);
+      const closed = mk("path", { d: `M${cx - sx * w * 0.4} ${cy + 2}H${cx + sx * w * 0.12}Q${cx + sx * w * 0.34} ${cy + 2} ${cx + sx * w * 0.4} ${cy + 2 + hh * 0.16}`, stroke: C.ink, "stroke-width": 5, "stroke-linecap": "round", fill: "none", "stroke-opacity": 0 }, faceG);
+      const happy = mk("path", { d: `M${cx - w * 0.42} ${cy + 4}Q${cx} ${cy - hh * 0.5} ${cx + w * 0.42} ${cy + 4}`, stroke: C.ink, "stroke-width": 5, "stroke-linecap": "round", fill: "none", "stroke-opacity": 0 }, faceG);
+      eyes.push({ cx, cy, w, hh, pupil, lid, lash, cheek, closed, happy });
+    }
+    for (const sx of [-1, 1]) mk("ellipse", { cx: 54 * sx, cy: -248, rx: 14, ry: 8, fill: C.blush, opacity: 0.45 }, faceG);
+    mk("path", { d: "M-6,-258 Q0,-252 6,-258", stroke: "rgba(0,0,0,.28)", "stroke-width": 4, fill: "none", "stroke-linecap": "round" }, faceG);
+    const mouth = mk("path", { fill: C.mouth, stroke: C.mouth, "stroke-width": 4.5, "stroke-linejoin": "round" }, faceG);
+    // front hair over the forehead, then the hat
+    if (C.style !== "bald") mk("path", { d: C.style === "short" ? "M-84,-292 Q-80,-370 0,-366 Q80,-370 84,-292 Q70,-326 40,-322 Q10,-342 -20,-322 Q-60,-332 -84,-292 Z"
+      : "M-86,-284 Q-84,-372 0,-368 Q84,-372 86,-284 Q64,-330 30,-318 Q0,-340 -30,-318 Q-64,-330 -86,-284 Z", fill: C.hair }, headG);
+    if (C.hat) {
+      mk("path", { d: "M-70,-338 Q-70,-424 0,-424 Q70,-424 70,-338 Z", fill: C.hat }, headG);
+      mk("rect", { x: -70, y: -356, width: 140, height: 14, fill: "rgba(255,255,255,.55)" }, headG);
+      mk("ellipse", { cx: 0, cy: -338, rx: 124, ry: 22, fill: C.hat }, headG);
+      mk("circle", { cx: 42, cy: -350, r: 9, fill: "#fff" }, headG); mk("circle", { cx: 42, cy: -350, r: 4, fill: "#f5c542" }, headG);
+    }
+    const s = Object.assign({ x: 0 }, POSES[o.pose || "stand"]);
+    const walks = [];
+    const man = { svg, g, s, k, face: {}, seed: o.seed ?? FX._men * 1.7, layers: [], gaze: [0, 0], lid: 0, cheek: 0, mouth: 0, rig: "character",
+      walk(at, dur, dx, o2 = {}) { walks.push({ at, dur, dx, steps: o2.steps || Math.max(2, Math.round(dur * 2.2)) }); },
+      mouthShape() {} };
+    FX.onFrame((t0) => {
+      const t = o.twos ? Math.floor(t0 * 12) / 12 : t0;
+      const R = solve(man, walks, t);
+      g.setAttribute("transform", `translate(${(R.x / k).toFixed(1)} ${R.y.toFixed(1)}) scale(${(1 + R.sq * 0.6).toFixed(3)} ${(1 - R.sq).toFixed(3)})`);
+      const up = Math.max(0, -R.lift), sh = Math.max(0.35, 1 - up / 520);
+      shadow.setAttribute("transform", `translate(${(R.x / k).toFixed(1)} 0) scale(${sh.toFixed(3)})`);
+      body.setAttribute("transform", `rotate(${R.lean.toFixed(2)} 0 ${hip})`);
+      rot(legL[0], R.hL, legL[2], hip); rot(legL[1], R.kL, legL[2], hip + 54);
+      rot(legR[0], R.hR, legR[2], hip); rot(legR[1], R.kR, legR[2], hip + 54);
+      rot(armL[0], R.sL, armL[2], -192); rot(armL[1], R.eL, armL[2], -148);
+      rot(armR[0], R.sR, armR[2], -192); rot(armR[1], R.eR, armR[2], -148);
+      rot(headG, R.head, ...neck); rot(back, R.head, ...neck);
+      const [gx, gy] = man.gaze, lid = Math.min(1, Math.max(0, man.lid)), ch = Math.min(1, Math.max(0, man.cheek)), m = Math.max(0, man.mouth);
+      faceG.setAttribute("transform", `translate(${(3 * gx).toFixed(2)} ${(2 * gy).toFixed(2)})`);
+      for (const e of eyes) {
+        const H = e.hh + 4, y = e.cy - e.hh / 2 - 2 + lid * H;
+        e.pupil.setAttribute("transform", `translate(${(7 * gx).toFixed(2)} ${(6 * gy).toFixed(2)})`);
+        e.lid.setAttribute("height", (lid * H).toFixed(2));
+        e.lash.setAttribute("y1", y.toFixed(2)); e.lash.setAttribute("y2", y.toFixed(2));
+        e.lash.setAttribute("stroke-opacity", (Math.min(1, lid / 0.06) * Math.min(1, Math.max(0, (0.95 - lid) / 0.08))).toFixed(3));
+        e.closed.setAttribute("stroke-opacity", Math.min(1, Math.max(0, (lid - 0.88) / 0.12)).toFixed(3));
+        e.cheek.setAttribute("y", (e.cy + e.hh / 2 + 2 - ch * H).toFixed(2)); e.cheek.setAttribute("height", (ch * H).toFixed(2));
+        e.happy.setAttribute("stroke-opacity", Math.min(1, Math.max(0, (ch - 0.86) / 0.14)).toFixed(3));
+      }
+      const wd = 15 + 3 * ch, smile = 5 + 3 * ch;   // the mouth opens downward from a smile line
+      mouth.setAttribute("d", `M${-wd},-238 Q0,${-238 + smile} ${wd},-238 Q0,${(-238 + smile + 1 + 26 * m).toFixed(2)} ${-wd},-238 Z`);
+    });
+    (FX._cast = FX._cast || []).push({ man, scene: FX._scene });
+    return man;
+  };
+  FX.pose = (tl, man, pose, at, o = {}) => { man.poses = (man.poses || 0) + 1; const p = typeof pose === "string" ? POSES[pose] : pose; if (p) tl.to(man.s, { ...p, duration: o.dur || 0.35, ease: o.ease || "power2.inOut" }, at); };
+  FX.wave = (tl, man, at, dur = 1.2, arm = "eR") => {   // an accent layer (forearm swings 35° per 0.6 s), so it also rides FX.act
+    const per = dur / Math.max(1, Math.round(dur / 0.6));
+    man.layers.push((t) => (t > at && t < at + dur ? { [arm]: -17.5 * (1 - Math.cos((2 * Math.PI * (t - at)) / per)) } : {}));
+  };
 
   /* ---- story HUD + cards (stickman stories, rule-based horror, part-2 hooks) ---- */
   // a small clock in the top-left: label (NIGHT 1), the time (jumps forward), the place. times: [[at, "2:17 AM"], ...]
@@ -732,6 +883,7 @@
     const tag = document.createElement("div");
     Object.assign(tag.style, { position: "absolute", font: "900 64px 'Inter Tight'", color: o.emoteColor || "#fff", opacity: 0, zIndex: 31, pointerEvents: "none", textShadow: "0 4px 18px rgba(0,0,0,.45)" });
     man.svg.parentNode.appendChild(tag);
+    man.live = true;
     const base = Object.assign({}, man.s), beat = 60 / FX.BPM;
     FX.onFrame((t) => {
       let cur = keys[0], idx = 0;
@@ -813,5 +965,502 @@
     set.look(o.camera || [0, 1.6, 6], o.target || [0, 1.2, 0]);
     return set;
   };
+
+  /* ---- LIFE: drawn things that feel alive, never a slideshow (method after rossark-motion-skill, MIT: one clock, parts
+     turn around their real pivots, trailing parts follow a beat later, idle life that never stops, smooth paths through
+     key poses, small amplitudes, strong curves, nothing random per frame). Times are seconds of the render clock.
+     Math: L = FX.life · L.wave(t, period, phase) -1..1 · L.loop(t, period, phase) 0..1 · L.bell(p) fade in+out over a
+     loop · L.seg(t, a, b) 0..1 inside one beat · L.seeded(i, salt) stable variety · L.track(t, [[s, v, "out"?], ...])
+     eases into EVERY key (one move: a blink, a lid, a door) · L.flow(t, [[s, v], ...]) passes through key poses with a
+     continuous speed and never overshoots (acting) · L.EASE_IO / L.EASE_OUT / L.EASE_IN. ---- */
+  const bezier = (x1, y1, x2, y2) => {
+    const B = (a, b, u) => 3 * a * u * (1 - u) ** 2 + 3 * b * u * u * (1 - u) + u ** 3;
+    return (x) => { if (x <= 0) return 0; if (x >= 1) return 1; let lo = 0, hi = 1, u = x; for (let i = 0; i < 24; i++) { u = (lo + hi) / 2; if (B(x1, x2, u) < x) lo = u; else hi = u; } return B(y1, y2, u); };
+  };
+  const LIFE = FX.life = {
+    EASE_IO: bezier(0.77, 0, 0.175, 1),   // things that travel: gaze, sway, a door, a lid closing
+    EASE_OUT: bezier(0.23, 1, 0.32, 1),   // things that open or arrive: a mouth, a lid reopening, a prop appearing
+    EASE_IN: bezier(0.55, 0, 1, 0.45),    // only things leaving or falling away
+    wave: (t, period, phase = 0) => Math.sin((t / period + phase) * Math.PI * 2),
+    loop: (t, period, phase = 0) => { const p = (t / period + phase) % 1; return p < 0 ? p + 1 : p; },
+    bell: (p) => Math.sin(Math.PI * Math.min(1, Math.max(0, p))),
+    seg: (t, a, b, curve = "out") => (t <= a ? 0 : t >= b ? 1 : (curve === "out" ? LIFE.EASE_OUT : LIFE.EASE_IO)((t - a) / (b - a))),
+    seeded: (i, salt = 0) => { const x = Math.sin(i * 12.9898 + salt * 78.233) * 43758.5453; return x - Math.floor(x); },
+    track(t, keys) {
+      if (t <= keys[0][0]) return keys[0][1];
+      for (let i = 1; i < keys.length; i++) {
+        const k1 = keys[i];
+        if (t <= k1[0]) { const k0 = keys[i - 1], span = k1[0] - k0[0], p = span > 0 ? (t - k0[0]) / span : 1; return k0[1] + (k1[1] - k0[1]) * (k1[2] === "out" ? LIFE.EASE_OUT : LIFE.EASE_IO)(p); }
+      }
+      return keys[keys.length - 1][1];
+    },
+    flow(t, k) {   // monotone cubic (Fritsch-Carlson) through the keys
+      const n = k.length;
+      if (n === 1 || t <= k[0][0]) return k[0][1];
+      if (t >= k[n - 1][0]) return k[n - 1][1];
+      let i = 0;
+      while (k[i + 1][0] < t) i++;
+      const slope = (j) => (k[j + 1][1] - k[j][1]) / Math.max(1e-6, k[j + 1][0] - k[j][0]);
+      const tangent = (j) => {
+        if (j === 0 || j === n - 1) return 0;
+        const a = slope(j - 1), b = slope(j);
+        if (a * b <= 0) return 0;
+        const h0 = k[j][0] - k[j - 1][0], h1 = k[j + 1][0] - k[j][0], w0 = 2 * h1 + h0, w1 = h1 + 2 * h0;
+        return (w0 + w1) / (w0 / a + w1 / b);
+      };
+      const h = k[i + 1][0] - k[i][0], s = (t - k[i][0]) / h, s2 = s * s, s3 = s2 * s;
+      return (2 * s3 - 3 * s2 + 1) * k[i][1] + (s3 - 2 * s2 + s) * h * tangent(i) + (-2 * s3 + 3 * s2) * k[i + 1][1] + (s3 - s2) * h * tangent(i + 1);
+    },
+  };
+
+  /* One transform writer per element: every life recipe on it adds its part (x, y; rot in degrees; sx, sy multiply),
+     written as the CSS translate / rotate / scale properties, so GSAP tweens on the same element (its transform)
+     still compose with it. The pivot is solved here (not with transform-origin, which GSAP also uses): pivot = a CSS
+     origin string ("50% 100%" = the base, default) measured on the element's own box (SVG: its bbox), or [x, y] in
+     drawing units (SVG: the parent's user units, e.g. a stem's base, a hinge, a neck, a lamp's hook; HTML: px in the
+     element's box). The first recipe on an element sets its pivot. */
+  const bodies = new Map();
+  const pct = (v, size) => (/%$/.test(v) ? (parseFloat(v) / 100) * size : parseFloat(v) || 0);
+  const pivotOf = (el, pivot) => {
+    if (typeof pivot === "function") return pivot(el);
+    if (Array.isArray(pivot)) return pivot;
+    const [px, py] = String(pivot || "50% 100%").replace(/\bleft\b|\btop\b/g, "0%").replace(/\bcenter\b/g, "50%").replace(/\bright\b|\bbottom\b/g, "100%").split(/\s+/);
+    if (el instanceof SVGGraphicsElement) { const bb = el.getBBox(); return [bb.x + pct(px, bb.width), bb.y + pct(py ?? "50%", bb.height)]; }
+    return [pct(px, el.offsetWidth), pct(py ?? "50%", el.offsetHeight)];
+  };
+  const living = (el, fn, pivot) => {
+    if (!el) return el;
+    let b = bodies.get(el);
+    if (!b) {
+      b = { fns: [], pivot: null }; bodies.set(el, b);
+      const svgEl = el instanceof SVGElement && el.tagName.toLowerCase() !== "svg";
+      if (svgEl) el.style.transformBox = "view-box";
+      FX.onFrame((t) => {
+        let x = 0, y = 0, r = 0, sx = 1, sy = 1;
+        for (const f of b.fns) { const v = f(t) || {}; x += v.x || 0; y += v.y || 0; r += v.rot || 0; sx *= v.sx ?? 1; sy *= v.sy ?? 1; }
+        if (!b.pivot) { if (!el.getClientRects().length) return; b.pivot = pivotOf(el, pivot); }   // measured once, on the first frame it is laid out (a hidden scene measures 0)
+        // CSS applies translate · rotate · scale around the element's transform-origin o; turn "around the pivot p" into
+        // a translate: T = (x, y) + (p - o) - R·S·(p - o)
+        const cs = getComputedStyle(el), [ox, oy] = cs.transformOrigin.split(" ").map(parseFloat);
+        const dx = b.pivot[0] - (ox || 0), dy = b.pivot[1] - (oy || 0), c = Math.cos((r * Math.PI) / 180), sn = Math.sin((r * Math.PI) / 180);
+        const tx = x + dx - (c * sx * dx - sn * sy * dy), ty = y + dy - (sn * sx * dx + c * sy * dy);
+        el.style.translate = `${tx.toFixed(2)}px ${ty.toFixed(2)}px`; el.style.rotate = `${(r % 360).toFixed(3)}deg`; el.style.scale = `${sx.toFixed(4)} ${sy.toFixed(4)}`;
+      });
+    }
+    b.fns.push(fn);
+    return el;
+  };
+  FX.living = living;
+  const W = (t, p, ph) => LIFE.wave(t, p, ph);
+  // idle loops (seconds; amplitudes are starting points: when unsure, halve them)
+  FX.sway = (el, o = {}) => {   // plants, grass, a hanging sign, a lamp, ears, a tail: rotation around the base, 1.5-4° over 3-6 s.
+    // An array = a chain from root to tip (each part inside the previous): every part a phase later (lag), the tip moves most.
+    const els = Array.isArray(el) ? el : [el], deg = o.deg ?? 2.5, per = o.period ?? 4.2, lag = o.lag ?? 0.15, ph = o.phase ?? 0;
+    els.forEach((e, i) => living(e, (t) => ({ rot: deg * (o.grow ?? 1) ** i * W(t, per * (1 + 0.04 * i), ph - lag * i) }), o.pivot));
+    return el;
+  };
+  FX.breathe = (el, o = {}) => living(el, (t) => {   // a body / creature / bag breathing: height +1-2 % over 3-5 s, volume kept
+    const sy = 1 + (o.amp ?? 0.015) * (W(t, o.period ?? 3.4, o.phase ?? 0) + 1) / 2;
+    return { sy, sx: 1 / sy ** 0.6 };
+  }, o.pivot || "50% 100%");
+  FX.bob = (el, o = {}) => living(el, (t) => ({   // floating on water, a vehicle's body, a buoy: bob 1-4 px and rock ~2°
+    y: (o.px ?? 3) * W(t, o.period ?? 2.8, o.phase ?? 0), rot: (o.rock ?? 2) * W(t, (o.period ?? 2.8) * 1.6, (o.phase ?? 0) + 0.25),
+  }), o.pivot || "50% 50%");
+  FX.flicker = (el, o = {}) => {   // fire, a candle: lean 2-4° and stretch 3-6 % on two waves (0.7 s, 1.1 s); the inner flame on a third
+    const ph = o.phase ?? 0, a = o.amount ?? 1;
+    living(el, (t) => ({ rot: a * (2.6 * W(t, 0.7, ph) + 1.2 * W(t, 1.1, ph + 0.3)), sy: 1 + a * (0.035 * W(t, 0.7, ph + 0.2) + 0.02 * W(t, 1.1, ph + 0.6)) }), o.pivot || "50% 100%");
+    if (o.inner) living(o.inner, (t) => ({ rot: a * 1.8 * W(t, 0.53, ph + 0.5), sy: 1 + a * 0.05 * W(t, 0.53, ph + 0.1) }), o.pivot || "50% 100%");
+    return el;
+  };
+  FX.glow = (el, o = {}) => living(el, (t) => {   // a lamp's halo, a screen, a sun: grows 2-5 % over 2-4 s (never dims halfway)
+    const k = 1 + (o.amp ?? 0.035) * (W(t, o.period ?? 3, o.phase ?? 0) + 1) / 2;
+    return { sx: k, sy: k };
+  }, o.pivot || "50% 50%");
+  FX.spin = (el, o = {}) => living(el, (t) => ({ rot: (o.dir ?? 1) * 360 * (t / (o.period ?? 6) + (o.phase ?? 0)) }), o.pivot || "50% 50%");
+  // gears / fans / sun rays: linear; meshing gears turn opposite ways with periods in their tooth ratio
+  FX.drift = (el, o = {}) => living(el, (t) => ({   // clouds, far hills: a slow linear drift; layers further back drift slower
+    x: (o.dir ?? 1) * (LIFE.loop(t, o.period ?? 40, o.phase ?? 0) - 0.5) * (o.span ?? 1400),
+  }), o.pivot);
+  FX.steam = (root, o = {}) => {   // steam, smoke: 2-3 wisps rise 60-120 px, fading in and out (bell), out of phase
+    const n = o.n ?? 3, per = o.period ?? 2.6, rise = o.rise ?? 90, w = o.w ?? 26, out = [];
+    for (let i = 0; i < n; i++) {
+      const d = document.createElement("div");
+      Object.assign(d.style, { position: "absolute", left: (o.x ?? 540) - w / 2 + (i - (n - 1) / 2) * w * 0.7 + "px", top: (o.y ?? 900) - w * 2 + "px", width: w + "px", height: w * 2 + "px",
+        borderRadius: "50%", background: o.color || "rgba(255,255,255,.55)", filter: `blur(${(w / 3).toFixed(1)}px)`, opacity: 0, pointerEvents: "none", zIndex: o.z ?? 4 });
+      root.appendChild(d); out.push(d);
+      const ph = i / n + LIFE.seeded(i, o.seed ?? 3) * 0.2;
+      FX.onFrame((t) => {
+        const p = LIFE.loop(t, per, ph);
+        d.style.opacity = (LIFE.bell(p) * (o.alpha ?? 0.8)).toFixed(3);
+        d.style.translate = `${(8 * W(t, per * 1.3, ph)).toFixed(1)}px ${(-rise * p).toFixed(1)}px`;
+        d.style.scale = (1 + 0.5 * p).toFixed(3);
+      });
+    }
+    return out;
+  };
+  FX.ripples = (root, o = {}) => {   // water: rings grow 0 -> 1 and fade (bell); flat = the ellipse's height / width (the camera angle)
+    const n = o.n ?? 3, per = o.period ?? 2.4, r = o.r ?? 140, flat = o.flat ?? 0.35, out = [];
+    for (let i = 0; i < n; i++) {
+      const d = document.createElement("div");
+      Object.assign(d.style, { position: "absolute", left: (o.x ?? 540) - r + "px", top: (o.y ?? 1200) - r * flat + "px", width: 2 * r + "px", height: 2 * r * flat + "px", borderRadius: "50%",
+        border: `${o.stroke ?? 4}px solid ${o.color || "rgba(255,255,255,.7)"}`, boxSizing: "border-box", opacity: 0, pointerEvents: "none", zIndex: o.z ?? 3 });
+      root.appendChild(d); out.push(d);
+      FX.onFrame((t) => { const p = LIFE.loop(t, per, i / n); d.style.scale = (0.1 + 0.9 * p).toFixed(3); d.style.opacity = (LIFE.bell(p) * (1 - 0.4 * p)).toFixed(3); });
+    }
+    return out;
+  };
+  FX.weather = (root, o = {}) => {   // rain | snow | leaves | stars on ONE canvas: each item its own seeded phase, speed (±20 %), size, drift
+    const W0 = root.clientWidth || 1080, H0 = root.clientHeight || 1920, kind = o.kind || "snow", S = LIFE.seeded, sd = o.seed ?? 7;
+    const n = o.n ?? { rain: 140, snow: 90, leaves: 16, stars: 110 }[kind] ?? 80, per = o.period ?? { rain: 0.9, snow: 9, leaves: 7, stars: 3.5 }[kind] ?? 6;
+    const [ax, ay, aw, ah] = o.area || [0, 0, 1, kind === "stars" ? 0.55 : 1], wind = o.wind ?? (kind === "rain" ? 0.12 : 0), sz = o.size ?? 1;
+    const c = document.createElement("canvas"); c.width = W0; c.height = H0;
+    Object.assign(c.style, { position: "absolute", left: 0, top: 0, pointerEvents: "none", zIndex: o.z ?? 6 });
+    root.appendChild(c);
+    const ctx = c.getContext("2d"), col = o.color || { rain: "rgba(200,220,255,.55)", snow: "#ffffff", leaves: "#d9822b", stars: "#ffffff" }[kind];
+    FX.onFrame((t) => {
+      ctx.clearRect(0, 0, W0, H0); ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineCap = "round";
+      for (let i = 0; i < n; i++) {
+        const sp = 0.8 + S(i, sd) * 0.4, ph = S(i, sd + 3), x0 = (ax + S(i, sd + 1) * aw) * W0, s = (0.6 + S(i, sd + 2) * 0.8) * sz;
+        if (kind === "stars") {   // twinkle: a small scale and brightness dip at seeded times
+          const p = LIFE.loop(t, per * sp, ph), dip = p < 0.18 ? LIFE.bell(p / 0.18) : 0, y = (ay + S(i, sd + 4) * ah) * H0;
+          ctx.globalAlpha = 0.85 - 0.6 * dip; ctx.beginPath(); ctx.arc(x0, y, 2.2 * s * (1 - 0.35 * dip), 0, 7); ctx.fill(); continue;
+        }
+        const p = LIFE.loop(t * sp, per, ph), y = (ay * H0 - 40) + p * (ah * H0 + 80);
+        ctx.globalAlpha = 1;
+        if (kind === "rain") { const x = x0 + wind * y, len = 30 * s; ctx.lineWidth = 2.2 * s; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - wind * len, y - len); ctx.stroke(); }
+        else if (kind === "snow") { ctx.beginPath(); ctx.arc(x0 + 22 * s * W(t, 3 + 2 * S(i, sd + 5), ph), y, 3.2 * s, 0, 7); ctx.fill(); }
+        else { ctx.save(); ctx.translate(x0 + 70 * s * W(t, 4 + 2 * S(i, sd + 5), ph), y); ctx.rotate(0.8 * W(t, 2.6 + S(i, sd + 6), ph)); ctx.beginPath(); ctx.ellipse(0, 0, 14 * s, 6 * s, 0, 0, 7); ctx.fill(); ctx.restore(); }
+      }
+      ctx.globalAlpha = 1;
+    });
+    return c;
+  };
+  FX.buzz = (el, at, o = {}) => {   // a phone / alarm: bursts of ±3° (4 cycles in ~0.45 s), then a pause; nothing between bursts
+    const n = o.bursts ?? 2, gap = o.gap ?? 0.55, len = 0.45, deg = o.deg ?? 3;
+    living(el, (t) => {
+      const k = Math.floor((t - at) / (len + gap)), u = t - at - k * (len + gap);
+      return k >= 0 && k < n && u < len ? { rot: deg * Math.sin((u / len) * 8 * Math.PI) * Math.sqrt(LIFE.bell(u / len)) } : {};
+    }, o.pivot || "50% 50%");
+    if (o.sfx !== false) FX.sfx(o.sfx || "notify", at);
+    return el;
+  };
+  FX.jiggle = (el, o = {}) => {   // a box / gift / card waiting to be tapped: a quick squash-and-widen pulse (1.5-3 %) on a 0.2-0.35 s
+    // beat, the bulge leaning one side then the other; it finishes its beat after `to` (stop it for the tap's anticipation)
+    const beat = o.beat ?? 0.28, a = o.amp ?? 0.025, from = o.from ?? 0, to = o.to ?? 1e9, end = from + Math.ceil((to - from) / beat) * beat;
+    let w = o.w;
+    return living(el, (t) => {
+      if (t < from || t >= end) return {};
+      if (w == null) w = (el.getBBox ? el.getBBox().width : el.offsetWidth) || 100;
+      const k = (t - from) / beat, b = Math.sin((k % 1) * Math.PI), side = Math.floor(k) % 2 ? 1 : -1;
+      return { sy: 1 - a * b, sx: 1 + a * b, x: side * b * 0.01 * w };
+    }, o.pivot || "50% 100%");
+  };
+
+  /* Characters (works with FX.stickman; the ideas carry to anything drawn):
+     FX.alive(man, {look: [[t, gx, gy], ...], lid, amount, cheek: [[t, 0..1], ...], talk: [[from, to], ...], mouth}) ·
+       never a frozen frame: the eyes glide to each look
+       (-1..1, ~0.45 s, ease-in-out) and the head follows a beat later; blinks every 3-4 s (close 0.11 s, hold 0.04, reopen
+       0.19 s ease-out: slower than closing), now and then a double, always one on a big glance; the body breathes and
+       every limb drifts on its own period, left and right out of phase (moving holds). lid = resting lid 0..1 (tired 0.35).
+     FX.act(man, [[t, "pose" | {joint: deg}], ...], {follow, lag}) · a chain of key poses read with FLOW (no dead stop at
+       each pose, repeat a pose to hold it); forearms and shins trail their upper limb ~0.09 s, the head rights itself
+       0.11 s after the body leans. Use it instead of several FX.pose tweens.
+     FX.land(man, at, {from, hover, dur}) · hover, fall with gravity and a stretch, arms up just before contact, squash
+       ~18 % (volume kept), one small overshoot, settle. FX.hop(man, at, {h, dur}) · crouch, stretch, arc, the same squash.
+     FX.float(el | man, {at, h, out, shadow}) · levitate: rise in from well below and slow, drift a few % down and back,
+       leave rising as it fades; a man's legs hang limp; the shadow stays on the floor and shrinks with the height. */
+  FX.alive = (man, o = {}) => {
+    man.live = true;
+    const sd = man.seed || 0, amt = o.amount ?? 1, S = LIFE.seeded, glide = o.glide ?? 0.45, ph = S(sd, 11);
+    const looks = (o.look || []).slice().sort((a, b) => a[0] - b[0]).map(([t, gx, gy]) => [t, gx, gy ?? 0]);
+    const starts = [];   // where each glide starts from = the gaze at that moment
+    let cur = [0, 0];
+    looks.forEach(([t, gx, gy], i) => {
+      if (i) { const [t0, x0, y0] = looks[i - 1], s0 = starts[i - 1], p = LIFE.seg(t, t0, t0 + glide, "inOut"); cur = [s0[0] + (x0 - s0[0]) * p, s0[1] + (y0 - s0[1]) * p]; }
+      starts.push(cur);
+    });
+    const gaze = (t) => {
+      let i = -1; while (i + 1 < looks.length && looks[i + 1][0] <= t) i++;
+      if (i < 0) return [0, 0];
+      const [t0, gx, gy] = looks[i], s0 = starts[i], p = LIFE.seg(t, t0, t0 + glide, "inOut");
+      return [s0[0] + (gx - s0[0]) * p, s0[1] + (gy - s0[1]) * p];
+    };
+    const blinks = [];
+    for (let b = (o.blinkFrom ?? 0) + 0.6 + 1.6 * S(sd, 5), j = 0; b < (o.blinkTo ?? 600); j++) {
+      blinks.push(b);
+      if (S(j, sd + 7) < 0.2) blinks.push(b + 0.36);   // now and then a double blink
+      b += 3 + 1.1 * S(j, sd + 9);
+    }
+    looks.forEach(([t, gx, gy], i) => { const s0 = starts[i]; if (Math.hypot(gx - s0[0], gy - s0[1]) > 0.6) blinks.push(t - 0.02); });   // blink on a big glance
+    blinks.sort((a, b) => a - b);
+    const lidOf = (u) => (u < 0 || u > 0.34 ? 0 : u < 0.11 ? LIFE.EASE_IO(u / 0.11) : u < 0.15 ? 1 : 1 - LIFE.EASE_OUT((u - 0.15) / 0.19));
+    man.layers.push((t) => {
+      let blink = 0;
+      for (const b of blinks) { if (b > t) break; blink = Math.max(blink, lidOf(t - b)); }
+      const base = o.lid ?? 0, [gx, gy] = gaze(t), [hx] = gaze(t - 0.12);
+      man.gaze = [gx, gy]; man.lid = base + (1 - base) * blink;
+      if (o.cheek) man.cheek = LIFE.track(t, o.cheek);   // [[t, 0..1], ...] happy squint (illustrated characters)
+      let m = o.mouth ?? 0;                              // talking: syllables of ~0.18 s, each its own depth
+      for (const [a, b] of o.talk || []) if (t > a && t < b) { const k2 = (t - a) / 0.18; m = Math.max(m, (0.3 + 0.6 * S(Math.floor(k2), sd + 13)) * LIFE.bell(k2 % 1) * Math.min(1, (b - t) / 0.1)); }
+      man.mouth = m;
+      return {
+        y: -amt * 4 * (W(t, 2.6, ph) + 1) / 2,                                    // breathing, ~1 % of the height
+        lean: amt * 1.2 * W(t, 4.6, ph + 0.1),                                    // weight drifting
+        head: amt * 2 * W(t, 4.4, ph + 0.3) + 4 * hx,                             // head tilt; turns after the eyes
+        sL: amt * (3 * W(t, 3.0, ph) + 1.5 * W(t, 1.8, ph + 0.3)), sR: -amt * (3 * W(t, 3.3, ph + 0.45) + 1.5 * W(t, 2.0, ph + 0.7)),
+        eL: amt * 4 * W(t, 2.25, ph + 0.6), eR: -amt * 4 * W(t, 2.5, ph + 0.15),
+        kL: amt * 2 * (W(t, 4.6, ph + 0.1) + 1), kR: amt * 2 * (1 - W(t, 4.6, ph + 0.1)),   // the unloaded knee eases
+      };
+    });
+    return man;
+  };
+  const JOINTS = ["sL", "eL", "sR", "eR", "hL", "kL", "hR", "kR", "lean", "head", "y"];
+  FX.act = (man, keys, o = {}) => {
+    const ks = keys.slice().sort((a, b) => a[0] - b[0]).map(([t, p]) => [t, Object.assign({}, typeof p === "string" ? POSES[p] : p)]);
+    let prev = man.s;
+    for (const k of ks) { for (const j of JOINTS) if (k[1][j] == null) k[1][j] = prev[j]; prev = k[1]; }
+    const ch = {};
+    for (const j of JOINTS) ch[j] = ks.map(([t, p]) => [t, p[j]]);
+    const f = (t, j) => LIFE.flow(t, ch[j]), lag = o.lag ?? 0.09, ft = o.follow ?? 0.45;
+    man.poseAt = (t) => {
+      const P = {};
+      for (const j of JOINTS) P[j] = f(t, j);
+      P.eL += ft * (f(t - lag, "sL") - f(t, "sL")); P.eR += ft * (f(t - lag, "sR") - f(t, "sR"));   // forearms trail
+      P.kL += ft * (f(t - lag, "hL") - f(t, "hL")); P.kR += ft * (f(t - lag, "hR") - f(t, "hR"));   // shins trail
+      P.head -= ft * f(t - 0.11, "lean");                                                          // counter-motion
+      return P;
+    };
+    return man;
+  };
+  const contact = (c, amt) => (c < 0 || c > 0.9 ? 0 : amt * Math.exp(-c * 7) * Math.cos((c * 2 * Math.PI) / 0.42));   // squash, one overshoot, settle
+  FX.land = (man, at, o = {}) => {
+    const top = o.from ?? 520, hover = o.hover ?? 0.25, fall = o.dur ?? 0.5, hit = at + hover + fall;
+    man.layers.push((t) => {
+      if (t < at + hover) return { y: -top - 6 * W(t, 1.6, 0), hL: 3, hR: -3, kL: 14, kR: 4 };   // hovering: legs hang
+      if (t < hit) { const k = (t - at - hover) / fall, up = LIFE.seg(t, hit - 0.18, hit - 0.02); return { y: -top * (1 - k * k), sq: -0.08 * k, sL: 50 * up, sR: -50 * up }; }
+      const c = t - hit, out = Math.exp(-c * 5);
+      return { sq: contact(c, o.squash ?? 0.18), sL: 60 * out, sR: -60 * out };
+    });
+    if (o.sfx !== false) FX.sfx(o.sfx || "hit", hit, { db: o.db ?? -10 });
+    return man;
+  };
+  FX.hop = (man, at, o = {}) => {
+    const h = o.h ?? 70, air = o.dur ?? 0.42, crouch = 0.14;
+    man.layers.push((t) => {
+      const u = t - at;
+      if (u < 0) return {};
+      if (u < crouch) return { sq: 0.08 * LIFE.seg(u, 0, crouch, "inOut") };
+      if (u < crouch + air) { const p = (u - crouch) / air; return { y: -4 * h * p * (1 - p), sq: -0.08 * (1 - p), sL: 25 * LIFE.bell(p), sR: -25 * LIFE.bell(p) }; }
+      return { sq: contact(u - crouch - air, o.squash ?? 0.15) };
+    });
+    return man;
+  };
+  FX.float = (el, o = {}) => {
+    const isMan = !!(el && el.layers), h = o.h ?? (isMan ? 400 : 300), at = o.at ?? 0, inDur = o.dur ?? 1.1, out = o.out;
+    const lift = o.lift ?? 0.14 * h, low = o.from ?? 0.3 * h;
+    const height = (t) => lift + 0.03 * h * W(t - at, o.period ?? 2.8, 0.75) - low * (1 - LIFE.seg(t, at, at + inDur)) + (out != null ? 0.5 * h * LIFE.seg(t, out, out + 0.8, "inOut") : 0);
+    const vis = (t) => LIFE.seg(t, at, at + inDur * 0.5) * (out != null ? 1 - LIFE.seg(t, out, out + 0.8) : 1);
+    if (isMan) {
+      const k = h / 400;
+      el.layers.push((t) => ({ y: -height(t) / k, hL: 5 + 3 * W(t, 3.1, 0.2), hR: -4 + 3 * W(t, 3.7, 0.6), kL: 16 + 8 * W(t, 3.1, 0.2), kR: 6 - 6 * W(t, 3.7, 0.6),
+                                sL: 14 + 4 * W(t, 2.4, 0.1), sR: -14 - 4 * W(t, 2.7, 0.5) }));   // limp legs, one knee folded, arms a little out
+      FX.onFrame((t) => { el.svg.style.opacity = vis(t).toFixed(3); });
+    } else {
+      living(el, (t) => ({ y: -height(t) }), o.pivot || "50% 100%");
+      if (o.fade !== false) FX.onFrame((t) => { el.style.opacity = vis(t).toFixed(3); });
+    }
+    if (o.shadow) living(o.shadow, (t) => { const s = Math.max(0.3, 1 - (0.5 * Math.max(0, height(t))) / h); return { sx: s, sy: s }; }, "50% 50%");
+    return el;
+  };
+
+
+  /* ---- KINETIC: high-energy type on the beat (launch films, teasers, promos, hooks; craft after the
+     scenario-kinetic-film method): one idea per beat, one or two words that fill the frame width, the ground flips
+     colour on phrase changes, transitions are moves (whips, a zoom through a letter, a collapse to a point), runs of
+     cuts accelerate (1, 1, 1, ½, ½, ¼ beat, flash), and nothing parks: after a word lands it keeps scaling or sliding.
+     FX.B(k) = the time of beat k (FX.BPM, anchored on FX.beat0 = the music's drop when the bundle knows it).
+     FX.kinetic(tl, root, at, {style: slam | punch3d | stack | split | pair | cut, text: "WORD" | [a, b], until, ground,
+       color, accent, y, font, fx: punch | hit | beat | none, second, big, sfx}) -> {el}
+     FX.ground(tl, root, at, colour) · FX.hitFx(tl, root, at, {rays, ring, flash, shake}) · FX.charge(tl, root, at, dur)
+     FX.cutRun(tl, root, at, ["WORDS", ...], {beats: [1, 1, 1, .5, .5, .25, .25], grounds}) · FX.tvOff(tl, el, at)
+     FX.zoomLetter(tl, wrapEl, letterSpan, at, {dur}) (fly through a letter's counter: O D 0 A B P R)
+     FX.typePrompt(tl, root, at, {label, text: [["plain "], ["keyword", 1]], cps, enterAt}) (a brief typed with a caret,
+       keywords pop, then the camera pushes into Enter and the accent floods the frame: the drop)
+     FX.picture(tl, root, at, dur, {src, words: [[t, "TEXT", colour]], focus: [fx, fy], tint, weather, cutIns: [[t, scale,
+       [fx, fy], dur]]}) (a picture never parks: push, pan, slight 3D tilt, punch-in on every word, cut-ins to details) ---- */
+  FX.BPM = FX.BPM || 100; FX.beat0 = 0;
+  FX.B = (k) => FX.beat0 + (k * 60) / FX.BPM;
+  const KW = () => FX._W || 1080, KH = () => FX._H || 1920;
+  const box = (root, css) => { const d = document.createElement("div"); Object.assign(d.style, { position: "absolute", left: 0, top: 0, width: "100%", height: "100%", pointerEvents: "none" }, css || {}); root.appendChild(d); return d; };
+  const NI = { immediateRender: false };   // a tween whose start state is visible must not show before it plays
+  const word = (parent, text, o) => {
+    // a full-width row centred by layout (transforms stay free for the motion), the word in a measured inline block
+    const el = document.createElement("div"), inner = document.createElement("span");
+    Object.assign(el.style, { position: "absolute", left: 0, width: "100%", textAlign: "center", top: (o.y ?? KH() * 0.45) + "px", marginTop: "-0.45em", whiteSpace: "nowrap",
+      font: `${o.weight || 900} ${o.size || 200}px/0.9 ${o.font || "'Anton', 'Inter Tight', sans-serif"}`, textTransform: "uppercase", letterSpacing: o.track || "-0.01em",
+      color: o.color || "var(--ink, #fff)", opacity: 0 });
+    inner.style.display = "inline-block"; inner.textContent = text; el.appendChild(inner); parent.appendChild(el);
+    const spans = split(inner, "chars");
+    // fit to the frame width on the first visible frame (fonts are loaded by then), never before it is laid out
+    let fitted = false;
+    FX.onFrame(() => { if (fitted || !inner.offsetWidth) return; const want = (o.width ?? 0.86) * KW(); el.style.fontSize = Math.max(60, Math.min(o.max || 520, (parseFloat(el.style.fontSize) * want) / inner.offsetWidth)) + "px"; fitted = true; });
+    return { el, spans };
+  };
+  FX.ground = (tl, root, at, color) => { const g = box(root, { background: color, opacity: 0, zIndex: 0 }); root.prepend(g); tl.set(g, { opacity: 1 }, at); return g; };
+  FX.hitFx = (tl, root, at, o = {}) => {
+    const W0 = KW(), H0 = KH(), [cx, cy] = o.at || [W0 / 2, H0 * 0.45], col = o.color || "var(--accent, #ffc21a)";
+    if (o.rays !== false) {
+      const svg = FX.svg(root, W0, H0); svg.style.zIndex = 40; const n = o.n || 14, r = FX.rand(o.seed || 5);
+      const rays = [...Array(n)].map((_, i) => { const a = (i / n) * Math.PI * 2 + r() * 0.2, l = FX.el(svg, "line", { x1: cx + Math.cos(a) * 140, y1: cy + Math.sin(a) * 140, x2: cx + Math.cos(a) * (420 + r() * 300), y2: cy + Math.sin(a) * (420 + r() * 300), stroke: col, "stroke-width": 10, "stroke-linecap": "round", opacity: 0 }); return l; });
+      rays.forEach((l) => { const len = 600; l.style.strokeDasharray = len; tl.fromTo(l, { opacity: 1, strokeDashoffset: len }, { strokeDashoffset: -len, duration: 0.32, ease: "power3.out", ...NI }, at); tl.set(l, { opacity: 0 }, at + 0.32); });
+    }
+    if (o.ring !== false) {
+      const ring = box(root, { left: cx - 100 + "px", top: cy - 100 + "px", width: "200px", height: "200px", borderRadius: "50%", border: `10px solid ${col}`, opacity: 0, zIndex: 40, boxSizing: "border-box" });
+      tl.fromTo(ring, { opacity: 1, scale: 0.4 }, { opacity: 0, scale: 5, duration: 0.45, ease: "expo.out", ...NI }, at);
+    }
+    if (o.flash !== false) { const f = box(root, { background: o.flashColor || "#fff", opacity: 0, zIndex: 60 }); tl.fromTo(f, { opacity: 0.85 }, { opacity: 0, duration: 0.12, ease: "power2.out", ...NI }, at); }
+    if (o.shake !== false) FX.shake(tl, o.target || root.firstElementChild || root, at, { amp: o.amp || 16, dur: 0.3 });
+    if (o.sfx !== false) FX.sfx(o.sfx || (o.big ? "impact" : "hit"), at);
+  };
+  FX.kinetic = (tl, root, at, o = {}) => {
+    const st = o.style || "slam", texts = Array.isArray(o.text) ? o.text : [o.text], until = o.until ?? at + 1.2, sec = o.second ?? 0.18;
+    const layer = box(root, { zIndex: 20, display: "none" });
+    tl.set(layer, { display: "block" }, at); tl.set(layer, { display: "none" }, until);
+    if (o.ground) FX.ground(tl, layer, at, o.ground);
+    const col = o.color || "var(--ink, #fff)", acc = o.accent || "var(--accent, #ffc21a)", y = o.y ?? KH() * 0.45, out = { el: layer, words: [] };
+    const alive = (el, from) => living(el, (t) => (t > from && t < until ? { sx: 1 + 0.03 * (t - from), sy: 1 + 0.03 * (t - from) } : {}), "50% 50%");   // never park
+    const land = (w, t0, o2 = {}) => {
+      tl.set(w.el, { opacity: 1 }, t0);
+      if (o2.tumble !== false) tl.fromTo(w.spans, { opacity: 0, y: -90, rotation: (i) => (i % 2 ? 30 : -30) }, { opacity: 1, y: 0, rotation: 0, duration: 0.2, stagger: 0.018, ease: "power3.out" }, t0);
+      tl.fromTo(w.el, { scale: o2.from ?? 1.6 }, { scale: 1, duration: 0.2, ease: "expo.out" }, t0);
+      alive(w.el, t0 + 0.2);
+    };
+    if (st === "slam" || st === "cut") {
+      const w = word(layer, texts[0], { y, color: col, ...o }); out.words.push(w);
+      if (st === "cut") { tl.set(w.el, { opacity: 1 }, at); alive(w.el, at); } else land(w, at, o);
+      if (st === "slam" && o.echo !== false) for (const dy of [-1, 1]) {   // ghost rows scroll past above and below
+        const g = word(layer, `${texts[0]} ${texts[0]} ${texts[0]}`, { y: y + dy * (o.rowGap || 0.16) * KH(), color: "transparent", width: 2.4, ...o });
+        g.el.style.webkitTextStroke = `3px ${col}`; g.el.style.opacity = 0;
+        tl.set(g.el, { opacity: 0.22 }, at + 0.1);
+        living(g.el, (t) => ({ x: dy * 70 * (t - at) }), "50% 50%");
+      }
+    } else if (st === "punch3d") {
+      const w = word(layer, texts[0], { y, color: col, ...o }); out.words.push(w);
+      const side = o.side || "var(--accent2, #8a5a00)";
+      w.el.style.textShadow = [...Array(14)].map((_, i) => `${i + 1}px ${i + 1}px 0 ${side}`).join(",");
+      tl.set(w.el, { opacity: 1 }, at);
+      tl.fromTo(w.el, { scale: 0.15, rotationX: 35, filter: "blur(10px)" }, { scale: 1, rotationX: 0, filter: "blur(0px)", duration: 0.28, ease: "expo.out" }, at);
+      for (let i = 1; i <= 2; i++) {   // echo trail: copies that lag behind and fade
+        const e = word(layer, texts[0], { y, color: acc, ...o }); e.el.style.zIndex = -i;
+        tl.fromTo(e.el, { opacity: 0.5 / i, scale: 0.15 }, { opacity: 0, scale: 1 + 0.12 * i, duration: 0.28 + 0.08 * i, ease: "expo.out", ...NI }, at + 0.03 * i);
+      }
+      alive(w.el, at + 0.28);
+    } else {   // stack [kicker, word] · split [small, big] · pair [line1, line2]
+      const a = word(layer, texts[0], { y: y - 0.09 * KH(), color: st === "stack" ? acc : col, width: st === "pair" ? 0.8 : 0.5, ...o });
+      const b = word(layer, texts[1] || "", { y: y + (st === "stack" ? 0.04 : 0.07) * KH(), color: col, width: st === "pair" ? 0.8 : 0.9, ...o });
+      out.words.push(a, b);
+      if (st === "pair") {
+        tl.set([a.el, b.el], { opacity: 1 }, at);
+        tl.fromTo(a.el, { x: -KW() }, { x: 0, duration: 0.24, ease: "expo.out" }, at);
+        tl.fromTo(b.el, { x: KW() }, { x: 0, duration: 0.24, ease: "expo.out" }, at + sec);
+        alive(a.el, at + 0.24); alive(b.el, at + sec + 0.24);
+      } else {
+        land(a, at, { from: 1.3 });
+        tl.set(b.el, { opacity: 1 }, at + sec);
+        tl.fromTo(b.el, { x: st === "split" ? KW() : 0, scale: st === "split" ? 1 : 1.8 }, { x: 0, scale: 1, duration: 0.2, ease: "expo.out" }, at + sec);
+        alive(b.el, at + sec + 0.2);
+        if (st === "stack") { const bar = box(layer, { left: "8%", width: "84%", top: y - 0.035 * KH() + "px", height: "14px", background: acc, transformOrigin: "0 50%" }); tl.fromTo(bar, { scaleX: 0 }, { scaleX: 1, duration: 0.2, ease: "expo.out" }, at + sec); }
+      }
+    }
+    const fx = o.fx || (st === "cut" ? "beat" : "hit"), hitT = st === "stack" || st === "split" || st === "pair" ? at + sec : at;
+    if (fx === "punch") FX.hitFx(tl, layer, hitT, { big: o.big, sfx: o.sfx });
+    else if (fx === "hit") FX.hitFx(tl, layer, hitT, { rays: false, ring: false, sfx: o.sfx || "hit", amp: 10 });
+    else if (fx === "beat") { tl.fromTo(layer, { scale: 1.04 }, { scale: 1, duration: 0.15, ease: "power2.out", ...NI }, hitT); if (o.sfx !== false) FX.sfx(o.sfx || "tick", hitT); }
+    return out;
+  };
+  FX.cutRun = (tl, root, at, words, o = {}) => {   // runs of beat cuts accelerate, then a flash
+    const beats = o.beats || [1, 1, 1, 0.5, 0.5, 0.25, 0.25, 0.25], b = 60 / FX.BPM, grounds = o.grounds || ["var(--bg, #0b1020)", "var(--accent, #ffc21a)", "var(--paper, #f3eee3)"];
+    const inks = o.inks || ["var(--paper, #f3eee3)", "var(--bg, #0b1020)", "var(--bg, #0b1020)"];   // type follows the ground
+    let t = at;
+    words.forEach((w, i) => { const d = beats[Math.min(i, beats.length - 1)] * b; FX.kinetic(tl, root, t, { style: "cut", text: w, until: t + d, ground: grounds[i % grounds.length], color: inks[i % inks.length], fx: "beat" }); t += d; });
+    FX.hitFx(tl, root, t, { rays: false, ring: false, shake: false, sfx: "whoosh" });
+    return t;
+  };
+  FX.charge = (tl, root, at, dur = 0.8, o = {}) => {   // converging speed lines into a glowing point before the first hit
+    const W0 = KW(), H0 = KH(), [cx, cy] = o.at || [W0 / 2, H0 * 0.45], svg = FX.svg(root, W0, H0), r = FX.rand(o.seed || 9), col = o.color || "var(--accent, #ffc21a)";
+    svg.style.zIndex = 30; svg.style.opacity = 0;
+    tl.set(svg, { opacity: 1 }, at); tl.set(svg, { opacity: 0 }, at + dur);
+    for (let i = 0; i < (o.n || 26); i++) {
+      const a = r() * Math.PI * 2, R = 700 + r() * 600, l = FX.el(svg, "line", { x1: cx + Math.cos(a) * R, y1: cy + Math.sin(a) * R, x2: cx + Math.cos(a) * (R + 260), y2: cy + Math.sin(a) * (R + 260), stroke: col, "stroke-width": 4 + r() * 6, "stroke-linecap": "round" });
+      tl.fromTo(l, { attr: { x1: cx + Math.cos(a) * R, y1: cy + Math.sin(a) * R, x2: cx + Math.cos(a) * (R + 260), y2: cy + Math.sin(a) * (R + 260) } },
+        { attr: { x1: cx, y1: cy, x2: cx + Math.cos(a) * 40, y2: cy + Math.sin(a) * 40 }, duration: dur * (0.6 + 0.4 * r()), ease: "power2.in" }, at);
+    }
+    const dot = FX.el(svg, "circle", { cx, cy, r: 18, fill: "#fff", style: `filter: drop-shadow(0 0 30px ${col})` });
+    tl.fromTo(dot, { attr: { r: 2 } }, { attr: { r: 26 }, duration: dur, ease: "power2.in" }, at);
+    FX.sfx("riser", at);
+    return svg;
+  };
+  FX.tvOff = (tl, el, at, o = {}) => {   // squash to a glowing line, then to a point (out of a section)
+    tl.to(el, { scaleY: 0.012, filter: "brightness(3)", duration: 0.12, ease: "power3.in" }, at);
+    tl.to(el, { scaleX: 0, duration: 0.12, ease: "power3.in" }, at + 0.12);
+    if (o.sfx !== false) FX.sfx("swish", at);
+  };
+  FX.zoomLetter = (tl, wrap, letter, at, o = {}) => {   // fly through a letter's counter into what is behind it
+    const dur = o.dur || 0.45;
+    living(wrap, (t) => { const k = 1 + (o.zoom || 60) * LIFE.EASE_IN(LIFE.seg(t, at, at + dur, "inOut") ** 1.6); return { sx: k, sy: k }; },
+      () => { const a = wrap.getBoundingClientRect(), b = letter.getBoundingClientRect(), sc = a.width / (wrap.offsetWidth || 1) || 1; return [(b.left + b.width / 2 - a.left) / sc, (b.top + b.height * (o.cy ?? 0.55) - a.top) / sc]; });
+    if (o.sfx !== false) FX.sfx("whoosh", at);
+  };
+  FX.typePrompt = (tl, root, at, o = {}) => {
+    const W0 = KW(), H0 = KH(), cps = o.cps || 22, acc = o.accent || "var(--accent, #ffc21a)";
+    const push = box(root, { zIndex: 10 }), cam = box(push), panel = box(cam, { left: "7%", width: "86%", top: H0 * 0.32 + "px", height: "auto", minHeight: "260px", border: "6px solid var(--ink, #fff)", borderRadius: "28px", padding: "70px 44px 50px", boxSizing: "border-box",
+      font: "500 62px/1.25 'JetBrains Mono', 'Inter Tight', monospace", color: "var(--ink, #fff)", clipPath: "inset(0 100% 0 0)", paddingBottom: "130px" });
+    tl.to(panel, { clipPath: "inset(0 0% 0 0)", duration: 0.4, ease: "power2.inOut" }, at);
+    const lab = document.createElement("div"); lab.textContent = o.label || "BRIEF.md"; Object.assign(lab.style, { position: "absolute", top: "14px", left: "44px", font: "800 26px 'Inter Tight'", letterSpacing: ".12em", opacity: 0.7 }); panel.appendChild(lab);
+    const body = document.createElement("div"); panel.appendChild(body);
+    let t = at + 0.5;
+    const caret = document.createElement("span"); caret.textContent = "▌"; caret.style.color = acc;
+    for (const [txt, key] of o.text || [["write the brief"]]) {
+      const sp = document.createElement("span"); body.appendChild(sp);
+      const chars = [...txt].map((ch) => { const c = document.createElement("span"); c.textContent = ch; c.style.opacity = 0; sp.appendChild(c); return c; });
+      chars.forEach((c, i) => { tl.set(c, { opacity: 1 }, t + i / cps); if (i % 3 === 0) FX.sfx("typing", t + i / cps, { db: -20 }); });
+      t += chars.length / cps;
+      if (key) { Object.assign(sp.style, { borderRadius: "8px", padding: "0 6px", display: "inline-block" }); tl.fromTo(sp, { backgroundColor: "rgba(0,0,0,0)", scale: 1 }, { backgroundColor: acc, color: "var(--bg, #111)", scale: 1.12, duration: 0.18, ease: "back.out(3)" }, t); tl.to(sp, { scale: 1, duration: 0.2 }, t + 0.18); }
+    }
+    body.appendChild(caret);
+    FX.onFrame((tt) => { caret.style.opacity = tt > at + 0.5 && Math.floor(tt * 2.5) % 2 ? 0 : 1; });
+    const key = document.createElement("div"); key.textContent = "ENTER ⏎"; Object.assign(key.style, { position: "absolute", right: "30px", bottom: "22px", padding: "16px 28px", background: acc, color: "var(--bg, #111)", font: "900 34px 'Inter Tight'", borderRadius: "14px" }); panel.appendChild(key);
+    living(cam, (tt) => { const k = 1 + 0.07 * LIFE.seg(tt, at + 0.5, t, "inOut"); return { sx: k, sy: k, y: -12 * LIFE.seg(tt, at + 0.5, t, "inOut") }; }, "50% 40%");   // the camera follows the typing
+    const enter = o.enterAt ?? t + 0.6;
+    FX.zoomLetter(tl, push, key, enter - 0.45, { zoom: 40, dur: 0.45, sfx: false });   // its own layer: one writer per element
+    FX.colorFlood(tl, root, enter - 0.05, acc, { z: 70, dur: 0.12 });
+    FX.sfx("click", enter - 0.45);
+    return { el: cam, enter };
+  };
+  FX.picture = (tl, root, at, dur, o = {}) => {
+    const W0 = KW(), H0 = KH(), [fx, fy] = o.focus || [0.5, 0.45];
+    const frame = box(root, { overflow: "hidden", zIndex: 5, perspective: "1400px", display: "none" });
+    const img = document.createElement("img"); img.src = o.src;
+    Object.assign(img.style, { position: "absolute", left: 0, top: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: `${fx * 100}% ${fy * 100}%` });
+    frame.appendChild(img);
+    if (o.tint) box(frame, { background: `rgba(0,0,0,${o.tint})` });
+    tl.set(frame, { display: "block" }, at); tl.set(frame, { display: "none" }, at + dur);
+    tl.fromTo(frame, { clipPath: "polygon(0 0, 0 0, 0 100%, 0 100%)" }, { clipPath: "polygon(0 0, 100% 0, 120% 100%, 0 100%)", duration: 0.28, ease: "expo.out" }, at);
+    FX.sfx("swish", at);
+    const words = o.words || [], cuts = o.cutIns || [];
+    living(img, (t) => {   // push fast, pan, a slight 3D tilt, a punch-in on every word, hard cut-ins to details
+      const u = (t - at) / dur;
+      let k = 1.08 + 0.16 * u, x = -40 * (u - 0.5) * W0 / 1080, rot = 0;
+      for (const [wt] of words) { const d = t - wt; if (d > 0 && d < 0.5) k += 0.05 * Math.exp(-d * 8); }
+      // a cut-in scales about the detail (cx, cy) instead of the focus: shift by (c - focus)·(1 - scale)
+      for (const [ct, sc, [cx, cy], cd = 0.6] of cuts) if (t >= ct && t < ct + cd) return { sx: sc, sy: sc, x: (cx - fx) * W0 * (1 - sc), y: (cy - fy) * H0 * (1 - sc) };
+      return { sx: k, sy: k, x, rot: 0.6 * (u - 0.5) + rot };
+    }, `${fx * 100}% ${fy * 100}%`);
+    for (const [ct] of cuts) FX.sfx("hit", ct, { db: -14 });
+    words.forEach(([wt, text, color], i) => FX.kinetic(tl, frame, wt, { style: "cut", text, until: (words[i + 1] || [at + dur])[0], color: color || "#fff", y: o.y ?? H0 * 0.7, width: o.wordWidth || 0.7, fx: "beat" }));
+    if (o.weather) FX.weather(frame, { kind: o.weather === "dust" ? "snow" : o.weather, n: o.weather === "dust" ? 60 : undefined, color: o.weather === "dust" ? "rgba(255,240,210,.5)" : undefined, size: o.weather === "dust" ? 0.6 : 1, z: 8 });
+    return frame;
+  };
+
   window.FX = FX;
 })();

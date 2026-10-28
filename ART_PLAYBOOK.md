@@ -78,6 +78,31 @@ Status: ✅ in `bin/stylecut.py` / overlay today · 🔧 planned · 🧠 planned
   (`FX.coverStory`), glass type (`FX.glassType`), freeze frame (`FX.freezeFrame`); pull-back reveal = `FX.camera`
   `pull_out`; kinetic captions are drawn by the explainer shell.
 
+### Living drawings (`look.alive`, `look.living_world`; method after rossark-motion-skill, MIT)
+- ✅ **never a frozen frame**: `FX.alive(man)` (eyes glide and lead, blinks every 3-4 s and on big glances, breathing,
+  limbs drifting on their own periods, left and right never mirrored), `FX.act` (pose chains that flow instead of
+  stopping dead, forearms / shins / head following a beat later), `FX.land` / `FX.hop` / `FX.float` (squash with
+  volume kept, hanging feet, a shadow that shrinks with the height). The motion lint flags frozen characters and
+  pose chains that stop dead.
+- ✅ **an illustrated lead**: `FX.character` (eye whites with sliding pupils, skin lids and a happy-squint cheek clipped
+  2 units larger than the white, a mouth that opens and talks, hair styles, hat, outfit, boots); the stickman stays
+  for diagrams and crowds.
+- ✅ **the set lives**: one main action per scene plus 2-3 idle loops by subject (`FX.sway` chains, `FX.flicker`,
+  `FX.steam`, `FX.ripples`, `FX.weather`, `FX.drift`, `FX.spin`, `FX.buzz`, `FX.jiggle`, `FX.glow`, `FX.bob`).
+- ✅ **references measured, not eyeballed**: `factory/motionref.py` (amplitudes in % of the subject, the period, the
+  pace) on every reference video; the numbers reach the planner and the designer.
+
+### Kinetic type on the beat (`story.beat_film`, `look.kinetic_type`, `look.picture_alive`, `look.motion_blur`)
+- ✅ after the scenario-kinetic-film method: one idea per beat (`FX.B(k)`, beat 0 = the music's drop), frame-filling
+  words (`FX.kinetic` slam / punch3d / stack / split / pair / cut), ground flips, accelerating cut runs, charge-in
+  speed lines, zoom through a letter's counter, TV switch-off, a typed prompt that pushes into Enter on the drop,
+  pictures that never park (`FX.picture`).
+- ✅ real motion blur (`render.mjs --blur=4`, the shutter never straddles a cut) and bloom (`post_fx.bloom`) on finals.
+- ✅ **gates before the preview**: every design round renders a free draft (quarter size, 15 fps) and measures it
+  (`motiondesign.draft_qa`: holds, still share, flashes, broken frames); blocking findings go back to the designer and
+  a second round runs only if a gate still fails. Kinetic films: <= 40 % still frames, no hold over 0.6 s; others: the
+  final QA's frozen bar (no hold over 1.2 s).
+
 ### Looks
 - ✅ grades natural/film/golden/moody/vivid/mono + grain, vignette, letterbox/scope frames
 - ✅ light leak (`leak: true`); 🔧 film burn, halation.

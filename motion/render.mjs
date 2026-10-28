@@ -25,6 +25,9 @@ const shots = (flags.find((f) => f.startsWith("--shots=")) || "").slice(8).split
 const cuesOut = (flags.find((f) => f.startsWith("--cues=")) || "").slice(7);   // write the page's sound cues (window.cues)
 const lintOut = (flags.find((f) => f.startsWith("--lint=")) || "").slice(7);   // with --shots: text boxes per shot (window.lintBoxes)
 const readOut = (flags.find((f) => f.startsWith("--readcheck=")) || "").slice(12);   // visible texts every 0.2 s + motion lint
+// --blur=N: real motion blur. N sub-frame samples over a 180° shutter, averaged by ffmpeg (tmix); the window slides back
+// so it never straddles a scene cut (the last frame before a cut stays blurred, never a mix of two shots)
+const blurN = Math.max(1, Number((flags.find((f) => f.startsWith("--blur=")) || "--blur=1").slice(7)) || 1);
 const libs = cfg.chromeLibs;
 
 // ES modules don't load from file://, so serve the project root on a loopback-only port for the page
@@ -86,21 +89,28 @@ if (shots.length) {  // --shots=t1,t2: PNGs of those moments into the directory 
   await browser.close(); server.close(); process.exit(0);
 }
 
+const blurVf = blurN > 1 ? ["-vf", `tmix=frames=${blurN},select='not(mod(n+1\\,${blurN}))',setpts=PTS-STARTPTS`, "-r", String(fps)] : [];
+const cuts = blurN > 1 ? await page.evaluate(() => (typeof window.cutTimes === "function" ? window.cutTimes() : [])) : [];
 const ffmpeg = spawn(cfg.ffmpeg, [
-  "-v", "error", "-y", "-f", "image2pipe", "-framerate", String(fps), "-i", "-",
+  "-v", "error", "-y", "-f", "image2pipe", "-framerate", String(fps * blurN), "-i", "-", ...blurVf,
   ...(opaque ? ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16"]
              : ["-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le", "-alpha_bits", "8"]),
   out,
 ], { stdio: ["pipe", "inherit", "inherit"] });
 
 const t0 = Date.now();
+const shutter = 0.5 / fps;   // 180°
 for (let i = 0; i < frames; i++) {
-  await page.evaluate((t) => window.render(t), i / fps);
-  const png = await page.screenshot({ type: "png", omitBackground: !opaque });
-  if (!ffmpeg.stdin.write(png)) await new Promise((r) => ffmpeg.stdin.once("drain", r));
+  let ts = i / fps;
+  if (blurN > 1) { const c = cuts.find((x) => x > ts + 1e-6 && x <= ts + shutter); if (c !== undefined) ts = Math.max(0, c - shutter - 1e-4); }
+  for (let k = 0; k < blurN; k++) {
+    await page.evaluate((t) => window.render(t), blurN > 1 ? ts + (k * shutter) / (blurN - 1) : ts);
+    const png = await page.screenshot({ type: "png", omitBackground: !opaque });
+    if (!ffmpeg.stdin.write(png)) await new Promise((r) => ffmpeg.stdin.once("drain", r));
+  }
 }
 ffmpeg.stdin.end();
 await new Promise((r) => ffmpeg.on("close", r));
 await browser.close();
 server.close();
-console.log(`${out} · ${frames} frames · ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+console.log(`${out} · ${frames} frames${blurN > 1 ? ` · blur x${blurN}` : ""} · ${((Date.now() - t0) / 1000).toFixed(1)}s`);

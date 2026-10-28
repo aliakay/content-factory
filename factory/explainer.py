@@ -618,6 +618,8 @@ def compile_spec(con, p, fmt, vo_start):
             spec["music"]["drop_at"] = round(at("drop_line"), 3)
     if d.get("post_fx"):     # a film style's texture (grain, flicker, weave, vignette, mono), added after capture
         spec["post_fx"] = d["post_fx"]
+    if d.get("motion_blur"):  # real sub-frame motion blur in the final render (bin/htmlmotion.py, render.mjs --blur)
+        spec["motion_blur"] = int(d["motion_blur"])
     caps = dict(d.get("captions") or {})
     if d.get("cap_keys"):
         caps["keys"] = {_cap_key(w): role for role in ("key", "danger") for ln in d["cap_keys"].get(role) or []
