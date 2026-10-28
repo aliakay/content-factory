@@ -311,3 +311,26 @@ HyperFrames captions/sound/review).
   rembg is installed. Revisions re-run the decision with the note.
 - Not built yet: Blender sets (we use Three.js `FX.set3d`; needs Blender on the VM), licensed real-recording SFX
   (all effects are synthesised), lip-sync for code-drawn characters.
+
+## The director's team — research, memory, sketches, critic (2026-10-28)
+Planning is no longer one call. `planner.think` -> `factory/director.py` (Python orchestrator; agents share work only
+through the plan row, live progress in `plan.progress`, then `plan.team` with time + cost per stage):
+1. **memory** (code, `factory/memory.py`): recent recipes from `productions` (techniques, concept, notes, views from
+   `posts`), treatments picked / passed over in `plans`, dislikes from `playbook` + rejections -> overused (half of
+   the last 6, or a style / shape twice in the last 3), unexplored (spread across areas), picked / passed,
+   best / weakest, `novelty()` 0..1 per treatment. Also fed to the motion designer (`memory.designer_note`).
+2. **scout** (Sonnet + WebSearch/WebFetch): insight, misconception, sourced facts, prior art + metaphors, clichés, real
+   questions, 3 original metaphors (fiction: genre research).
+3. **art director** (`planner.draft`, Opus): request + catalogue + research + memory -> direction, benchmark, three
+   treatments that differ from each other and from memory.recent (one bold from unexplored), each with a `moment`.
+   The creator never has to say how it should look.
+4. **sketch artists** (Sonnet x3 in parallel): each writes its treatment's hook frame as a real scene with the FX kit
+   -> Chromium stills in `work/plans/<plan>/t<i>/` (+ layout check), served at `/media/plans/`.
+5. **critic** (Opus + Read): reads the frames, scores clarity / hook / novelty / feasibility / fit, recommends one,
+   writes one fix per treatment. The recommendation is applied; the creator can pick another on the card.
+The chosen treatment's frame, concept, palette and fix travel in `recipe.sketch` (designer gets its code as the
+approved style frame), the scout's research in `recipe.research` (writer re-verifies every fact). `attachments.quick`
+(composer "⚡ hızlı plan") = only memory + art director. A full plan costs ~$1-1.5 of Claude, quick ~$0.3-0.5.
+**Reasoning effort** per role: `llm.EFFORT` (e.g. art director / critic / script high, motion design xhigh, scout /
+sketch / checks medium, connector calls low); override with `CF_EFFORT_<MODULE>_<FUNCTION>` or `CF_EFFORT`; passed
+as `claude --effort`; an older CLI without the flag is detected and called without it.

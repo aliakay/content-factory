@@ -335,6 +335,7 @@ function composerHtml(c) {
       <button class="attach" data-act="attPick" data-k="series_id">${ICON.book}Seri</button>
       <button class="attach" data-act="attPick" data-k="links">${ICON.clip}Link</button>
       <button class="attach" data-act="talkPick" title="Kameraya konuştuğun ham video: Claude kurgular">🎙 Konuşma videosu</button>
+      <button class="attach ${a.quick ? "on" : ""}" data-act="quickToggle" title="Hızlı plan: araştırma, eskizler ve eleştirmen olmadan tek çağrı">${a.quick ? "⚡ hızlı plan" : "🎬 tam ekip"}</button>
       <span class="attach" style="cursor:default">📺 ${esc(c ? c.name : "kanal")}</span>
       <span class="sp"></span><span class="tiny faint" style="margin-right:6px">⌘⏎</span>
       <button class="send" data-act="plan" title="Planla">${ICON.send}</button>
@@ -371,6 +372,7 @@ ACT.attPick = async (el) => {
   el.parentElement.appendChild(pop);
   setTimeout(() => document.addEventListener("click", function off(e) { if (!pop.contains(e.target) && e.target !== el) { pop.remove(); document.removeEventListener("click", off); } }), 0);
 };
+ACT.quickToggle = () => { S.comp.att.quick = !S.comp.att.quick; if (!S.comp.att.quick) delete S.comp.att.quick; S.sig = null; route({ poll: true }); };
 ACT.talkPick = () => {
   const inp = document.createElement("input"); inp.type = "file"; inp.accept = "video/mp4,video/quicktime,.mp4,.mov,.m4v";
   inp.onchange = async () => {
@@ -403,7 +405,13 @@ ACT.plan = async () => {
   setTimeout(() => route({ poll: true }), 1500);
 };
 function planHtml(row) {
-  if (row.status === "thinking") return `<div class="plan"><div class="thinking"><span class="orb"></span><div><div style="font-weight:650">Planlayıcı düşünüyor<span class="typing"></span></div><div class="small muted">Kanalların, çekimlerin, serilerin ve fiyatlar üzerinden en iyi yolu çıkarıyor (~20-40 sn).</div></div></div></div>`;
+  if (row.status === "thinking") {
+    const pr = ((row.plan || {}).progress || []).filter((x) => x.status !== "skip");
+    const ic = { wait: "○", run: '<span class="spin"></span>', ok: "✓", fail: "✕" };
+    return `<div class="plan"><div class="thinking"><span class="orb"></span><div style="flex:1"><div style="font-weight:650">Yönetmen ekibi çalışıyor<span class="typing"></span></div>
+      ${pr.length ? `<div class="col mt8" style="gap:4px">${pr.map((x) => `<div class="row small" style="gap:8px;opacity:${x.status === "wait" ? 0.45 : 1}"><span style="width:16px;display:inline-grid;place-items:center">${ic[x.status] || ""}</span><span>${esc(x.tr)}</span>${x.detail ? `<span class="tiny muted">· ${esc(x.detail)}</span>` : ""}${x.seconds ? `<span class="tiny faint">${x.seconds} sn</span>` : ""}</div>`).join("")}</div>`
+        : `<div class="small muted">Araştırma, hafıza, 3 yaklaşım, eskizler ve eleştirmen (~2-5 dk; hızlı planda ~30 sn).</div>`}</div></div></div>`;
+  }
   if (row.status === "failed") return `<div class="plan"><div class="ph"><div class="ic">!</div><div><div class="say">Plan çıkarılamadı</div><div class="small muted">${esc(row.error || "")}</div></div></div><div class="pf"><button class="btn sm" data-act="plan">Tekrar dene</button><button class="btn sm ghost" data-act="planDismiss">Kapat</button></div></div>`;
   if (row.status === "started") return `<div class="plan"><div class="ph"><div class="ic">✓</div><div style="flex:1"><div class="say">Başladı: ${esc((row.plan || {}).kind_tr || "")}</div><div class="small muted">İşler kuyrukta (#${(row.job_ids || []).join(", #")}). Hazır olanlar “Senden bekleyenler”de görünür.${(row.plan || {}).kind === "series_new" ? ` Seri kitabı yazılıyor: <a href="#/s/${esc(row.plan.series.id)}">seriyi aç →</a>` : ""}</div></div></div><div class="pf"><button class="btn sm" data-act="planDismiss">Yeni bir şey üret</button></div></div>`;
   if (row.status === "cancelled") return "";
@@ -442,7 +450,8 @@ function planHtml(row) {
       <div class="pipe">${steps.map((t, i) => `<div class="st ${pay(t) ? "pay" : ""}"><span class="n">${i + 1}</span><div><div class="t">${esc(t)}</div>${pay(t) ? '<div class="d">kredi harcar · ayrı onayınla</div>' : ""}</div></div>`).join("")}</div>
       <h3 class="mt16">Tahmini maliyet</h3>
       <div class="costs">${((p.costs || {}).lines || []).map((l) => `<div class="ln"><span class="muted">${esc(l.label)}</span><b>~${num(l.credits)} kr</b></div>`).join("") || '<div class="muted small">ElevenLabs kredisi yok</div>'}
-        <div class="ln tiny faint"><span>Claude</span><b style="font-weight:500">${esc((p.costs || {}).claude || "")}</b></div></div>
+        <div class="ln tiny faint"><span>Claude</span><b style="font-weight:500">${esc((p.costs || {}).claude || "")}</b></div>
+        ${p.team ? `<div class="ln tiny faint"><span>Planlama ekibi${p.team.quick ? " (hızlı)" : ""}</span><b style="font-weight:500">~${usd(p.team.cost_usd)}</b></div>` : ""}</div>
     </div></div>
     <div class="pf"><button class="btn accent" data-act="planStart">${ICON.check}Planı onayla ve başlat</button><button class="btn ghost" data-act="planCancel">Vazgeç</button><span class="sp"></span><span class="tiny faint">Hiçbir şey kredi harcamadan başlamaz.</span></div>
   </div>`;
@@ -454,10 +463,24 @@ function artDirHtml(row, p) {
   return `<div class="field"><span>Art direction (planner'ın yönetmen notu, düzenlenebilir)</span>
       <textarea data-change="planSel" data-name="direction" style="min-height:84px" placeholder="Konsept, görsel dünya, hareket, ses, imza anı, final…">${esc(p.direction || "")}</textarea>
       ${bm.learn ? `<div class="tiny muted mt8">🎬 Referans: ${esc(bm.learn)}${bm.avoid ? ` · <span class="faint">almayacağımız: ${esc(bm.avoid)}</span>` : ""}</div>` : ""}</div>
-    ${tr.length ? `<div class="field"><span>Üç yaklaşım (birini seç)</span><div class="col" style="gap:6px">${tr.map((t, i) => `<div class="row" style="cursor:pointer;gap:8px;align-items:flex-start" data-act="planTreat" data-i="${i}"><span class="chip ${i === 0 ? "on" : ""}">${i + 1}</span><div><b>${esc(t.label_tr)}</b> <span class="small muted">${esc(t.idea_tr || "")}</span></div></div>`).join("")}</div></div>` : ""}
+    ${p.memory_tr || (p.research || {}).insight ? `<div class="note mt8 small">${(p.research || {}).insight ? `🔎 <b>Ana fikir:</b> ${esc(p.research.insight)}${p.research.misconception ? `<br><span class="muted">Yaygın yanlış: ${esc(p.research.misconception)}</span>` : ""}<br>` : ""}${p.memory_tr ? `🧠 <span class="muted">${esc(p.memory_tr)}</span>` : ""}</div>` : ""}
+    ${tr.length ? `<div class="field"><span>Üç yaklaşım${p.critic ? " · eleştirmen: " + esc(p.critic.summary_tr || "") : " (birini seç)"}</span>
+      <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">${tr.map((t, i) => treatCard(t, i, p)).join("")}</div></div>` : ""}
     <div class="field"><span>Teknikler (planner birleştirdi · ✕ ile çıkar, ＋ ile ekle)${p.seconds ? ` · hedef ~${p.seconds} sn` : ""}</span>
       ${Object.entries(byArea).map(([a, ts]) => `<div class="tiny faint mt8">${esc(a)}</div><div class="chips">${ts.map((t) => `<span class="chip on" data-act="planTech" data-id="${esc(t.id)}" data-op="del" title="${esc(t.id)}">${esc(t.tr)} <span class="x">✕</span></span>`).join("")}</div>`).join("") || '<div class="tiny muted">Teknik seçilmedi</div>'}
       <div class="chips mt8"><span class="chip" data-act="planTechPick" data-kind="${esc(p.kind === "talk" ? "talk" : p.kind === "footage" ? "footage" : "topic")}">＋ teknik ekle</span></div></div>`;
+}
+function treatCard(t, i, p) {
+  const on = (p.chosen || 0) === i, sk = t.sketch || {}, sc = t.score || {};
+  const img = (sk.stills || []).slice(-1)[0];
+  const bar = (k, tr) => sc[k] != null ? `<span class="tiny" title="${tr}">${tr} <b>${sc[k]}</b></span>` : "";
+  return `<div class="card flat" data-act="planTreat" data-i="${i}" style="cursor:pointer;min-width:0;padding:10px;border:2px solid ${on ? "var(--ch)" : "transparent"}">
+    <div class="row" style="gap:6px"><span class="chip ${on ? "on" : ""}">${i + 1}</span><b class="small" style="flex:1">${esc(t.label_tr)}</b>${p.recommended === i ? '<span class="badge">⭐ önerilen</span>' : ""}</div>
+    ${img ? `<img src="/media/plans/${esc(img)}" data-act="open" data-src="/media/plans/${esc(img)}" data-photo="1" style="width:100%;max-height:340px;margin-top:8px;border-radius:10px;aspect-ratio:${p.aspect === "16:9" ? "16/9" : "9/16"};object-fit:cover" alt="">`
+      : sk.error ? `<div class="tiny muted mt8">eskiz çizilemedi</div>` : ""}
+    <div class="tiny muted mt8">${esc(t.idea_tr || "")}</div>
+    <div class="row mt8" style="gap:8px;flex-wrap:wrap">${bar("clarity", "anlaşılır")}${bar("hook", "hook")}${bar("novelty", "yenilik")}${bar("feasibility", "yapılabilir")}${t.novelty != null ? `<span class="tiny faint" title="son videolara göre ölçülen yenilik">🧠 ${Math.round(t.novelty * 100)}% yeni</span>` : ""}</div>
+    ${sc.why_tr ? `<div class="tiny mt8">${esc(sc.why_tr)}</div>` : ""}</div>`;
 }
 ACT.planTreat = (el) => planUpdate({ treatment: Number(el.dataset.i) });
 ACT.planTech = async (el) => {

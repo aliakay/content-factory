@@ -238,7 +238,7 @@ def brief(spec, d):
     return out
 
 
-def author(spec, d, note=""):
+def author(spec, d, note="", memory_note=""):
     prior = ""
     if d.get("motion"):
         prior = (f"\nA previous design (concept: {d['motion'].get('concept')}) was rejected. Creator's note: <<<{note or 'make it better'}>>>. "
@@ -262,6 +262,7 @@ def author(spec, d, note=""):
     prompt = f"""{rules(spec.get("aspect", "9:16"), spec.get("captions"))}
 {plates}{prior}
 {recipe}
+{memory_note}
 VIDEO (JSON; scene ids must be reused exactly; times are absolute seconds; "planner_intent" is the script writer's suggestion of
 what to show, free to improve): {json.dumps(brief(spec, d), ensure_ascii=False)}
 
@@ -362,7 +363,8 @@ def build(con, p, note=""):
     import htmlmotion
     d = p["data"]
     spec, _, _, _ = productions.timeline(con, p)          # draft or real timing, look_pack "auto" compiles like any explainer
-    design, meta, _ = author(spec, d, note or d.get("motion_note", ""))
+    from . import memory
+    design, meta, _ = author(spec, d, note or d.get("motion_note", ""), memory.designer_note(con))
     missing = [sc["id"] for sc in spec["scenes"] if not (design["scenes"].get(sc["id"]) or {}).get("html")]
     if missing:
         raise RuntimeError(f"design has no markup for scenes {missing}")

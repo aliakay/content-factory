@@ -435,7 +435,8 @@ def apply(rec, d, kind="topic"):
             sec = [max(8, int(sec) - 5), int(sec) + 5]
         d["duration_cap"] = int(sec[1])
     d["recipe"] = {"direction": str(rec.get("direction") or "")[:1500], "techniques": rec["techniques"],
-                   **({"seconds": [int(sec[0]), int(sec[1])]} if sec else {})}
+                   **({"seconds": [int(sec[0]), int(sec[1])]} if sec else {}),
+                   **{k: rec[k] for k in ("sketch", "research") if rec.get(k)}}
     return d
 
 
@@ -480,6 +481,11 @@ def writer_notes(d):
     notes = _notes(d, "writer")
     if notes:
         out.append("TECHNIQUES chosen for this video (apply every one):\n" + "\n".join(notes))
+    if r.get("research"):
+        out.append("SCOUT'S RESEARCH (leads, not proof: re-verify every fact with its source before it goes on screen; the "
+                   "script must make the insight land and break the misconception): " + json.dumps(r["research"], ensure_ascii=False))
+    if (r.get("sketch") or {}).get("moment"):
+        out.append(f"THE CHOSEN KEY FRAME (the creator approved this hook image; the first line must fit it): {r['sketch']['moment']}")
     return "\n".join(out)
 
 
@@ -494,7 +500,26 @@ def designer_notes(d):
     notes = _notes(d, "designer")
     if notes:
         out.append("TECHNIQUES chosen for this video (use every one):\n" + "\n".join(notes))
+    sk = r.get("sketch") or {}
+    if sk.get("design"):
+        code = sketch_code(sk["design"])
+        out.append("THE APPROVED STYLE FRAME: the creator chose this treatment after seeing its sketch. Keep its world, "
+                   f"palette, characters and type; the hook scene starts from it and the other scenes belong to the same film. "
+                   f"Moment: {sk.get('moment', '')} Concept: {sk.get('concept', '')} Palette: {json.dumps(sk.get('palette') or {})}"
+                   + (f" The creative director's note to fix while building: {sk['fix']}" if sk.get("fix") else "")
+                   + (f"\nIts code (for reference, adapt it):\n{code}" if code else ""))
     return "\n".join(out)
+
+
+def sketch_code(rel, limit=7000):
+    """The HTML / CSS / JS of a chosen sketch, as blocks (trimmed)."""
+    try:
+        d = json.load(open(os.path.join(ROOT, rel)))
+        sc = next(iter(d.get("scenes", {}).values()), {})
+        txt = f"@@GLOBAL_CSS\n{d.get('global_css', '')}\n@@HTML\n{sc.get('html', '')}\n@@CSS\n{sc.get('css', '')}\n@@JS\n{sc.get('js', '')}"
+        return txt[:limit]
+    except (OSError, ValueError, StopIteration):
+        return ""
 
 
 def labels(d):

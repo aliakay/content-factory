@@ -1238,6 +1238,10 @@ class Handler(shorts.Handler):
             f = self.inside(os.path.join(ROOT, "work", "explainer"), path[len("/media/art/"):])
             if f and f.endswith(".png"):
                 return self.send_file(f, "image/png", head, cache="private, max-age=3600")
+        if path.startswith("/media/plans/"):  # the director team's sketch frames (work/plans/<plan>/t<i>/shot_*.png)
+            f = self.inside(os.path.join(ROOT, "work", "plans"), path[len("/media/plans/"):])
+            if f and f.endswith(".png"):
+                return self.send_file(f, "image/png", head, cache="private, max-age=3600")
         if path.startswith("/media/research/"):  # screenshots the art director looked at while researching
             f = self.inside(os.path.join(ROOT, "work", "research"), path[len("/media/research/"):])
             if f and f.endswith(".png"):
