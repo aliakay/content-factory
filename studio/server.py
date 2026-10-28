@@ -876,7 +876,7 @@ class Handler(shorts.Handler):
         con = connect()
         try:
             jid = jobs.queue(con, "ref_lib")
-            theme = self.headers.get("X-Theme")
+            theme = urllib.parse.unquote(self.headers.get("X-Theme") or "")
             if theme in refs.THEMES:  # remembered for the scan, which creates the row
                 pend = os.path.join(refs.REFS, ".themes.json")
                 try:

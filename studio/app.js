@@ -1036,7 +1036,7 @@ ACT.saveRefs = async (el) => { await pact(el.dataset.id, "set_refs", { ref_ids: 
 ACT.refTheme = async (el) => { await post("/api/refs/theme", { ref_id: el.dataset.id, theme: el.value }); toast("Tema kaydedildi"); };
 ACT.scanRefs = async () => { await post("/api/refs/scan"); toast("Referanslar taranıyor"); setTimeout(route, 3000); };
 ACT.delRef = async (el) => { if (!confirm("Bu referans silinsin mi?")) return; const r = await post("/api/refs/delete", { ref_id: el.dataset.id }); toast("Silindi · " + r.freed_mb + " MB"); route(); };
-ACT.uploadRef = async () => { const f = $("#rf").files[0]; if (!f) return toast("Önce bir dosya seç", 1); await upload("/api/refs/upload", f, { "X-Theme": $("#rt").value }, (x) => ($("#up").textContent = "Yükleniyor… %" + Math.round(x * 100))); toast("Yüklendi, analiz başladı"); route(); };
+ACT.uploadRef = async () => { const f = $("#rf").files[0]; if (!f) return toast("Önce bir dosya seç", 1); await upload("/api/refs/upload", f, { "X-Theme": encodeURIComponent($("#rt").value) }, (x) => ($("#up").textContent = "Yükleniyor… %" + Math.round(x * 100))); toast("Yüklendi, analiz başladı"); route(); };
 ROUTES["#/yerler"] = async () => {
   const [places, o] = await Promise.all([api("/api/places"), api("/api/overview")]); crumb(["Yerler & çekimler"]);
   paint(`<h1>Yerler & <span class="serif">çekimler</span></h1><p class="lead">Klipler GPS'e göre yerlere ayrılır. Doğru adlar fikirlerin kalitesini artırır.</p>
