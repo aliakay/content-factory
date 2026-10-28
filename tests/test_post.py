@@ -4,6 +4,7 @@ import subprocess
 from PIL import Image
 
 from factory import engines, qa, thumbs
+from factory.config import FFMPEG
 
 
 def test_thumbnail_designs_have_the_canvas_size(tmp_path):
@@ -18,7 +19,7 @@ def test_thumbnail_designs_have_the_canvas_size(tmp_path):
 
 def test_master_brings_a_quiet_mix_to_target(tmp_path):
     f = str(tmp_path / "q.mp4")
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=black:s=64x64:d=3", "-f", "lavfi",
+    subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=black:s=64x64:d=3", "-f", "lavfi",
                     "-i", "sine=f=300:d=3,volume=0.05", "-c:v", "libx264", "-c:a", "aac", "-shortest", f], check=True)
     before, _ = engines.loudness(f)
     r = engines.master(f)
@@ -27,6 +28,6 @@ def test_master_brings_a_quiet_mix_to_target(tmp_path):
 
 def test_flash_check_flags_strobing(tmp_path):
     f = str(tmp_path / "s.mp4")
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=gray:s=96x160:d=3", "-vf",
+    subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=gray:s=96x160:d=3", "-vf",
                     "geq=lum='if(lt(mod(T*8,1),0.5),30,220)':cb=128:cr=128", f], check=True)
     assert qa.frame_checks(f)["flash_windows"]

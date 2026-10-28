@@ -5,13 +5,14 @@ import math, os, re, subprocess
 import numpy as np
 
 from factory import capabilities, motiondesign, motionref, qa
+from factory.config import FFMPEG
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
 
 def _clip(path, frame, n=120, fps=30, size=(320, 480)):
     """A synthetic clip: frame(i) -> HxWx3 uint8."""
-    p = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{size[0]}x{size[1]}",
+    p = subprocess.Popen([FFMPEG, "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{size[0]}x{size[1]}",
                           "-r", str(fps), "-i", "-", "-pix_fmt", "yuv420p", path], stdin=subprocess.PIPE)
     for i in range(n):
         p.stdin.write(frame(i).tobytes())
