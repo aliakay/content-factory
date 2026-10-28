@@ -508,12 +508,23 @@ def act(con, pid, body):
         P.save(con, p, "görünüm", look)
         if p["stage"] == "preview" and p["data"].get("voice_take"):
             queue_for(con, p, "p_preview", str(pid))
-    elif a == "set_voice":
-        vid = body.get("voice_id")
-        if vid not in voice_ids(P.eleven_account(p["data"])):
+    elif a in ("set_voice", "set_lang"):
+        vids = voice_ids(P.eleven_account(p["data"]))
+        new_lang = None
+        if a == "set_lang":   # the video's language; the voice follows (creator's default voice for that language)
+            new_lang = body.get("lang")
+            if new_lang not in explainer.LANGS or not explainer.is_explainer(p["data"]):
+                raise ValueError("Dil yalnızca konu anlatımı videolarında seçilir (tr / en)")
+            if p["stage"] not in ("idea", "voice"):
+                raise ValueError("Dil ses üretilmeden önce değişir; sonrası için yeni üretim yap")
+            vid = eleven_profile().get("defaults", {}).get(new_lang)
+            vid = vid if vid in vids else p["data"].get("voice_id")
+        else:
+            vid = body.get("voice_id")
+        if vid not in vids:
             raise ValueError("Bu ses seçili ElevenLabs hesabında yok")
         p["data"]["voice_id"] = vid
-        new_lang = explainer.voice_lang(vid)
+        new_lang = new_lang or explainer.voice_lang(vid)
         if explainer.is_explainer(p["data"]) and new_lang != p["data"].get("lang", "en"):
             # the script and every on-screen text must be in the voice's language: rewrite it (no credits involved)
             p["data"]["lang"] = new_lang
@@ -1125,13 +1136,18 @@ class Handler(shorts.Handler):
                 discover.set_status(con, row["card_id"], "skipped")
                 return {"ok": True}
             card = json.loads(row["data"])
-            voice = b.get("voice_id") if b.get("voice_id") in voice_ids(accounts.default_eleven()) else None
+            vids = voice_ids(accounts.default_eleven())
+            lang = b.get("lang") if b.get("lang") in explainer.LANGS else None
+            voice = b.get("voice_id") if b.get("voice_id") in vids else None
+            if lang and not voice:   # the creator's default voice for that language (Ali EN / Ali TR)
+                voice = eleven_profile().get("defaults", {}).get(lang)
+                voice = voice if voice in vids else None
             cid = channels.resolve(con, b.get("channel"), "topic")
             ch = channels.get(con, cid)
             arg = {"format": "explainer_short", "n": 1, "brief": discover.brief_for(card),
                    "aspect": b.get("aspect") if b.get("aspect") in formats.ASPECTS else ch["defaults"]["aspect"],
                    "look": b.get("look") if styles.valid(b.get("look")) else (ch["defaults"]["look"] if styles.valid(ch["defaults"]["look"]) else "auto"),
-                   "voice_id": voice or ch["defaults"].get("voice_id"), "channel": cid}
+                   "voice_id": voice or ch["defaults"].get("voice_id"), "channel": cid, "lang": lang}
             jid = jobs.queue(con, "p_ideas", json.dumps(arg, ensure_ascii=False))
             discover.set_status(con, row["card_id"], "picked", jid, cid)
             return {"job_id": jid}

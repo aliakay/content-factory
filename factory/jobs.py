@@ -199,7 +199,8 @@ def run_production(con, kind, arg, job_id):
         o = jload(arg, {})
         ids, meta = productions.generate(con, o["format"], o.get("n", 3), o.get("brief", ""), o.get("places") or None,
                                          o.get("refs") or None, o.get("voice_id"), o.get("aspect", "9:16"), o.get("narrate", "auto"),
-                                         o.get("look", "tech"), o.get("channel"), o.get("continues"), o.get("recipe"))
+                                         o.get("look", "tech"), o.get("channel"), o.get("continues"), o.get("recipe"),
+                                         o.get("lang"))
         for pid in ids:  # "auto" look: Opus designs the scenes now, so the creator sees them BEFORE approving voice credits
             if productions.get(con, pid)["data"].get("look_pack") != "auto":
                 continue

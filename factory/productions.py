@@ -181,7 +181,7 @@ def series_part(con, fmt_id):
 
 
 def generate(con, fmt_id, n=3, brief="", place_ids=None, ref_ids=None, voice_id=None, aspect="9:16",
-             narrate="auto", look="tech", channel_id=None, continues=None, recipe=None):
+             narrate="auto", look="tech", channel_id=None, continues=None, recipe=None, lang=None):
     from . import channels
     ensure(con)
     fmt = formats.get(fmt_id)
@@ -198,7 +198,7 @@ def generate(con, fmt_id, n=3, brief="", place_ids=None, ref_ids=None, voice_id=
             prev = dict(pp["data"], _prod_id=pp["prod_id"])
             voice_id = voice_id or prev.get("voice_id")
         return explainer.generate(con, fmt, n, brief, voice_id, look, aspect=aspect, channel=chan, prev=prev,
-                                  recipe=recipe)
+                                  recipe=recipe, lang=lang)
     ctx = context(con, place_ids)
     if not ctx["inventory"]:
         raise ValueError("no usable clips for this selection — add an iCloud album first")

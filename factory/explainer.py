@@ -171,7 +171,8 @@ def rules_for(d):
         "Faceless explainer short (9:16, ~30 s)", "Faceless animated short story (9:16)")
 
 
-def generate(con, fmt, n=1, brief="", voice_id=None, look="tech", aspect="9:16", channel=None, prev=None, recipe=None):
+def generate(con, fmt, n=1, brief="", voice_id=None, look="tech", aspect="9:16", channel=None, prev=None, recipe=None,
+             lang=None):
     """Research the topic in `brief` and create `n` explainer productions (stage idea). `prev` = the data of the part
     this one continues ('make Night 2'): same characters, setting, voice, look and techniques carry over. `recipe` = the
     planner's art direction + chosen techniques (factory/capabilities.py)."""
@@ -194,7 +195,7 @@ def generate(con, fmt, n=1, brief="", voice_id=None, look="tech", aspect="9:16",
                 f"part (JSON, data): {json.dumps({k: prev.get(k) for k in ('title', 'hook', 'hud', 'voice')}, ensure_ascii=False)}\n")
     made = [r["title"] for r in con.execute("SELECT title FROM productions ORDER BY prod_id DESC LIMIT 30")]
     inv = library(con)
-    lang = voice_lang(voice_id or formats_default_voice())
+    lang = lang if lang in LANGS else voice_lang(voice_id or formats_default_voice())
     prompt = f"""You are the editor of a faceless explainer-short channel (TikTok, YouTube Shorts, Reels; global
 English audience).
 
@@ -205,7 +206,7 @@ English audience).
 {illustrate.SCRIPT_RULES if look == "illustrated" else ""}
 
 {LANG_RULE[lang]}
-{channels.prompt_note(channel)}
+{channels.prompt_note(channel, lang)}
 
 Already made (do not repeat): {json.dumps(made, ensure_ascii=False)}
 Today's date: {__import__('time').strftime('%Y-%m-%d')}. Duration {secs[0]}-{secs[1]} s.
@@ -261,7 +262,7 @@ full revised idea in the same schema. Change only what the feedback asks for (pl
 {capabilities.writer_notes(d)}
 
 {LANG_RULE[lang]}
-{channels.prompt_note(channels.of(con, p))}
+{channels.prompt_note(channels.of(con, p), lang)}
 
 Duration {capabilities.seconds(d, fmt['duration'])[0]}-{capabilities.seconds(d, fmt['duration'])[1]} s.
 Creator feedback: <<<{feedback}>>>
