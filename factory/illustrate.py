@@ -86,10 +86,36 @@ def missing(d):
             and not (have.get(sc["id"]) and os.path.exists(os.path.join(ROOT, have[sc["id"]]["file"])))]
 
 
-def estimate(con, d, account):
-    n = len(missing(d))
-    est = credits.estimate([{"kind": "image", "model": eleven.IMAGE_MODEL, "units": n, "unit": "img",
-                             "label": "illustrations"}])
+def plate_refs(sc, plates, sheets):
+    """Node ids a scene's plate is made from: the plate of the scene it shares a place with, then its cast's sheets."""
+    pl = sc["plate"]
+    refs = []
+    if pl.get("same_place_as") and (plates.get(pl["same_place_as"]) or {}).get("node_id"):
+        refs.append(plates[pl["same_place_as"]]["node_id"])
+    refs += [sheets[c]["node_id"] for c in pl.get("cast") or [] if (sheets.get(c) or {}).get("node_id")]
+    return refs[:3]
+
+
+def plate_models(d, characters=None):
+    """{scene id: image model} for the missing plates. A plate drawn from references (an earlier plate or a character
+    sheet) runs on the connector's edit model, which costs about twice a plain one."""
+    todo = missing(d)
+    sheets = {c["id"]: c.get("sheet") or {} for c in characters or []}
+    # plates made earlier in the same run count as references too
+    plates = {**(d.get("plates") or {}), **{sid: {"node_id": "pending"} for sid in todo}}
+    return {sc["id"]: eleven.image_model(plate_refs(sc, plates, sheets)) for sc in d["scenes"] if sc["id"] in todo}
+
+
+def _series_characters(con, d):
+    from . import series
+    return series.cast_for(con, {"data": d})[0]
+
+
+def estimate(con, d, account, characters=None):
+    models = plate_models(d, _series_characters(con, d) if characters is None else characters)
+    n = len(models)
+    est = credits.estimate([{"kind": "image", "model": m, "units": list(models.values()).count(m), "unit": "img",
+                             "label": f"illustrations ({m})"} for m in sorted(set(models.values()))])
     return {"images": n, "credits": est["total"], "unknown": est["unknown"],
             "budget": credits.check_budget(con, est["total"], account), "account": account}
 
@@ -115,7 +141,11 @@ def make_plates(con, p, approved, characters=None, flow_id=None):
         return 0.0
     from .productions import eleven_account
     account = eleven_account(d)
-    per = max(1, round(approved / len(todo)))
+    # split the approval by each plate's own estimate (edit-model plates cost more than plain ones)
+    models = plate_models(d, characters)
+    rate = {m: credits.estimate([{"kind": "image", "model": m, "units": 1, "unit": "img"}])["total"] or 1
+            for m in set(models.values())}
+    whole = sum(rate[m] for m in models.values())
     plates = d.setdefault("plates", {})
     flow = d.get("art_flow") or flow_id
     sheets = {c["id"]: c.get("sheet") or {} for c in characters or []}
@@ -124,12 +154,10 @@ def make_plates(con, p, approved, characters=None, flow_id=None):
         if sc["id"] not in todo:
             continue
         pl = sc["plate"]
-        refs = []
-        if pl.get("same_place_as") and plates.get(pl["same_place_as"], {}).get("node_id"):
-            refs.append(plates[pl["same_place_as"]]["node_id"])
-        refs += [sheets[c]["node_id"] for c in pl.get("cast") or [] if sheets.get(c, {}).get("node_id")]
+        per = max(1, round(approved * rate[models[sc["id"]]] / whole))
         path, cost, flow, node = eleven.image(con, plate_prompt(d, sc, characters), per + max(1, per // 7), account,
-                                              d.get("aspect", "9:16"), flow, refs[:3], p.get("prod_id"))
+                                              d.get("aspect", "9:16"), flow, plate_refs(sc, plates, sheets),
+                                              p.get("prod_id"))
         plates[sc["id"]] = {"file": os.path.relpath(path, ROOT), "node_id": node, "prompt": pl["prompt"]}
         d["art_flow"] = flow
         spent += cost

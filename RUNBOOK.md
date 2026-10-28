@@ -187,6 +187,13 @@ monthly cap; the ledger records user + account (`eleven_ledger.user/account`). A
 - Access is via the claude.ai connector through headless Claude (`llm.ask(..., mcp=True)`); the generate tools return
   a flow run → poll `creative_get_flow_run_status` → signed URL (expires ~2 h) → download.
 - Catalogue (models, limits): `data/elevenlabs_models.json`, `data/elevenlabs_avatar_models.json`.
+- Images: a plate made from references (character sheet / earlier plate) runs on `gpt-image-2.5-sunburst` (≈ 433
+  credits at 1K high, about 2× `gpt-image-2`); `illustrate.estimate` prices each plate on its own model. Neither generate
+  tool takes an aspect ratio, so `eleven.image` creates the node with `estimate_only`, sets `aspect_ratio`, then runs it.
+- A connector refusal (e.g. `free_tier_image_limit_reached` on a free-plan account, a voice_id the account doesn't
+  have) comes back as `{"url": null, "error": ...}` and fails the job with that reason; only a malformed reply triggers
+  `recover`, which reads generations started after the call and never generates. Headless transcripts:
+  `~/.claude/projects/-…-content-factory-work/*.jsonl`.
 
 ## Editing style (user feedback 2026-10-26; later the same day the user asked for reference-driven CapCut-style edits — see above)
 - Rejected: sliding/animated titles and labels, scaling hook text, punch zooms, slides, crossfades, short random
