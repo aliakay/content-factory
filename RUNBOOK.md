@@ -338,3 +338,6 @@ thought ~30 min, cost ~$7 and overflowed one reply.
 **Split replies**: calls use `--output-format stream-json --verbose`; `llm._stream` joins every text block after the last
 tool call (the CLI's `result` is only the last message, which once dropped prod 17's hook scene). Timeouts are written to
 the ledger (estimated cost, ok=0). `motiondesign.build` keeps the raw reply in `data/auto/<prod>/author_raw.txt`.
+**Voice alignment** (2026-10-28): `productions.align` derives line times from `explainer.align_words` (one whisper pass,
+Turkish-aware `_norm`, temperature 0; a weak match (<80 % of words) is retried without the script prompt). Before, a
+drifting whisper run left prod 17 with 0.05 s scenes and sound/picture out of sync.

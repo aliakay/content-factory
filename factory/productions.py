@@ -328,44 +328,18 @@ def decode(path):
     return np.frombuffer(raw, dtype=np.float32)
 
 
-def _norm(w):
-    return re.sub(r"[^a-z0-9]", "", w.lower())
-
-
 def align(path, lines, lang="en"):
-    """Start/end of each script line in the voice file (faster-whisper word timings matched to the script)."""
-    from faster_whisper import WhisperModel
-    model = WhisperModel("small.en" if lang == "en" else "small", device="cpu", compute_type="int8")
-    segs, _ = model.transcribe(decode(path), language=lang, word_timestamps=True, initial_prompt=" ".join(lines))
-    heard = []
-    for w in (w for s in segs for w in (s.words or [])):
-        if heard and not w.word.startswith(" "):  # continuation piece, e.g. " 2" + ",962"
-            heard[-1] = (heard[-1][0] + w.word, heard[-1][1], float(w.end))
-        else:
-            heard.append((w.word, float(w.start), float(w.end)))
-    script, owner = [], []
-    for i, ln in enumerate(lines):
-        for w in ln.split():
-            if _norm(w):
-                script.append(_norm(w))
-                owner.append(i)
-    hn = [_norm(w) for w, _, _ in heard]
-    match = {}
-    for blk in difflib.SequenceMatcher(None, script, hn, autojunk=False).get_matching_blocks():
-        for k in range(blk.size):
-            match[blk.a + k] = blk.b + k
-    times = []
-    for i in range(len(lines)):
-        idx = [match[j] for j in range(len(script)) if owner[j] == i and j in match]
-        times.append([heard[idx[0]][1], heard[idx[-1]][2]] if idx else None)
-    dur = len(decode(path)) / 16000
-    # lines whisper missed get the gap between their neighbours
-    for i, t in enumerate(times):
-        if t is None:
-            prev = next((times[j][1] for j in range(i - 1, -1, -1) if times[j]), 0.0)
-            nxt = next((times[j][0] for j in range(i + 1, len(times)) if times[j]), dur)
-            times[i] = [prev + 0.05, max(prev + 0.3, nxt - 0.05)]
-    return [{"start": round(a, 2), "end": round(b, 2)} for a, b in times], round(dur, 2)
+    """(line start/ends, duration, word timings) of the voice file: lines come from the word alignment, one whisper pass."""
+    words = explainer.align_words(path, lines, lang)
+    dur = round(len(decode(path)) / 16000, 2)
+    times, k = [], 0
+    for ln in lines:
+        n = len([w for w in ln.split() if explainer._norm(w)])
+        own = words[k:k + n]
+        k += n
+        prev = times[-1]["end"] if times else 0.0
+        times.append({"start": own[0][1], "end": own[-1][2]} if own else {"start": round(prev + 0.05, 2), "end": round(prev + 0.3, 2)})
+    return times, dur, words
 
 
 def make_voice(con, prod_id, approved):
@@ -381,11 +355,11 @@ def make_voice(con, prod_id, approved):
         path, cost = eleven.tts(con, text, d.get("voice_id") or formats.VOICE_ID, formats.VOICE_MODEL, approved=approved,
                                 account=eleven_account(d))
     path = voice_post(path, d)
-    times, dur = align(path, d["voice"]["lines"], d.get("lang", "en"))
+    times, dur, words = align(path, d["voice"]["lines"], d.get("lang", "en"))
     d["voice_take"] = {"file": os.path.relpath(path, ROOT), "text": text, "duration": dur, "lines": times,
                        "credits": round(cost), "at": now()}
     if explainer.is_explainer(d):
-        d["voice_take"]["words"] = explainer.align_words(path, d["voice"]["lines"], d.get("lang", "en"))
+        d["voice_take"]["words"] = words
     p["stage"] = "preview"
     save(con, p, "ses", f"{round(cost)} kredi · {dur:.1f} s")
     return path, cost

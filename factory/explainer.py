@@ -471,19 +471,30 @@ def align_words(path, lines, lang="en"):
     from . import productions
     audio = productions.decode(path)
     model = WhisperModel("small.en" if lang == "en" else "small", device="cpu", compute_type="int8")
-    segs, _ = model.transcribe(audio, language=lang, word_timestamps=True, initial_prompt=" ".join(lines))
-    heard = []
-    for w in (w for s in segs for w in (s.words or [])):
-        if heard and not w.word.startswith(" "):
-            heard[-1] = (heard[-1][0] + w.word, heard[-1][1], float(w.end))
-        else:
-            heard.append((w.word, float(w.start), float(w.end)))
     tokens = [t for ln in lines for t in ln.split() if _norm(t)]
-    tn, hn = [_norm(t) for t in tokens], [_norm(w) for w, _, _ in heard]
-    match = {}
-    for blk in difflib.SequenceMatcher(None, tn, hn, autojunk=False).get_matching_blocks():
-        for k in range(blk.size):
-            match[blk.a + k] = blk.b + k
+    tn = [_norm(t) for t in tokens]
+    best = None
+    # temperature 0: no random fallback sampling. The script prompt usually helps, but it once made whisper drift and
+    # only ~1/3 of the words matched (prod 17: scenes 0.05 s long, sound and picture out of sync), so a weak match is
+    # retried without it and the better of the two is kept.
+    for prompt in (" ".join(lines), None):
+        segs, _ = model.transcribe(audio, language=lang, word_timestamps=True, initial_prompt=prompt, temperature=0.0)
+        heard = []
+        for w in (w for s in segs for w in (s.words or [])):
+            if heard and not w.word.startswith(" "):
+                heard[-1] = (heard[-1][0] + w.word, heard[-1][1], float(w.end))
+            else:
+                heard.append((w.word, float(w.start), float(w.end)))
+        hn = [_norm(w) for w, _, _ in heard]
+        match = {}
+        for blk in difflib.SequenceMatcher(None, tn, hn, autojunk=False).get_matching_blocks():
+            for k in range(blk.size):
+                match[blk.a + k] = blk.b + k
+        if best is None or len(match) > len(best[1]):
+            best = (heard, match)
+        if len(match) >= 0.8 * len(tn):
+            break
+    heard, match = best
     dur = len(audio) / 16000
     times = [[heard[match[i]][1], heard[match[i]][2]] if i in match else None for i in range(len(tokens))]
     i = 0
