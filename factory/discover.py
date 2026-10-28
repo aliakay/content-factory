@@ -31,22 +31,70 @@ NICHES = {
     "max_total_ideas": 8,
     "exclude": ["politics", "elections", "war", "tragedies", "crime", "celebrity gossip"],
     "categories": {
-        "ai": {"max_ideas": 2, "feeds": [("hn", "https://hnrss.org/frontpage?points=150"),
+        "ai": {"region": "global", "max_ideas": 2, "feeds": [("hn", "https://hnrss.org/frontpage?points=150"),
                                           ("gnews", "artificial intelligence OR OpenAI OR Anthropic OR Gemini")]},
-        "tech": {"max_ideas": 2, "feeds": [("rss", "https://feeds.arstechnica.com/arstechnica/index"),
+        "tech": {"region": "global", "max_ideas": 2, "feeds": [("rss", "https://feeds.arstechnica.com/arstechnica/index"),
                                             ("rss", "https://feeds.bbci.co.uk/news/technology/rss.xml")]},
-        "science": {"max_ideas": 2, "feeds": [("rss", "https://www.sciencedaily.com/rss/top/science.xml"),
+        "science": {"region": "global", "max_ideas": 2, "feeds": [("rss", "https://www.sciencedaily.com/rss/top/science.xml"),
                                                ("rss", "https://www.nature.com/nature.rss"),
                                                ("rss", "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml")]},
-        "finance": {"max_ideas": 1, "feeds": [("gnews", "stock market OR inflation OR interest rates OR earnings")]},
-        "world": {"max_ideas": 1, "feeds": [("rss", "https://feeds.bbci.co.uk/news/world/rss.xml")]},
-        "papers": {"max_ideas": 2, "feeds": [("arxiv", "cat:cs.AI OR cat:cs.LG OR cat:cs.CL OR cat:cs.RO"),
+        "finance": {"region": "global", "max_ideas": 1, "feeds": [("gnews", "stock market OR inflation OR interest rates OR earnings")]},
+        "world": {"region": "global", "max_ideas": 1, "feeds": [("rss", "https://feeds.bbci.co.uk/news/world/rss.xml")]},
+        "papers": {"region": "global", "max_ideas": 2, "feeds": [("arxiv", "cat:cs.AI OR cat:cs.LG OR cat:cs.CL OR cat:cs.RO"),
                                               ("biorxiv", "biorxiv"), ("biorxiv", "medrxiv"),
                                               ("pubmed", "top")]},
+        # Türkiye: Google News TR topic pages (many publishers -> cross-coverage signal) + public agency/outlet RSS.
+        # Headlines are leads only; the research step rewrites everything from the sources.
+        "tr_gundem": {"region": "tr", "max_ideas": 3, "feeds": [
+            ("gtopic_tr", "NATION"),
+            ("rss", "https://www.aa.com.tr/tr/rss/default?cat=guncel"),
+            ("rss", "https://www.trthaber.com/manset_articles.rss"),
+            ("rss", "https://feeds.bbci.co.uk/turkce/rss.xml"),
+            ("rss", "https://rss.dw.com/rdf/rss-tur-all"),
+            ("rss", "https://tr.euronews.com/rss"),
+            ("rss", "https://www.hurriyet.com.tr/rss/gundem")]},
+        "tr_spor": {"region": "tr", "max_ideas": 3, "feeds": [
+            ("gtopic_tr", "SPORTS"),
+            ("rss", "https://www.aa.com.tr/tr/rss/default?cat=spor"),
+            ("rss", "https://www.trthaber.com/spor_articles.rss"),
+            ("rss", "https://www.hurriyet.com.tr/rss/spor")]},
+        "tr_tech": {"region": "tr", "max_ideas": 3, "feeds": [
+            ("gtopic_tr", "TECHNOLOGY"),
+            ("rss", "https://www.aa.com.tr/tr/rss/default?cat=bilim-teknoloji"),
+            ("rss", "https://www.trthaber.com/bilim_teknoloji_articles.rss"),
+            ("rss", "https://www.webtekno.com/rss.xml"),
+            ("rss", "https://shiftdelete.net/feed"),
+            ("rss", "https://www.donanimhaber.com/rss/tum/"),
+            ("rss", "https://www.chip.com.tr/rss")]},
     },
 }
 CATEGORY_TR = {"ai": "Yapay zekâ", "tech": "Teknoloji", "science": "Bilim", "finance": "Finans", "world": "Dünya",
-               "papers": "Makaleler"}
+               "papers": "Makaleler", "tr_gundem": "Türkiye gündem", "tr_spor": "Türkiye spor",
+               "tr_tech": "Türkiye teknoloji"}
+# the two discovery tags: which audience a card is written for and which trend signals back it
+REGIONS = {
+    "global": {"label": "Global", "lang": "en", "wiki": "en.wikipedia", "trends": None,
+               "audience": "curious global English-speaking short-video viewers, 18-40"},
+    "tr": {"label": "Türkiye", "lang": "tr", "wiki": "tr.wikipedia", "trends": "TR",
+           "audience": "Turkish-speaking short-video viewers in Türkiye, 18-40",
+           # keyword filter on Turkish headlines (the English list above cannot match them)
+           "exclude": ["cinayet", "öldürül", "hayatını kaybetti", "cesed", "tutuklandı", "gözaltı", "intihar",
+                       "taciz", "istismar", "magazin", "terör", "seçim", "miting"]},
+}
+
+
+def region_of(category):
+    return (NICHES["categories"].get(category) or {}).get("region", "global")
+
+
+def scope(niches=NICHES, region=None, only=None):
+    """A copy of `niches` narrowed to one region and/or some categories (one cron job per topic scans one scope)."""
+    cats = {k: v for k, v in niches["categories"].items()
+            if (not region or v.get("region", "global") == region) and (not only or k in only)}
+    if not cats:
+        raise ValueError(f"no discovery categories for region={region} only={only}")
+    return {**niches, "categories": cats,
+            "max_total_ideas": min(niches["max_total_ideas"], sum(c["max_ideas"] for c in cats.values()))}
 HISTORY_DAYS = 21
 # peer-reviewed journals whose new papers may become candidates without press coverage
 TOP_JOURNALS = ["Nature", "Science", "Cell", "N Engl J Med", "Lancet", "JAMA", "Nat Med", "Nat Biotechnol",
@@ -58,6 +106,8 @@ def ensure(con):
     con.executescript(SCHEMA)
     if "channel_id" not in {r[1] for r in con.execute("PRAGMA table_info(disc_cards)")}:
         con.execute("ALTER TABLE disc_cards ADD COLUMN channel_id TEXT")
+    if "scope" not in {r[1] for r in con.execute("PRAGMA table_info(disc_runs)")}:
+        con.execute("ALTER TABLE disc_runs ADD COLUMN scope TEXT")   # "global", "tr", "tr:tr_spor", ...
 
 
 # ---------- A1 fetchers: each returns [{title, url, published, source, summary, category}] ----------
@@ -85,9 +135,22 @@ def fetch_rss(url, category, source=None):
     return out
 
 
-def fetch_gnews(query, category):
-    q = urllib.parse.urlencode({"q": query + " when:2d", "hl": "en-US", "gl": "US", "ceid": "US:en"})
-    items = fetch_rss("https://news.google.com/rss/search?" + q, category, "news.google.com")
+GNEWS_LOCALE = {"en": {"hl": "en-US", "gl": "US", "ceid": "US:en"}, "tr": {"hl": "tr", "gl": "TR", "ceid": "TR:tr"}}
+
+
+def fetch_gnews(query, category, lang="en"):
+    q = urllib.parse.urlencode({"q": query + " when:2d", **GNEWS_LOCALE[lang]})
+    return _gnews_publishers(fetch_rss("https://news.google.com/rss/search?" + q, category, "news.google.com"))
+
+
+def fetch_gtopic(topic, category, lang="tr"):
+    """A Google News topic page (NATION, SPORTS, TECHNOLOGY, ...) of one country edition."""
+    q = urllib.parse.urlencode(GNEWS_LOCALE[lang])
+    url = f"https://news.google.com/rss/headlines/section/topic/{topic}?{q}"   # redirects to /rss/topics/<id>
+    return _gnews_publishers(fetch_rss(url, category, "news.google.com"))
+
+
+def _gnews_publishers(items):
     for i in items:  # Google News titles end with " - Publisher": keep the publisher as the source
         m = re.match(r"(.*) - ([^-]+)$", i["title"])
         if m:
@@ -95,13 +158,31 @@ def fetch_gnews(query, category):
     return items
 
 
-def wiki_top(days_back=2, limit=60):
+def wiki_top(days_back=2, limit=60, project="en.wikipedia"):
     """Most-viewed Wikipedia articles of a day: {title: views} (a trend signal; never creates candidates alone)."""
     d = datetime.now(timezone.utc) - timedelta(days=days_back)
-    url = f"https://wikimedia.org/api/rest_v1/metrics/pageviews/top/en.wikipedia/all-access/{d:%Y/%m/%d}"
+    url = f"https://wikimedia.org/api/rest_v1/metrics/pageviews/top/{project}/all-access/{d:%Y/%m/%d}"
     arts = json.loads(_get(url))["items"][0]["articles"]
-    skip = ("Main_Page", "Special:", "Wikipedia:", "Portal:", "-")
+    skip = ("Main_Page", "Anasayfa", "Special:", "Özel:", "Wikipedia:", "Vikipedi:", "Portal:", "-")
     return {a["article"].replace("_", " "): a["views"] for a in arts if not a["article"].startswith(skip)}
+
+
+def parse_trends(xml_bytes):
+    """Google Trends daily-search RSS: {search term: approx. traffic} (a trend signal like Wikipedia views)."""
+    root = ET.fromstring(xml_bytes)
+    out = {}
+    for it in root.iter("item"):
+        term = _clean(it.findtext("title"))
+        traffic = it.findtext("{https://trends.google.com/trending/rss}approx_traffic") or ""
+        try:
+            out[term] = int(re.sub(r"[^0-9]", "", traffic) or 0)
+        except ValueError:
+            out[term] = 0
+    return out
+
+
+def trends_top(geo):
+    return parse_trends(_get(f"https://trends.google.com/trending/rss?geo={geo}"))
 
 
 # ---------- papers: each returns items with a "paper" dict {kind preprint|journal, doi, journal, server} ----------
@@ -206,6 +287,10 @@ def fetch_all(niches=NICHES):
             try:
                 if kind == "gnews":
                     items += fetch_gnews(arg, cat)
+                elif kind == "gtopic_tr":
+                    items += fetch_gtopic(arg, cat, "tr")
+                elif kind == "gnews_tr":
+                    items += fetch_gnews(arg, cat, "tr")
                 elif kind == "arxiv":
                     items += fetch_arxiv(arg, cat)
                 elif kind == "biorxiv":
@@ -221,11 +306,16 @@ def fetch_all(niches=NICHES):
 
 # ---------- A2 dedupe -> candidates ----------
 STOP = set("the a an of to in on for and or at by with from is are was were be as it its this that new says say after "
-           "over how why what who will can could may just into than more about up out not has have had".split())
+           "over how why what who will can could may just into than more about up out not has have had "
+           # Turkish, diacritics folded like the tokens below
+           "ve bir bu su o da de ile icin yeni son dakika gibi daha cok olan oldu mi mu ne kadar sonra once en "
+           "iste nasil neden".split())
 
 
 def tokens(title):
-    return {w for w in re.findall(r"[a-z0-9$%.]+", title.lower()) if w not in STOP and len(w) > 1}
+    """Content words of a headline, lower-cased with Turkish/accented letters folded (ş -> s, İ/ı -> i)."""
+    words = (embed._norm_word(w) for w in re.findall(r"[\w$%.]+", title or ""))
+    return {w for w in words if w not in STOP and len(w) > 1}
 
 
 def similar(a, b):
@@ -237,16 +327,18 @@ def similar(a, b):
 def _fresh(items, niches):
     cutoff = datetime.now(timezone.utc) - timedelta(hours=niches["window_hours"])
     paper_cutoff = datetime.now(timezone.utc) - timedelta(hours=max(niches["window_hours"], 96))   # journals post late
-    ex = [w for w in niches["exclude"]]
     out = []
     for i in items:
+        ex = niches["exclude"] + REGIONS[region_of(i["category"])].get("exclude", [])
         try:
             pub = datetime.fromisoformat(i["published"]) if i["published"] else None
         except ValueError:
             pub = None
         if pub and pub < (paper_cutoff if i.get("paper") else cutoff):
             continue
-        if any(w in (i["title"] + " " + i["summary"]).lower() for w in ex) or not i["title"]:
+        text = i["title"] + " " + i["summary"]
+        text = text.lower() + " " + text.replace("I", "ı").replace("İ", "i").lower()   # English and Turkish casing
+        if any(w in text for w in ex) or not i["title"]:
             continue
         out.append(i)
     return out
@@ -338,21 +430,22 @@ def paper_filter(cands):
     return out + preprints[:MAX_UNCOVERED_PREPRINTS]
 
 
-def attach_wiki(cands, wiki):
-    """Boost: a candidate whose title shares a (capitalised) phrase with a top Wikipedia article."""
+def attach_wiki(cands, wiki, key="wiki"):
+    """Boost: a candidate whose title contains all words of a top Wikipedia article (key "wiki") or of a Google
+    Trends search term (key "trend")."""
     for c in cands:
         t = tokens(c["story"])
         hit = max(((v, a) for a, v in wiki.items() if len(tokens(a)) and tokens(a) <= t), default=None)
         if hit:
-            c["signals"]["wiki_views"] = hit[0]
-            c["signals"]["wiki_article"] = hit[1]
+            c["signals"][f"{key}_views" if key == "wiki" else key] = hit[0]
+            c["signals"][f"{key}_article" if key == "wiki" else f"{key}_term"] = hit[1]
     return cands
 
 
 # ---------- A3 score -> idea cards ----------
 RUBRIC = """Score each story 1-5 on: freshness (x2), hook (x2: can it open with a surprise in <= 6 words), visualizable
 (x1.5: numbers, comparisons, before/after), verifiable (x1.5: needs >= 2 independent sources, otherwise score <= 2),
-audience fit (x1: curious global English-speaking short-video viewers, 18-40). `score` = the weighted mean (1 decimal).
+audience fit (x1: {audience}). `score` = the weighted mean (1 decimal).
 Skip anything that is a tragedy, politics, gossip, an opinion piece or a pure product ad."""
 CARD_SCHEMA = """{"cards": [{"cand": <index from the list>, "title": "<video title, <= 70 chars>", "hook": "<spoken opening line,
 <= 12 words>", "beats": ["<3-4 short beat labels>"], "visual_idea": "<what the code-drawn graphics show>", "why_now":
@@ -360,16 +453,27 @@ CARD_SCHEMA = """{"cards": [{"cand": <index from the list>, "title": "<video tit
 "topic": "<2-3 sentence research brief for the explainer: what to verify, which angle>"}]}"""
 
 
-def make_cards(con, cands, niches=NICHES):
+LANG_RULE = {"en": "Write title, hook, beats, visual_idea and why_now in English.",
+             "tr": "Write title, hook, beats, visual_idea and why_now in natural Turkish (the audience is in Türkiye); "
+                   "keep `topic` in English (it briefs the research step). Sports: a result alone is not a story; "
+                   "pitch the number, record, transfer fee, tactic or history behind it."}
+
+
+def make_cards(con, cands, niches=NICHES, region="global"):
+    reg = REGIONS[region]
     listing = [{"i": i, "category": c["category"], "story": c["story"], "summary": c["summary"],
                 "first_seen": c["first_seen"], "sources": [s["source"] for s in c["sources"]], "signals": c["signals"],
                 **({"paper": {k: c["paper"].get(k) for k in ("kind", "server", "journal")}} if c.get("paper") else {})}
                for i, c in enumerate(cands)]
-    made = [r["title"] for r in con.execute("SELECT title FROM disc_cards ORDER BY card_id DESC LIMIT 60")]
+    cats = [k for k, v in NICHES["categories"].items() if v.get("region", "global") == region]
+    made = [r["title"] for r in con.execute(
+        f"SELECT title FROM disc_cards WHERE category IN ({','.join('?' * len(cats))}) ORDER BY card_id DESC LIMIT 60",
+        cats)]
     quotas = {k: v["max_ideas"] for k, v in niches["categories"].items()}
-    prompt = f"""You pick story ideas for a faceless explainer-short channel (30 s, 9:16, global English audience).
+    prompt = f"""You pick story ideas for a faceless explainer-short channel (30 s, 9:16, audience: {reg['audience']}).
 
-{RUBRIC}
+{RUBRIC.format(audience=reg['audience'])}
+{LANG_RULE[reg['lang']]}
 
 Rules: at most {niches['max_total_ideas']} cards in total, per-category maximum {json.dumps(quotas)}; best score first;
 different stories only. Do not repeat ideas already pitched: {json.dumps(made, ensure_ascii=False)}.
@@ -391,7 +495,8 @@ Reply with ONLY JSON: {CARD_SCHEMA}"""
         except (KeyError, ValueError, IndexError, TypeError):
             continue
         card = {**{k: c.get(k) for k in ("title", "hook", "beats", "visual_idea", "why_now", "flags", "topic")},
-                "score": float(c.get("score") or 0), "category": cand["category"], "story": cand["story"],
+                "score": float(c.get("score") or 0), "category": cand["category"], "region": region,
+                "lang": reg["lang"], "story": cand["story"],
                 "sources": cand["sources"], "signals": cand["signals"], "first_seen": cand["first_seen"]}
         if cand.get("paper"):
             card["paper"] = cand["paper"]
@@ -404,18 +509,33 @@ Reply with ONLY JSON: {CARD_SCHEMA}"""
     return cards[:niches["max_total_ideas"]], meta
 
 
-def scan(con, niches=NICHES):
-    """One full discovery run; returns the run id."""
+def scan(con, niches=NICHES, region=None, only=None):
+    """Discovery runs for a scope; one run (one Claude call) per region in it. Returns the last run id.
+    `region` "global" / "tr" and `only` (category ids) narrow the scan: the cron runs one job per topic."""
     ensure(con)
+    regions = sorted({v.get("region", "global") for v in scope(niches, region, only)["categories"].values()})
+    rid = None
+    for reg in regions:
+        rid = scan_region(con, scope(niches, reg, only), reg, label=reg + (":" + ",".join(only) if only else ""))
+    return rid
+
+
+def scan_region(con, niches, region, label=None):
+    reg = REGIONS[region]
     items, errors = fetch_all(niches)
     cands = cluster(items, niches, con=con)
     try:
-        cands = attach_wiki(cands, wiki_top())
+        cands = attach_wiki(cands, wiki_top(project=reg["wiki"]))
     except Exception as e:
         errors.append(f"wikipedia: {type(e).__name__}")
+    if reg.get("trends"):
+        try:
+            cands = attach_wiki(cands, trends_top(reg["trends"]), key="trend")
+        except Exception as e:
+            errors.append(f"google trends: {type(e).__name__}")
     # unverifiable single-source stories are kept only when a signal backs them (plan A2: >= 2 independent domains)
     cands = [c for c in cands if c["signals"]["source_count"] >= 2 or c["signals"].get("wiki_views")
-             or c["category"] in ("science", "papers")]
+             or c["signals"].get("trend") is not None or c["category"] in ("science", "papers")]
     cands = paper_filter(cands)
     cands, dropped = drop_seen(con, cands)
     if dropped:
@@ -424,14 +544,15 @@ def scan(con, niches=NICHES):
     cands = cands[:60]
     if not cands:
         raise RuntimeError("no candidates: " + "; ".join(errors))
-    cards, meta = make_cards(con, cands, niches)
+    cards, meta = make_cards(con, cands, niches, region)
     for c in cards:   # the research step should read the paper itself: find its open-access copy
         if c.get("paper") and c["paper"].get("doi"):
             info = openalex(c["paper"]["doi"])
             if info:
                 c["paper"].update({k: v for k, v in info.items() if v})
-    cur = con.execute("INSERT INTO disc_runs (at, items, candidates, cards, cost_usd, note) VALUES (?,?,?,?,?,?)",
-                      (now(), len(items), len(cands), len(cards), meta.get("cost_usd"), "; ".join(errors)))
+    cur = con.execute("INSERT INTO disc_runs (at, items, candidates, cards, cost_usd, note, scope) VALUES (?,?,?,?,?,?,?)",
+                      (now(), len(items), len(cands), len(cards), meta.get("cost_usd"), "; ".join(errors),
+                       label or region))
     rid = cur.lastrowid
     for c in cards:
         con.execute("INSERT INTO disc_cards (run_id, created_at, category, status, title, data) VALUES (?,?,?,?,?,?)",
@@ -441,19 +562,31 @@ def scan(con, niches=NICHES):
 
 
 # ---------- B review ----------
-def cards(con, run_id=None, limit=40, categories=None):
-    """Cards of a run (default: the latest). `categories` narrows them to a channel's discovery categories."""
+def cards(con, run_id=None, limit=60, categories=None, region=None):
+    """Cards of a run, default: of the latest run of every scope (each topic cron has its own run). `categories`
+    narrows them to a channel's discovery categories, `region` to one tag (global / tr)."""
     ensure(con)
-    if run_id is None:
-        r = con.execute("SELECT MAX(run_id) m FROM disc_runs").fetchone()
-        run_id = r["m"]
-    rows = con.execute("SELECT * FROM disc_cards WHERE run_id=? ORDER BY card_id", (run_id,)).fetchall() if run_id else []
-    out = [{**jload(r["data"], {}), "card_id": r["card_id"], "status": r["status"], "prod_job": r["prod_job"],
-            "channel_id": r["channel_id"]} for r in rows]
+    if run_id is not None:
+        run_ids = [run_id]
+    else:
+        run_ids = [r["m"] for r in con.execute(
+            "SELECT MAX(run_id) m FROM disc_runs GROUP BY COALESCE(scope, 'global') ORDER BY m DESC")]
+    rows = con.execute(f"SELECT * FROM disc_cards WHERE run_id IN ({','.join('?' * len(run_ids))}) "
+                       "ORDER BY run_id DESC, card_id", run_ids).fetchall() if run_ids else []
+    out = [{"region": region_of(r["category"]), **jload(r["data"], {}), "card_id": r["card_id"], "status": r["status"],
+            "prod_job": r["prod_job"], "channel_id": r["channel_id"], "run_id": r["run_id"]} for r in rows]
+    newest = {}   # a category shows the cards of the newest run that scanned it (a full and a topic run may overlap)
+    out = [c for c in out if newest.setdefault(c.get("category"), c["run_id"]) == c["run_id"]]
     if categories:
         out = [c for c in out if c.get("category") in categories]
-    run = con.execute("SELECT * FROM disc_runs WHERE run_id=?", (run_id,)).fetchone() if run_id else None
-    return {"run": dict(run) if run else None, "cards": out[:limit], "categories": CATEGORY_TR, "embed": embed.backend()}
+    if region:
+        out = [c for c in out if c["region"] == region]
+    runs = [dict(r) for r in con.execute(f"SELECT * FROM disc_runs WHERE run_id IN ({','.join('?' * len(run_ids))}) "
+                                         "ORDER BY run_id DESC", run_ids)] if run_ids else []
+    return {"run": runs[0] if runs else None, "runs": runs, "cards": out[:limit], "categories": CATEGORY_TR,
+            "regions": {k: v["label"] for k, v in REGIONS.items()},
+            "category_region": {k: v.get("region", "global") for k, v in NICHES["categories"].items()},
+            "embed": embed.backend()}
 
 
 def brief_for(card):
@@ -480,6 +613,10 @@ def set_status(con, card_id, status, prod_job=None, channel_id=None):
 
 
 if __name__ == "__main__":
+    import argparse
     from .store import connect
-    c = connect()
-    print("run", scan(c))
+    ap = argparse.ArgumentParser(description="Discovery scan (Keşif)")
+    ap.add_argument("--region", choices=sorted(REGIONS), help="only one tag: global or tr")
+    ap.add_argument("--only", help="comma-separated category ids, e.g. tr_spor")
+    a = ap.parse_args()
+    print("run", scan(connect(), region=a.region, only=a.only.split(",") if a.only else None))

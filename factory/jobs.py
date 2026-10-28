@@ -333,7 +333,8 @@ def run(job_id):
         elif kind == "describe":
             do_describe(con)
         elif kind == "discover":
-            rid = discover.scan(con)
+            o = jload(arg, {})   # {"region": "tr", "only": ["tr_spor"]}; empty = every tag and topic
+            rid = discover.scan(con, region=o.get("region"), only=o.get("only"))
             result = f"discovery run {rid}: {discover.cards(con, rid)['run']['cards']} cards"
         elif kind == "plan":   # the composer's planner (factory/planner.py)
             from . import planner

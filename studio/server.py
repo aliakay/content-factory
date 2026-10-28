@@ -1033,7 +1033,9 @@ class Handler(shorts.Handler):
                    "channel": channels.resolve(con, b.get("channel"), fmt["mode"])}
             return {"job_id": jobs.queue(con, "p_ideas", json.dumps(arg, ensure_ascii=False))}
         if path == "/api/discover/run":
-            return {"job_id": jobs.queue(con, "discover", "")}
+            sc = {"region": b.get("region") if b.get("region") in discover.REGIONS else None,
+                  "only": [k for k in (b.get("only") or []) if k in discover.NICHES["categories"]] or None}
+            return {"job_id": jobs.queue(con, "discover", json.dumps(sc))}
         # ---- composer / planner ----
         if path == "/api/plan":
             att = b.get("attachments") if isinstance(b.get("attachments"), dict) else {}
@@ -1399,7 +1401,8 @@ class Handler(shorts.Handler):
             return prof
         if path == "/api/discover":
             cats = (channels.get(con, ch) or {}).get("discover") if ch else None
-            return discover.cards(con, categories=cats or None)
+            reg = (q.get("region") or [""])[0]
+            return discover.cards(con, categories=cats or None, region=reg if reg in discover.REGIONS else None)
         if path == "/api/styles":
             return styles.listing()
         if path == "/api/signals":

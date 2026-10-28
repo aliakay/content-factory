@@ -83,3 +83,59 @@ def test_brief_points_research_at_the_paper():
     b = discover.brief_for({"title": "T", "topic": "x", "hook": "h", "flags": ["preprint"],
                             "paper": {"kind": "preprint", "doi": "10.1/x", "oa_url": "https://x/p.pdf"}})
     assert "PRIMARY SOURCE" in b and "NOT peer reviewed" in b and "https://x/p.pdf" in b
+
+
+TRENDS = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:ht="https://trends.google.com/trending/rss" version="2.0"><channel>
+ <item><title>Fenerbah\xc3\xa7e</title><ht:approx_traffic>200,000+</ht:approx_traffic></item>
+ <item><title>ikindi namaz\xc4\xb1</title><ht:approx_traffic>10000+</ht:approx_traffic></item>
+</channel></rss>"""
+
+
+def test_regions_scope_and_turkish_tokens():
+    tr = discover.scope(region="tr")
+    assert set(tr["categories"]) == {"tr_gundem", "tr_spor", "tr_tech"}
+    assert discover.scope(region="tr", only=["tr_spor"])["max_total_ideas"] == 3
+    assert "tr_spor" not in discover.scope(region="global")["categories"]
+    with pytest.raises(ValueError):
+        discover.scope(region="global", only=["tr_spor"])
+    assert discover.region_of("tr_tech") == "tr" and discover.region_of("ai") == "global"
+    # diacritics folded, Turkish stop words dropped: the same story matches across spellings
+    assert discover.tokens("İstanbul'da yeni metro hattı açıldı") >= {"istanbul", "metro", "hatti", "acildi"}
+    assert "ve" not in discover.tokens("Galatasaray ve Fenerbahçe")
+
+
+def test_trends_signal_and_turkish_exclude():
+    trends = discover.parse_trends(TRENDS)
+    assert trends == {"Fenerbahçe": 200000, "ikindi namazı": 10000}
+    cands = [{"story": "Fenerbahçe'nin yeni transferi imzayı attı", "signals": {}},
+             {"story": "Merkez Bankası faiz kararı", "signals": {}}]
+    discover.attach_wiki(cands, trends, key="trend")
+    assert cands[0]["signals"]["trend_term"] == "Fenerbahçe" and "trend" not in cands[1]["signals"]
+    items = [item("Süper Lig'de rekor gol ortalaması", cat="tr_spor", source="aa.com.tr"),
+             item("Şüpheli GÖZALTINA alındı", cat="tr_gundem", source="trthaber.com"),
+             item("Gözaltı haberi değil: yeni uydu fırlatıldı", cat="ai", source="x.com")]
+    kept = [i["title"] for i in discover._fresh(items, discover.NICHES)]
+    assert kept == ["Süper Lig'de rekor gol ortalaması", "Gözaltı haberi değil: yeni uydu fırlatıldı"]
+
+
+def test_cards_show_newest_run_per_scope_and_filter_by_region():
+    con = sqlite3.connect(":memory:")
+    con.row_factory = sqlite3.Row
+    discover.ensure(con)
+    def run(scope, cards):
+        rid = con.execute("INSERT INTO disc_runs (at, items, candidates, cards, cost_usd, note, scope) "
+                          "VALUES ('t',1,1,1,0,'',?)", (scope,)).lastrowid
+        for cat, title in cards:
+            con.execute("INSERT INTO disc_cards (run_id, created_at, category, status, title, data) VALUES (?,?,?,?,?,?)",
+                        (rid, "t", cat, "new", title, json.dumps({"title": title, "category": cat})))
+    run(None, [("ai", "old global")])                 # pre-region run: counts as global
+    run("global", [("ai", "new global")])
+    run("tr:tr_spor", [("tr_spor", "spor 1")])
+    run("tr:tr_tech", [("tr_tech", "tek 1")])
+    run("tr:tr_spor", [("tr_spor", "spor 2")])
+    titles = {c["title"] for c in discover.cards(con)["cards"]}
+    assert titles == {"new global", "spor 2", "tek 1"}
+    tr = discover.cards(con, region="tr")
+    assert {c["title"] for c in tr["cards"]} == {"spor 2", "tek 1"} and all(c["region"] == "tr" for c in tr["cards"])
+    assert tr["regions"] == {"global": "Global", "tr": "Türkiye"}

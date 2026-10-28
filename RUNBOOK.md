@@ -99,7 +99,16 @@ pageviews as a boost) -> token-overlap dedupe into candidates (48 h window, `exc
 for science or with a Wikipedia signal) -> ONE headless Claude call (no web, ~$0.08) scores + writes idea cards with accuracy
 `flags` -> tables `disc_runs`, `disc_cards`. Studio -> Keşif lists the cards; "Bunu üret" queues `p_ideas` for
 `explainer_short` with the card as the topic brief (research + script follow, voice credits still need approval); "Geç" skips.
-Cron 07:30 UTC (`data/discover_cron.log`); manual: `python -m factory.discover` or Keşif -> Şimdi tara (job kind `discover`).
+**Tags (2026-10-28):** every category has a `region`: **Global** (ai, tech, science, finance, world, papers; cards in
+English) or **Türkiye** (`tr_gundem`, `tr_spor`, `tr_tech`; cards in Turkish, `topic` brief stays English). Türkiye feeds:
+Google News TR topic pages (NATION/SPORTS/TECHNOLOGY, many publishers = cross-coverage), AA, TRT Haber, BBC Türkçe, DW
+Türkçe, Euronews TR, Hürriyet, Webtekno, ShiftDelete, DonanımHaber, Chip; signals: tr.wikipedia top views + Google Trends
+TR RSS (`signals.trend_term`). Turkish keyword exclude list in `REGIONS["tr"]["exclude"]` (crime, tragedy, elections, gossip).
+Dead/empty when tested: NTV RSS, NTVSpor, Fanatik, Fotomaç (stale), Hürriyet Daily News. One run (one Sonnet call,
+~$0.08-0.14) per region in a scan; `disc_runs.scope` = "global" / "tr:tr_spor" ...; Keşif shows the newest run per
+category, with Tümü / Global / Türkiye tabs ("Şimdi tara" scans the selected tag).
+Cron, one job per topic (UTC): tr_gundem 05:40 · global 07:30 · tr_spor 08:10 · tr_tech 10:20 (`data/discover_cron.log`).
+Manual: `python -m factory.discover [--region global|tr] [--only tr_spor,tr_tech]` or Keşif -> Şimdi tara (job kind `discover`).
 Niches/quotas: `discover.NICHES`. Not built: embeddings dedupe, papers sub-pipeline (EurekAlert RSS URLs 404), finance/sports APIs,
 push/email delivery, style system (plan Phases 4-6), engine refactor (Phase 1).
 
