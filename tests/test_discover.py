@@ -139,3 +139,10 @@ def test_cards_show_newest_run_per_scope_and_filter_by_region():
     tr = discover.cards(con, region="tr")
     assert {c["title"] for c in tr["cards"]} == {"spor 2", "tek 1"} and all(c["region"] == "tr" for c in tr["cards"])
     assert tr["regions"] == {"global": "Global", "tr": "Türkiye"}
+
+
+def test_video_language_overrides_channel_language():
+    from factory import channels
+    ch = {"name": "Konu anlatımı", "lang": "en", "audience": "global"}
+    assert "on-screen language: English" in channels.prompt_note(ch)
+    assert "on-screen language: Turkish (this video's language" in channels.prompt_note(ch, "tr")

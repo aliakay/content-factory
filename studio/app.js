@@ -906,16 +906,24 @@ function claimsCard(p) {
     ${d.claims.map((c) => `<div class="small mt8">• ${esc(c.claim)}</div>`).join("")}
     ${p.verification ? `<div class="mt12">${(p.verification.verdicts || []).map((v) => `<div class="small mt8">${V[v.verdict] || "•"} ${esc(v.claim)} <span class="muted">— ${esc(v.note || "")}</span>${v.safer_wording ? `<div class="tiny faint">Daha güvenli: ${esc(v.safer_wording)}</div>` : ""}${(v.sources || []).slice(0, 2).map((s) => ` <a class="tiny" href="${esc(s.url)}" target="_blank" rel="noopener">${esc((s.title || "kaynak").slice(0, 40))}</a>`).join("")}</div>`).join("")}</div>` : ""}</div>`;
 }
+// explainers: the video's language (script, on-screen text, voice); switching rewrites the script, no credits
+function langPick(p) {
+  const d = p.data;
+  if (d.kind !== "explainer" || !["idea", "voice"].includes(p.stage)) return "";
+  const cur = d.lang || "en";
+  return `<div class="field mt12"><span>Dil</span><div class="chips">${[["tr", "Türkçe"], ["en", "İngilizce"]].map(([k, t]) => `<span class="chip ${cur === k ? "on" : ""}" data-act="setLang" data-id="${p.prod_id}" data-v="${k}">${t}</span>`).join("")}</div><div class="tiny faint">Değiştirirsen metin o dilde yeniden yazılır ve ses o dilin sesine geçer (kredi harcanmaz).</div></div>`;
+}
 function actionCard(p, wide) {
   const d = p.data, f = p.format_info, est = p.estimate, id = p.prod_id;
   let a = "";
   if (p.busy) a = `<div class="card"><h3>Çalışıyor</h3><div class="small muted">${esc(JOBTR[p.busy.kind] || p.busy.kind)} bitince burada sıradaki adım çıkar.</div></div>`;
   else if (p.stage === "idea") a = `<div class="card actcard st-idea"><h3>Karar</h3><div class="small muted">${f.voice ? "Onaylarsan ses metni ve kredi tahmini gelir." : "Onaylarsan önizleme render'ı otomatik başlar."}</div>
     <div class="kv small mt12"><div>🎙 Anlatım</div><div>${f.voice ? `${(d.voice?.lines || []).length} satır · ~${num(est?.credits || 0)} kredi` : "yok (doğal ses)"}</div><div>🎵 Müzik</div><div>${d.music?.prompt ? "tarif hazır · ~" + num(p.music_estimate?.credits || 0) + " kredi" : "tarif yok"}</div>${p.plates_estimate ? `<div>🖌 Çizimler</div><div>${p.plates_estimate.images} görsel · ~${num(p.plates_estimate.credits)} kredi</div>` : ""}</div>
-    <button class="btn accent block mt12" data-act="act" data-id="${id}" data-a="approve_idea">${ICON.check}Fikri onayla</button>${reviseBox(p)}${rejectBox(p)}</div>`;
+    ${langPick(p)}<button class="btn accent block mt12" data-act="act" data-id="${id}" data-a="approve_idea">${ICON.check}Fikri onayla</button>${reviseBox(p)}${rejectBox(p)}</div>`;
   else if (p.stage === "voice") a = `<div class="card actcard st-voice"><h3>Ses · kredi onayı</h3>
     <div class="kv mt8"><div>Metin</div><div>${est.chars} karakter</div><div>Tahmin</div><div><b>~${num(est.credits)} kredi</b></div><div>Bu ay</div><div>${num(est.budget.spent)} → ${num(est.budget.after)} / ${num(est.budget.cap)}</div></div>
     ${est.budget.ok ? "" : `<div class="note err mt8">${esc(est.budget.why || "Aylık tavan aşılır")}</div>`}
+    ${langPick(p)}
     ${(p.eleven_accounts || []).length > 1 ? `<label class="field mt12"><span>Kredi bu hesaptan düşer</span><select data-change="setEleven" data-id="${id}">${p.eleven_accounts.map((x) => `<option value="${esc(x.id)}" ${x.id === p.eleven_account ? "selected" : ""}>💳 ${esc(x.name)}${x.mine ? "" : " (paylaşılan)"}</option>`).join("")}</select></label>` : ""}
     ${d.cast_voices && Object.keys(d.cast_voices).length > 1 ? `<div class="tiny muted mt12">🎭 Karakter sesleri seri sayfasından: ${Object.keys(d.cast_voices).map(esc).join(", ")}</div>` : `<label class="field mt12"><span>Ses</span><select data-change="setVoice" data-id="${id}">${(p.voices || []).map((v) => `<option value="${esc(v.voice_id)}" ${(d.voice_id || (p.voices[0] || {}).voice_id) === v.voice_id ? "selected" : ""}>🎙 ${esc(v.name)}${v.language ? " · " + esc(v.language) : ""}</option>`).join("")}</select></label>`}
     ${p.plates_estimate && p.plates_estimate.images ? `<div class="note warn mt12 small">Önce çizimler: soldaki Çizimler kartından onayla.</div>` : ""}
@@ -977,6 +985,7 @@ ACT.setGrammar = async (el) => { await pact(el.dataset.id, "set_grammar", { gram
 ACT.setLook = async (el) => { await pact(el.dataset.id, "set_look", { look: el.dataset.v }); route(); };
 ACT.setChannelOf = async (el) => { await pact(el.dataset.id, "set_channel", { channel: el.value }); await reloadChannels(); toast("Kanal değişti"); route(); };
 ACT.setBrand = async (el) => { await pact(el.dataset.id, "set_brand", { on: el.checked }); toast(el.checked ? "Logo katmanı açık" : "Logo katmanı kapalı"); route(); };
+ACT.setLang = async (el) => { if (el.classList.contains("on")) return; await pact(el.dataset.id, "set_lang", { lang: el.dataset.v }); toast(el.dataset.v === "tr" ? "Türkçeye çevriliyor" : "İngilizceye çevriliyor"); route(); };
 ACT.setVoice = async (el) => { await pact(el.dataset.id, "set_voice", { voice_id: el.value }); route(); };
 ACT.setEleven = async (el) => { await pact(el.dataset.id, "set_eleven", { account: el.value }); route(); };
 ACT.setAspect = async (el) => {
@@ -1092,12 +1101,17 @@ async function discoverHtml(ch) {
     <div class="tiny muted">🎨 ${esc(c.visual_idea || "")}</div><div class="tiny faint">Neden şimdi: ${esc(c.why_now || "")}</div>
     ${(c.signals || {}).related_to ? `<div class="tiny warn">↺ Benzerini yaptın: ${esc(c.signals.related_to)}</div>` : ""}
     <div class="tiny">${(c.sources || []).map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.source)}</a>`).join(" · ")}${c.paper && c.paper.oa_url ? ` · <a href="${esc(c.paper.oa_url)}" target="_blank" rel="noopener">📄 makale</a>` : ""}</div>
-    <div class="row mt8">${c.status === "picked" ? `<span class="badge">seçildi${c.channel_id ? " · " + esc((chan(c.channel_id) || {}).name || "") : ""}</span>` : c.status === "skipped" ? '<span class="tiny faint">geçildi</span>' : `<button class="btn sm accent" data-act="pickCard" data-id="${c.card_id}" data-ch="${esc(ch || "")}">Bunu üret</button><button class="btn sm ghost" data-act="skipCard" data-id="${c.card_id}">Geç</button>`}</div></div>`).join("") || '<div class="empty">Kart yok. “Şimdi tara” ile başlat.</div>'}</div>`;
+    <div class="row mt8">${c.status === "picked" ? `<span class="badge">seçildi${c.channel_id ? " · " + esc((chan(c.channel_id) || {}).name || "") : ""}</span>` : c.status === "skipped" ? '<span class="tiny faint">geçildi</span>' : `${pickButtons(c, ch)}<button class="btn sm ghost" data-act="skipCard" data-id="${c.card_id}">Geç</button>`}</div></div>`).join("") || '<div class="empty">Kart yok. “Şimdi tara” ile başlat.</div>'}</div>`;
 }
 ROUTES["#/kesif"] = async () => { crumb(["Keşif"]); const body = await discoverHtml(""); paint(`<h1>Keş<span class="serif">if</span></h1><p class="lead">Global ve Türkiye haber, spor, teknoloji, bilim ve makale akışları her gün konu konu taranır; aynı hikâye ve daha önce yaptıkların elenir, kalanlar puanlanıp fikir kartı olur.</p><div class="mt16">${body}</div>`, body.length + ""); };
 ACT.discRegion = async (el) => { S.dreg = el.dataset.v; S.sig = null; route(); };
 ACT.runDiscover = async () => { await post("/api/discover/run", S.dreg ? { region: S.dreg } : {}); toast("Tarama başladı (~2 dk)"); setTimeout(() => { S.sig = null; route(); }, 90000); };
-ACT.pickCard = async (el) => { const c = el.dataset.ch || S.ch; const r = await post(`/api/discover/card/${el.dataset.id}/pick`, { channel: c }); toast("Araştırma + senaryo başladı (#" + r.job_id + ")"); S.sig = null; route(); };
+// the video language is chosen on the card: the card's own language first (Türkiye cards -> Türkçe)
+function pickButtons(c, ch) {
+  const first = c.lang || (c.region === "tr" ? "tr" : "en");
+  return [first, first === "tr" ? "en" : "tr"].map((l, i) => `<button class="btn sm ${i ? "" : "accent"}" data-act="pickCard" data-id="${c.card_id}" data-ch="${esc(ch || "")}" data-lang="${l}">${l === "tr" ? "Türkçe üret" : "İngilizce üret"}</button>`).join("");
+}
+ACT.pickCard = async (el) => { const c = el.dataset.ch || S.ch; const r = await post(`/api/discover/card/${el.dataset.id}/pick`, { channel: c, lang: el.dataset.lang }); toast("Araştırma + senaryo başladı (#" + r.job_id + ")"); S.sig = null; route(); };
 ACT.skipCard = async (el) => { await post(`/api/discover/card/${el.dataset.id}/skip`); S.sig = null; route(); };
 
 // ================= Takip =================
