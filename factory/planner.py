@@ -153,7 +153,8 @@ def clean(p, att, cat):
     except (TypeError, ValueError):
         out["n"] = 1
     if out["kind"] != "footage":
-        out["n"] = 1 if out["kind"] != "topic" else min(out["n"], 3)
+        # A topic plan already represents the creator's one selected treatment; don't fan it back out into variants.
+        out["n"] = 1
     if out["kind"] == "talk":
         out["look"] = "talk"
     out["narrate"] = out.get("narrate") if out.get("narrate") in ("auto", "on", "off") else "auto"
@@ -427,7 +428,8 @@ def start(con, plan_id, queue):
         if p["kind"] == "topic" and p.get("refs"):   # how the attached references really move, measured
             from .refs import motion_for
             rec["ref_motion"] = motion_for(con, p["refs"])
-        arg = {"format": p["format"], "n": p["n"], "brief": p.get("brief") or row["prompt"], "places": p["places"], "refs": p["refs"],
+        arg = {"format": p["format"], "n": 1 if p["kind"] == "topic" else p["n"],
+               "brief": p.get("brief") or row["prompt"], "places": p["places"], "refs": p["refs"],
                "aspect": p["aspect"], "narrate": p["narrate"], "look": p["look"], "voice_id": p["voice_id"],
                "channel": p["channel"], "recipe": rec}
         jobs_.append(queue("p_ideas", json.dumps(arg, ensure_ascii=False)))
