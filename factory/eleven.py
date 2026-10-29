@@ -1,23 +1,32 @@
-"""ElevenLabs generation through the claude.ai ElevenLabs connector (headless Claude + MCP).
+"""ElevenLabs generation through the MCP connector configured in the selected CLI (Claude or Codex).
 
-No API key needed: a headless Claude turn calls the connector's generate tool, polls the flow run and returns the
+No API key needed: a headless CLI turn calls the connector's generate tool, polls the flow run and returns the
 signed audio/image/video URL plus its `credit_cost`; we download the file and write the spend to the ledger.
 Callers must have shown the user a credit estimate and received approval first (see credits.estimate).
 """
 import hashlib, json, os, subprocess, urllib.request
+from contextlib import nullcontext
 from datetime import datetime, timezone
 
 from . import accounts, credits, eleven_api, llm
 
 from .config import FFPROBE, ROOT
 OUT = os.path.join(ROOT, "assets", "eleven")
-CLAUDE_MODEL = "sonnet"  # Claude only drives the connector tools here; no creative judgement
+CONNECTOR_MODEL = "sonnet"  # light connector driving when Claude is the selected CLI
 T = "mcp__claude_ai_ElevenLabs__"
 POLL_TOOLS = (T + "creative_get_flow_run_status", T + "creative_get_flow_node", T + "creative_get_flow")
 
 
 class ElevenError(RuntimeError):
     pass
+
+
+def _connector_context(account):
+    """Claude connectors belong to their account owner; Codex MCP uses the selected CLI profile."""
+    if llm.selected_provider() == "codex":
+        return nullcontext()
+    acc = accounts.eleven(account)
+    return accounts.as_user((acc or {}).get("owner"))
 
 
 def _download(url, ext, key):
@@ -62,7 +71,7 @@ or after {since} (UTC); ignore anything older. Read its signed file URL with cre
 price.credits with creative_get_flow_run_status.
 Reply ONLY JSON: {{"url": "<signed url or null if there is no such generation>", "credit_cost": <number or null>,
 "flow_id": "<flow id>", "node_id": "<node id>", "created": "<time>"}}"""
-    data, meta = llm.ask(prompt, tools=READ_TOOLS, timeout=600, mcp=True, model=CLAUDE_MODEL)
+    data, meta = llm.ask(prompt, tools=READ_TOOLS, timeout=600, mcp=True, model=CONNECTOR_MODEL)
     if not isinstance(data, dict) or not data.get("url"):
         raise ElevenError(f"{model} üretimi bulunamadı (büyük olasılıkla başlamadı, kredi harcanmadı)")
     return data, meta
@@ -73,7 +82,7 @@ def _run(prompt, tools, timeout=900, model=None, flow_id=None):
     anything ran: surface it. A missing/malformed reply may hide a finished generation: recover it (with `model`)."""
     since = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
-        data, meta = llm.ask(prompt, tools=tools, timeout=timeout, mcp=True, model=CLAUDE_MODEL)
+        data, meta = llm.ask(prompt, tools=tools, timeout=timeout, mcp=True, model=CONNECTOR_MODEL)
     except llm.LLMError as e:
         if not model:
             raise
@@ -128,7 +137,7 @@ Then poll creative_get_flow_run_status (wait between tries) until the generation
 mp3 URL of the generated audio. Generate only once. Reply ONLY JSON:
 {{"url": "<signed audio url>", "credit_cost": <number from the generate result>, "duration_s": <number or null>}}
 {ERROR_REPLY}"""
-    with accounts.as_user(acc["owner"]):   # the connector lives on its owner's Claude login
+    with _connector_context(account):
         data, _ = _run(prompt, (T + "creative_generate_speech",) + POLL_TOOLS, model=model)
     path = _download(data["url"], "mp3", key)
     cost = float(data.get("credit_cost") or 0)
@@ -166,7 +175,7 @@ The credit cost is in the run status as price.credits (or credit_cost). Reply ON
 {ERROR_REPLY}"""
     tools = (T + tool, T + "creative_create_flow", T + "creative_add_flow_node", T + "creative_run_flow_nodes",
              T + "creative_update_node", T + "creative_get_model_schema") + POLL_TOOLS
-    with accounts.as_user(acc["owner"]):
+    with _connector_context(account):
         data, _ = _run(prompt, tools, timeout=1500, model=model)
     path = _download(data["url"], ext, key)
     cost = float(data.get("credit_cost") or 0)
@@ -219,7 +228,7 @@ generated image node id>"}}
 {ERROR_REPLY}"""
     tools = (T + "creative_generate_image", T + "creative_edit_image", T + "creative_get_flow_node",
              T + "creative_update_node", T + "creative_run_flow_nodes", T + "creative_get_model_schema") + POLL_TOOLS
-    with accounts.as_user(acc["owner"]):
+    with _connector_context(account):
         data, _ = _run(prompt, tools, timeout=1200, model=model, flow_id=flow_id)
     path = _download(data["url"], "png", key)
     cost = float(data.get("credit_cost") or 0)
@@ -240,7 +249,7 @@ def avatar_node(flow_id):
     prompt = f"""Use the ElevenLabs tools to READ only (never generate, never add or change nodes). Call
 creative_get_flow for flow_id "{flow_id}" and find nodes whose type or node_type is "avatar".
 Reply ONLY JSON: {{"avatar_nodes": [{{"node_id": "...", "label": "...", "status": "..."}}], "node_count": <int>}}"""
-    data, _ = llm.ask(prompt, tools=(T + "creative_get_flow",), timeout=300, mcp=True, model=CLAUDE_MODEL)
+    data, _ = llm.ask(prompt, tools=(T + "creative_get_flow",), timeout=300, mcp=True, model=CONNECTOR_MODEL)
     return data
 
 
@@ -255,7 +264,7 @@ def check_voice(voice_id, flow_id=None):
 model_id "eleven_v4", prompt "test", generations_count 1 and estimate_only true (this must NOT generate or spend credits;
 never call it without estimate_only). Reply ONLY JSON: {{"ok": true, "flow_id": "<flow id>"}} if it returned an estimate,
 or {{"ok": false, "error": "<the tool's exact error text>"}} if it returned an error."""
-    data, _ = llm.ask(prompt, tools=(T + "creative_generate_speech",), timeout=300, mcp=True, model=CLAUDE_MODEL)
+    data, _ = llm.ask(prompt, tools=(T + "creative_generate_speech",), timeout=300, mcp=True, model=CONNECTOR_MODEL)
     if not isinstance(data, dict) or "ok" not in data:
         raise ElevenError("ses kontrol edilemedi")
     return data
@@ -286,7 +295,7 @@ def list_voices():
 voices first (cloned / professional / generated), then at most 15 library voices.
 Reply ONLY JSON: {"voices": [{"voice_id": "...", "name": "...", "category": "...", "language": "<2-letter code>",
 "note": "accent/age/gender if known", "preview_url": "... or null"}]}"""
-    data, _ = llm.ask(prompt, tools=(T + "creative_list_voices",), timeout=600, mcp=True, model=CLAUDE_MODEL)
+    data, _ = llm.ask(prompt, tools=(T + "creative_list_voices",), timeout=600, mcp=True, model=CONNECTOR_MODEL)
     out = data.get("voices") if isinstance(data, dict) else data
     if not isinstance(out, list):
         raise ElevenError("ses listesi okunamadı")

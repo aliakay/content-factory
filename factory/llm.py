@@ -215,6 +215,38 @@ def _codex(prompt, tools, timeout, model, effort, step):
     return reply, {"cost_usd": None, "turns": 1, "effort": effort}
 
 
+def _codex_elevenlabs_server():
+    """Find the ElevenLabs MCP server configured in this Codex CLI profile."""
+    try:
+        p = subprocess.run([CODEX, "mcp", "list", "--json"], capture_output=True, text=True, timeout=10)
+        servers = json.loads(p.stdout) if p.returncode == 0 else []
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        servers = []
+    if isinstance(servers, dict):
+        servers = servers.get("servers", [])
+    for server in servers if isinstance(servers, list) else []:
+        if isinstance(server, dict) and "elevenlabs" in json.dumps(server).lower():
+            name = server.get("name")
+            if name:
+                return name
+    raise LLMError("Codex CLI'da ElevenLabs connector bulunamadı. Bir kez şu komutları çalıştırıp ElevenLabs'e giriş yap: "
+                   "codex mcp add elevenlabs --url https://api.elevenlabs.io/v1/mcp; codex mcp login elevenlabs")
+
+
+def _codex_mcp_prompt(prompt, tools, server):
+    """Translate Claude's connector-qualified tool list into instructions for Codex MCP tools."""
+    names = []
+    for tool in tools:
+        # Claude names are mcp__claude_ai_ElevenLabs__<tool>; Codex exposes the same MCP tool names
+        # under the configured server and discovers the actual schema directly from that server.
+        name = str(tool).rsplit("__", 1)[-1]
+        if name not in names:
+            names.append(name)
+    allow = ", ".join(names)
+    return (f"Use the ElevenLabs MCP server named {server!r}. Its available tool names for this step are: {allow}. "
+            f"Call only the needed tools from that list and follow the request exactly.\n\n{prompt}")
+
+
 def extract_json(text):
     """First JSON object/array in `text` (handles ```json fences and surrounding prose)."""
     m = re.search(r"```(?:json)?\s*(.+?)```", text, re.S)
@@ -260,9 +292,14 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
     import time
     from . import accounts
     step = _caller()
-    # Claude's account connector is used by ElevenLabs MCP calls; Codex has no access to that user connector.
-    provider = "claude" if mcp else selected_provider()
-    model = selected_model(step, model) if not mcp else (model or MODEL)
+    provider = selected_provider()
+    if provider == "codex" and mcp:
+        server = _codex_elevenlabs_server()
+        prompt = _codex_mcp_prompt(prompt, tools, server)
+        # Preserve the exact MCP tool allowlist in the request instructions. Codex uses the
+        # server's own tool schemas and OAuth session rather than Claude's connector namespace.
+        tools = tuple(str(t).rsplit("__", 1)[-1] for t in tools)
+    model = selected_model(step, model) if provider == "codex" or not mcp else (model or MODEL)
     level = min(effort, MAX_EFFORT, key=EFFORTS.index) if effort in EFFORTS else effort_for(step, model)
     if provider == "codex":
         return _codex(prompt, tools, timeout, model, level, step)
