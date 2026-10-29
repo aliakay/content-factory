@@ -1199,6 +1199,28 @@ class Handler(shorts.Handler):
             prof.setdefault("defaults", {})[b["lang"]] = b["voice_id"]
             json.dump(prof, open(PROFILE, "w"), ensure_ascii=False, indent=1)
             return {"ok": True}
+        if path == "/api/eleven/voices/add":
+            if not accounts.is_owner(uid):
+                raise ValueError("Ses eklemek sahibin işi")
+            vid = str(b.get("voice_id") or "").strip()
+            lang = str(b.get("language") or "")
+            if not re.fullmatch(r"[A-Za-z0-9]{16,40}", vid):
+                raise ValueError("Ses ID'si 20 karakterlik harf/rakam olmalı (ElevenLabs → ses → ID kopyala)")
+            if lang not in {c for c, _ in formats.ELEVEN_LANGUAGES}:
+                raise ValueError("Listeden bir dil seç")
+            if vid in {v["voice_id"] for v in eleven_profile()["voices"]}:
+                raise ValueError("Bu ses zaten listede")
+            arg = json.dumps({"voice_id": vid, "language": lang, "name": str(b.get("name") or "")}, ensure_ascii=False)
+            return {"job_id": jobs.queue(con, "voice_add", arg)}
+        if path == "/api/eleven/voices/remove":
+            if not accounts.is_owner(uid):
+                raise ValueError("Ses silmek sahibin işi")
+            prof = eleven_profile()
+            if b.get("voice_id") in prof.get("defaults", {}).values():
+                raise ValueError("Varsayılan ses silinemez; önce başka bir sesi varsayılan yap")
+            prof["voices"] = [v for v in prof["voices"] if not (v["voice_id"] == b.get("voice_id") and v.get("category") == "custom")]
+            json.dump(prof, open(PROFILE, "w"), ensure_ascii=False, indent=1)
+            return {"ok": True}
         if path == "/api/eleven/avatar_check":
             return {"job_id": jobs.queue(con, "avatar_check")}
         if path == "/api/ingest":
@@ -1446,6 +1468,7 @@ class Handler(shorts.Handler):
             prof["account"] = aid
             prof["music_rate"] = credits.rates().get(f"music:{P.MUSIC_MODEL}", {}).get("rate")
             prof["spent"], prof["cap"] = round(credits.month_spent(con, aid)), credits.MONTHLY_CAP
+            prof["languages"] = formats.ELEVEN_LANGUAGES
             return prof
         if path == "/api/discover":
             cats = (channels.get(con, ch) or {}).get("discover") if ch else None

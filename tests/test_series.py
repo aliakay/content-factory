@@ -162,6 +162,26 @@ def test_default_narrator_follows_the_language(con, monkeypatch, tmp_path):
     assert used[0] == formats.default_voice("tr") and used[1] == "G"   # the narrator has no voice of its own
 
 
+def test_pasted_voice_is_checked_then_saved(monkeypatch, tmp_path):
+    from factory import formats
+    monkeypatch.setattr(eleven, "PROFILE", str(tmp_path / "eleven_profile.json"))
+    flows = []
+    def ok(vid, flow):
+        flows.append(flow)
+        return {"ok": True, "flow_id": "CHECK"}
+    v = eleven.add_voice("AbCdEfGhIjKlMnOpQrSt", "de", "", check=ok)
+    assert v["name"] == "Ses DE · AbCdEf" and v["category"] == "custom"
+    eleven.add_voice("AbCdEfGhIjKlMnOpQrSt", "de", "Klaus", check=ok)        # same id again: replaced, not doubled
+    prof = json.load(open(tmp_path / "eleven_profile.json"))
+    assert [x["name"] for x in prof["voices"]] == ["Klaus"] and prof["voice_check_flow"] == "CHECK"
+    assert flows == [None, "CHECK"]                                         # the check flow is reused
+    bad = lambda vid, flow: {"ok": False, "error": "voice_id 'x' does not resolve"}
+    with pytest.raises(eleven.ElevenError, match="hesabında yok"):
+        eleven.add_voice("ZZZZZZZZZZZZZZZZZZZZ", "tr", check=bad)
+    assert len(json.load(open(tmp_path / "eleven_profile.json"))["voices"]) == 1
+    assert formats.ELEVEN_LANGUAGES[:2] == [("tr", "Türkçe"), ("en", "English")]
+
+
 def test_owner_default_voice_comes_from_the_profile(monkeypatch, tmp_path):
     from factory import formats
     prof = tmp_path / "eleven_profile.json"

@@ -322,6 +322,11 @@ def run(job_id):
             prof["avatar"]["checked_at"] = now()
             json.dump(prof, open(prof_path, "w"), ensure_ascii=False, indent=1)
             result = f"avatar node: {prof['avatar']['node_id'] or 'yok'}"
+        elif kind == "voice_add":   # a voice id pasted in the Studio: confirm on the owner's connector, then save
+            from . import eleven
+            o = json.loads(arg)
+            v = eleven.add_voice(o["voice_id"], o["language"], o.get("name"))
+            result = f"ses eklendi: {v['name']}"
         elif kind == "eleven_voices":   # a member's own ElevenLabs connector: read its voices on their Claude login
             from . import accounts, eleven
             acc = accounts.eleven(arg)

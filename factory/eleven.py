@@ -244,6 +244,42 @@ Reply ONLY JSON: {{"avatar_nodes": [{{"node_id": "...", "label": "...", "status"
     return data
 
 
+PROFILE = os.path.join(ROOT, "data", "eleven_profile.json")
+
+
+def check_voice(voice_id, flow_id=None):
+    """Does this account have `voice_id`? A free estimate_only speech call: the connector rejects an unknown voice
+    with "does not resolve" and prices a known one without generating. Returns the flow it used (reused next time)."""
+    where = f' with flow_id "{flow_id}"' if flow_id else ""
+    prompt = f"""Use the ElevenLabs tools. Call creative_generate_speech exactly once{where} with voice_id "{voice_id}",
+model_id "eleven_v4", prompt "test", generations_count 1 and estimate_only true (this must NOT generate or spend credits;
+never call it without estimate_only). Reply ONLY JSON: {{"ok": true, "flow_id": "<flow id>"}} if it returned an estimate,
+or {{"ok": false, "error": "<the tool's exact error text>"}} if it returned an error."""
+    data, _ = llm.ask(prompt, tools=(T + "creative_generate_speech",), timeout=300, mcp=True, model=CLAUDE_MODEL)
+    if not isinstance(data, dict) or "ok" not in data:
+        raise ElevenError("ses kontrol edilemedi")
+    return data
+
+
+def add_voice(voice_id, language, name=None, check=check_voice):
+    """Add a voice the creator pasted (Studio → Ses & avatar → Ses ekle) to the owner's connector profile after the
+    account confirms it. Returns the saved voice."""
+    try:
+        prof = json.load(open(PROFILE))
+    except (OSError, ValueError):
+        prof = {"voices": [], "defaults": {}, "avatar": {}}
+    res = check(voice_id, prof.get("voice_check_flow"))
+    if not res.get("ok"):
+        raise ElevenError(explain(res.get("error") or "bu ses bulunamadı"))
+    prof["voice_check_flow"] = res.get("flow_id") or prof.get("voice_check_flow")
+    voice = {"voice_id": voice_id, "name": (name or "").strip()[:60] or f"Ses {language.upper()} · {voice_id[:6]}",
+             "language": language, "category": "custom", "note": "Studio'dan eklendi"}
+    prof["voices"] = [v for v in prof.get("voices", []) if v.get("voice_id") != voice_id] + [voice]
+    os.makedirs(os.path.dirname(PROFILE), exist_ok=True)
+    json.dump(prof, open(PROFILE, "w"), ensure_ascii=False, indent=1)
+    return voice
+
+
 def list_voices():
     """Voices of the ElevenLabs account behind the current user's claude.ai connector (read-only, no credits)."""
     prompt = """Use the ElevenLabs tools to READ only. Call creative_list_voices (all pages) and list the account's own
