@@ -133,7 +133,7 @@ def production_detail(con, pid):
     aid = P.eleven_account(p["data"])
     out["eleven_account"], out["eleven_accounts"] = aid, accounts.usable_eleven()
     out["voices"] = eleven_info(aid)["voices"]
-    out["default_voice"] = formats.default_voice(p["data"].get("lang"))
+    out["default_voice"] = formats.default_voice(p["data"].get("lang"), aid)
     if True:  # every production can get a generated track (styled ones also cut on its beats)
         try:
             out["music_estimate"] = P.music_estimate(con, p)
