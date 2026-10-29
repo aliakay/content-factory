@@ -96,11 +96,11 @@ def start_codex_oauth(uid):
             return {"url": CODEX_MCP_FLOW["url"]}
         if proc and proc.poll() is None:
             raise ValueError("Codex bağlantı penceresi hazırlanıyor; birkaç saniye sonra tekrar dene")
-    public_url = codex_public_url()
-    callback_url = public_url + CODEX_MCP_CALLBACK
     server_name = status.get("name") or "elevenlabs"
-    cmd = [llm.CODEX, "mcp", "login", server_name, "--no-browser", "--oauth-client-registration", "dcr",
-           "-c", f'mcp_oauth_callback_url="{callback_url}"']
+    # ElevenLabs does not support dynamic client registration. Codex CIMD mode
+    # uses its documented no-browser callback URL input, which works from phones
+    # where the OAuth browser cannot reach the server's loopback address.
+    cmd = [llm.CODEX, "mcp", "login", server_name, "--no-browser", "--oauth-client-registration", "cimd"]
     try:
         proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 text=True, bufsize=1, cwd=ROOT)
@@ -108,7 +108,7 @@ def start_codex_oauth(uid):
         raise ValueError(f"Codex CLI başlatılamadı: {exc}") from None
     ready = threading.Event()
     with CODEX_MCP_LOCK:
-        CODEX_MCP_FLOW.update(status="starting", url=None, state=None, callback_url=callback_url,
+        CODEX_MCP_FLOW.update(status="starting", url=None, state=None, callback_url=None,
                               process=proc, error=None, owner=uid)
     threading.Thread(target=_read_codex_oauth, args=(proc, ready), daemon=True).start()
     if not ready.wait(20):
@@ -816,9 +816,13 @@ def me(con):
         a.update(balance=i.get("balance"), error=i.get("error"), voices=len(i["voices"]))
         if not a["mine"] and a.get("member_month_cap") is not None:
             a["my_month"] = round(credits.month_spent(con, a["id"], uid))
+    codex_elevenlabs = llm.codex_elevenlabs_status()
+    with CODEX_MCP_LOCK:
+        codex_elevenlabs["flow"] = CODEX_MCP_FLOW.get("status")
+        codex_elevenlabs["error"] = CODEX_MCP_FLOW.get("error")
     out = {"id": uid, "name": u.get("name", uid), "role": u.get("role", "owner"), "login": accounts.enabled(),
            "claude": accounts.claude_status(uid), "eleven": accs, "default_eleven": accounts.default_eleven(uid),
-           "llm_settings": accounts.llm_settings(uid), "codex_elevenlabs": llm.codex_elevenlabs_status(),
+           "llm_settings": accounts.llm_settings(uid), "codex_elevenlabs": codex_elevenlabs,
            "llm_models": {p: llm.model_options(p) for p in ("claude", "codex")},
            "llm_default_models": {p: {step: llm.default_model(step, p) for step in llm.AGENT_STEPS} for p in ("claude", "codex")},
            "llm_agents": [{"id": k, "name": v} for k, v in llm.AGENT_STEPS.items()]}
@@ -1194,6 +1198,31 @@ class Handler(shorts.Handler):
                 except (OSError, subprocess.TimeoutExpired):
                     raise ValueError("Codex ElevenLabs connector kaydedilemedi") from None
             return start_codex_oauth(uid)
+        if path == "/api/codex/elevenlabs/finish":
+            if not accounts.is_owner(uid):
+                raise ValueError("Codex ElevenLabs bağlantısını yalnızca hesap sahibi yönetebilir")
+            callback_url = (b.get("url") or "").strip()
+            parsed = urllib.parse.urlsplit(callback_url)
+            params = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+            state = (params.get("state") or [None])[0]
+            if (parsed.scheme != "http" or parsed.hostname not in ("localhost", "127.0.0.1", "::1")
+                    or parsed.path != "/callback" or not params.get("code") or not state):
+                raise ValueError("Codex'in yönlendirdiği tam localhost callback URL'sini yapıştır")
+            with CODEX_MCP_LOCK:
+                flow = CODEX_MCP_FLOW
+                proc = flow.get("process")
+                if not proc or proc.poll() is not None or flow.get("status") != "waiting":
+                    raise ValueError("Codex OAuth akışı sona ermiş; yeniden bağlan")
+                if not flow.get("state") or not secrets.compare_digest(state, flow["state"]):
+                    raise ValueError("OAuth state eşleşmedi; yeni bağlantı başlat")
+                try:
+                    proc.stdin.write(callback_url + "\n")
+                    proc.stdin.flush()
+                    flow.update(status="finishing", url=None, state=None)
+                except (OSError, BrokenPipeError, AttributeError):
+                    flow.update(status="error", error="Codex OAuth akışı kapandı", process=None, url=None)
+                    raise ValueError("Codex OAuth akışı kapandı; yeniden bağlan") from None
+            return {"ok": True}
         if path == "/api/claude/start":
             if accounts.is_owner(uid):
                 raise ValueError("Sahip VM'deki Claude girişini kullanıyor")

@@ -1319,8 +1319,9 @@ ROUTES["#/hesaplar"] = async () => {
     <button class="btn accent sm mt12" data-act="llmSave">Kaydet</button></div>
   <div class="card mt16"><h3>🔌 ElevenLabs · Codex connector</h3>
     <div class="small">${m.codex_elevenlabs?.connected ? "✅ Codex CLI’ye bağlı" : "❌ Codex CLI’ye bağlı değil"}</div>
-    <p class="small muted mt8">Codex seçildiğinde ses, müzik ve görsel üretimi bu bağlantıdan yapılır. Bağlan’a basınca ElevenLabs girişine yönlendirilirsin ve izin sonrası buraya dönersin. Güvenli dönüş için Tailscale Serve açık olmalı.</p>
+    <p class="small muted mt8">Codex seçildiğinde ses, müzik ve görsel üretimi bu bağlantıdan yapılır. ElevenLabs’te izin verdikten sonra localhost dönüş sayfası açılmasa bile adres çubuğundaki URL’nin tamamını kopyalayıp aşağıya yapıştır.</p>
     ${m.role === "owner" ? `<button class="btn accent sm mt8" data-act="codexElevenConnect" ${m.codex_elevenlabs?.connected ? "disabled" : ""}>${m.codex_elevenlabs?.connected ? "Bağlandı" : "ElevenLabs’i Codex’e bağla"}</button>` : '<div class="tiny muted">Bu bağlantıyı hesap sahibi yönetir.</div>'}
+    <div id="codex_oauth_flow" class="mt12">${m.codex_elevenlabs?.flow === "waiting" ? `<div class="note info small">ElevenLabs girişini aç, izin ver ve yönlendirme URL’sini aşağıya yapıştır.</div><input type="url" id="codex_oauth_url" class="mt8" placeholder="http://127.0.0.1:…/callback?code=…&state=…"><button class="btn sm mt8" data-act="codexElevenFinish">Codex bağlantısını tamamla</button>` : m.codex_elevenlabs?.error ? `<div class="note err small">${esc(m.codex_elevenlabs.error)}</div>` : ""}</div>
   </div>
   <div class="card mt16"><h3>🤖 Claude hesabı</h3>${cl}${m.role === "owner" ? "" : `<div id="clflow" class="mt12"><button class="btn sm accent" data-act="claudeStart" data-mode="login">🔗 Tam giriş ile bağla</button> <button class="btn sm" data-act="claudeStart" data-mode="token">🔑 Anahtar ile bağla</button></div>`}</div>
   <h2>ElevenLabs hesapları</h2><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">${acc}</div>
@@ -1349,7 +1350,17 @@ ACT.codexElevenConnect = async () => {
   const r = await post("/api/codex/elevenlabs/start", {});
   if (r.connected) { toast("Codex ElevenLabs zaten bağlı"); return route(); }
   if (!r.url) throw new Error("ElevenLabs giriş bağlantısı alınamadı");
-  location.href = r.url;
+  $("#codex_oauth_flow").innerHTML = `<a class="btn sm mt8" href="${esc(r.url)}" target="_blank" rel="noopener">ElevenLabs girişini aç ↗</a><div class="note info small mt8">İzin verdikten sonra localhost dönüş sayfası açılamayabilir. Tarayıcı adres çubuğundaki URL’nin tamamını kopyalayıp buraya yapıştır:</div><input type="url" id="codex_oauth_url" class="mt8" placeholder="http://127.0.0.1:…/callback?code=…&state=…"><button class="btn sm mt8" data-act="codexElevenFinish">Codex bağlantısını tamamla</button>`;
+};
+ACT.codexElevenFinish = async () => {
+  await post("/api/codex/elevenlabs/finish", { url: $("#codex_oauth_url").value.trim() });
+  for (let i = 0; i < 30; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const status = await api("/api/codex/elevenlabs/status");
+    if (status.connected) { toast("Codex ElevenLabs bağlandı"); return route(); }
+    if (status.flow === "error") throw new Error(status.error || "Codex OAuth tamamlanamadı");
+  }
+  throw new Error("Codex bağlantısı henüz tamamlanmadı; birkaç saniye bekleyip durumu yenile");
 };
 ACT.logout = async () => { await post("/api/logout"); location.href = "/login"; };
 ACT.accShared = async (el) => { await post(`/api/eleven/accounts/${el.dataset.id}/update`, { shared: el.checked }); toast("Kaydedildi"); };
