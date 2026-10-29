@@ -7,7 +7,7 @@ Long work runs as factory jobs (separate processes), so the server stays respons
 
 Usage: server.py [--port 8501] [--host <tailscale ip>]   (defaults from config.env: CF_STUDIO_PORT, CF_HOST)
 """
-import argparse, hashlib, shutil, importlib.util, json, os, re, subprocess, sys, threading, time, traceback, urllib.parse
+import argparse, hashlib, shutil, importlib.util, json, os, re, secrets, subprocess, sys, threading, time, traceback, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -29,6 +29,96 @@ MAX_UPLOAD = 600 * 1024 * 1024
 OUT = os.path.join(ROOT, "out")
 TAILNET = shorts.TAILNET
 thumb_lock = threading.Lock()
+CODEX_MCP_LOCK = threading.Lock()
+CODEX_MCP_FLOW = {"status": "idle", "url": None, "state": None, "callback_url": None,
+                  "process": None, "error": None, "owner": None}
+CODEX_MCP_CALLBACK = "/api/codex/elevenlabs/callback"
+
+
+def codex_public_url():
+    """HTTPS tailnet URL used as the OAuth redirect target (Tailscale Serve fronts this app)."""
+    configured = os.environ.get("CF_PUBLIC_URL", "").rstrip("/")
+    if configured.startswith("https://"):
+        return configured
+    try:
+        serve = subprocess.run(["tailscale", "serve", "status", "--json"], capture_output=True,
+                               text=True, timeout=5)
+        serve_config = json.loads(serve.stdout or "{}") if serve.returncode == 0 else {}
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        serve_config = {}
+    if not serve_config:
+        raise ValueError("Hesaplar → Tailscale Serve'de HTTPS'i etkinleştir; OAuth dönüş adresi için güvenli bağlantı gerekiyor")
+    try:
+        p = subprocess.run(["tailscale", "status", "--json"], capture_output=True, text=True, timeout=5)
+        name = json.loads(p.stdout).get("Self", {}).get("DNSName", "").rstrip(".") if p.returncode == 0 else ""
+        if name:
+            return "https://" + name
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        pass
+    raise ValueError("Güvenli OAuth dönüş adresi bulunamadı (CF_PUBLIC_URL veya Tailscale Serve gerekli)")
+
+
+def _read_codex_oauth(proc, ready):
+    """Keep the CLI login alive, expose only its authorization URL, and track completion."""
+    try:
+        for line in iter(proc.stdout.readline, ""):
+            if "elevenlabs.io/app/oauth/authorize?" in line:
+                url = line.strip()
+                parsed = urllib.parse.urlsplit(url)
+                state = (urllib.parse.parse_qs(parsed.query).get("state") or [None])[0]
+                with CODEX_MCP_LOCK:
+                    if CODEX_MCP_FLOW.get("process") is proc:
+                        CODEX_MCP_FLOW.update(url=url, state=state, status="waiting", error=None)
+                ready.set()
+            if proc.poll() is not None:
+                break
+        rc = proc.wait(timeout=10)
+        with CODEX_MCP_LOCK:
+            if CODEX_MCP_FLOW.get("process") is proc:
+                CODEX_MCP_FLOW.update(status="connected" if rc == 0 and llm.codex_elevenlabs_status().get("connected")
+                                      else "error", url=None,
+                                      error=None if rc == 0 else "Codex OAuth girişi tamamlanamadı", process=None)
+    except Exception as exc:
+        with CODEX_MCP_LOCK:
+            if CODEX_MCP_FLOW.get("process") is proc:
+                CODEX_MCP_FLOW.update(status="error", error=f"Codex OAuth: {exc}", process=None, url=None)
+
+
+def start_codex_oauth(uid):
+    if not accounts.is_owner(uid):
+        raise ValueError("Codex ElevenLabs bağlantısını yalnızca hesap sahibi yönetebilir")
+    status = llm.codex_elevenlabs_status()
+    if status.get("connected"):
+        return {"connected": True}
+    with CODEX_MCP_LOCK:
+        proc = CODEX_MCP_FLOW.get("process")
+        if proc and proc.poll() is None and CODEX_MCP_FLOW.get("url"):
+            return {"url": CODEX_MCP_FLOW["url"]}
+        if proc and proc.poll() is None:
+            raise ValueError("Codex bağlantı penceresi hazırlanıyor; birkaç saniye sonra tekrar dene")
+    public_url = codex_public_url()
+    callback_url = public_url + CODEX_MCP_CALLBACK
+    server_name = status.get("name") or "elevenlabs"
+    cmd = [llm.CODEX, "mcp", "login", server_name, "--no-browser", "--oauth-client-registration", "dcr",
+           "-c", f'mcp_oauth_callback_url="{callback_url}"']
+    try:
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True, bufsize=1, cwd=ROOT)
+    except OSError as exc:
+        raise ValueError(f"Codex CLI başlatılamadı: {exc}") from None
+    ready = threading.Event()
+    with CODEX_MCP_LOCK:
+        CODEX_MCP_FLOW.update(status="starting", url=None, state=None, callback_url=callback_url,
+                              process=proc, error=None, owner=uid)
+    threading.Thread(target=_read_codex_oauth, args=(proc, ready), daemon=True).start()
+    if not ready.wait(20):
+        with CODEX_MCP_LOCK:
+            error = CODEX_MCP_FLOW.get("error")
+        raise ValueError(error or "Codex OAuth bağlantısı başlatılamadı")
+    with CODEX_MCP_LOCK:
+        if CODEX_MCP_FLOW.get("status") != "waiting":
+            raise ValueError(CODEX_MCP_FLOW.get("error") or "Codex OAuth bağlantısı başlatılamadı")
+        return {"url": CODEX_MCP_FLOW["url"]}
 
 
 # ---------- read models ----------
@@ -672,7 +762,8 @@ def me(con):
             a["my_month"] = round(credits.month_spent(con, a["id"], uid))
     out = {"id": uid, "name": u.get("name", uid), "role": u.get("role", "owner"), "login": accounts.enabled(),
            "claude": accounts.claude_status(uid), "eleven": accs, "default_eleven": accounts.default_eleven(uid),
-           "llm_settings": accounts.llm_settings(uid), "llm_models": {p: llm.model_options(p) for p in ("claude", "codex")},
+           "llm_settings": accounts.llm_settings(uid), "codex_elevenlabs": llm.codex_elevenlabs_status(),
+           "llm_models": {p: llm.model_options(p) for p in ("claude", "codex")},
            "llm_default_models": {p: {step: llm.default_model(step, p) for step in llm.AGENT_STEPS} for p in ("claude", "codex")},
            "llm_agents": [{"id": k, "name": v} for k, v in llm.AGENT_STEPS.items()]}
     if accounts.is_owner(uid):
@@ -808,10 +899,52 @@ class Handler(shorts.Handler):
         return False
 
     def do_GET(self):
+        path = urllib.parse.urlsplit(self.path).path
+        if self.allowed() and path == CODEX_MCP_CALLBACK:
+            return self.codex_oauth_callback()
         if self.allowed() and self.gate(False):
             self.route(head=False)
         elif not self.allowed():
             self.send_bytes(403, b"Forbidden\n", "text/plain; charset=utf-8", False)
+
+    def codex_oauth_callback(self):
+        """Pass the OAuth redirect URL to Codex CLI, which validates state and exchanges the code."""
+        parsed = urllib.parse.urlsplit(self.path)
+        params = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+        state = (params.get("state") or [None])[0]
+        with CODEX_MCP_LOCK:
+            flow = CODEX_MCP_FLOW
+            proc = flow.get("process")
+            if not proc or proc.poll() is not None or flow.get("status") != "waiting":
+                return self.send_bytes(400, b"OAuth flow expired. Return to Content Factory and try again.\n",
+                                       "text/plain; charset=utf-8", False)
+            if not state or not flow.get("state") or not secrets.compare_digest(state, flow["state"]):
+                return self.send_bytes(400, b"OAuth state mismatch. Return to Content Factory and try again.\n",
+                                       "text/plain; charset=utf-8", False)
+            if params.get("error"):
+                flow.update(status="error", error="ElevenLabs yetkilendirmesi reddedildi", url=None)
+                try:
+                    proc.stdin.close()
+                except Exception:
+                    pass
+                return self.send_bytes(400, b"ElevenLabs connection was cancelled. Return to Content Factory.\n",
+                                       "text/plain; charset=utf-8", False)
+            callback = urllib.parse.urlsplit(flow.get("callback_url") or "")
+            try:
+                full_url = urllib.parse.urlunsplit((callback.scheme, callback.netloc, callback.path, parsed.query, ""))
+                proc.stdin.write(full_url + "\n")
+                proc.stdin.flush()
+                flow.update(status="finishing", url=None, state=None)
+            except (OSError, BrokenPipeError, AttributeError):
+                flow.update(status="error", error="Codex OAuth akışı kapandı", process=None)
+                return self.send_bytes(500, b"Codex could not finish the ElevenLabs connection.\n",
+                                       "text/plain; charset=utf-8", False)
+        html = ("<!doctype html><meta name=viewport content='width=device-width'><title>Bağlandı</title>"
+                "<body style='font:16px system-ui;background:#101116;color:#eee;padding:32px'>"
+                "<h2>ElevenLabs izni alındı</h2><p>Content Factory bağlantıyı tamamlıyor.</p>"
+                "<a style='color:#8eb7ff' href='/#/hesaplar'>Hesaplara dön</a>"
+                "<script>setTimeout(()=>location.replace('/#/hesaplar'),1500)</script></body>").encode()
+        return self.send_bytes(200, html, "text/html; charset=utf-8", False)
 
     def do_HEAD(self):
         if self.allowed() and self.gate(True):
@@ -994,6 +1127,17 @@ class Handler(shorts.Handler):
                    or model not in allowed_models for step, model in models.items()):
                 raise ValueError("Agent veya model seçimi listede yok")
             return {"llm_settings": accounts.set_llm_settings(uid, provider, models)}
+        if path == "/api/codex/elevenlabs/start":
+            if not accounts.is_owner(uid):
+                raise ValueError("Codex ElevenLabs bağlantısını yalnızca hesap sahibi yönetebilir")
+            status = llm.codex_elevenlabs_status()
+            if not status.get("configured"):
+                try:
+                    subprocess.run([llm.CODEX, "mcp", "add", "elevenlabs", "--url", "https://api.elevenlabs.io/v1/mcp"],
+                                   stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30, check=False)
+                except (OSError, subprocess.TimeoutExpired):
+                    raise ValueError("Codex ElevenLabs connector kaydedilemedi") from None
+            return start_codex_oauth(uid)
         if path == "/api/claude/start":
             if accounts.is_owner(uid):
                 raise ValueError("Sahip VM'deki Claude girişini kullanıyor")
@@ -1466,6 +1610,12 @@ class Handler(shorts.Handler):
             return {"refs": refs.library(con), "themes": refs.THEMES}
         if path == "/api/me":
             return me(con)
+        if path == "/api/codex/elevenlabs/status":
+            state = llm.codex_elevenlabs_status()
+            with CODEX_MCP_LOCK:
+                state["flow"] = CODEX_MCP_FLOW.get("status")
+                state["error"] = CODEX_MCP_FLOW.get("error")
+            return state
         if path == "/api/eleven":
             aid = (q.get("account") or [accounts.default_eleven()])[0]
             if not accounts.can_use(aid):

@@ -1309,9 +1309,14 @@ ROUTES["#/hesaplar"] = async () => {
   <div class="small muted mt8">Giriş yapan: <b>${esc(m.name)}</b> (${m.role === "owner" ? "sahip" : "üye"})</div>
   <div class="card mt16"><h3>⚙️ CLI ve model seçenekleri</h3><p class="small muted">Agent’ların hangi CLI ve modeli kullanacağını seç. Kaydettikten sonra başlayan işlerde uygulanır.</p>
     <label class="field mt12"><span>CLI</span><select id="llm_provider" data-change="llmProvider"><option value="claude" ${provider === "claude" ? "selected" : ""}>Claude Code</option><option value="codex" ${provider === "codex" ? "selected" : ""}>OpenAI Codex CLI</option></select></label>
-    <div class="small muted mt8" id="llm_provider_note">${provider === "codex" ? "Varsayılan model tüm agent’larda GPT-6-Luna. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs Claude connector adımları Claude’da çalışır." : "Varsayılanlar mevcut Claude agent modelleridir (opus/sonnet gibi); değiştirmediğin seçimler korunur."}</div>
+    <div class="small muted mt8" id="llm_provider_note">${provider === "codex" ? "Varsayılan model tüm agent’larda GPT-6-Luna. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs de Codex connector’ı üzerinden çalışır." : "Varsayılanlar mevcut Claude agent modelleridir (opus/sonnet gibi); değiştirmediğin seçimler korunur."}</div>
     <h3 class="mt16">Agent modelleri</h3><div class="grid mt8" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">${agentModels}</div>
     <button class="btn accent sm mt12" data-act="llmSave">Kaydet</button></div>
+  <div class="card mt16"><h3>🔌 ElevenLabs · Codex connector</h3>
+    <div class="small">${m.codex_elevenlabs?.connected ? "✅ Codex CLI’ye bağlı" : "❌ Codex CLI’ye bağlı değil"}</div>
+    <p class="small muted mt8">Codex seçildiğinde ses, müzik ve görsel üretimi bu bağlantıdan yapılır. Bağlan’a basınca ElevenLabs girişine yönlendirilirsin.</p>
+    ${m.role === "owner" ? `<button class="btn accent sm mt8" data-act="codexElevenConnect" ${m.codex_elevenlabs?.connected ? "disabled" : ""}>${m.codex_elevenlabs?.connected ? "Bağlandı" : "ElevenLabs’i Codex’e bağla"}</button>` : '<div class="tiny muted">Bu bağlantıyı hesap sahibi yönetir.</div>'}
+  </div>
   <div class="card mt16"><h3>🤖 Claude hesabı</h3>${cl}${m.role === "owner" ? "" : `<div id="clflow" class="mt12"><button class="btn sm accent" data-act="claudeStart" data-mode="login">🔗 Tam giriş ile bağla</button> <button class="btn sm" data-act="claudeStart" data-mode="token">🔑 Anahtar ile bağla</button></div>`}</div>
   <h2>ElevenLabs hesapları</h2><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">${acc}</div>
   <div class="card mt16"><h3>＋ ElevenLabs API anahtarı ekle</h3><input type="text" id="ak_name" placeholder="hesap adı (isteğe bağlı)"><input type="password" id="ak_key" placeholder="API anahtarı" class="mt8"><button class="btn accent sm mt8" data-act="accAdd">Ekle ve sesleri oku</button>
@@ -1327,13 +1332,19 @@ ACT.llmProvider = (el) => {
     if (options.some((x) => x.id === prior)) select.value = prior;
   }
   $("#llm_provider_note").textContent = provider === "codex"
-    ? "Varsayılan model tüm agent’larda GPT-6-Luna. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs Claude connector adımları Claude’da çalışır."
+    ? "Varsayılan model tüm agent’larda GPT-6-Luna. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs de Codex connector’ı üzerinden çalışır."
     : "Varsayılanlar mevcut Claude agent modelleridir (opus/sonnet gibi); değiştirmediğin seçimler korunur.";
 };
 ACT.llmSave = async () => {
   const models = Object.fromEntries($$('[data-agent-model]').filter((x) => x.value).map((x) => [x.dataset.agentModel, x.value]));
   await post("/api/llm/settings", { provider: $("#llm_provider").value, models });
   toast("CLI ve agent modelleri kaydedildi"); route();
+};
+ACT.codexElevenConnect = async () => {
+  const r = await post("/api/codex/elevenlabs/start", {});
+  if (r.connected) { toast("Codex ElevenLabs zaten bağlı"); return route(); }
+  if (!r.url) throw new Error("ElevenLabs giriş bağlantısı alınamadı");
+  location.href = r.url;
 };
 ACT.logout = async () => { await post("/api/logout"); location.href = "/login"; };
 ACT.accShared = async (el) => { await post(`/api/eleven/accounts/${el.dataset.id}/update`, { shared: el.checked }); toast("Kaydedildi"); };

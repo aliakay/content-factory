@@ -215,8 +215,8 @@ def _codex(prompt, tools, timeout, model, effort, step):
     return reply, {"cost_usd": None, "turns": 1, "effort": effort}
 
 
-def _codex_elevenlabs_server():
-    """Find the ElevenLabs MCP server configured in this Codex CLI profile."""
+def codex_elevenlabs_status():
+    """Return the ElevenLabs MCP server and OAuth state configured in this Codex CLI profile."""
     try:
         p = subprocess.run([CODEX, "mcp", "list", "--json"], capture_output=True, text=True, timeout=10)
         servers = json.loads(p.stdout) if p.returncode == 0 else []
@@ -228,7 +228,17 @@ def _codex_elevenlabs_server():
         if isinstance(server, dict) and "elevenlabs" in json.dumps(server).lower():
             name = server.get("name")
             if name:
-                return name
+                return {"configured": True, "name": name,
+                        "connected": server.get("auth_status") == "logged_in",
+                        "auth_status": server.get("auth_status") or "unknown"}
+    return {"configured": False, "name": None, "connected": False, "auth_status": "not_configured"}
+
+
+def _codex_elevenlabs_server():
+    """Find the ElevenLabs MCP server configured in this Codex CLI profile."""
+    status = codex_elevenlabs_status()
+    if status["configured"]:
+        return status["name"]
     raise LLMError("Codex CLI'da ElevenLabs connector bulunamadı. Bir kez şu komutları çalıştırıp ElevenLabs'e giriş yap: "
                    "codex mcp add elevenlabs --url https://api.elevenlabs.io/v1/mcp; codex mcp login elevenlabs")
 
