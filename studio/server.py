@@ -133,6 +133,7 @@ def production_detail(con, pid):
     aid = P.eleven_account(p["data"])
     out["eleven_account"], out["eleven_accounts"] = aid, accounts.usable_eleven()
     out["voices"] = eleven_info(aid)["voices"]
+    out["default_voice"] = formats.default_voice(p["data"].get("lang"))
     if True:  # every production can get a generated track (styled ones also cut on its beats)
         try:
             out["music_estimate"] = P.music_estimate(con, p)
@@ -647,7 +648,8 @@ def eleven_info(aid, fresh=False):
         con.close()
     if aid != "ali":   # a member's own connector: voices read by the eleven_voices job, cap optional
         cap = acc.get("month_cap")
-        return {"voices": acc.get("voices") or [], "balance": {"tier": "connector", "used": spent, "limit": cap,
+        return {"voices": with_default_voices({"voices": list(acc.get("voices") or [])})["voices"],
+                "balance": {"tier": "connector", "used": spent, "limit": cap,
                 "left": max(0, cap - spent) if cap else None}, "error": None if acc.get("voices") else
                 "sesler okunuyor ya da okunamadı (Hesaplar → Sesleri yenile)"}
     prof = eleven_profile()
@@ -678,9 +680,21 @@ def me(con):
 
 def eleven_profile():
     try:
-        return json.load(open(PROFILE))
+        prof = json.load(open(PROFILE))
     except (OSError, ValueError):
-        return {"voices": [], "defaults": {}, "avatar": {}}
+        prof = {"voices": [], "defaults": {}, "avatar": {}}
+    return with_default_voices(prof)
+
+
+def with_default_voices(prof):
+    """The built-in narrators (formats.DEFAULT_VOICES) are in every connector voice list and fill missing language
+    defaults, so a fresh machine without data/eleven_profile.json still has a working voice for TR and EN."""
+    have = {v["voice_id"] for v in prof.setdefault("voices", [])}
+    for lang, v in formats.DEFAULT_VOICES.items():
+        prof.setdefault("defaults", {}).setdefault(lang, v["voice_id"])
+        if v["voice_id"] not in have:
+            prof["voices"].append(dict(v))
+    return prof
 
 
 def ref_thumb(con, ref_id):

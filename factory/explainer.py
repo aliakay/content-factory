@@ -125,13 +125,17 @@ Illustrated look additions: top-level "art_style": "<locked style paragraph>", a
 "at": "word", "where": [0.1, 0.4, 0.8, 0.3]}]}; set scene "bg" to null (the plate is the background)."""
 
 
-def formats_default_voice():
+def formats_default_voice(lang=None):
     from . import formats
-    return formats.VOICE_ID
+    return formats.default_voice(lang)
 
 
 def voice_lang(voice_id):
     """Language of a voice from the creator's ElevenLabs profile (default English)."""
+    from . import formats
+    for lang, v in formats.DEFAULT_VOICES.items():
+        if v["voice_id"] == voice_id:
+            return lang
     try:
         prof = json.load(open(os.path.join(ROOT, "data", "eleven_profile.json")))
     except (OSError, ValueError):

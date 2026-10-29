@@ -139,3 +139,23 @@ def test_plates_from_references_are_priced_on_the_edit_model(con, monkeypatch):
     illustrate.make_plates(con, {"data": d, "prod_id": 1}, 1000, chars, "F")
     assert [c["approved"] for c in calls] == [228, 457, 457]   # share of 1000 by each plate's rate, + 1/7 headroom
     assert calls[1]["refs"] == ["node1"] and calls[2]["refs"] == ["n1"]
+
+
+def test_default_narrator_follows_the_language(con, monkeypatch, tmp_path):
+    from factory import explainer, formats
+    assert formats.default_voice("tr") == formats.DEFAULT_VOICES["tr"]["voice_id"] != formats.VOICE_ID
+    assert formats.default_voice("en") == formats.default_voice("de") == formats.DEFAULT_VOICES["en"]["voice_id"]
+    assert explainer.voice_lang(formats.default_voice("tr")) == "tr"
+    used = []
+    def tts(con, text, vid, model, approved=None, account=None):
+        used.append(vid)
+        f = tmp_path / "v.mp3"
+        subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "sine=f=440:d=0.4", str(f)], check=True)
+        return str(f), 5.0
+    monkeypatch.setattr(eleven, "tts", tts)
+    d = {"voice": {"lines": ["a b", "c d"], "speakers": ["narrator", "gull"]}, "lang": "tr",
+         "cast_voices": {"gull": "G"}}
+    monkeypatch.setattr(P, "ROOT", str(tmp_path))
+    os.makedirs(tmp_path / "assets" / "eleven")
+    P.cast_voice(con, d, 30)
+    assert used[0] == formats.default_voice("tr") and used[1] == "G"   # the narrator has no voice of its own

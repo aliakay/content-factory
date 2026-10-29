@@ -352,7 +352,7 @@ def make_voice(con, prod_id, approved):
     if multi_voice(d):
         path, cost = cast_voice(con, d, approved)
     else:
-        path, cost = eleven.tts(con, text, d.get("voice_id") or formats.VOICE_ID, formats.VOICE_MODEL, approved=approved,
+        path, cost = eleven.tts(con, text, d.get("voice_id") or formats.default_voice(d.get("lang")), formats.VOICE_MODEL, approved=approved,
                                 account=eleven_account(d))
     path = voice_post(path, d)
     times, dur, words = align(path, d["voice"]["lines"], d.get("lang", "en"))
@@ -403,7 +403,7 @@ def cast_voice(con, d, approved):
     import hashlib
     from . import eleven
     lines, sp, cast = d["voice"]["lines"], d["voice"]["speakers"], d.get("cast_voices") or {}
-    default = d.get("voice_id") or formats.VOICE_ID
+    default = d.get("voice_id") or formats.default_voice(d.get("lang"))
     runs = []
     for ln, who in zip(lines, sp):
         vid = cast.get(who) or default

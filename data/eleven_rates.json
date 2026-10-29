@@ -1,8 +1,8 @@
 {
  "tts:eleven_v4": {
   "unit": "char",
-  "rate": 1.151111993475275,
-  "samples": 8
+  "rate": 1.12088959478022,
+  "samples": 10
  },
  "tts:eleven_flash_v2_5": {
   "unit": "char",
