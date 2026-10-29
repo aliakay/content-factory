@@ -1,8 +1,8 @@
 {
  "tts:eleven_v4": {
   "unit": "char",
-  "rate": 1.151111993475275,
-  "samples": 8
+  "rate": 1.12088959478022,
+  "samples": 10
  },
  "tts:eleven_flash_v2_5": {
   "unit": "char",
@@ -22,13 +22,19 @@
  },
  "image:gpt-image-2": {
   "unit": "img",
-  "rate": 212.4974172718291,
-  "samples": 1
+  "rate": 191.5754372920952,
+  "samples": 4
  },
  "video:bytedance-seedance-v2.5": {
   "unit": "s",
   "rate": 3224.1937179277866,
   "samples": 1,
   "note": "720p 9:16 no audio; extremely expensive \u2014 confirm price + approval before any video generation"
+ },
+ "image:gpt-image-2.5-sunburst": {
+  "unit": "img",
+  "rate": 432.8223199353447,
+  "samples": 0,
+  "note": "connector estimate_only for one 1K high-quality edit from a reference (2026-10-29); replaced by the first real run"
  }
 }

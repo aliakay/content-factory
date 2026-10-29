@@ -94,3 +94,79 @@ def test_cast_voice_joins_takes(con, monkeypatch, tmp_path):
     path, cost = P.cast_voice(con, d, 30)
     assert os.path.exists(path) and cost == 20.0                   # two runs: narrator x2 lines, gull
     assert not P.multi_voice({"voice": {"lines": ["a"], "speakers": ["narrator"]}, "cast_voices": {"narrator": "N"}})
+
+
+def test_connector_error_is_shown_not_recovered(monkeypatch):
+    asked = []
+    def ask(prompt, **k):
+        asked.append(k["tools"])
+        return {"url": None, "error": "429: {'code': 'free_tier_image_limit_reached'}"}, {}
+    monkeypatch.setattr(llm, "ask", ask)
+    with pytest.raises(eleven.ElevenError, match="ücretsiz planda"):
+        eleven._run("p", ("t",), model="gpt-image-2")
+    assert len(asked) == 1                                     # no recovery turn: nothing was generated
+
+
+def test_malformed_reply_recovers_only_newer_generation(monkeypatch):
+    replies = [llm.LLMError("no JSON in model output: ..."), ({"url": "https://x/a.png", "credit_cost": 9}, {})]
+    seen = []
+    def ask(prompt, **k):
+        seen.append((prompt, k["tools"]))
+        r = replies.pop(0)
+        if isinstance(r, Exception):
+            raise r
+        return r
+    monkeypatch.setattr(llm, "ask", ask)
+    data, _ = eleven._run("p", ("t",), model="gpt-image-2", flow_id="F1")
+    assert data["url"] == "https://x/a.png"
+    prompt, tools = seen[1]
+    assert '"F1"' in prompt and "ignore anything older" in prompt and eleven.T + "creative_get_flow_node" in tools
+
+
+def test_plates_from_references_are_priced_on_the_edit_model(con, monkeypatch):
+    chars = [{"id": "pip", "name": "Pip", "look": "teal robot", "sheet": {"node_id": "n1"}}]
+    d = {"scenes": [{"id": "s1", "plate": {"prompt": "a", "cast": []}},
+                    {"id": "s2", "plate": {"prompt": "b", "cast": [], "same_place_as": "s1"}},
+                    {"id": "s3", "plate": {"prompt": "c", "cast": ["pip"]}}]}
+    monkeypatch.setattr(illustrate, "missing", lambda d: [sc["id"] for sc in d["scenes"]])
+    assert illustrate.plate_models(d, chars) == {"s1": eleven.IMAGE_MODEL, "s2": eleven.EDIT_MODEL, "s3": eleven.EDIT_MODEL}
+    monkeypatch.setattr(illustrate.credits, "rates", lambda: {"image:" + eleven.IMAGE_MODEL: {"rate": 200},
+                                                              "image:" + eleven.EDIT_MODEL: {"rate": 400}})
+    assert illustrate.estimate(con, d, "ali", chars)["credits"] == 1000
+    calls = []
+    monkeypatch.setattr(eleven, "image", fake_image(calls))
+    monkeypatch.setattr(illustrate.os.path, "exists", lambda f: True)
+    illustrate.make_plates(con, {"data": d, "prod_id": 1}, 1000, chars, "F")
+    assert [c["approved"] for c in calls] == [228, 457, 457]   # share of 1000 by each plate's rate, + 1/7 headroom
+    assert calls[1]["refs"] == ["node1"] and calls[2]["refs"] == ["n1"]
+
+
+def test_default_narrator_follows_the_language(con, monkeypatch, tmp_path):
+    from factory import explainer, formats
+    monkeypatch.setattr(formats, "PROFILE", str(tmp_path / "no_profile.json"))   # built-in narrators only
+    assert formats.default_voice("tr") == formats.DEFAULT_VOICES["tr"]["voice_id"] != formats.VOICE_ID
+    assert formats.default_voice("en") == formats.default_voice("de") == formats.DEFAULT_VOICES["en"]["voice_id"]
+    assert explainer.voice_lang(formats.default_voice("tr")) == "tr"
+    used = []
+    def tts(con, text, vid, model, approved=None, account=None):
+        used.append(vid)
+        f = tmp_path / "v.mp3"
+        subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "sine=f=440:d=0.4", str(f)], check=True)
+        return str(f), 5.0
+    monkeypatch.setattr(eleven, "tts", tts)
+    d = {"voice": {"lines": ["a b", "c d"], "speakers": ["narrator", "gull"]}, "lang": "tr",
+         "cast_voices": {"gull": "G"}}
+    monkeypatch.setattr(P, "ROOT", str(tmp_path))
+    os.makedirs(tmp_path / "assets" / "eleven")
+    P.cast_voice(con, d, 30)
+    assert used[0] == formats.default_voice("tr") and used[1] == "G"   # the narrator has no voice of its own
+
+
+def test_owner_default_voice_comes_from_the_profile(monkeypatch, tmp_path):
+    from factory import formats
+    prof = tmp_path / "eleven_profile.json"
+    monkeypatch.setattr(formats, "PROFILE", str(prof))
+    assert formats.default_voice("tr", "ali") == formats.DEFAULT_VOICES["tr"]["voice_id"]   # no profile: built-in
+    prof.write_text(json.dumps({"defaults": {"en": "CLONE_EN", "tr": "CLONE_TR"}}))
+    assert formats.default_voice("tr", "ali") == "CLONE_TR" and formats.default_voice("de", "ali") == "CLONE_EN"
+    assert formats.default_voice("tr", "fatih") == formats.DEFAULT_VOICES["tr"]["voice_id"]  # a member's connector

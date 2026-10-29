@@ -12,8 +12,34 @@ flags. Formats that said almost the same thing were merged; their ids stay valid
 Style "calm" = cinematic-calm cut (held shots, hard cuts, own sound, 1-2 plain lines per shot).
 Style "story" = the creator's cloned voice tells one story; burned-in captions are the spoken phrases.
 """
+import json, os
 
-VOICE_ID = "vhP2LOWrrIsWMq4m2vP6"  # the creator's cloned ElevenLabs voice "Ali"
+VOICE_ID ="vhP2LOWrrIsWMq4m2vP6"  # the creator's cloned ElevenLabs voice "Ali" (only on Ali's own ElevenLabs account)
+# default narrator per language when a production has no voice: voices every ElevenLabs account can use
+# (checked 2026-10-29 with a real generation on a free-plan connector account)
+DEFAULT_VOICES = {
+    "tr": {"voice_id": "SH4lhRkDD5za8EnxIqOt", "name": "Ali - Warm Turkish Narrator", "language": "tr",
+           "category": "library", "note": "warm, calm Turkish male narrator"},
+    "en": {"voice_id": "JBFqnCBsd6RMkjVDRZzb", "name": "George - Warm, Captivating Storyteller", "language": "en",
+           "category": "premade", "note": "warm British male storyteller"},
+}
+
+
+PROFILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "eleven_profile.json")
+
+
+def default_voice(lang=None, account=None):
+    """voice_id of the default narrator for `lang` ("tr" / "en"; anything else = English). On the owner's account the
+    machine's own profile default ("varsayılan yap", e.g. the creator's clone) comes first; a member's account or a
+    machine without one gets the built-in narrators."""
+    if account == "ali":   # accounts.OWNER: data/eleven_profile.json describes the owner's connector
+        try:
+            mine = (json.load(open(PROFILE)).get("defaults") or {}).get(lang if lang in DEFAULT_VOICES else "en")
+        except (OSError, ValueError):
+            mine = None
+        if mine:
+            return mine
+    return DEFAULT_VOICES.get(lang, DEFAULT_VOICES["en"])["voice_id"]
 VOICE_MODEL = "eleven_v4"
 # output canvases: vertical for TikTok / Shorts / Reels, horizontal for regular YouTube videos
 ASPECTS = {"9:16": (1080, 1920), "16:9": (1920, 1080)}

@@ -5,6 +5,7 @@ signed audio/image/video URL plus its `credit_cost`; we download the file and wr
 Callers must have shown the user a credit estimate and received approval first (see credits.estimate).
 """
 import hashlib, json, os, subprocess, urllib.request
+from datetime import datetime, timezone
 
 from . import accounts, credits, eleven_api, llm
 
@@ -27,29 +28,64 @@ def _download(url, ext, key):
     return path
 
 
-def recover(model):
-    """The generation may have run even if the reply was malformed: fetch the newest one for `model`
-    (URL + credit cost) instead of generating again and paying twice."""
-    prompt = f"""Use ElevenLabs tools to READ only (never generate). Call creative_get_generations, take the most recent
-generation made with model "{model}" (it was started in the last few minutes), then call
-creative_get_flow_run_status on its flow/node to read price.credits and the signed file URL.
-Reply ONLY JSON: {{"url": "<signed url>", "credit_cost": <number>, "created": "<time>"}}"""
-    data, meta = llm.ask(prompt, tools=(T + "creative_get_generations",) + POLL_TOOLS, timeout=600, mcp=True, model=CLAUDE_MODEL)
+ERROR_REPLY = """If a tool returns an error (nothing generated), do not retry or work around it: reply ONLY JSON
+{"url": null, "error": "<the tool's exact error text>"}."""
+READ_TOOLS = (T + "creative_list_flows", T + "creative_get_flow", T + "creative_get_flow_node",
+              T + "creative_get_generations") + POLL_TOOLS
+
+# ElevenLabs errors the user can act on (the raw text stays in the job log after the explanation)
+KNOWN_ERRORS = (
+    ("free_tier_image_limit", "ElevenLabs hesabı ücretsiz planda ve günlük görsel limiti doldu; yarın tekrar dene "
+                              "ya da planı yükselt"),
+    ("does not resolve", "seçili ses bu ElevenLabs hesabında yok; üretim sayfasında hesabın seslerinden birini seç"),
+    ("quota_exceeded", "ElevenLabs hesabının kredisi bitti"),
+    ("rate_limit", "ElevenLabs şu an istek sınırında; birkaç dakika sonra tekrar dene"),
+)
+
+
+def explain(error):
+    text = str(error)
+    for needle, why in KNOWN_ERRORS:
+        if needle in text:
+            return f"{why} ({text[:300]})"
+    return text[:400]
+
+
+def recover(model, since, flow_id=None):
+    """The generation may have run even if the reply was malformed: fetch the one for `model` started at or after
+    `since` (URL + credit cost) instead of generating again and paying twice. Older generations never count."""
+    where = (f'Read flow_id "{flow_id}" with creative_get_flow' if flow_id else
+             "Call creative_list_flows and read the most recently updated flows with creative_get_flow")
+    prompt = f"""Use ElevenLabs tools to READ only (never generate, never add or change nodes). {where}, then
+creative_get_flow_node on its nodes with model "{model}" to see their generations. Take the newest generation created at
+or after {since} (UTC); ignore anything older. Read its signed file URL with creative_get_generations and its
+price.credits with creative_get_flow_run_status.
+Reply ONLY JSON: {{"url": "<signed url or null if there is no such generation>", "credit_cost": <number or null>,
+"flow_id": "<flow id>", "node_id": "<node id>", "created": "<time>"}}"""
+    data, meta = llm.ask(prompt, tools=READ_TOOLS, timeout=600, mcp=True, model=CLAUDE_MODEL)
     if not isinstance(data, dict) or not data.get("url"):
-        raise ElevenError(f"could not recover the generation for {model}")
+        raise ElevenError(f"{model} üretimi bulunamadı (büyük olasılıkla başlamadı, kredi harcanmadı)")
     return data, meta
 
 
-def _run(prompt, tools, timeout=900, model=None):
+def _run(prompt, tools, timeout=900, model=None, flow_id=None):
+    """One headless turn that must reply {"url": ...}. A reply carrying "error" means the connector refused before
+    anything ran: surface it. A missing/malformed reply may hide a finished generation: recover it (with `model`)."""
+    since = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
         data, meta = llm.ask(prompt, tools=tools, timeout=timeout, mcp=True, model=CLAUDE_MODEL)
-    except llm.LLMError:
+    except llm.LLMError as e:
         if not model:
             raise
-        return recover(model)
+        try:
+            return recover(model, since, flow_id)
+        except ElevenError as r:
+            raise ElevenError(f"{r}; ilk yanıt: {str(e)[:300]}") from None
+    if isinstance(data, dict) and not data.get("url") and data.get("error"):
+        raise ElevenError(explain(data["error"]))
     if not isinstance(data, dict) or not data.get("url"):
         if model:
-            return recover(model)
+            return recover(model, since, (data or {}).get("flow_id") if isinstance(data, dict) else flow_id)
         raise ElevenError(f"no file URL returned: {json.dumps(data)[:300]}")
     return data, meta
 
@@ -90,7 +126,8 @@ and model "{model}" with generations_count 1 (exactly one take) for EXACTLY this
 <<<{text}>>>
 Then poll creative_get_flow_run_status (wait between tries) until the generation is finished, and find the signed
 mp3 URL of the generated audio. Generate only once. Reply ONLY JSON:
-{{"url": "<signed audio url>", "credit_cost": <number from the generate result>, "duration_s": <number or null>}}"""
+{{"url": "<signed audio url>", "credit_cost": <number from the generate result>, "duration_s": <number or null>}}
+{ERROR_REPLY}"""
     with accounts.as_user(acc["owner"]):   # the connector lives on its owner's Claude login
         data, _ = _run(prompt, (T + "creative_generate_speech",) + POLL_TOOLS, model=model)
     path = _download(data["url"], "mp3", key)
@@ -125,7 +162,8 @@ Prompt: <<<{prompt_text}>>>
 Use {tool} (if it needs a flow, create the node with the given model and run only that node). Poll
 creative_get_flow_run_status until finished and find the signed URL of the generated file. Generate only once.
 The credit cost is in the run status as price.credits (or credit_cost). Reply ONLY JSON, nothing else:
-{{"url": "<signed file url>", "credit_cost": <number>}}"""
+{{"url": "<signed file url>", "credit_cost": <number>}}
+{ERROR_REPLY}"""
     tools = (T + tool, T + "creative_create_flow", T + "creative_add_flow_node", T + "creative_run_flow_nodes",
              T + "creative_update_node", T + "creative_get_model_schema") + POLL_TOOLS
     with accounts.as_user(acc["owner"]):
@@ -137,13 +175,19 @@ The credit cost is in the run status as price.credits (or credit_cost). Reply ON
 
 
 IMAGE_MODEL = "gpt-image-2"
+EDIT_MODEL = "gpt-image-2.5-sunburst"   # the connector's model for an image made from reference images
 
 
-def image(con, prompt_text, approved, account=None, aspect="9:16", flow_id=None, refs=(), idea_id=None, model=IMAGE_MODEL):
+def image_model(refs=()):
+    return EDIT_MODEL if refs else IMAGE_MODEL
+
+
+def image(con, prompt_text, approved, account=None, aspect="9:16", flow_id=None, refs=(), idea_id=None, model=None):
     """One illustration (png) through the connector, on flow `flow_id` (a series keeps all its images on one flow).
     `refs` = node ids of earlier images on that flow (character sheets, the previous plate): the new image is made
     from them with creative_edit_image so characters and style stay the same. Returns (path, cost, flow_id, node_id).
     Cached by (prompt, refs, aspect)."""
+    model = model or image_model(refs)
     key = "img_" + hashlib.sha1(f"{model}|{aspect}|{','.join(refs)}|{prompt_text}".encode()).hexdigest()[:16]
     cached = os.path.join(OUT, f"{key}.png")
     meta_path = cached + ".json"
@@ -156,20 +200,27 @@ def image(con, prompt_text, approved, account=None, aspect="9:16", flow_id=None,
     credits.guard(con, "image", model, 1, approved, account)
     ratio = "2:3" if aspect == "9:16" else "3:2"
     if refs:
-        how = (f"Use creative_edit_image on flow_id \"{flow_id}\" with connect_from {json.dumps(list(refs))} (these nodes "
-               f"are the reference images: keep their characters, faces, outfits, colours and drawing style exactly) and "
-               f"this prompt.")
+        how = (f"Call creative_edit_image on flow_id \"{flow_id}\" with model_id \"{model}\", connect_from "
+               f"{json.dumps(list(refs))} (these nodes are the reference images: keep their characters, faces, outfits, "
+               f"colours and drawing style exactly)")
     else:
         where = f' on flow_id "{flow_id}"' if flow_id else " (it creates a flow)"
-        how = f'Use creative_generate_image{where} with model "{model}" and this prompt.'
-    prompt = f"""Use the ElevenLabs tools. {how} Aspect ratio {ratio} (portrait for a 9:16 video, landscape for 16:9);
-exactly ONE image (generations_count 1). Prompt: <<<{prompt_text}>>>
-Poll creative_get_flow_run_status until finished, then read the signed image URL. Generate only once.
+        how = f'Call creative_generate_image{where} with model_id "{model}"'
+    # neither generate tool takes an aspect ratio: create the node without running it, set the ratio, then run it
+    prompt = f"""Use the ElevenLabs tools, in this order, exactly once each:
+1. {how}, generations_count 1, estimate_only true and this prompt: <<<{prompt_text}>>>
+   This only creates the node (nothing is generated or charged); note its flow_id and node_id.
+2. creative_get_flow_node on that node to read its model_parameters, then creative_update_node with the same
+   model_parameters except "aspect_ratio": "{ratio}" (portrait for a 9:16 video, landscape for 16:9).
+3. creative_run_flow_nodes on that one node with generations_count 1.
+4. Poll creative_get_flow_run_status until finished, then read the signed image URL.
 Reply ONLY JSON: {{"url": "<signed image url>", "credit_cost": <number>, "flow_id": "<flow id>", "node_id": "<the
-generated image node id>"}}"""
-    tools = (T + "creative_generate_image", T + "creative_edit_image", T + "creative_get_model_schema") + POLL_TOOLS
+generated image node id>"}}
+{ERROR_REPLY}"""
+    tools = (T + "creative_generate_image", T + "creative_edit_image", T + "creative_get_flow_node",
+             T + "creative_update_node", T + "creative_run_flow_nodes", T + "creative_get_model_schema") + POLL_TOOLS
     with accounts.as_user(acc["owner"]):
-        data, _ = _run(prompt, tools, timeout=1200, model=model)
+        data, _ = _run(prompt, tools, timeout=1200, model=model, flow_id=flow_id)
     path = _download(data["url"], "png", key)
     cost = float(data.get("credit_cost") or 0)
     json.dump({"flow_id": data.get("flow_id") or flow_id, "node_id": data.get("node_id"), "prompt": prompt_text,
