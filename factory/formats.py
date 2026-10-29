@@ -24,6 +24,24 @@ DEFAULT_VOICES = {
 }
 
 
+# languages ElevenLabs' eleven_v3 / v4 speak (ISO 639-1 code, name); Turkish and English first
+ELEVEN_LANGUAGES = [
+    ("tr", "Türkçe"), ("en", "English"), ("af", "Afrikaans"), ("ar", "Arabic"), ("hy", "Armenian"), ("as", "Assamese"),
+    ("az", "Azerbaijani"), ("be", "Belarusian"), ("bn", "Bengali"), ("bs", "Bosnian"), ("bg", "Bulgarian"),
+    ("ca", "Catalan"), ("ceb", "Cebuano"), ("ny", "Chichewa"), ("hr", "Croatian"), ("cs", "Czech"), ("da", "Danish"),
+    ("nl", "Dutch"), ("et", "Estonian"), ("fil", "Filipino"), ("fi", "Finnish"), ("fr", "French"), ("gl", "Galician"),
+    ("ka", "Georgian"), ("de", "German"), ("el", "Greek"), ("gu", "Gujarati"), ("ha", "Hausa"), ("he", "Hebrew"),
+    ("hi", "Hindi"), ("hu", "Hungarian"), ("is", "Icelandic"), ("id", "Indonesian"), ("ga", "Irish"), ("it", "Italian"),
+    ("ja", "Japanese"), ("jv", "Javanese"), ("kn", "Kannada"), ("kk", "Kazakh"), ("ky", "Kyrgyz"), ("ko", "Korean"),
+    ("lv", "Latvian"), ("ln", "Lingala"), ("lt", "Lithuanian"), ("lb", "Luxembourgish"), ("mk", "Macedonian"),
+    ("ms", "Malay"), ("ml", "Malayalam"), ("zh", "Mandarin Chinese"), ("mr", "Marathi"), ("ne", "Nepali"),
+    ("no", "Norwegian"), ("ps", "Pashto"), ("fa", "Persian"), ("pl", "Polish"), ("pt", "Portuguese"),
+    ("pa", "Punjabi"), ("ro", "Romanian"), ("ru", "Russian"), ("sr", "Serbian"), ("sd", "Sindhi"), ("sk", "Slovak"),
+    ("sl", "Slovenian"), ("so", "Somali"), ("es", "Spanish"), ("sw", "Swahili"), ("sv", "Swedish"), ("ta", "Tamil"),
+    ("te", "Telugu"), ("th", "Thai"), ("uk", "Ukrainian"), ("ur", "Urdu"), ("vi", "Vietnamese"), ("cy", "Welsh"),
+]
+
+
 def default_voice(lang=None):
     """voice_id of the default narrator for `lang` ("tr" / "en"; anything else = English)."""
     return DEFAULT_VOICES.get(lang, DEFAULT_VOICES["en"])["voice_id"]

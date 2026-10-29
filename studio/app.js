@@ -71,7 +71,7 @@ const STAGES = [["idea", "Fikir"], ["voice", "Ses"], ["preview", "Önizleme"], [
 const SL = Object.fromEntries(STAGES);
 const PL = { youtube: "YouTube", tiktok: "TikTok", instagram: "Instagram" };
 const plat = (p) => PL[p] || p || "—";
-const JOBTR = { p_ideas: "fikir üretimi", p_voice: "ses + önizleme", p_preview: "önizleme", p_render: "final render + QA", p_revise: "revizyon", p_design: "hareket tasarımı", p_direct: "art direction", p_verify: "doğrulama", p_plan: "düzenleme planı", p_plan_apply: "plan uygulama", p_music: "müzik + önizleme", p_plates: "çizimler + tasarım", plan: "planlayıcı", series_bible: "seri kitabı", series_cast: "karakter sayfaları", series_episode: "bölüm yazımı", ingest: "albüm indirme", analyze: "analiz", describe: "klip açıklama", radar: "radar", trends: "trendler", yt_stats: "YouTube istatistik", ref_lib: "referans analizi", discover: "günlük keşif", style_extract: "stil çıkarma", avatar_check: "avatar kontrolü", eleven_voices: "sesleri okuma", talk_new: "konuşma videosu kurgusu", catalog_demos: "katalog örnek klipleri" };
+const JOBTR = { p_ideas: "fikir üretimi", p_voice: "ses + önizleme", p_preview: "önizleme", p_render: "final render + QA", p_revise: "revizyon", p_design: "hareket tasarımı", p_direct: "art direction", p_verify: "doğrulama", p_plan: "düzenleme planı", p_plan_apply: "plan uygulama", p_music: "müzik + önizleme", p_plates: "çizimler + tasarım", plan: "planlayıcı", series_bible: "seri kitabı", series_cast: "karakter sayfaları", series_episode: "bölüm yazımı", ingest: "albüm indirme", analyze: "analiz", describe: "klip açıklama", radar: "radar", trends: "trendler", yt_stats: "YouTube istatistik", ref_lib: "referans analizi", discover: "günlük keşif", style_extract: "stil çıkarma", avatar_check: "avatar kontrolü", eleven_voices: "sesleri okuma", voice_add: "ses ekleme", talk_new: "konuşma videosu kurgusu", catalog_demos: "katalog örnek klipleri" };
 const KIND = { footage: ["🎞", "Çekimli"], explainer: ["✍️", "Konu"], series: ["📚", "Seri"] };
 const LOOKS = [["auto", "✨ Otomatik", "Opus sahneleri kendisi tasarlar"], ["illustrated", "🖌 Çizimli", "AI illüstrasyon + kamera + işaretler"], ["tech", "🌌 Tech", "koyu lacivert, neon vurgu"], ["paper", "📰 Paper", "Vox tarzı kâğıt"]];
 const THEME_TR = { gezi: "Gezi", vlog: "Vlog", manzara: "Manzara", motivasyon: "Motivasyon", "diğer": "Diğer" };
@@ -1252,11 +1252,24 @@ ROUTES["#/ses"] = async () => {
   paint(`<h1>Ses & <span class="serif">avatar</span></h1>
   <h2>Seslerin</h2><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">${(p.voices || []).map((v) => `<div class="card"><div class="row"><b>🎙 ${esc(v.name)}</b><span class="sp"></span>${Object.entries(p.defaults || {}).filter(([, id]) => id === v.voice_id).map(([l]) => `<span class="badge ok">varsayılan ${esc(l.toUpperCase())}</span>`).join("")}</div>
     <div class="tiny faint">${esc(v.note || "")} · ${esc(v.voice_id)}</div>${v.preview_url ? `<audio controls preload="none" src="${esc(v.preview_url)}" style="width:100%;margin-top:8px"></audio>` : ""}
-    ${v.language ? `<button class="btn sm mt8" data-act="setDefaultVoice" data-lang="${esc(v.language)}" data-id="${esc(v.voice_id)}">${esc(v.language.toUpperCase())} için varsayılan yap</button>` : ""}</div>`).join("") || '<div class="empty">Ses yok</div>'}</div>
+    ${["tr", "en"].includes(v.language) ? `<button class="btn sm mt8" data-act="setDefaultVoice" data-lang="${esc(v.language)}" data-id="${esc(v.voice_id)}">${esc(v.language.toUpperCase())} için varsayılan yap</button>` : ""}
+    ${v.category === "custom" ? `<button class="btn sm mt8" data-act="removeVoice" data-id="${esc(v.voice_id)}">Sil</button>` : ""}</div>`).join("") || '<div class="empty">Ses yok</div>'}</div>
+  <h2>Ses ekle</h2><div class="card"><div class="small muted">ElevenLabs'te sesi aç → <b>ID</b>'yi kopyala (Voices → sesin menüsü → Copy voice ID). Ses bağlı hesapta kontrol edilir (kredi harcanmaz), sonra listeye eklenir.</div>
+    <div class="row mt12" style="flex-wrap:wrap;gap:8px">
+      <label class="field"><span>Dil</span><select id="nvLang" data-change="newVoiceLang"><option value="">— dil seç —</option>${(p.languages || []).map(([c, n]) => `<option value="${esc(c)}">${esc(n)} (${esc(c)})</option>`).join("")}</select></label>
+      <label class="field" id="nvIdWrap" hidden><span>Ses ID'si</span><input id="nvId" placeholder="ör. JBFqnCBsd6RMkjVDRZzb" autocomplete="off" spellcheck="false"></label>
+      <label class="field" id="nvNameWrap" hidden><span>İsim (isteğe bağlı)</span><input id="nvName" placeholder="ör. Anlatıcı Defne"></label>
+    </div><button class="btn accent mt12" id="nvAdd" data-act="addVoice" hidden>Sesi ekle</button></div>
   <h2>Avatar</h2><div class="card"><div class="small">${a.node_id ? `<span class="ok">✓ Avatar bulundu</span> · düğüm ${esc(a.node_id)}` : `<span class="warn">Avatar henüz akışta yok.</span>`} ${a.checked_at ? `<span class="faint tiny">(${ago(a.checked_at)})</span>` : ""}</div>
     <div class="row mt12"><a class="btn" href="${esc(a.flow_url || "#")}" target="_blank" rel="noopener">ElevenLabs'te aç ↗</a><button class="btn accent" data-act="avatarCheck">Kontrol et</button></div></div>
   <h2>Müzik</h2><div class="card small">ElevenLabs Music · ölçülen fiyat <b>~${p.music_rate ? Math.round(p.music_rate) : 47} kredi/sn</b> · bu ay ${num(p.spent)} / ${num(p.cap)} kredi</div>`);
 };
+ACT.newVoiceLang = (el) => { for (const k of ["nvIdWrap", "nvNameWrap", "nvAdd"]) document.getElementById(k).hidden = !el.value; if (el.value) document.getElementById("nvId").focus(); };
+ACT.addVoice = async () => {
+  const body = { language: document.getElementById("nvLang").value, voice_id: document.getElementById("nvId").value.trim(), name: document.getElementById("nvName").value.trim() };
+  await post("/api/eleven/voices/add", body); toast("Ses kontrol ediliyor (≈30 sn); işler listesinde görünür"); setTimeout(route, 35000);
+};
+ACT.removeVoice = async (el) => { if (!confirm("Bu ses listeden silinsin mi?")) return; await post("/api/eleven/voices/remove", { voice_id: el.dataset.id }); toast("Silindi"); route(); };
 ACT.setDefaultVoice = async (el) => { await post("/api/eleven/default", { lang: el.dataset.lang, voice_id: el.dataset.id }); toast("Kaydedildi"); route(); };
 ACT.avatarCheck = async () => { await post("/api/eleven/avatar_check"); toast("Avatar kontrol ediliyor (≈1 dk)"); };
 ROUTES["#/butce"] = async () => {
