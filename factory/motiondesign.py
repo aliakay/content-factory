@@ -58,6 +58,7 @@ TECHNICAL CONTRACT (the render is deterministic and sandboxed; violations break 
 - T = {{start, end, dur, words:[{{w,s,e}}], lines:[{{start,end}}], at(word, fallback=0.3)}}: T.at("word") = absolute time that word is
   spoken (use it so elements appear exactly when the voice says them), T.lines[k].start = start of the scene's k-th spoken line.
   The scene is only shown between T.start and T.end. Set initial hidden states with gsap.set / fromTo (tl.fromTo with immediateRender).
+- Never use the ids `stage` or `cap` (the shell's own stage and caption layer; prefix your ids, e.g. `s2-card`).
 - `root` is the scene element (position:absolute; {{size}}); `$(sel)` = root.querySelectorAll. Build extra DOM in JS if you want
   (loops for particles/lines), appended to root. Use absolute positioning in px.
 - SAFE ZONES: {{safe}} The video's kinetic captions are drawn by the shell at {{capband}} (big white text, one accent-coloured

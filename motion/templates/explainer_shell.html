@@ -21,13 +21,13 @@
 html,body{margin:0;background:#000;overflow:hidden}
 #stage{position:relative;width:1080px;height:1920px;overflow:hidden;background:var(--bg,#000);color:var(--ink,#fff);font-family:"Inter Tight",sans-serif}
 .scene{position:absolute;inset:0;display:none;overflow:hidden}
-#cap{position:absolute;left:40px;right:40px;top:1540px;height:170px;display:flex;align-items:center;justify-content:center;text-align:center;
+#stage>#cap{position:absolute;left:40px;right:40px;top:1540px;height:170px;display:flex;align-items:center;justify-content:center;text-align:center;
   font:900 84px/1.05 "Inter Tight",sans-serif;text-transform:uppercase;letter-spacing:-.01em;color:var(--capInk,#fff);
   -webkit-text-stroke:14px var(--capStroke,#000);paint-order:stroke fill;z-index:50}
-#cap b{font-weight:900;color:var(--capActive,var(--accent,#2ee6c5))}
-#cap .k{color:var(--capKey,#b8ff3c)}
-#cap .d{color:var(--capDanger,#ff453a)}
-#cap b.k,#cap b.d{text-decoration:underline;text-decoration-thickness:8px;text-underline-offset:10px}
+#stage>#cap b{font-weight:900;color:var(--capActive,var(--accent,#2ee6c5))}
+#stage>#cap .k{color:var(--capKey,#b8ff3c)}
+#stage>#cap .d{color:var(--capDanger,#ff453a)}
+#stage>#cap b.k,#stage>#cap b.d{text-decoration:underline;text-decoration-thickness:8px;text-underline-offset:10px}
 </style>
 <div id="stage"><div id="cap"></div></div>
 <script src="/motion/node_modules/gsap/dist/gsap.min.js"></script>
@@ -51,7 +51,7 @@ window.ready = (async () => {
   if (B.bpm) { FX.BPM = B.bpm; FX.beat0 = B.beat0 || 0; }   // the music's beat grid: FX.B(k)
   const root = document.documentElement;
   for (const [k, v] of Object.entries(B.palette || {})) root.style.setProperty("--" + k, v);
-  const stg = document.getElementById("stage"), capEl = document.getElementById("cap");
+  const stg = document.getElementById("stage"), capEl = document.querySelector("#stage > #cap");
   if (B.w && B.h && B.w > B.h) {   // 16:9 canvas: wide stage, captions in a lower band
     stg.style.width = B.w + "px"; stg.style.height = B.h + "px";
     Object.assign(capEl.style, { top: "880px", height: "150px", left: "160px", right: "160px", fontSize: "68px",
@@ -69,7 +69,7 @@ window.ready = (async () => {
   for (const sc of B.scenes) {
     const sec = document.createElement("section");
     sec.className = "scene"; sec.id = "s_" + sc.id; sec.innerHTML = sc.html || "";
-    stage.insertBefore(sec, document.getElementById("cap"));
+    stage.insertBefore(sec, document.querySelector("#stage > #cap"));
     const st = document.createElement("style"); st.textContent = `#s_${sc.id}{${sc.css || ""}}`; document.head.appendChild(st);
     const words = B.words.filter((w) => w.s >= sc.start - 0.1 && w.s < sc.end);
     const T = { id: sc.id, start: sc.start, end: sc.end, dur: sc.end - sc.start, words, lines: sc.lines_t || [],
@@ -121,7 +121,7 @@ window.lintBoxes = () => {
                  color: cs.color, size: parseFloat(cs.fontSize), clipText: cs.webkitBackgroundClip === "text" || cs.color === "rgba(0, 0, 0, 0)" });
     }
   }
-  const cap = document.getElementById("cap"); const cb = cap.getBoundingClientRect();
+  const cap = document.querySelector("#stage > #cap"); const cb = cap.getBoundingClientRect();
   return { boxes: out, cap: cap.textContent.trim() ? { x: Math.round(cb.left), y: Math.round(cb.top), w: Math.round(cb.width), h: Math.round(cb.height) } : null };
 };
 // motion lint (render.mjs --readcheck): what the timeline itself says about the motion, per scene
@@ -161,7 +161,7 @@ window.lintMotion = () => {
 };
 let lastKey = null;
 function caps(t) {
-  const el = document.getElementById("cap");
+  const el = document.querySelector("#stage > #cap");
   const sc = B.scenes.find((s) => t >= s.start && t < s.end);
   let html = "", key = "";
   if (!(sc && sc.hide_captions)) {
