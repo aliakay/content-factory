@@ -13,7 +13,7 @@ PY="$ROOT/.venv/bin/python"
 mkdir -p data
 up() { curl -s -m 3 -o /dev/null "http://$HOST:$1/"; }
 # setsid (own session, survives the calling shell) is Linux-only; macOS has none on PATH, so fall back to nohup alone
-detach() { if command -v setsid >/dev/null; then detach "$@"; else nohup "$@"; fi; }
+detach() { if command -v setsid >/dev/null; then setsid nohup "$@"; else nohup "$@"; fi; }
 if ! up "${CF_STUDIO_PORT:-8501}"; then
   detach "$PY" studio/server.py --host "$HOST" --port "${CF_STUDIO_PORT:-8501}" \
     >> data/studio.log 2>&1 < /dev/null &
