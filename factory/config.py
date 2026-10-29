@@ -40,6 +40,7 @@ def _tool(env, name, *candidates):
 FFMPEG = _tool("CF_FFMPEG", "ffmpeg", "~/opt/bin/ffmpeg")
 FFPROBE = _tool("CF_FFPROBE", "ffprobe", "~/opt/bin/ffprobe")
 CLAUDE = _tool("CF_CLAUDE", "claude", "~/.local/bin/claude")
+CODEX = _tool("CF_CODEX", "codex", "~/.local/bin/codex")
 NODE = _tool("CF_NODE", "node")
 # Chromium runtime libraries unpacked without root (only needed on machines without system Chromium deps)
 CHROME_LIBS = os.environ.get("CF_CHROME_LIBS") or ":".join(
@@ -55,6 +56,6 @@ WORK = os.path.join(ROOT, "work")
 # headless Claude runs with cwd=WORK, so the CLI keeps its transcripts here (read by factory/usage.py)
 CLAUDE_TRANSCRIPTS = os.path.join(os.path.expanduser("~/.claude/projects"), WORK.replace("/", "-").replace(".", "-"))
 
-for _k, _v in (("CF_ROOT", ROOT), ("CF_FFMPEG", FFMPEG), ("CF_FFPROBE", FFPROBE), ("CF_CLAUDE", CLAUDE),
+for _k, _v in (("CF_ROOT", ROOT), ("CF_FFMPEG", FFMPEG), ("CF_FFPROBE", FFPROBE), ("CF_CLAUDE", CLAUDE), ("CF_CODEX", CODEX),
                ("CF_CHROME_LIBS", CHROME_LIBS)):
     os.environ.setdefault(_k, _v)

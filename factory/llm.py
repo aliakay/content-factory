@@ -1,7 +1,7 @@
-"""Claude via the local Claude Code CLI in headless mode (no separate API key needed)."""
+"""Per-user headless Claude Code or Codex CLI calls for Content Factory agents."""
 import json, os, re, subprocess
 
-from .config import CLAUDE, WORK as WORKDIR
+from .config import CLAUDE, CODEX, WORK as WORKDIR
 MODEL = "opus"  # creative steps (script, motion design, art direction, revise, style); checks/tools pass "sonnet"
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 MAX_EFFORT = "medium"
@@ -56,8 +56,8 @@ def _caller():
     return "?"
 
 
-def _record(out, model, ok):
-    """One row per headless call in factory.db llm_usage (Studio > Pano > Claude kullanımı). Never raises."""
+def _record(out, model, ok, provider="claude"):
+    """One row per headless call in factory.db llm_usage. Never raises."""
     try:
         from .store import connect, now
         u = (out or {}).get("usage") or {}
@@ -68,7 +68,8 @@ def _record(out, model, ok):
                     (now(), _caller(), ",".join(used) or model, os.environ.get("FACTORY_JOB_ID"),
                      os.environ.get("FACTORY_JOB_KIND"), os.environ.get("FACTORY_PROD_ID"), os.environ.get("FACTORY_USER"),
                      u.get("input_tokens", 0), u.get("cache_creation_input_tokens", 0), u.get("cache_read_input_tokens", 0),
-                     u.get("output_tokens", 0), (out or {}).get("total_cost_usd") or 0, int(ok), "live"))
+                     u.get("output_tokens", 0), (out or {}).get("total_cost_usd") if provider == "codex" else
+                     ((out or {}).get("total_cost_usd") or 0), int(ok), "live_codex" if provider == "codex" else "live"))
         con.commit()
         con.close()
     except Exception:
@@ -115,6 +116,93 @@ def _estimate(u, model):
                   + u.get("cache_read_input_tokens", 0) * pi * 0.1 + u.get("output_tokens", 0) * po) / 1e6, 4)
 
 
+AGENT_STEPS = {
+    "planner.draft": "İçerik planı", "director.scout": "Araştırma", "director.sketch": "Görsel tasarım taslağı",
+    "director.critic": "Görsel tasarım değerlendirmesi", "explainer.generate": "Açıklayıcı video senaryosu",
+    "explainer.revise": "Açıklayıcı senaryo düzenleme", "motiondesign.author": "Hareketli tasarım yazımı",
+    "motiondesign.critique": "Hareketli tasarım değerlendirmesi", "artdirector.direct": "Sanat yönetimi",
+    "artdirector.review": "Kurgu değerlendirmesi", "talk.decide": "Konuşmalı video kurgusu",
+    "series.write_bible": "Seri dünyası", "series.write_episode": "Bölüm senaryosu",
+    "productions.generate": "Video üretimi", "productions.revise": "Video düzenleme",
+    "productions.plan_edit": "Kurgu planı", "ideas.generate": "Çekimli video fikirleri",
+    "ideas.check_claims": "İddia kontrolü", "qa.review": "Kalite kontrol",
+    "discover.make_cards": "Fikir keşfi", "refs.describe": "Referans analizi",
+    "refs.describe_recipes": "Referans tarif analizi", "styles.extract": "Stil analizi",
+    "jobs.do_describe": "Klip analizi", "default": "Diğer agent’lar",
+}
+_CODEX_MODELS = None
+
+
+def model_options(provider=None):
+    """Available model IDs for the account settings page."""
+    global _CODEX_MODELS
+    provider = provider or "claude"
+    if provider == "claude":
+        return [{"id": x, "name": x.capitalize()} for x in ("opus", "sonnet", "haiku")]
+    if _CODEX_MODELS is None:
+        try:
+            p = subprocess.run([CODEX, "debug", "models", "--bundled"], capture_output=True, text=True, timeout=8)
+            models = json.loads(p.stdout).get("models", []) if p.returncode == 0 else []
+            _CODEX_MODELS = [{"id": m["slug"], "name": m.get("display_name") or m["slug"]}
+                             for m in models if m.get("visibility") == "list" and m.get("slug")]
+        except (OSError, subprocess.TimeoutExpired, ValueError):
+            _CODEX_MODELS = [{"id": "gpt-5.5", "name": "GPT-5.5"}]
+    return _CODEX_MODELS
+
+
+def selected_provider(uid=None):
+    from . import accounts
+    return accounts.llm_settings(uid)["provider"]
+
+
+def selected_model(step, requested=None, uid=None):
+    from . import accounts
+    cfg = accounts.llm_settings(uid)
+    override = cfg["models"].get(step) or cfg["models"].get("default")
+    if override:
+        return override
+    if cfg["provider"] == "claude":
+        return requested or MODEL
+    options = model_options("codex")
+    return next((m["id"] for m in options if m["id"] == "gpt-6-astra"),
+                options[0]["id"] if options else "gpt-5.5")
+
+
+def _codex(prompt, tools, timeout, model, effort, step):
+    """One read-only Codex CLI turn. WebSearch/WebFetch map to Codex's live web search."""
+    cmd = [CODEX, "exec", "--json", "--ephemeral", "--sandbox", "read-only", "--ask-for-approval", "never",
+           "--skip-git-repo-check", "--model", model, "-C", WORKDIR,
+           "-c", f'model_reasoning_effort="{effort}"']
+    if any(t in ("WebSearch", "WebFetch") for t in tools):
+        cmd.append("--search")
+    cmd.append("-")
+    try:
+        p = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=timeout, cwd=WORKDIR)
+    except FileNotFoundError:
+        raise LLMError("Codex CLI bulunamadı; sunucuya Codex CLI kurup giriş yap") from None
+    except subprocess.TimeoutExpired:
+        raise LLMError(f"codex timed out after {timeout // 60} min") from None
+    texts, usage = [], {}
+    for line in p.stdout.splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        item = event.get("item") or {}
+        if item.get("type") == "agent_message" and isinstance(item.get("text"), str):
+            texts.append(item["text"])
+        if event.get("type") == "turn.completed":
+            usage = event.get("usage") or {}
+    reply = "\n".join(texts).strip()
+    if p.returncode or not reply:
+        detail = p.stderr[-500:] or p.stdout[-500:] or f"exit {p.returncode}"
+        raise LLMError(f"codex failed: {detail.strip()}")
+    # Codex may report token counts without a dollar amount; preserve those in the shared usage ledger.
+    _record({"usage": {"input_tokens": usage.get("input_tokens", 0),
+                        "output_tokens": usage.get("output_tokens", 0)}}, model, True, provider="codex")
+    return reply, {"cost_usd": None, "turns": 1, "effort": effort}
+
+
 def extract_json(text):
     """First JSON object/array in `text` (handles ```json fences and surrounding prose)."""
     m = re.search(r"```(?:json)?\s*(.+?)```", text, re.S)
@@ -158,17 +246,24 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
     Transient failures (rate limits, concurrent sessions) are retried with backoff.
     """
     import time
+    from . import accounts
+    step = _caller()
+    # Claude's account connector is used by ElevenLabs MCP calls; Codex has no access to that user connector.
+    provider = "claude" if mcp else selected_provider()
+    model = selected_model(step, model) if not mcp else (model or MODEL)
+    level = min(effort, MAX_EFFORT, key=EFFORTS.index) if effort in EFFORTS else effort_for(step, model)
+    if provider == "codex":
+        return _codex(prompt, tools, timeout, model, level, step)
     cmd = [CLAUDE, "-p", prompt, "--output-format", "stream-json", "--verbose", "--allowedTools", ",".join(tools),
            "--disable-slash-commands"]
     if not mcp:  # connectors (e.g. ElevenLabs) are only loaded when a step needs them
         cmd.append("--strict-mcp-config")
     cmd += ["--model", model or MODEL]
     global _NO_EFFORT_FLAG
-    level = min(effort, MAX_EFFORT, key=EFFORTS.index) if effort in EFFORTS else effort_for(_caller(), model)
+    level = min(effort, MAX_EFFORT, key=EFFORTS.index) if effort in EFFORTS else effort_for(step, model)
     if not _NO_EFFORT_FLAG:
         cmd += ["--effort", level]
     os.makedirs(WORKDIR, exist_ok=True)
-    from . import accounts
     try:
         env = {**os.environ, **accounts.claude_env()}   # the member's own Claude subscription, if a member started it
     except accounts.NoClaude as e:

@@ -18,6 +18,9 @@ fi
 if ! command -v claude >/dev/null && [ ! -x "$HOME/.local/bin/claude" ]; then
   warn "Claude Code CLI not found: install it (https://code.claude.com) and run 'claude' once to log in"
 fi
+if ! command -v codex >/dev/null && [ ! -x "$HOME/.local/bin/codex" ]; then
+  warn "Codex CLI not found: install it and sign in before selecting Codex in Studio > Hesaplar"
+fi
 command -v tailscale >/dev/null || warn "tailscale not found: set CF_HOST=127.0.0.1 in config.env to use the Studio on this computer only"
 
 say "Python environment (.venv)"
@@ -62,7 +65,7 @@ cat <<'EOF'
      @reboot     <repo>/bin/start-factory.sh
      */5 * * * * <repo>/bin/start-factory.sh
 3. Open http://<CF_HOST or tailscale ip>:8501 and log in.
-4. Claude: the owner's steps run on this machine's Claude Code login ('claude' must be logged in).
+4. Claude or Codex: sign in to the selected CLI on this machine; choose the provider and each agent's model in Studio > Hesaplar.
    ElevenLabs: Studio > Hesaplar > add an ElevenLabs API key (or use the claude.ai connector of the owner login).
 See README.md and RUNBOOK.md for the full guide.
 EOF

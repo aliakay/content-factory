@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
-from factory import accounts, channels, claudeauth, credits, discover, eleven_api, explainer, illustrate, planner, series, styles, formats, jobs, productions as P, refs, signals, tracking, usage  # noqa: E402
+from factory import accounts, channels, claudeauth, credits, discover, eleven_api, explainer, illustrate, planner, series, styles, formats, jobs, productions as P, refs, signals, tracking, usage, llm  # noqa: E402
 from factory.store import connect  # noqa: E402
 
 # the Shorts panel's module (caption parsing, out/ listing, thumbnails, range streaming), loaded by path because
@@ -671,7 +671,9 @@ def me(con):
         if not a["mine"] and a.get("member_month_cap") is not None:
             a["my_month"] = round(credits.month_spent(con, a["id"], uid))
     out = {"id": uid, "name": u.get("name", uid), "role": u.get("role", "owner"), "login": accounts.enabled(),
-           "claude": accounts.claude_status(uid), "eleven": accs, "default_eleven": accounts.default_eleven(uid)}
+           "claude": accounts.claude_status(uid), "eleven": accs, "default_eleven": accounts.default_eleven(uid),
+           "llm_settings": accounts.llm_settings(uid), "llm_models": {p: llm.model_options(p) for p in ("claude", "codex")},
+           "llm_agents": [{"id": k, "name": v} for k, v in llm.AGENT_STEPS.items()]}
     if accounts.is_owner(uid):
         out["users"] = [{"id": k, "name": v["name"], "role": v["role"], "claude": accounts.claude_status(k)}
                         for k, v in accounts.users()["users"].items()]
@@ -982,6 +984,15 @@ class Handler(shorts.Handler):
 
     def post(self, con, path, b):
         uid = accounts.current()
+        if path == "/api/llm/settings":
+            provider, models = b.get("provider"), b.get("models", {})
+            if provider not in ("claude", "codex") or not isinstance(models, dict):
+                raise ValueError("CLI veya agent model seçimi geçersiz")
+            allowed_models = {x["id"] for x in llm.model_options(provider)}
+            if any(not isinstance(step, str) or not isinstance(model, str) or step not in llm.AGENT_STEPS
+                   or model not in allowed_models for step, model in models.items()):
+                raise ValueError("Agent veya model seçimi listede yok")
+            return {"llm_settings": accounts.set_llm_settings(uid, provider, models)}
         if path == "/api/claude/start":
             if accounts.is_owner(uid):
                 raise ValueError("Sahip VM'deki Claude girişini kullanıyor")
