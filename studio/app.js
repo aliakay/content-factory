@@ -1294,7 +1294,11 @@ ROUTES["#/hesaplar"] = async () => {
   S.me = await api("/api/me"); const m = S.me; crumb(["Hesaplar"]);
   const cl = m.claude.connected ? `<div class="small">✅ Bağlı · ${esc(m.claude.how)}${m.claude.at ? " · " + esc(m.claude.at) : ""}</div>` : `<div class="small">❌ Bağlı değil.</div>`;
   const lc = m.llm_settings || { provider: "claude", models: {} }, provider = lc.provider || "claude";
-  const agentModels = (m.llm_agents || []).map((a) => `<label class="field"><span>${esc(a.name)}</span><select data-agent-model="${esc(a.id)}"><option value="">Otomatik</option>${(m.llm_models[provider] || []).map((x) => `<option value="${esc(x.id)}" ${(lc.models || {})[a.id] === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>`).join("");
+  const agentModels = (m.llm_agents || []).map((a) => {
+    const selected = (lc.models || {})[a.id] || (lc.models || {}).default || "";
+    const defaultModel = (m.llm_default_models[provider] || {})[a.id] || (provider === "codex" ? "gpt-6-luna" : "opus");
+    return `<label class="field"><span>${esc(a.name)}</span><select data-agent-model="${esc(a.id)}"><option value="">${esc(defaultModel)} · varsayılan</option>${(m.llm_models[provider] || []).map((x) => `<option value="${esc(x.id)}" ${selected === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>`;
+  }).join("");
   const acc = m.eleven.map((a) => { const b = a.balance || {}; const can = a.mine || m.role === "owner";
     return `<div class="card"><div class="row"><b>💳 ${esc(a.name)}</b><span class="sp"></span><span class="badge">${a.type === "connector" ? "connector" : "API " + esc(a.key_tail || "")}</span>${a.id === m.default_eleven ? '<span class="badge ok">varsayılan</span>' : ""}</div>
     ${a.error ? `<div class="note err mt8 small">${esc(a.error)}</div>` : `<div class="small mt8">${b.left == null ? "bakiye okunmuyor" : num(b.left) + " kredi kaldı"} · ${a.voices} ses</div>`}
@@ -1305,7 +1309,7 @@ ROUTES["#/hesaplar"] = async () => {
   <div class="small muted mt8">Giriş yapan: <b>${esc(m.name)}</b> (${m.role === "owner" ? "sahip" : "üye"})</div>
   <div class="card mt16"><h3>⚙️ CLI ve model seçenekleri</h3><p class="small muted">Agent’ların hangi CLI ve modeli kullanacağını seç. Kaydettikten sonra başlayan işlerde uygulanır.</p>
     <label class="field mt12"><span>CLI</span><select id="llm_provider" data-change="llmProvider"><option value="claude" ${provider === "claude" ? "selected" : ""}>Claude Code</option><option value="codex" ${provider === "codex" ? "selected" : ""}>OpenAI Codex CLI</option></select></label>
-    <div class="small muted mt8" id="llm_provider_note">${provider === "codex" ? "Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs Claude connector adımları Claude’da çalışır." : "Claude, hesabına bağlı Claude Code oturumunu kullanır."}</div>
+    <div class="small muted mt8" id="llm_provider_note">${provider === "codex" ? "Varsayılan model tüm agent’larda GPT-6-Luna. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs Claude connector adımları Claude’da çalışır." : "Varsayılanlar mevcut Claude agent modelleridir (opus/sonnet gibi); değiştirmediğin seçimler korunur."}</div>
     <h3 class="mt16">Agent modelleri</h3><div class="grid mt8" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">${agentModels}</div>
     <button class="btn accent sm mt12" data-act="llmSave">Kaydet</button></div>
   <div class="card mt16"><h3>🤖 Claude hesabı</h3>${cl}${m.role === "owner" ? "" : `<div id="clflow" class="mt12"><button class="btn sm accent" data-act="claudeStart" data-mode="login">🔗 Tam giriş ile bağla</button> <button class="btn sm" data-act="claudeStart" data-mode="token">🔑 Anahtar ile bağla</button></div>`}</div>
@@ -1318,12 +1322,13 @@ ACT.llmProvider = (el) => {
   const provider = el.value, options = (S.me.llm_models || {})[provider] || [];
   for (const select of $$('[data-agent-model]')) {
     const prior = select.value;
-    select.innerHTML = `<option value="">Otomatik</option>` + options.map((x) => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("");
+    const def = ((S.me.llm_default_models || {})[provider] || {})[select.dataset.agentModel] || (provider === "codex" ? "gpt-6-luna" : "opus");
+    select.innerHTML = `<option value="">${esc(def)} · varsayılan</option>` + options.map((x) => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("");
     if (options.some((x) => x.id === prior)) select.value = prior;
   }
   $("#llm_provider_note").textContent = provider === "codex"
-    ? "Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs Claude connector adımları Claude’da çalışır."
-    : "Claude, hesabına bağlı Claude Code oturumunu kullanır.";
+    ? "Varsayılan model tüm agent’larda GPT-6-Luna. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs Claude connector adımları Claude’da çalışır."
+    : "Varsayılanlar mevcut Claude agent modelleridir (opus/sonnet gibi); değiştirmediğin seçimler korunur.";
 };
 ACT.llmSave = async () => {
   const models = Object.fromEntries($$('[data-agent-model]').filter((x) => x.value).map((x) => [x.dataset.agentModel, x.value]));

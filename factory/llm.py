@@ -130,6 +130,12 @@ AGENT_STEPS = {
     "refs.describe_recipes": "Referans tarif analizi", "styles.extract": "Stil analizi",
     "jobs.do_describe": "Klip analizi", "default": "Diğer agent’lar",
 }
+CLAUDE_DEFAULT_MODELS = {
+    "director.scout": "sonnet", "director.sketch": "sonnet", "ideas.generate": "sonnet",
+    "ideas.check_claims": "sonnet", "productions.plan_edit": "sonnet", "qa.review": "sonnet",
+    "refs.describe": "sonnet", "refs.describe_recipes": "sonnet", "jobs.do_describe": "sonnet",
+    "discover.make_cards": "sonnet", "artdirector.review": "sonnet",
+}
 _CODEX_MODELS = None
 
 
@@ -155,6 +161,14 @@ def selected_provider(uid=None):
     return accounts.llm_settings(uid)["provider"]
 
 
+def default_model(step, provider):
+    if provider == "codex":
+        options = model_options("codex")
+        return next((m["id"] for m in options if m["id"] == "gpt-6-luna"),
+                    options[0]["id"] if options else "gpt-5.5")
+    return CLAUDE_DEFAULT_MODELS.get(step, MODEL)
+
+
 def selected_model(step, requested=None, uid=None):
     from . import accounts
     cfg = accounts.llm_settings(uid)
@@ -163,9 +177,7 @@ def selected_model(step, requested=None, uid=None):
         return override
     if cfg["provider"] == "claude":
         return requested or MODEL
-    options = model_options("codex")
-    return next((m["id"] for m in options if m["id"] == "gpt-6-astra"),
-                options[0]["id"] if options else "gpt-5.5")
+    return default_model(step, "codex")
 
 
 def _codex(prompt, tools, timeout, model, effort, step):

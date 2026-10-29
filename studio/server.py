@@ -673,6 +673,7 @@ def me(con):
     out = {"id": uid, "name": u.get("name", uid), "role": u.get("role", "owner"), "login": accounts.enabled(),
            "claude": accounts.claude_status(uid), "eleven": accs, "default_eleven": accounts.default_eleven(uid),
            "llm_settings": accounts.llm_settings(uid), "llm_models": {p: llm.model_options(p) for p in ("claude", "codex")},
+           "llm_default_models": {p: {step: llm.default_model(step, p) for step in llm.AGENT_STEPS} for p in ("claude", "codex")},
            "llm_agents": [{"id": k, "name": v} for k, v in llm.AGENT_STEPS.items()]}
     if accounts.is_owner(uid):
         out["users"] = [{"id": k, "name": v["name"], "role": v["role"], "claude": accounts.claude_status(k)}
