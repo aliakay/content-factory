@@ -1,4 +1,4 @@
-"""Claude usage of the factory's own headless calls (llm_usage table, filled by llm._record) for the Studio Bütçe page.
+"""Usage of the factory's own headless Claude/Codex calls (llm_usage table, filled by llm._record).
 
 Costs are Claude Code's list-price equivalent (total_cost_usd), not a share of the subscription's 5-hour limit, which
 Anthropic does not expose. `pct_per_usd` turns dollars into an estimated limit share once the creator has calibrated it.
@@ -59,13 +59,15 @@ def step_tr(step):
 
 
 def _family(model):
+    if "gpt-" in (model or "").lower():
+        return "codex"
     return next((k for k in _PRICE if k in (model or "")), "opus")
 
 
 def import_transcripts(con, days=7):
     """One-off import of factory calls made before the ledger existed (skips sessions already imported)."""
     have = {r[0] for r in con.execute("SELECT source FROM llm_usage WHERE source LIKE 'transcript:%'")}
-    first_live = con.execute("SELECT MIN(at) FROM llm_usage WHERE source='live'").fetchone()[0] or "9999"
+    first_live = con.execute("SELECT MIN(at) FROM llm_usage WHERE source LIKE 'live%'").fetchone()[0] or "9999"
     cut = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     n = 0
     for f in glob.glob(os.path.join(TRANSCRIPTS, "*.jsonl")):
@@ -135,11 +137,11 @@ def summary(con):
         names = {r[0]: r[1] for r in con.execute(f"SELECT prod_id, COALESCE(title, name) FROM productions WHERE prod_id IN ({q})",
                                                  list(by_prod))}
     cal = calibration()
-    return {"totals": tot, "estimated": any(r["source"] != "live" for r in rows),
+    return {"totals": tot, "estimated": any(r["source"] not in ("live", "live_codex") for r in rows),
             "by_step": sorted(([k, round(v, 2)] for k, v in by_step.items()), key=lambda x: -x[1]),
             "by_model": {k: round(v, 2) for k, v in by_model.items()},
             "by_prod": sorted(([k, names.get(k) or f"#{k}", round(v, 2)] for k, v in by_prod.items()), key=lambda x: -x[2])[:10],
-            "recent": [{"at": r["at"], "step": step_tr(r["step"]), "model": _family(r["model"]), "prod_id": r["prod_id"],
-                        "cost": round(r["cost_usd"] or 0, 3), "ok": r["ok"], "live": r["source"] == "live",
+            "recent": [{"at": r["at"], "step": step_tr(r["step"]), "model": r["model"], "prod_id": r["prod_id"],
+                        "cost": round(r["cost_usd"], 3) if r["cost_usd"] is not None else None, "ok": r["ok"], "live": r["source"].startswith("live"),
                         "tokens": (r["input"] or 0) + (r["cache_write"] or 0) + (r["output"] or 0)} for r in rows[:40]],
             "pct_per_usd": cal.get("pct_per_usd"), "calibrated_at": cal.get("at")}

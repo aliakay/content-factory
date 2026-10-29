@@ -466,6 +466,13 @@ def timeline(con, p, preview=True):
     (with a `look`) to bin/stylecut.py, the rest to bin/cinecut.py. The spec names its engine and carries the channel's
     brand layer (factory/engines.py)."""
     spec, total, starts, warn = _compile(con, p, preview)
+    if p["data"].get("silent_audio"):
+        # The creator chose to continue without an ElevenLabs connection. This
+        # applies uniformly to explainers, styled edits, and talking-head cuts.
+        spec.pop("voice", None)
+        spec.pop("music", None)
+        spec.pop("bed", None)
+        spec["ambient_db"] = -90
     spec["engine"] = engines.engine_of(spec)
     brand = _brand(con, p)
     if brand:

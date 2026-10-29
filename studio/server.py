@@ -7,13 +7,13 @@ Long work runs as factory jobs (separate processes), so the server stays respons
 
 Usage: server.py [--port 8501] [--host <tailscale ip>]   (defaults from config.env: CF_STUDIO_PORT, CF_HOST)
 """
-import argparse, hashlib, shutil, importlib.util, json, os, re, subprocess, sys, threading, time, traceback, urllib.parse
+import argparse, hashlib, shutil, importlib.util, json, os, re, secrets, subprocess, sys, threading, time, traceback, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
-from factory import accounts, channels, claudeauth, credits, discover, eleven_api, explainer, illustrate, planner, series, styles, formats, jobs, productions as P, refs, signals, tracking, usage  # noqa: E402
+from factory import accounts, channels, claudeauth, credits, discover, eleven_api, explainer, illustrate, planner, series, styles, formats, jobs, productions as P, refs, signals, tracking, usage, llm  # noqa: E402
 from factory.store import connect  # noqa: E402
 
 # the Shorts panel's module (caption parsing, out/ listing, thumbnails, range streaming), loaded by path because
@@ -29,6 +29,96 @@ MAX_UPLOAD = 600 * 1024 * 1024
 OUT = os.path.join(ROOT, "out")
 TAILNET = shorts.TAILNET
 thumb_lock = threading.Lock()
+CODEX_MCP_LOCK = threading.Lock()
+CODEX_MCP_FLOW = {"status": "idle", "url": None, "state": None, "callback_url": None,
+                  "process": None, "error": None, "owner": None}
+CODEX_MCP_CALLBACK = "/api/codex/elevenlabs/callback"
+
+
+def codex_public_url():
+    """HTTPS tailnet URL used as the OAuth redirect target (Tailscale Serve fronts this app)."""
+    configured = os.environ.get("CF_PUBLIC_URL", "").rstrip("/")
+    if configured.startswith("https://"):
+        return configured
+    try:
+        serve = subprocess.run(["tailscale", "serve", "status", "--json"], capture_output=True,
+                               text=True, timeout=5)
+        serve_config = json.loads(serve.stdout or "{}") if serve.returncode == 0 else {}
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        serve_config = {}
+    if not serve_config:
+        raise ValueError("Hesaplar → Tailscale Serve'de HTTPS'i etkinleştir; OAuth dönüş adresi için güvenli bağlantı gerekiyor")
+    try:
+        p = subprocess.run(["tailscale", "status", "--json"], capture_output=True, text=True, timeout=5)
+        name = json.loads(p.stdout).get("Self", {}).get("DNSName", "").rstrip(".") if p.returncode == 0 else ""
+        if name:
+            return "https://" + name
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        pass
+    raise ValueError("Güvenli OAuth dönüş adresi bulunamadı (CF_PUBLIC_URL veya Tailscale Serve gerekli)")
+
+
+def _read_codex_oauth(proc, ready):
+    """Keep the CLI login alive, expose only its authorization URL, and track completion."""
+    try:
+        for line in iter(proc.stdout.readline, ""):
+            if "elevenlabs.io/app/oauth/authorize?" in line:
+                url = line.strip()
+                parsed = urllib.parse.urlsplit(url)
+                state = (urllib.parse.parse_qs(parsed.query).get("state") or [None])[0]
+                with CODEX_MCP_LOCK:
+                    if CODEX_MCP_FLOW.get("process") is proc:
+                        CODEX_MCP_FLOW.update(url=url, state=state, status="waiting", error=None)
+                ready.set()
+            if proc.poll() is not None:
+                break
+        rc = proc.wait(timeout=10)
+        with CODEX_MCP_LOCK:
+            if CODEX_MCP_FLOW.get("process") is proc:
+                CODEX_MCP_FLOW.update(status="connected" if rc == 0 and llm.codex_elevenlabs_status().get("connected")
+                                      else "error", url=None,
+                                      error=None if rc == 0 else "Codex OAuth girişi tamamlanamadı", process=None)
+    except Exception as exc:
+        with CODEX_MCP_LOCK:
+            if CODEX_MCP_FLOW.get("process") is proc:
+                CODEX_MCP_FLOW.update(status="error", error=f"Codex OAuth: {exc}", process=None, url=None)
+
+
+def start_codex_oauth(uid):
+    if not accounts.is_owner(uid):
+        raise ValueError("Codex ElevenLabs bağlantısını yalnızca hesap sahibi yönetebilir")
+    status = llm.codex_elevenlabs_status()
+    if status.get("connected"):
+        return {"connected": True}
+    with CODEX_MCP_LOCK:
+        proc = CODEX_MCP_FLOW.get("process")
+        if proc and proc.poll() is None and CODEX_MCP_FLOW.get("url"):
+            return {"url": CODEX_MCP_FLOW["url"]}
+        if proc and proc.poll() is None:
+            raise ValueError("Codex bağlantı penceresi hazırlanıyor; birkaç saniye sonra tekrar dene")
+    public_url = codex_public_url()
+    callback_url = public_url + CODEX_MCP_CALLBACK
+    server_name = status.get("name") or "elevenlabs"
+    cmd = [llm.CODEX, "mcp", "login", server_name, "--no-browser", "--oauth-client-registration", "dcr",
+           "-c", f'mcp_oauth_callback_url="{callback_url}"']
+    try:
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True, bufsize=1, cwd=ROOT)
+    except OSError as exc:
+        raise ValueError(f"Codex CLI başlatılamadı: {exc}") from None
+    ready = threading.Event()
+    with CODEX_MCP_LOCK:
+        CODEX_MCP_FLOW.update(status="starting", url=None, state=None, callback_url=callback_url,
+                              process=proc, error=None, owner=uid)
+    threading.Thread(target=_read_codex_oauth, args=(proc, ready), daemon=True).start()
+    if not ready.wait(20):
+        with CODEX_MCP_LOCK:
+            error = CODEX_MCP_FLOW.get("error")
+        raise ValueError(error or "Codex OAuth bağlantısı başlatılamadı")
+    with CODEX_MCP_LOCK:
+        if CODEX_MCP_FLOW.get("status") != "waiting":
+            raise ValueError(CODEX_MCP_FLOW.get("error") or "Codex OAuth bağlantısı başlatılamadı")
+        return {"url": CODEX_MCP_FLOW["url"]}
 
 
 # ---------- read models ----------
@@ -132,6 +222,7 @@ def production_detail(con, pid):
     out["refs"] = [lib[r] for r in (p["data"].get("refs") or []) if r in lib]
     aid = P.eleven_account(p["data"])
     out["eleven_account"], out["eleven_accounts"] = aid, accounts.usable_eleven()
+    out["eleven_status"] = eleven_status(aid)
     out["voices"] = eleven_info(aid)["voices"]
     out["default_voice"] = formats.default_voice(p["data"].get("lang"), aid)
     if True:  # every production can get a generated track (styled ones also cut on its beats)
@@ -174,7 +265,7 @@ def production_detail(con, pid):
     snd = (p.get("qa") or {}).get("sound") or {}
     if snd.get("sheet"):
         out["sound_sheet"] = "/media/" + snd["sheet"]
-    if illustrate.needs_plates(p["data"]) or p["data"].get("plates"):
+    if illustrate.needs_plates(p["data"]) or p["data"].get("plates") or p["data"].get("illustrations_skipped"):
         out["plates_estimate"] = illustrate.estimate(con, p["data"], aid)
         out["plates"] = {k: "/media/assets/" + v["file"].split("assets/", 1)[-1] for k, v in (p["data"].get("plates") or {}).items()}
     if p["data"].get("series"):
@@ -366,6 +457,29 @@ def act(con, pid, body):
         P.save(con, p, "plan iptal")
     elif a == "verify":
         queue_for(con, p, "p_verify", str(pid))
+    elif a == "silent_continue":
+        if not fmt["voice"]:
+            raise ValueError("Bu formatta ses adımı yok")
+        p["data"]["voice_skipped"] = True
+        p["data"]["mute_clips"] = True
+        p["data"]["silent_audio"] = True
+        p["stage"] = "preview"
+        p["preview"] = None
+        P.save(con, p, "sessiz devam", "ElevenLabs bağlı değil; anlatım atlandı")
+        if not (illustrate.needs_plates(p["data"]) and illustrate.missing(p["data"])):
+            queue_for(con, p, "p_preview", str(pid))
+    elif a == "skip_music":
+        p["data"]["music_skipped"] = True
+        p["data"]["mute_clips"] = True
+        p["data"]["silent_audio"] = True
+        p["data"].pop("music_take", None)
+        if p["stage"] == "voice" and fmt["voice"]:
+            p["data"]["voice_skipped"] = True
+            p["stage"] = "preview"
+            p["preview"] = None
+        P.save(con, p, "müziksiz devam", "ElevenLabs bağlı değil; müzik atlandı")
+        if p["stage"] == "preview" and voice_ready(p["data"]) and not illustrate.missing(p["data"]):
+            queue_for(con, p, "p_preview", str(pid))
     elif a == "approve_voice":
         est = P.voice_estimate(con, p["data"])
         approved = int(body.get("approved") or 0)
@@ -376,7 +490,7 @@ def act(con, pid, body):
         P.save(con, p, "kredi onayı", f"{est['credits']} kredi ({est['chars']} karakter)")
         queue_for(con, p, "p_voice", json.dumps({"id": pid, "approved": est["credits"]}))
     elif a == "preview":
-        if fmt["voice"] and not (p["data"].get("voice_take") and p["data"]["voice_take"].get("text") == P.voice_text(p["data"])):
+        if fmt["voice"] and not voice_ready(p["data"]):
             raise ValueError("Önce ses üretilmeli")
         queue_for(con, p, "p_preview", str(pid))
     elif a == "approve_render":
@@ -404,7 +518,7 @@ def act(con, pid, body):
         if p["stage"] == "preview":
             p["preview"] = None
         P.save(con, p, "marka katmanı", "açık" if p["data"]["brand"] else "kapalı")
-        if p["stage"] == "preview" and (not fmt["voice"] or p["data"].get("voice_take")):
+        if p["stage"] == "preview" and (not fmt["voice"] or voice_ready(p["data"])):
             queue_for(con, p, "p_preview", str(pid))
     elif a == "approve_plates":
         est = illustrate.estimate(con, p["data"], P.eleven_account(p["data"]))
@@ -417,6 +531,20 @@ def act(con, pid, body):
             raise ValueError("Aylık kredi tavanı aşılır")
         P.save(con, p, "kredi onayı", f"çizimler {est['credits']} kredi ({est['images']} görsel)")
         queue_for(con, p, "p_plates", json.dumps({"id": pid, "approved": est["credits"]}))
+    elif a == "skip_plates":
+        if not illustrate.needs_plates(p["data"]):
+            raise ValueError("Bu videoda çizim adımı yok")
+        p["data"]["look_pack"] = "auto"
+        p["data"].pop("illustrated", None)
+        p["data"].pop("plates", None)
+        p["data"].pop("art_flow", None)
+        p["data"].pop("motion", None)
+        p["data"]["illustrations_skipped"] = True
+        for scene in p["data"].get("scenes") or []:
+            scene.pop("plate", None)
+        p["preview"] = None
+        P.save(con, p, "çizimsiz devam", "ElevenLabs bağlı değil; standart animasyon tasarımı kullanılacak")
+        queue_for(con, p, "p_design", json.dumps({"id": pid}))
     elif a == "set_aspect":
         asp = body.get("aspect")
         if asp not in formats.ASPECTS:
@@ -436,7 +564,7 @@ def act(con, pid, body):
                                  "detail": f"#{pid} videosunun {label} sürümü"})
             P.save(con, c)
             fmt_c = formats.for_data(c["format"], data)
-            if not fmt_c["voice"] or (data.get("voice_take") and data["voice_take"].get("text") == P.voice_text(data)):
+            if not fmt_c["voice"] or voice_ready(data):
                 queue_for(con, c, "p_preview", str(new_id))
             P.save(con, p, "kopya", f"{label} sürümü → #{new_id}")
             out = production_detail(con, new_id)
@@ -452,8 +580,7 @@ def act(con, pid, body):
             queue_for(con, p, "p_design", json.dumps({"id": pid, "note": f"The canvas changed to {asp}: lay every scene out for it."}))
             return production_detail(con, pid)
         P.save(con, p, "kadraj", label)
-        if p["stage"] == "preview" and (not fmt["voice"] or (p["data"].get("voice_take") and
-                                                             p["data"]["voice_take"].get("text") == P.voice_text(p["data"]))):
+        if p["stage"] == "preview" and (not fmt["voice"] or voice_ready(p["data"])):
             queue_for(con, p, "p_preview", str(pid))
     elif a == "redesign":
         if not explainer.is_explainer(p["data"]) or p["stage"] in ("ready", "published", "rejected"):
@@ -513,7 +640,7 @@ def act(con, pid, body):
         if p["stage"] == "preview":
             p["preview"] = None
         P.save(con, p, "görünüm", look)
-        if p["stage"] == "preview" and p["data"].get("voice_take"):
+        if p["stage"] == "preview" and voice_ready(p["data"]):
             queue_for(con, p, "p_preview", str(pid))
     elif a in ("set_voice", "set_lang"):
         vids = voice_ids(P.eleven_account(p["data"]))
@@ -661,6 +788,25 @@ def voice_ids(aid):
     return {v["voice_id"] for v in eleven_info(aid)["voices"]}
 
 
+def voice_ready(d):
+    take = (d or {}).get("voice_take") or {}
+    return bool((d or {}).get("voice_skipped") or (take.get("text") and take["text"] == P.voice_text(d)))
+
+
+def eleven_status(aid, uid=None):
+    """Availability of the selected ElevenLabs account through the selected CLI or API key."""
+    acc = accounts.eleven(aid) or {}
+    provider = accounts.llm_settings(uid)["provider"]
+    if acc.get("type") == "apikey":
+        connected = bool(acc.get("key"))
+    elif provider == "codex":
+        connected = llm.codex_elevenlabs_status().get("connected", False)
+    else:
+        connected = accounts.claude_status(acc.get("owner")).get("connectors", False)
+    return {"connected": connected, "images": connected and acc.get("type") == "connector",
+            "provider": provider, "account_type": acc.get("type")}
+
+
 def me(con):
     uid = accounts.current()
     u = accounts.user(uid) or {}
@@ -671,7 +817,11 @@ def me(con):
         if not a["mine"] and a.get("member_month_cap") is not None:
             a["my_month"] = round(credits.month_spent(con, a["id"], uid))
     out = {"id": uid, "name": u.get("name", uid), "role": u.get("role", "owner"), "login": accounts.enabled(),
-           "claude": accounts.claude_status(uid), "eleven": accs, "default_eleven": accounts.default_eleven(uid)}
+           "claude": accounts.claude_status(uid), "eleven": accs, "default_eleven": accounts.default_eleven(uid),
+           "llm_settings": accounts.llm_settings(uid), "codex_elevenlabs": llm.codex_elevenlabs_status(),
+           "llm_models": {p: llm.model_options(p) for p in ("claude", "codex")},
+           "llm_default_models": {p: {step: llm.default_model(step, p) for step in llm.AGENT_STEPS} for p in ("claude", "codex")},
+           "llm_agents": [{"id": k, "name": v} for k, v in llm.AGENT_STEPS.items()]}
     if accounts.is_owner(uid):
         out["users"] = [{"id": k, "name": v["name"], "role": v["role"], "claude": accounts.claude_status(k)}
                         for k, v in accounts.users()["users"].items()]
@@ -805,10 +955,52 @@ class Handler(shorts.Handler):
         return False
 
     def do_GET(self):
+        path = urllib.parse.urlsplit(self.path).path
+        if self.allowed() and path == CODEX_MCP_CALLBACK:
+            return self.codex_oauth_callback()
         if self.allowed() and self.gate(False):
             self.route(head=False)
         elif not self.allowed():
             self.send_bytes(403, b"Forbidden\n", "text/plain; charset=utf-8", False)
+
+    def codex_oauth_callback(self):
+        """Pass the OAuth redirect URL to Codex CLI, which validates state and exchanges the code."""
+        parsed = urllib.parse.urlsplit(self.path)
+        params = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+        state = (params.get("state") or [None])[0]
+        with CODEX_MCP_LOCK:
+            flow = CODEX_MCP_FLOW
+            proc = flow.get("process")
+            if not proc or proc.poll() is not None or flow.get("status") != "waiting":
+                return self.send_bytes(400, b"OAuth flow expired. Return to Content Factory and try again.\n",
+                                       "text/plain; charset=utf-8", False)
+            if not state or not flow.get("state") or not secrets.compare_digest(state, flow["state"]):
+                return self.send_bytes(400, b"OAuth state mismatch. Return to Content Factory and try again.\n",
+                                       "text/plain; charset=utf-8", False)
+            if params.get("error"):
+                flow.update(status="error", error="ElevenLabs yetkilendirmesi reddedildi", url=None)
+                try:
+                    proc.stdin.close()
+                except Exception:
+                    pass
+                return self.send_bytes(400, b"ElevenLabs connection was cancelled. Return to Content Factory.\n",
+                                       "text/plain; charset=utf-8", False)
+            callback = urllib.parse.urlsplit(flow.get("callback_url") or "")
+            try:
+                full_url = urllib.parse.urlunsplit((callback.scheme, callback.netloc, callback.path, parsed.query, ""))
+                proc.stdin.write(full_url + "\n")
+                proc.stdin.flush()
+                flow.update(status="finishing", url=None, state=None)
+            except (OSError, BrokenPipeError, AttributeError):
+                flow.update(status="error", error="Codex OAuth akışı kapandı", process=None)
+                return self.send_bytes(500, b"Codex could not finish the ElevenLabs connection.\n",
+                                       "text/plain; charset=utf-8", False)
+        html = ("<!doctype html><meta name=viewport content='width=device-width'><title>Bağlandı</title>"
+                "<body style='font:16px system-ui;background:#101116;color:#eee;padding:32px'>"
+                "<h2>ElevenLabs izni alındı</h2><p>Content Factory bağlantıyı tamamlıyor.</p>"
+                "<a style='color:#8eb7ff' href='/#/hesaplar'>Hesaplara dön</a>"
+                "<script>setTimeout(()=>location.replace('/#/hesaplar'),1500)</script></body>").encode()
+        return self.send_bytes(200, html, "text/html; charset=utf-8", False)
 
     def do_HEAD(self):
         if self.allowed() and self.gate(True):
@@ -982,6 +1174,26 @@ class Handler(shorts.Handler):
 
     def post(self, con, path, b):
         uid = accounts.current()
+        if path == "/api/llm/settings":
+            provider, models = b.get("provider"), b.get("models", {})
+            if provider not in ("claude", "codex") or not isinstance(models, dict):
+                raise ValueError("CLI veya agent model seçimi geçersiz")
+            allowed_models = {x["id"] for x in llm.model_options(provider)}
+            if any(not isinstance(step, str) or not isinstance(model, str) or step not in llm.AGENT_STEPS
+                   or model not in allowed_models for step, model in models.items()):
+                raise ValueError("Agent veya model seçimi listede yok")
+            return {"llm_settings": accounts.set_llm_settings(uid, provider, models)}
+        if path == "/api/codex/elevenlabs/start":
+            if not accounts.is_owner(uid):
+                raise ValueError("Codex ElevenLabs bağlantısını yalnızca hesap sahibi yönetebilir")
+            status = llm.codex_elevenlabs_status()
+            if not status.get("configured"):
+                try:
+                    subprocess.run([llm.CODEX, "mcp", "add", "elevenlabs", "--url", "https://api.elevenlabs.io/v1/mcp"],
+                                   stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30, check=False)
+                except (OSError, subprocess.TimeoutExpired):
+                    raise ValueError("Codex ElevenLabs connector kaydedilemedi") from None
+            return start_codex_oauth(uid)
         if path == "/api/claude/start":
             if accounts.is_owner(uid):
                 raise ValueError("Sahip VM'deki Claude girişini kullanıyor")
@@ -1454,6 +1666,12 @@ class Handler(shorts.Handler):
             return {"refs": refs.library(con), "themes": refs.THEMES}
         if path == "/api/me":
             return me(con)
+        if path == "/api/codex/elevenlabs/status":
+            state = llm.codex_elevenlabs_status()
+            with CODEX_MCP_LOCK:
+                state["flow"] = CODEX_MCP_FLOW.get("status")
+                state["error"] = CODEX_MCP_FLOW.get("error")
+            return state
         if path == "/api/eleven":
             aid = (q.get("account") or [accounts.default_eleven()])[0]
             if not accounts.can_use(aid):

@@ -223,12 +223,13 @@ def run(con, plan_id, voices=None):
             cost += c
             prog.done("scout", research.get("insight") or "araştırma bitti", c)
         except Exception as e:
-            prog.done("scout", f"araştırma yapılamadı ({type(e).__name__})", status="fail")
+            prog.done("scout", f"araştırma yapılamadı ({type(e).__name__}: {e})", status="fail")
 
     prog.start("director")
     plan = planner.draft(con, row, cat, research, mem)
     cost += plan.get("cost_usd") or 0
-    prog.done("director", f"{len(plan.get('treatments') or [])} yaklaşım" + (" · yedek plan" if plan.get("fallback") else ""),
+    prog.done("director", f"{len(plan.get('treatments') or [])} yaklaşım" +
+              (f" · yedek plan ({plan['fallback']})" if plan.get("fallback") else ""),
               plan.get("cost_usd"), "fail" if plan.get("fallback") else "ok")
     if research:
         plan["research"] = research

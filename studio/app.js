@@ -286,7 +286,7 @@ async function viewHome(_, opts) {
   <section class="hero">
     <div class="tiny faint" style="font-weight:700;letter-spacing:.08em;text-transform:uppercase">${esc(hello)}${S.me && S.me.name ? ", " + esc(S.me.name) : ""} · ${o.made_this_month} video bu ay</div>
     <h1>Bugün ne <span class="serif">üretelim?</span></h1>
-    <p class="lead">Ne istediğini yaz, elindekini ekle. Claude anlar, bir plan önerir; onaylarsan fabrika çalışır. Kredi harcayan her adım ayrıca onayını bekler.</p>
+    <p class="lead">Ne istediğini yaz, elindekini ekle. Seçtiğin model isteğini anlar, bir plan önerir; onaylarsan fabrika çalışır. Kredi harcayan her adım ayrıca onayını bekler.</p>
     ${composerHtml(c)}
     <div id="planBox">${plan ? planHtml(plan) : ""}</div>
   </section>
@@ -335,7 +335,7 @@ function composerHtml(c) {
       <button class="attach" data-act="attPick" data-k="refs">${ICON.ref}Referans</button>
       <button class="attach" data-act="attPick" data-k="series_id">${ICON.book}Seri</button>
       <button class="attach" data-act="attPick" data-k="links">${ICON.clip}Link</button>
-      <button class="attach" data-act="talkPick" title="Kameraya konuştuğun ham video: Claude kurgular">🎙 Konuşma videosu</button>
+      <button class="attach" data-act="talkPick" title="Kameraya konuştuğun ham videoyu seçtiğin model kurgular">🎙 Konuşma videosu</button>
       <a class="attach" style="text-decoration:none" href="#/katalog" title="Teknikleri örnek kliplerle gör; istediklerini sabitle ya da Opus seçsin">${ICON.layers}Teknik${a.pins && a.pins.length ? ` (${a.pins.length})` : ""}</a>
       <button class="attach ${a.quick ? "on" : ""}" data-act="quickToggle" title="Hızlı plan: araştırma, eskizler ve eleştirmen olmadan tek çağrı">${a.quick ? "⚡ hızlı plan" : "🎬 tam ekip"}</button>
       <span class="attach" style="cursor:default">📺 ${esc(c ? c.name : "kanal")}</span>
@@ -424,7 +424,7 @@ function planHtml(row) {
   const pay = (t) => /kredi|onay|ses|çizim|müzik|karakter/i.test(t);
   return `<div class="plan" data-plan="${row.plan_id}">
     <div class="ph"><div class="ic">${{ footage: "🎞", topic: "✍️", series_new: "📚", series_episode: "🎬", talk: "🎙" }[p.kind] || "✨"}</div>
-      <div style="flex:1;min-width:0"><div class="tiny faint" style="font-weight:700;letter-spacing:.06em;text-transform:uppercase">Plan · ${esc(p.kind_tr || "")}${p.fallback ? " · yedek plan (Claude'a ulaşılamadı)" : ""}</div>
+      <div style="flex:1;min-width:0"><div class="tiny faint" style="font-weight:700;letter-spacing:.06em;text-transform:uppercase">Plan · ${esc(p.kind_tr || "")}${p.fallback ? " · yedek plan (AI çağrısı başarısız)" : ""}</div>
         <div class="say">${esc(p.understood_tr || row.prompt || "")}</div></div>
       <button class="iconbtn" data-act="planDismiss" title="Kapat">✕</button></div>
     ${(p.questions_tr || []).length || p.question_tr ? `<div style="padding:12px 20px 0"><div class="note warn">${[...(p.questions_tr || []), ...(p.question_tr ? [p.question_tr] : [])].map((x) => "❓ " + esc(x)).join("<br>")}<div class="tiny muted" style="margin-top:4px">Cevabı aşağıdaki brief'e ekleyebilir ya da yeni bir prompt yazabilirsin.</div></div></div>` : ""}
@@ -443,7 +443,7 @@ function planHtml(row) {
       <div class="row" style="gap:16px">
         <div class="field"><span>Kadraj</span>${seg("aspect", [["9:16", "▯ 9:16"], ["16:9", "▭ 16:9"]], p.aspect, "planSet")}</div>
         ${p.kind === "footage" ? `<div class="field"><span>Fikir sayısı</span>${seg("n", [1, 2, 3, 4, 5].map((n) => [n, n]), p.n, "planSet")}</div>
-          <div class="field"><span>Anlatım</span>${seg("narrate", [["auto", "🤖 Claude"], ["on", "🎙 Var"], ["off", "🌿 Yok"]], p.narrate, "planSet")}</div>` : ""}
+          <div class="field"><span>Anlatım</span>${seg("narrate", [["auto", "🤖 Otomatik"], ["on", "🎙 Var"], ["off", "🌿 Yok"]], p.narrate, "planSet")}</div>` : ""}
       </div>
       <label class="field"><span>Brief (yazara giden metin)</span><textarea data-keep="brief-${row.plan_id}" data-change="planSel" data-name="brief" style="min-height:90px">${esc(p.brief || "")}</textarea></label>
       ${(p.alternatives || []).length ? `<div class="field"><span>Alternatifler</span><div class="chips">${p.alternatives.map((a, i) => `<span class="chip" data-act="planAlt" data-i="${i}">↺ ${esc(a.label_tr)}</span>`).join("")}</div></div>` : ""}
@@ -453,7 +453,7 @@ function planHtml(row) {
       <h3 class="mt16">Tahmini maliyet</h3>
       <div class="costs">${((p.costs || {}).lines || []).map((l) => `<div class="ln"><span class="muted">${esc(l.label)}</span><b>~${num(l.credits)} kr</b></div>`).join("") || '<div class="muted small">ElevenLabs kredisi yok</div>'}
         ${(p.costs || {}).render ? `<div class="ln"><span class="muted">⏱ Render (${p.costs.render.seconds} sn, bu makinede${p.costs.render.measured ? "" : ", kaba"})</span><b>önizleme ${esc(p.costs.render.preview)} · final ${esc(p.costs.render.final)}</b></div>${p.costs.render.blur > 1 ? '<div class="ln tiny faint"><span>hareket bulanıklığı açık: final ×' + p.costs.render.blur + " örnek</span></div>" : ""}` : ""}
-        <div class="ln tiny faint"><span>Claude</span><b style="font-weight:500">${esc((p.costs || {}).claude || "")}</b></div>
+        <div class="ln tiny faint"><span>Seçili CLI</span><b style="font-weight:500">${esc((p.costs || {}).claude || "")}</b></div>
         ${p.team ? `<div class="ln tiny faint"><span>Planlama ekibi${p.team.quick ? " (hızlı)" : ""}</span><b style="font-weight:500">~${usd(p.team.cost_usd)}</b></div>` : ""}</div>
     </div></div>
     <div class="pf"><button class="btn accent" data-act="planStart">${ICON.check}Planı onayla ve başlat</button><button class="btn ghost" data-act="planCancel">Vazgeç</button><span class="sp"></span><span class="tiny faint">Hiçbir şey kredi harcamadan başlamaz.</span></div>
@@ -505,11 +505,11 @@ ACT.planTechPick = async (el) => {
 const SERIES_STYLES = { cartoon: "Çizgi film", storybook: "Masal kitabı", anime: "Anime", flat_vector: "Düz vektör", cinematic: "Dizi / sinematik", comic: "Çizgi roman", pixel: "8-bit piksel", papercut: "Kâğıt kesik", claymation: "Kil animasyon", bauhaus: "Bauhaus", vaporwave: "Vaporwave", inkwash: "Mürekkep" };
 function defaultSteps(p) {
   return {
-    footage: ["Claude çekimlerinden fikirleri yazar", "Sen bir fikri onaylarsın", "Art director kurguyu ve efektleri tasarlar", "Ses (varsa): kredi tahmini + onay", "Önizleme → final render + QA"],
-    topic: ["Claude konuyu araştırır, kaynaklı metni yazar", p.look === "illustrated" ? "Çizimler: kredi tahmini + onay" : "Opus sahneleri tasarlar", "Ses: kredi tahmini + onay", "Önizleme → final render + QA"],
-    series_new: ["Claude seri kitabını yazar: dünya, karakterler, bölümler", "Kitabı okursun, düzeltir ya da onaylarsın", "Karakter sayfaları: kredi tahmini + onay", "Her bölüm ayrı üretim olur (çizim + ses onaylı)"],
-    series_episode: ["Claude bölümü kitaptan uyarlar", "Çizimler: kredi tahmini + onay", "Karakter sesleri: kredi tahmini + onay", "Önizleme → final render"],
-    talk: ["Videon transkript edilir; boşluk, ıı, tekrar ve yarım kalan cümleler bulunur", "Claude kurguyu çıkarır: hook, sıra, punch-in, B-roll, altyazı renkleri", "Kurgu planını onaylarsın (tutulan / kesilen cümleler)", "Önizleme → final render (ses temizliği, müzik, -14 LUFS) + QA"],
+    footage: ["Seçili model çekimlerinden fikirleri yazar", "Sen bir fikri onaylarsın", "Art director kurguyu ve efektleri tasarlar", "Ses (varsa): kredi tahmini + onay", "Önizleme → final render + QA"],
+    topic: ["Seçili model konuyu araştırır, kaynaklı metni yazar", p.look === "illustrated" ? "Çizimler: kredi tahmini + onay" : "Sahneler tasarlanır", "Ses: kredi tahmini + onay", "Önizleme → final render + QA"],
+    series_new: ["Seçili model seri kitabını yazar: dünya, karakterler, bölümler", "Kitabı okursun, düzeltir ya da onaylarsın", "Karakter sayfaları: kredi tahmini + onay", "Her bölüm ayrı üretim olur (çizim + ses onaylı)"],
+    series_episode: ["Seçili model bölümü kitaptan uyarlar", "Çizimler: kredi tahmini + onay", "Karakter sesleri: kredi tahmini + onay", "Önizleme → final render"],
+    talk: ["Videon transkript edilir; boşluk, ıı, tekrar ve yarım kalan cümleler bulunur", "Seçili model kurguyu çıkarır: hook, sıra, punch-in, B-roll, altyazı renkleri", "Kurgu planını onaylarsın (tutulan / kesilen cümleler)", "Önizleme → final render (ses temizliği, müzik, -14 LUFS) + QA"],
   }[p.kind] || [];
 }
 let planTimer = null;
@@ -790,9 +790,11 @@ function storyboard(p) {
 function platesCard(p) {
   const e = p.plates_estimate; if (!e) return "";
   const d = p.data, ready = Object.keys(p.plates || {}).length;
+  if (d.illustrations_skipped) return `<div class="card"><div class="row"><h3 style="margin:0">🖌 Çizimler</h3><span class="sp"></span><span class="badge">Atlandı</span></div><div class="note warn mt8 small">ElevenLabs bağlı değil. Üretim çizimsiz, standart animasyon tasarımıyla devam ediyor.</div></div>`;
   if (!e.images) return `<div class="card"><div class="row"><h3 style="margin:0">🖌 Çizimler</h3><span class="sp"></span><span class="badge ok">${ready} çizim hazır</span></div>
     <div class="thumbs mt12">${Object.entries(p.plates || {}).map(([sid, u]) => `<div style="flex:none;position:relative"><img src="${esc(u)}" data-act="open" data-src="${esc(u)}" data-photo="1" alt="">${["ready", "published"].includes(p.stage) || p.busy ? "" : `<button class="btn sm glass" style="position:absolute;right:6px;bottom:6px" data-act="rerollPlate" data-id="${p.prod_id}" data-scene="${esc(sid)}" title="Bu çizimi yeniden üret">↻ ${esc(sid)}</button>`}</div>`).join("")}</div>
     ${d.art_style ? `<div class="tiny faint mt8">Stil: ${esc(d.art_style.slice(0, 220))}</div>` : ""}</div>`;
+  if (!p.eleven_status?.images) return `<div class="card actcard" style="--c:var(--warn)"><h3>🖌 Çizimler</h3><div class="note warn small">ElevenLabs bağlı değil. Bu videoda çizim üretilemiyor.</div><div class="small muted mt8">Üretim çizimsiz, standart animasyon tasarımıyla devam edebilir.</div><button class="btn block mt12" ${p.busy ? "disabled" : ""} data-act="act" data-id="${p.prod_id}" data-a="skip_plates">Çizimsiz devam et</button></div>`;
   return `<div class="card actcard" style="--c:var(--warn)"><h3>🖌 Çizimler · kredi onayı</h3>
     <div class="small muted">Her sahne kilitli stilde bir illüstrasyon üzerinde durur${d.series ? "; karakterler seri sayfasındaki karakter sayfalarından çizilir" : ""}. Çizimler bitince Opus kamera hareketlerini ve işaretleri tasarlar.</div>
     ${d.art_style ? `<div class="note info mt8 small">🎨 ${esc(d.art_style)}</div>` : ""}
@@ -859,11 +861,13 @@ function refsCard(p) {
     ${look ? `<div class="row mt8">${[look.frame, "renk: " + look.grade, "grain " + look.grain, Math.round(look.bpm) + " BPM"].map((t) => `<span class="badge">${esc(t)}</span>`).join("")}</div>` : ""}</div>`;
 }
 function musicCard(p) {
-  if (["ready", "published", "rejected"].includes(p.stage) && !p.data.music_take) return "";
+  if (["ready", "published", "rejected"].includes(p.stage) && !p.data.music_take && !p.data.music_skipped) return "";
   const m = p.data.music_take, e = p.music_estimate || {}, id = p.prod_id;
+  if (p.data.music_skipped || p.data.silent_audio) return `<div class="card"><div class="row"><h3 style="margin:0">🎵 Müzik</h3><span class="sp"></span><span class="badge">Atlandı</span></div><div class="note warn mt8 small">ElevenLabs bağlı değil. Üretim müziksiz ve sessiz devam ediyor.</div></div>`;
   if (m) return `<div class="card"><div class="row"><h3 style="margin:0">🎵 Müzik</h3><span class="sp"></span><span class="badge ok">${Math.round(m.bpm)} BPM · ${num(m.credits)} kredi</span></div>
     <audio controls preload="none" src="/media/${esc(m.file)}" style="width:100%;margin-top:10px"></audio><div class="tiny faint">${esc(m.prompt)}</div>
     ${p.busy ? "" : `<button class="btn sm ghost mt8" data-act="act" data-id="${id}" data-a="drop_music">Müziği kaldır</button>`}</div>`;
+  if (!p.eleven_status?.connected) return `<div class="card"><h3>🎵 Müzik</h3><div class="note warn small">ElevenLabs bağlı değil. Üretim müziksiz ve sessiz devam edebilir.</div><button class="btn block mt12" ${p.busy ? "disabled" : ""} data-act="act" data-id="${id}" data-a="skip_music">Müziksiz ve sessiz devam et</button></div>`;
   if (e.error) return "";
   return `<div class="card"><h3>🎵 Müzik</h3><div class="small muted">${p.data.look ? `Kesmeler ${Math.round(p.data.look.bpm)} BPM ızgarasında. Videoya özel enstrümantal üretirsen kesmeler gerçek beat'lere oturur.` : "Klibin kendi sesi var; istersen videoya özel enstrümantal bir parça üret, doğal ses altta kalır."}</div>
     <textarea id="mprompt" data-keep="mprompt-${id}" class="mt8">${esc(e.prompt || "")}</textarea>
@@ -924,6 +928,7 @@ function actionCard(p, wide) {
   else if (p.stage === "idea") a = `<div class="card actcard st-idea"><h3>Karar</h3><div class="small muted">${f.voice ? "Onaylarsan ses metni ve kredi tahmini gelir." : "Onaylarsan önizleme render'ı otomatik başlar."}</div>
     <div class="kv small mt12"><div>🎙 Anlatım</div><div>${f.voice ? `${(d.voice?.lines || []).length} satır · ~${num(est?.credits || 0)} kredi` : "yok (doğal ses)"}</div><div>🎵 Müzik</div><div>${d.music?.prompt ? "tarif hazır · ~" + num(p.music_estimate?.credits || 0) + " kredi" : "tarif yok"}</div>${p.plates_estimate ? `<div>🖌 Çizimler</div><div>${p.plates_estimate.images} görsel · ~${num(p.plates_estimate.credits)} kredi</div>` : ""}</div>
     ${langPick(p)}<button class="btn accent block mt12" data-act="act" data-id="${id}" data-a="approve_idea">${ICON.check}Fikri onayla</button>${reviseBox(p)}${rejectBox(p)}</div>`;
+  else if (p.stage === "voice" && !p.eleven_status?.connected) a = `<div class="card actcard st-voice"><h3>Ses</h3><div class="note warn small">ElevenLabs bağlı değil. Anlatım sesi üretilemiyor.</div><div class="small muted mt8">Altyazılar ve video üretimi devam eder; anlatım ve klip sesleri kapatılır.</div><button class="btn accent block mt12" data-act="act" data-id="${id}" data-a="silent_continue">Sessiz devam et</button>${reviseBox(p)}${rejectBox(p)}</div>`;
   else if (p.stage === "voice") a = `<div class="card actcard st-voice"><h3>Ses · kredi onayı</h3>
     <div class="kv mt8"><div>Metin</div><div>${est.chars} karakter</div><div>Tahmin</div><div><b>~${num(est.credits)} kredi</b></div><div>Bu ay</div><div>${num(est.budget.spent)} → ${num(est.budget.after)} / ${num(est.budget.cap)}</div></div>
     ${est.budget.ok ? "" : `<div class="note err mt8">${esc(est.budget.why || "Aylık tavan aşılır")}</div>`}
@@ -1287,12 +1292,18 @@ ROUTES["#/butce"] = async () => {
     <h2>Hareketler</h2><div class="card pad0" style="overflow-x:auto"><table><thead><tr><th>Tarih</th><th>Tür</th><th>Not</th><th class="num">Kredi</th></tr></thead><tbody>${b.ledger.map((r) => `<tr><td class="tiny">${dt(r.at)}</td><td>${KT[r.kind] || esc(r.kind)}<div class="tiny faint">${esc(r.model)}</div></td><td class="small muted">${esc(r.note || "")}</td><td class="num">${num(Math.round(r.credits))}</td></tr>`).join("")}</tbody></table></div>
   </div><div>
     <h2>Ölçülen fiyatlar</h2><div class="card pad0"><table><thead><tr><th>Model</th><th class="num">Fiyat</th><th>Birim</th></tr></thead><tbody>${Object.entries(b.rates).map(([k, r]) => `<tr><td>${esc(k)}${r.note ? `<div class="tiny faint">${esc(r.note)}</div>` : ""}</td><td class="num">${(Math.round(r.rate * 100) / 100).toLocaleString("tr-TR")}</td><td class="tiny">kredi/${esc(r.unit)}</td></tr>`).join("")}</tbody></table></div>
-    ${u ? `<h2>Son Claude çağrıları</h2><div class="card pad0" style="overflow-x:auto"><table><tbody>${u.recent.slice(0, 20).map((r) => `<tr><td class="tiny">${dt(r.at)}</td><td class="small">${esc(r.step)}${r.ok ? "" : ' <span class="bad tiny">hata</span>'}<div class="tiny faint">${esc(r.model)}</div></td><td class="num">${usd(r.cost)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    ${u ? `<h2>Son AI çağrıları</h2><div class="card pad0" style="overflow-x:auto"><table><tbody>${u.recent.slice(0, 20).map((r) => `<tr><td class="tiny">${dt(r.at)}</td><td class="small">${esc(r.step)}${r.ok ? "" : ' <span class="bad tiny">hata</span>'}<div class="tiny faint">${esc(r.model)}</div></td><td class="num">${r.cost == null ? "—" : usd(r.cost)}</td></tr>`).join("")}</tbody></table></div>` : ""}
   </div></div>`);
 };
 ROUTES["#/hesaplar"] = async () => {
   S.me = await api("/api/me"); const m = S.me; crumb(["Hesaplar"]);
   const cl = m.claude.connected ? `<div class="small">✅ Bağlı · ${esc(m.claude.how)}${m.claude.at ? " · " + esc(m.claude.at) : ""}</div>` : `<div class="small">❌ Bağlı değil.</div>`;
+  const lc = m.llm_settings || { provider: "claude", models: {} }, provider = lc.provider || "claude";
+  const agentModels = (m.llm_agents || []).map((a) => {
+    const selected = (lc.models || {})[a.id] || (lc.models || {}).default || "";
+    const defaultModel = (m.llm_default_models[provider] || {})[a.id] || (provider === "codex" ? "gpt-6-luna" : "opus");
+    return `<label class="field"><span>${esc(a.name)}</span><select data-agent-model="${esc(a.id)}"><option value="">${esc(defaultModel)} · varsayılan</option>${(m.llm_models[provider] || []).map((x) => `<option value="${esc(x.id)}" ${selected === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>`;
+  }).join("");
   const acc = m.eleven.map((a) => { const b = a.balance || {}; const can = a.mine || m.role === "owner";
     return `<div class="card"><div class="row"><b>💳 ${esc(a.name)}</b><span class="sp"></span><span class="badge">${a.type === "connector" ? "connector" : "API " + esc(a.key_tail || "")}</span>${a.id === m.default_eleven ? '<span class="badge ok">varsayılan</span>' : ""}</div>
     ${a.error ? `<div class="note err mt8 small">${esc(a.error)}</div>` : `<div class="small mt8">${b.left == null ? "bakiye okunmuyor" : num(b.left) + " kredi kaldı"} · ${a.voices} ses</div>`}
@@ -1301,11 +1312,44 @@ ROUTES["#/hesaplar"] = async () => {
     ${a.type === "apikey" ? `<div class="row nowrap mt8"><input type="password" placeholder="yeni API anahtarı" id="key_${esc(a.id)}"><button class="btn sm" data-act="accKey" data-id="${esc(a.id)}">Değiştir</button></div><button class="btn sm ghost danger mt8" data-act="accDel" data-id="${esc(a.id)}">Sil</button>` : ""}` : ""}</div>`; }).join("");
   paint(`<div class="row"><h1>Hesap<span class="serif">lar</span></h1><span class="sp"></span>${m.login ? `<button class="btn sm ghost" data-act="logout">Çıkış</button>` : ""}</div>
   <div class="small muted mt8">Giriş yapan: <b>${esc(m.name)}</b> (${m.role === "owner" ? "sahip" : "üye"})</div>
-  <div class="card mt16"><h3>🤖 Claude</h3>${cl}${m.role === "owner" ? "" : `<div id="clflow" class="mt12"><button class="btn sm accent" data-act="claudeStart" data-mode="login">🔗 Tam giriş ile bağla</button> <button class="btn sm" data-act="claudeStart" data-mode="token">🔑 Anahtar ile bağla</button></div>`}</div>
+  <div class="card mt16"><h3>⚙️ CLI ve model seçenekleri</h3><p class="small muted">Agent’ların hangi CLI ve modeli kullanacağını seç. Kaydettikten sonra başlayan işlerde uygulanır.</p>
+    <label class="field mt12"><span>CLI</span><select id="llm_provider" data-change="llmProvider"><option value="claude" ${provider === "claude" ? "selected" : ""}>Claude Code</option><option value="codex" ${provider === "codex" ? "selected" : ""}>OpenAI Codex CLI</option></select></label>
+    <div class="small muted mt8" id="llm_provider_note">${provider === "codex" ? "Varsayılan model tüm agent’larda GPT-6-Luna. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs de Codex connector’ı üzerinden çalışır." : "Varsayılanlar mevcut Claude agent modelleridir (opus/sonnet gibi); değiştirmediğin seçimler korunur."}</div>
+    <h3 class="mt16">Agent modelleri</h3><div class="grid mt8" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">${agentModels}</div>
+    <button class="btn accent sm mt12" data-act="llmSave">Kaydet</button></div>
+  <div class="card mt16"><h3>🔌 ElevenLabs · Codex connector</h3>
+    <div class="small">${m.codex_elevenlabs?.connected ? "✅ Codex CLI’ye bağlı" : "❌ Codex CLI’ye bağlı değil"}</div>
+    <p class="small muted mt8">Codex seçildiğinde ses, müzik ve görsel üretimi bu bağlantıdan yapılır. Bağlan’a basınca ElevenLabs girişine yönlendirilirsin ve izin sonrası buraya dönersin. Güvenli dönüş için Tailscale Serve açık olmalı.</p>
+    ${m.role === "owner" ? `<button class="btn accent sm mt8" data-act="codexElevenConnect" ${m.codex_elevenlabs?.connected ? "disabled" : ""}>${m.codex_elevenlabs?.connected ? "Bağlandı" : "ElevenLabs’i Codex’e bağla"}</button>` : '<div class="tiny muted">Bu bağlantıyı hesap sahibi yönetir.</div>'}
+  </div>
+  <div class="card mt16"><h3>🤖 Claude hesabı</h3>${cl}${m.role === "owner" ? "" : `<div id="clflow" class="mt12"><button class="btn sm accent" data-act="claudeStart" data-mode="login">🔗 Tam giriş ile bağla</button> <button class="btn sm" data-act="claudeStart" data-mode="token">🔑 Anahtar ile bağla</button></div>`}</div>
   <h2>ElevenLabs hesapları</h2><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">${acc}</div>
   <div class="card mt16"><h3>＋ ElevenLabs API anahtarı ekle</h3><input type="text" id="ak_name" placeholder="hesap adı (isteğe bağlı)"><input type="password" id="ak_key" placeholder="API anahtarı" class="mt8"><button class="btn accent sm mt8" data-act="accAdd">Ekle ve sesleri oku</button>
     ${m.role === "owner" ? "" : `<button class="btn sm mt8" ${m.claude.connectors ? "" : "disabled"} data-act="accConn">🔌 Connector'ımı bağla</button>`}</div>
   ${m.users ? `<h2>Kullanıcılar</h2>${m.users.map((x) => `<div class="small">👤 ${esc(x.name)} <span class="faint">(${esc(x.id)}, ${x.role === "owner" ? "sahip" : "üye"})</span> · Claude ${x.claude.connected ? "✅" : "❌"}</div>`).join("")}` : ""}`);
+};
+ACT.llmProvider = (el) => {
+  const provider = el.value, options = (S.me.llm_models || {})[provider] || [];
+  for (const select of $$('[data-agent-model]')) {
+    const prior = select.value;
+    const def = ((S.me.llm_default_models || {})[provider] || {})[select.dataset.agentModel] || (provider === "codex" ? "gpt-6-luna" : "opus");
+    select.innerHTML = `<option value="">${esc(def)} · varsayılan</option>` + options.map((x) => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("");
+    if (options.some((x) => x.id === prior)) select.value = prior;
+  }
+  $("#llm_provider_note").textContent = provider === "codex"
+    ? "Varsayılan model tüm agent’larda GPT-6-Luna. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs de Codex connector’ı üzerinden çalışır."
+    : "Varsayılanlar mevcut Claude agent modelleridir (opus/sonnet gibi); değiştirmediğin seçimler korunur.";
+};
+ACT.llmSave = async () => {
+  const models = Object.fromEntries($$('[data-agent-model]').filter((x) => x.value).map((x) => [x.dataset.agentModel, x.value]));
+  await post("/api/llm/settings", { provider: $("#llm_provider").value, models });
+  toast("CLI ve agent modelleri kaydedildi"); route();
+};
+ACT.codexElevenConnect = async () => {
+  const r = await post("/api/codex/elevenlabs/start", {});
+  if (r.connected) { toast("Codex ElevenLabs zaten bağlı"); return route(); }
+  if (!r.url) throw new Error("ElevenLabs giriş bağlantısı alınamadı");
+  location.href = r.url;
 };
 ACT.logout = async () => { await post("/api/logout"); location.href = "/login"; };
 ACT.accShared = async (el) => { await post(`/api/eleven/accounts/${el.dataset.id}/update`, { shared: el.checked }); toast("Kaydedildi"); };
