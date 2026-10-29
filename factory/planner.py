@@ -187,7 +187,7 @@ def clean(p, att, cat):
     why = out.get("technique_why") if isinstance(out.get("technique_why"), dict) else {}
     out["technique_why"] = {k: str(why[k])[:200] for k in out["techniques"] if why.get(k)}
     try:
-        out["seconds"] = max(8, min(int(out.get("seconds") or 0), 180)) or None
+        out["seconds"] = max(8, min(int(out["seconds"]), 180)) if out.get("seconds") else None   # unset stays unset
     except (TypeError, ValueError):
         out["seconds"] = None
     out["direction"] = str(out.get("direction") or "")[:1500]
@@ -380,7 +380,7 @@ def update(con, plan_id, changes, voices=None):
                 merged["look"] = t[0]["look"]
     keep = {k: merged.get(k) for k in ("understood_tr", "steps_tr", "questions_tr", "alternatives", "cost_usd",
                                        "treatments", "benchmark", "question_tr", "chosen", "recommended", "research",
-                                       "memory", "memory_tr", "critic", "team")}
+                                       "memory", "memory_tr", "critic", "team", "fallback")}
     plan = clean(merged, row["attachments"], cat) | {k: v for k, v in keep.items() if v is not None}
     plan["costs"] = costs(plan)
     con.execute("UPDATE plans SET plan=? WHERE plan_id=?", (json.dumps(plan, ensure_ascii=False), plan_id))
@@ -424,7 +424,7 @@ def start(con, plan_id, queue):
         if p["kind"] == "topic" and p.get("refs"):   # how the attached references really move, measured
             from .refs import motion_for
             rec["ref_motion"] = motion_for(con, p["refs"])
-        arg = {"format": p["format"], "n": p["n"], "brief": p["brief"], "places": p["places"], "refs": p["refs"],
+        arg = {"format": p["format"], "n": p["n"], "brief": p["brief"] or row["prompt"], "places": p["places"], "refs": p["refs"],
                "aspect": p["aspect"], "narrate": p["narrate"], "look": p["look"], "voice_id": p["voice_id"],
                "channel": p["channel"], "recipe": rec}
         jobs_.append(queue("p_ideas", json.dumps(arg, ensure_ascii=False)))
