@@ -286,7 +286,7 @@ async function viewHome(_, opts) {
   <section class="hero">
     <div class="tiny faint" style="font-weight:700;letter-spacing:.08em;text-transform:uppercase">${esc(hello)}${S.me && S.me.name ? ", " + esc(S.me.name) : ""} · ${o.made_this_month} video bu ay</div>
     <h1>Bugün ne <span class="serif">üretelim?</span></h1>
-    <p class="lead">Ne istediğini yaz, elindekini ekle. Claude anlar, bir plan önerir; onaylarsan fabrika çalışır. Kredi harcayan her adım ayrıca onayını bekler.</p>
+    <p class="lead">Ne istediğini yaz, elindekini ekle. Seçtiğin model isteğini anlar, bir plan önerir; onaylarsan fabrika çalışır. Kredi harcayan her adım ayrıca onayını bekler.</p>
     ${composerHtml(c)}
     <div id="planBox">${plan ? planHtml(plan) : ""}</div>
   </section>
@@ -335,7 +335,7 @@ function composerHtml(c) {
       <button class="attach" data-act="attPick" data-k="refs">${ICON.ref}Referans</button>
       <button class="attach" data-act="attPick" data-k="series_id">${ICON.book}Seri</button>
       <button class="attach" data-act="attPick" data-k="links">${ICON.clip}Link</button>
-      <button class="attach" data-act="talkPick" title="Kameraya konuştuğun ham video: Claude kurgular">🎙 Konuşma videosu</button>
+      <button class="attach" data-act="talkPick" title="Kameraya konuştuğun ham videoyu seçtiğin model kurgular">🎙 Konuşma videosu</button>
       <a class="attach" style="text-decoration:none" href="#/katalog" title="Teknikleri örnek kliplerle gör; istediklerini sabitle ya da Opus seçsin">${ICON.layers}Teknik${a.pins && a.pins.length ? ` (${a.pins.length})` : ""}</a>
       <button class="attach ${a.quick ? "on" : ""}" data-act="quickToggle" title="Hızlı plan: araştırma, eskizler ve eleştirmen olmadan tek çağrı">${a.quick ? "⚡ hızlı plan" : "🎬 tam ekip"}</button>
       <span class="attach" style="cursor:default">📺 ${esc(c ? c.name : "kanal")}</span>
@@ -424,7 +424,7 @@ function planHtml(row) {
   const pay = (t) => /kredi|onay|ses|çizim|müzik|karakter/i.test(t);
   return `<div class="plan" data-plan="${row.plan_id}">
     <div class="ph"><div class="ic">${{ footage: "🎞", topic: "✍️", series_new: "📚", series_episode: "🎬", talk: "🎙" }[p.kind] || "✨"}</div>
-      <div style="flex:1;min-width:0"><div class="tiny faint" style="font-weight:700;letter-spacing:.06em;text-transform:uppercase">Plan · ${esc(p.kind_tr || "")}${p.fallback ? " · yedek plan (Claude'a ulaşılamadı)" : ""}</div>
+      <div style="flex:1;min-width:0"><div class="tiny faint" style="font-weight:700;letter-spacing:.06em;text-transform:uppercase">Plan · ${esc(p.kind_tr || "")}${p.fallback ? " · yedek plan (AI çağrısı başarısız)" : ""}</div>
         <div class="say">${esc(p.understood_tr || row.prompt || "")}</div></div>
       <button class="iconbtn" data-act="planDismiss" title="Kapat">✕</button></div>
     ${(p.questions_tr || []).length || p.question_tr ? `<div style="padding:12px 20px 0"><div class="note warn">${[...(p.questions_tr || []), ...(p.question_tr ? [p.question_tr] : [])].map((x) => "❓ " + esc(x)).join("<br>")}<div class="tiny muted" style="margin-top:4px">Cevabı aşağıdaki brief'e ekleyebilir ya da yeni bir prompt yazabilirsin.</div></div></div>` : ""}
@@ -443,7 +443,7 @@ function planHtml(row) {
       <div class="row" style="gap:16px">
         <div class="field"><span>Kadraj</span>${seg("aspect", [["9:16", "▯ 9:16"], ["16:9", "▭ 16:9"]], p.aspect, "planSet")}</div>
         ${p.kind === "footage" ? `<div class="field"><span>Fikir sayısı</span>${seg("n", [1, 2, 3, 4, 5].map((n) => [n, n]), p.n, "planSet")}</div>
-          <div class="field"><span>Anlatım</span>${seg("narrate", [["auto", "🤖 Claude"], ["on", "🎙 Var"], ["off", "🌿 Yok"]], p.narrate, "planSet")}</div>` : ""}
+          <div class="field"><span>Anlatım</span>${seg("narrate", [["auto", "🤖 Otomatik"], ["on", "🎙 Var"], ["off", "🌿 Yok"]], p.narrate, "planSet")}</div>` : ""}
       </div>
       <label class="field"><span>Brief (yazara giden metin)</span><textarea data-keep="brief-${row.plan_id}" data-change="planSel" data-name="brief" style="min-height:90px">${esc(p.brief || "")}</textarea></label>
       ${(p.alternatives || []).length ? `<div class="field"><span>Alternatifler</span><div class="chips">${p.alternatives.map((a, i) => `<span class="chip" data-act="planAlt" data-i="${i}">↺ ${esc(a.label_tr)}</span>`).join("")}</div></div>` : ""}
@@ -453,7 +453,7 @@ function planHtml(row) {
       <h3 class="mt16">Tahmini maliyet</h3>
       <div class="costs">${((p.costs || {}).lines || []).map((l) => `<div class="ln"><span class="muted">${esc(l.label)}</span><b>~${num(l.credits)} kr</b></div>`).join("") || '<div class="muted small">ElevenLabs kredisi yok</div>'}
         ${(p.costs || {}).render ? `<div class="ln"><span class="muted">⏱ Render (${p.costs.render.seconds} sn, bu makinede${p.costs.render.measured ? "" : ", kaba"})</span><b>önizleme ${esc(p.costs.render.preview)} · final ${esc(p.costs.render.final)}</b></div>${p.costs.render.blur > 1 ? '<div class="ln tiny faint"><span>hareket bulanıklığı açık: final ×' + p.costs.render.blur + " örnek</span></div>" : ""}` : ""}
-        <div class="ln tiny faint"><span>Claude</span><b style="font-weight:500">${esc((p.costs || {}).claude || "")}</b></div>
+        <div class="ln tiny faint"><span>Seçili CLI</span><b style="font-weight:500">${esc((p.costs || {}).claude || "")}</b></div>
         ${p.team ? `<div class="ln tiny faint"><span>Planlama ekibi${p.team.quick ? " (hızlı)" : ""}</span><b style="font-weight:500">~${usd(p.team.cost_usd)}</b></div>` : ""}</div>
     </div></div>
     <div class="pf"><button class="btn accent" data-act="planStart">${ICON.check}Planı onayla ve başlat</button><button class="btn ghost" data-act="planCancel">Vazgeç</button><span class="sp"></span><span class="tiny faint">Hiçbir şey kredi harcamadan başlamaz.</span></div>
@@ -505,11 +505,11 @@ ACT.planTechPick = async (el) => {
 const SERIES_STYLES = { cartoon: "Çizgi film", storybook: "Masal kitabı", anime: "Anime", flat_vector: "Düz vektör", cinematic: "Dizi / sinematik", comic: "Çizgi roman", pixel: "8-bit piksel", papercut: "Kâğıt kesik", claymation: "Kil animasyon", bauhaus: "Bauhaus", vaporwave: "Vaporwave", inkwash: "Mürekkep" };
 function defaultSteps(p) {
   return {
-    footage: ["Claude çekimlerinden fikirleri yazar", "Sen bir fikri onaylarsın", "Art director kurguyu ve efektleri tasarlar", "Ses (varsa): kredi tahmini + onay", "Önizleme → final render + QA"],
-    topic: ["Claude konuyu araştırır, kaynaklı metni yazar", p.look === "illustrated" ? "Çizimler: kredi tahmini + onay" : "Opus sahneleri tasarlar", "Ses: kredi tahmini + onay", "Önizleme → final render + QA"],
-    series_new: ["Claude seri kitabını yazar: dünya, karakterler, bölümler", "Kitabı okursun, düzeltir ya da onaylarsın", "Karakter sayfaları: kredi tahmini + onay", "Her bölüm ayrı üretim olur (çizim + ses onaylı)"],
-    series_episode: ["Claude bölümü kitaptan uyarlar", "Çizimler: kredi tahmini + onay", "Karakter sesleri: kredi tahmini + onay", "Önizleme → final render"],
-    talk: ["Videon transkript edilir; boşluk, ıı, tekrar ve yarım kalan cümleler bulunur", "Claude kurguyu çıkarır: hook, sıra, punch-in, B-roll, altyazı renkleri", "Kurgu planını onaylarsın (tutulan / kesilen cümleler)", "Önizleme → final render (ses temizliği, müzik, -14 LUFS) + QA"],
+    footage: ["Seçili model çekimlerinden fikirleri yazar", "Sen bir fikri onaylarsın", "Art director kurguyu ve efektleri tasarlar", "Ses (varsa): kredi tahmini + onay", "Önizleme → final render + QA"],
+    topic: ["Seçili model konuyu araştırır, kaynaklı metni yazar", p.look === "illustrated" ? "Çizimler: kredi tahmini + onay" : "Sahneler tasarlanır", "Ses: kredi tahmini + onay", "Önizleme → final render + QA"],
+    series_new: ["Seçili model seri kitabını yazar: dünya, karakterler, bölümler", "Kitabı okursun, düzeltir ya da onaylarsın", "Karakter sayfaları: kredi tahmini + onay", "Her bölüm ayrı üretim olur (çizim + ses onaylı)"],
+    series_episode: ["Seçili model bölümü kitaptan uyarlar", "Çizimler: kredi tahmini + onay", "Karakter sesleri: kredi tahmini + onay", "Önizleme → final render"],
+    talk: ["Videon transkript edilir; boşluk, ıı, tekrar ve yarım kalan cümleler bulunur", "Seçili model kurguyu çıkarır: hook, sıra, punch-in, B-roll, altyazı renkleri", "Kurgu planını onaylarsın (tutulan / kesilen cümleler)", "Önizleme → final render (ses temizliği, müzik, -14 LUFS) + QA"],
   }[p.kind] || [];
 }
 let planTimer = null;

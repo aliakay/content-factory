@@ -182,12 +182,12 @@ def selected_model(step, requested=None, uid=None):
 
 def _codex(prompt, tools, timeout, model, effort, step):
     """One read-only Codex CLI turn. WebSearch/WebFetch map to Codex's live web search."""
-    cmd = [CODEX, "exec", "--json", "--ephemeral", "--sandbox", "read-only", "--ask-for-approval", "never",
-           "--skip-git-repo-check", "--model", model, "-C", WORKDIR,
-           "-c", f'model_reasoning_effort="{effort}"']
+    cmd = [CODEX, "--ask-for-approval", "never"]
     if any(t in ("WebSearch", "WebFetch") for t in tools):
         cmd.append("--search")
-    cmd.append("-")
+    cmd += ["exec", "--json", "--ephemeral", "--sandbox", "read-only", "--skip-git-repo-check",
+            "--model", model, "-C", WORKDIR, "-c", f'model_reasoning_effort="{effort}"', "-"]
+    os.makedirs(WORKDIR, exist_ok=True)
     try:
         p = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=timeout, cwd=WORKDIR)
     except FileNotFoundError:

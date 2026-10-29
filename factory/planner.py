@@ -236,7 +236,7 @@ def costs(p):
     else:
         lines.append({"label": "Çizimler (≈7 sahne)", "credits": round(7 * img)})
         lines.append({"label": "Sesler", "credits": round(p["series"]["ep_seconds"] * 15 * tts)})
-    out = {"lines": lines, "total": sum(x["credits"] for x in lines), "claude": "abonelikten (Opus/Sonnet)"}
+    out = {"lines": lines, "total": sum(x["credits"] for x in lines), "claude": "seçili CLI aboneliğinden"}
     if p["kind"] in ("topic", "series_new", "series_episode"):   # code-drawn renders: time on THIS machine, measured
         from . import renderspeed
         sec = p.get("seconds") or (p["series"]["ep_seconds"] if p["kind"].startswith("series") else 30)
@@ -350,9 +350,10 @@ Reply with ONLY JSON in this schema:
         data, meta = llm.ask(prompt, tools=(), timeout=600, model="opus")
         plan = clean(data if isinstance(data, dict) else {}, att, cat)
         plan["cost_usd"] = meta.get("cost_usd")
-    except Exception as e:   # no Claude: a plain keyword plan still lets the creator go on
+    except Exception as e:   # if the selected CLI fails, a plain keyword plan still lets the creator go on
         plan = clean(guess(row["prompt"], att, cat), att, cat)
         plan["fallback"] = f"{type(e).__name__}"
+    plan["brief"] = str(plan.get("brief") or row.get("prompt") or "")[:3000]
     return plan
 
 
@@ -382,6 +383,8 @@ def update(con, plan_id, changes, voices=None):
                                        "treatments", "benchmark", "question_tr", "chosen", "recommended", "research",
                                        "memory", "memory_tr", "critic", "team")}
     plan = clean(merged, row["attachments"], cat) | {k: v for k, v in keep.items() if v is not None}
+    if not plan.get("brief"):
+        plan["brief"] = str(row.get("prompt") or "")[:3000]
     plan["costs"] = costs(plan)
     con.execute("UPDATE plans SET plan=? WHERE plan_id=?", (json.dumps(plan, ensure_ascii=False), plan_id))
     con.commit()
@@ -424,7 +427,7 @@ def start(con, plan_id, queue):
         if p["kind"] == "topic" and p.get("refs"):   # how the attached references really move, measured
             from .refs import motion_for
             rec["ref_motion"] = motion_for(con, p["refs"])
-        arg = {"format": p["format"], "n": p["n"], "brief": p["brief"], "places": p["places"], "refs": p["refs"],
+        arg = {"format": p["format"], "n": p["n"], "brief": p.get("brief") or row["prompt"], "places": p["places"], "refs": p["refs"],
                "aspect": p["aspect"], "narrate": p["narrate"], "look": p["look"], "voice_id": p["voice_id"],
                "channel": p["channel"], "recipe": rec}
         jobs_.append(queue("p_ideas", json.dumps(arg, ensure_ascii=False)))
@@ -440,7 +443,7 @@ def start(con, plan_id, queue):
         n = p["series"]["episode"] or next((e["n"] for e in d.get("episodes") or [] if not e.get("prod_id")), None)
         if not n:
             raise ValueError("Bu serinin bütün bölümleri üretildi")
-        jobs_.append(queue("series_episode", json.dumps({"id": sid, "n": n, "note": p["brief"]}, ensure_ascii=False)))
+        jobs_.append(queue("series_episode", json.dumps({"id": sid, "n": n, "note": p.get("brief") or row["prompt"]}, ensure_ascii=False)))
     con.execute("UPDATE plans SET status='started', job_ids=?, plan=? WHERE plan_id=?",
                 (json.dumps(jobs_), json.dumps(p, ensure_ascii=False), plan_id))
     con.commit()
