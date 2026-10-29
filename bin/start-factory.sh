@@ -12,16 +12,18 @@ if [ -z "$HOST" ]; then echo "start-factory: no CF_HOST and no Tailscale IP; set
 PY="$ROOT/.venv/bin/python"
 mkdir -p data
 up() { curl -s -m 3 -o /dev/null "http://$HOST:$1/"; }
+# setsid (own session, survives the calling shell) is Linux-only; macOS has none on PATH, so fall back to nohup alone
+detach() { if command -v setsid >/dev/null; then setsid nohup "$@"; else nohup "$@"; fi; }
 if ! up "${CF_STUDIO_PORT:-8501}"; then
-  setsid nohup "$PY" studio/server.py --host "$HOST" --port "${CF_STUDIO_PORT:-8501}" \
+  detach "$PY" studio/server.py --host "$HOST" --port "${CF_STUDIO_PORT:-8501}" \
     >> data/studio.log 2>&1 < /dev/null &
 fi
 if ! up "${CF_SHORTS_PORT:-8095}"; then
-  setsid nohup "$PY" shorts/server.py --host "$HOST" --port "${CF_SHORTS_PORT:-8095}" \
+  detach "$PY" shorts/server.py --host "$HOST" --port "${CF_SHORTS_PORT:-8095}" \
     >> data/shorts.log 2>&1 < /dev/null &
 fi
 if [ "${CF_STREAMLIT:-1}" = "1" ] && ! up "${CF_STREAMLIT_PORT:-8503}"; then
-  setsid nohup "$ROOT/.venv/bin/streamlit" run factory/app.py --server.address "$HOST" \
+  detach "$ROOT/.venv/bin/streamlit" run factory/app.py --server.address "$HOST" \
     --server.port "${CF_STREAMLIT_PORT:-8503}" --server.headless true --browser.gatherUsageStats false \
     >> data/streamlit.log 2>&1 < /dev/null &
 fi

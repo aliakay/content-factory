@@ -143,6 +143,7 @@ def test_plates_from_references_are_priced_on_the_edit_model(con, monkeypatch):
 
 def test_default_narrator_follows_the_language(con, monkeypatch, tmp_path):
     from factory import explainer, formats
+    monkeypatch.setattr(formats, "PROFILE", str(tmp_path / "no_profile.json"))   # built-in narrators only
     assert formats.default_voice("tr") == formats.DEFAULT_VOICES["tr"]["voice_id"] != formats.VOICE_ID
     assert formats.default_voice("en") == formats.default_voice("de") == formats.DEFAULT_VOICES["en"]["voice_id"]
     assert explainer.voice_lang(formats.default_voice("tr")) == "tr"
@@ -179,3 +180,13 @@ def test_pasted_voice_is_checked_then_saved(monkeypatch, tmp_path):
         eleven.add_voice("ZZZZZZZZZZZZZZZZZZZZ", "tr", check=bad)
     assert len(json.load(open(tmp_path / "eleven_profile.json"))["voices"]) == 1
     assert formats.ELEVEN_LANGUAGES[:2] == [("tr", "Türkçe"), ("en", "English")]
+
+
+def test_owner_default_voice_comes_from_the_profile(monkeypatch, tmp_path):
+    from factory import formats
+    prof = tmp_path / "eleven_profile.json"
+    monkeypatch.setattr(formats, "PROFILE", str(prof))
+    assert formats.default_voice("tr", "ali") == formats.DEFAULT_VOICES["tr"]["voice_id"]   # no profile: built-in
+    prof.write_text(json.dumps({"defaults": {"en": "CLONE_EN", "tr": "CLONE_TR"}}))
+    assert formats.default_voice("tr", "ali") == "CLONE_TR" and formats.default_voice("de", "ali") == "CLONE_EN"
+    assert formats.default_voice("tr", "fatih") == formats.DEFAULT_VOICES["tr"]["voice_id"]  # a member's connector
