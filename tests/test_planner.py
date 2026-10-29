@@ -60,3 +60,17 @@ def test_topic_costs_include_illustrations(con, monkeypatch):
     p = planner.think(con, planner.create(con, "Hava durumu uygulamaları neden yanılıyor gibi görünür?", {}))
     labels = [x["label"] for x in p["costs"]["lines"]]
     assert p["channel"] == "bilgi" and any("Çizimler" in x for x in labels) and p["costs"]["total"] > 0
+
+
+def test_offline_plan_keeps_the_request_and_no_made_up_length(con, monkeypatch):
+    def offline(*a, **k):
+        raise llm.LLMError("claude failed: exit 1: Not logged in")
+    monkeypatch.setattr(llm, "ask", offline)
+    req = "29 Ekim için 30 saniyelik sinematik bir konu videosu: bayrak, Anıtkabir, havai fişek"
+    pid = planner.create(con, req, {"channel": "seyahat"})
+    p = planner.think(con, pid)
+    assert p["kind"] == "topic" and p["brief"] == req and p["seconds"] is None   # not 8 s out of nothing
+    assert planner.update(con, pid, {"brief": ""})["plan"]["fallback"]   # an edit keeps the "Claude unreachable" mark
+    jobs = []
+    planner.start(con, pid, lambda k, a: jobs.append((k, json.loads(a))) or 1)
+    assert jobs[0][0] == "p_ideas" and jobs[0][1]["brief"] == req   # the writer still gets the request
