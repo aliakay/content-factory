@@ -222,6 +222,7 @@ def production_detail(con, pid):
     out["refs"] = [lib[r] for r in (p["data"].get("refs") or []) if r in lib]
     aid = P.eleven_account(p["data"])
     out["eleven_account"], out["eleven_accounts"] = aid, accounts.usable_eleven()
+    out["eleven_status"] = eleven_status(aid)
     out["voices"] = eleven_info(aid)["voices"]
     out["default_voice"] = formats.default_voice(p["data"].get("lang"), aid)
     if True:  # every production can get a generated track (styled ones also cut on its beats)
@@ -264,7 +265,7 @@ def production_detail(con, pid):
     snd = (p.get("qa") or {}).get("sound") or {}
     if snd.get("sheet"):
         out["sound_sheet"] = "/media/" + snd["sheet"]
-    if illustrate.needs_plates(p["data"]) or p["data"].get("plates"):
+    if illustrate.needs_plates(p["data"]) or p["data"].get("plates") or p["data"].get("illustrations_skipped"):
         out["plates_estimate"] = illustrate.estimate(con, p["data"], aid)
         out["plates"] = {k: "/media/assets/" + v["file"].split("assets/", 1)[-1] for k, v in (p["data"].get("plates") or {}).items()}
     if p["data"].get("series"):
@@ -456,6 +457,29 @@ def act(con, pid, body):
         P.save(con, p, "plan iptal")
     elif a == "verify":
         queue_for(con, p, "p_verify", str(pid))
+    elif a == "silent_continue":
+        if not fmt["voice"]:
+            raise ValueError("Bu formatta ses adımı yok")
+        p["data"]["voice_skipped"] = True
+        p["data"]["mute_clips"] = True
+        p["data"]["silent_audio"] = True
+        p["stage"] = "preview"
+        p["preview"] = None
+        P.save(con, p, "sessiz devam", "ElevenLabs bağlı değil; anlatım atlandı")
+        if not (illustrate.needs_plates(p["data"]) and illustrate.missing(p["data"])):
+            queue_for(con, p, "p_preview", str(pid))
+    elif a == "skip_music":
+        p["data"]["music_skipped"] = True
+        p["data"]["mute_clips"] = True
+        p["data"]["silent_audio"] = True
+        p["data"].pop("music_take", None)
+        if p["stage"] == "voice" and fmt["voice"]:
+            p["data"]["voice_skipped"] = True
+            p["stage"] = "preview"
+            p["preview"] = None
+        P.save(con, p, "müziksiz devam", "ElevenLabs bağlı değil; müzik atlandı")
+        if p["stage"] == "preview" and voice_ready(p["data"]) and not illustrate.missing(p["data"]):
+            queue_for(con, p, "p_preview", str(pid))
     elif a == "approve_voice":
         est = P.voice_estimate(con, p["data"])
         approved = int(body.get("approved") or 0)
@@ -466,7 +490,7 @@ def act(con, pid, body):
         P.save(con, p, "kredi onayı", f"{est['credits']} kredi ({est['chars']} karakter)")
         queue_for(con, p, "p_voice", json.dumps({"id": pid, "approved": est["credits"]}))
     elif a == "preview":
-        if fmt["voice"] and not (p["data"].get("voice_take") and p["data"]["voice_take"].get("text") == P.voice_text(p["data"])):
+        if fmt["voice"] and not voice_ready(p["data"]):
             raise ValueError("Önce ses üretilmeli")
         queue_for(con, p, "p_preview", str(pid))
     elif a == "approve_render":
@@ -494,7 +518,7 @@ def act(con, pid, body):
         if p["stage"] == "preview":
             p["preview"] = None
         P.save(con, p, "marka katmanı", "açık" if p["data"]["brand"] else "kapalı")
-        if p["stage"] == "preview" and (not fmt["voice"] or p["data"].get("voice_take")):
+        if p["stage"] == "preview" and (not fmt["voice"] or voice_ready(p["data"])):
             queue_for(con, p, "p_preview", str(pid))
     elif a == "approve_plates":
         est = illustrate.estimate(con, p["data"], P.eleven_account(p["data"]))
@@ -507,6 +531,20 @@ def act(con, pid, body):
             raise ValueError("Aylık kredi tavanı aşılır")
         P.save(con, p, "kredi onayı", f"çizimler {est['credits']} kredi ({est['images']} görsel)")
         queue_for(con, p, "p_plates", json.dumps({"id": pid, "approved": est["credits"]}))
+    elif a == "skip_plates":
+        if not illustrate.needs_plates(p["data"]):
+            raise ValueError("Bu videoda çizim adımı yok")
+        p["data"]["look_pack"] = "auto"
+        p["data"].pop("illustrated", None)
+        p["data"].pop("plates", None)
+        p["data"].pop("art_flow", None)
+        p["data"].pop("motion", None)
+        p["data"]["illustrations_skipped"] = True
+        for scene in p["data"].get("scenes") or []:
+            scene.pop("plate", None)
+        p["preview"] = None
+        P.save(con, p, "çizimsiz devam", "ElevenLabs bağlı değil; standart animasyon tasarımı kullanılacak")
+        queue_for(con, p, "p_design", json.dumps({"id": pid}))
     elif a == "set_aspect":
         asp = body.get("aspect")
         if asp not in formats.ASPECTS:
@@ -526,7 +564,7 @@ def act(con, pid, body):
                                  "detail": f"#{pid} videosunun {label} sürümü"})
             P.save(con, c)
             fmt_c = formats.for_data(c["format"], data)
-            if not fmt_c["voice"] or (data.get("voice_take") and data["voice_take"].get("text") == P.voice_text(data)):
+            if not fmt_c["voice"] or voice_ready(data):
                 queue_for(con, c, "p_preview", str(new_id))
             P.save(con, p, "kopya", f"{label} sürümü → #{new_id}")
             out = production_detail(con, new_id)
@@ -542,8 +580,7 @@ def act(con, pid, body):
             queue_for(con, p, "p_design", json.dumps({"id": pid, "note": f"The canvas changed to {asp}: lay every scene out for it."}))
             return production_detail(con, pid)
         P.save(con, p, "kadraj", label)
-        if p["stage"] == "preview" and (not fmt["voice"] or (p["data"].get("voice_take") and
-                                                             p["data"]["voice_take"].get("text") == P.voice_text(p["data"]))):
+        if p["stage"] == "preview" and (not fmt["voice"] or voice_ready(p["data"])):
             queue_for(con, p, "p_preview", str(pid))
     elif a == "redesign":
         if not explainer.is_explainer(p["data"]) or p["stage"] in ("ready", "published", "rejected"):
@@ -603,7 +640,7 @@ def act(con, pid, body):
         if p["stage"] == "preview":
             p["preview"] = None
         P.save(con, p, "görünüm", look)
-        if p["stage"] == "preview" and p["data"].get("voice_take"):
+        if p["stage"] == "preview" and voice_ready(p["data"]):
             queue_for(con, p, "p_preview", str(pid))
     elif a in ("set_voice", "set_lang"):
         vids = voice_ids(P.eleven_account(p["data"]))
@@ -749,6 +786,25 @@ def eleven_info(aid, fresh=False):
 
 def voice_ids(aid):
     return {v["voice_id"] for v in eleven_info(aid)["voices"]}
+
+
+def voice_ready(d):
+    take = (d or {}).get("voice_take") or {}
+    return bool((d or {}).get("voice_skipped") or (take.get("text") and take["text"] == P.voice_text(d)))
+
+
+def eleven_status(aid, uid=None):
+    """Availability of the selected ElevenLabs account through the selected CLI or API key."""
+    acc = accounts.eleven(aid) or {}
+    provider = accounts.llm_settings(uid)["provider"]
+    if acc.get("type") == "apikey":
+        connected = bool(acc.get("key"))
+    elif provider == "codex":
+        connected = llm.codex_elevenlabs_status().get("connected", False)
+    else:
+        connected = accounts.claude_status(acc.get("owner")).get("connectors", False)
+    return {"connected": connected, "images": connected and acc.get("type") == "connector",
+            "provider": provider, "account_type": acc.get("type")}
 
 
 def me(con):

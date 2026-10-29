@@ -790,9 +790,11 @@ function storyboard(p) {
 function platesCard(p) {
   const e = p.plates_estimate; if (!e) return "";
   const d = p.data, ready = Object.keys(p.plates || {}).length;
+  if (d.illustrations_skipped) return `<div class="card"><div class="row"><h3 style="margin:0">🖌 Çizimler</h3><span class="sp"></span><span class="badge">Atlandı</span></div><div class="note warn mt8 small">ElevenLabs bağlı değil. Üretim çizimsiz, standart animasyon tasarımıyla devam ediyor.</div></div>`;
   if (!e.images) return `<div class="card"><div class="row"><h3 style="margin:0">🖌 Çizimler</h3><span class="sp"></span><span class="badge ok">${ready} çizim hazır</span></div>
     <div class="thumbs mt12">${Object.entries(p.plates || {}).map(([sid, u]) => `<div style="flex:none;position:relative"><img src="${esc(u)}" data-act="open" data-src="${esc(u)}" data-photo="1" alt="">${["ready", "published"].includes(p.stage) || p.busy ? "" : `<button class="btn sm glass" style="position:absolute;right:6px;bottom:6px" data-act="rerollPlate" data-id="${p.prod_id}" data-scene="${esc(sid)}" title="Bu çizimi yeniden üret">↻ ${esc(sid)}</button>`}</div>`).join("")}</div>
     ${d.art_style ? `<div class="tiny faint mt8">Stil: ${esc(d.art_style.slice(0, 220))}</div>` : ""}</div>`;
+  if (!p.eleven_status?.images) return `<div class="card actcard" style="--c:var(--warn)"><h3>🖌 Çizimler</h3><div class="note warn small">ElevenLabs bağlı değil. Bu videoda çizim üretilemiyor.</div><div class="small muted mt8">Üretim çizimsiz, standart animasyon tasarımıyla devam edebilir.</div><button class="btn block mt12" ${p.busy ? "disabled" : ""} data-act="act" data-id="${p.prod_id}" data-a="skip_plates">Çizimsiz devam et</button></div>`;
   return `<div class="card actcard" style="--c:var(--warn)"><h3>🖌 Çizimler · kredi onayı</h3>
     <div class="small muted">Her sahne kilitli stilde bir illüstrasyon üzerinde durur${d.series ? "; karakterler seri sayfasındaki karakter sayfalarından çizilir" : ""}. Çizimler bitince Opus kamera hareketlerini ve işaretleri tasarlar.</div>
     ${d.art_style ? `<div class="note info mt8 small">🎨 ${esc(d.art_style)}</div>` : ""}
@@ -859,11 +861,13 @@ function refsCard(p) {
     ${look ? `<div class="row mt8">${[look.frame, "renk: " + look.grade, "grain " + look.grain, Math.round(look.bpm) + " BPM"].map((t) => `<span class="badge">${esc(t)}</span>`).join("")}</div>` : ""}</div>`;
 }
 function musicCard(p) {
-  if (["ready", "published", "rejected"].includes(p.stage) && !p.data.music_take) return "";
+  if (["ready", "published", "rejected"].includes(p.stage) && !p.data.music_take && !p.data.music_skipped) return "";
   const m = p.data.music_take, e = p.music_estimate || {}, id = p.prod_id;
+  if (p.data.music_skipped || p.data.silent_audio) return `<div class="card"><div class="row"><h3 style="margin:0">🎵 Müzik</h3><span class="sp"></span><span class="badge">Atlandı</span></div><div class="note warn mt8 small">ElevenLabs bağlı değil. Üretim müziksiz ve sessiz devam ediyor.</div></div>`;
   if (m) return `<div class="card"><div class="row"><h3 style="margin:0">🎵 Müzik</h3><span class="sp"></span><span class="badge ok">${Math.round(m.bpm)} BPM · ${num(m.credits)} kredi</span></div>
     <audio controls preload="none" src="/media/${esc(m.file)}" style="width:100%;margin-top:10px"></audio><div class="tiny faint">${esc(m.prompt)}</div>
     ${p.busy ? "" : `<button class="btn sm ghost mt8" data-act="act" data-id="${id}" data-a="drop_music">Müziği kaldır</button>`}</div>`;
+  if (!p.eleven_status?.connected) return `<div class="card"><h3>🎵 Müzik</h3><div class="note warn small">ElevenLabs bağlı değil. Üretim müziksiz ve sessiz devam edebilir.</div><button class="btn block mt12" ${p.busy ? "disabled" : ""} data-act="act" data-id="${id}" data-a="skip_music">Müziksiz ve sessiz devam et</button></div>`;
   if (e.error) return "";
   return `<div class="card"><h3>🎵 Müzik</h3><div class="small muted">${p.data.look ? `Kesmeler ${Math.round(p.data.look.bpm)} BPM ızgarasında. Videoya özel enstrümantal üretirsen kesmeler gerçek beat'lere oturur.` : "Klibin kendi sesi var; istersen videoya özel enstrümantal bir parça üret, doğal ses altta kalır."}</div>
     <textarea id="mprompt" data-keep="mprompt-${id}" class="mt8">${esc(e.prompt || "")}</textarea>
@@ -924,6 +928,7 @@ function actionCard(p, wide) {
   else if (p.stage === "idea") a = `<div class="card actcard st-idea"><h3>Karar</h3><div class="small muted">${f.voice ? "Onaylarsan ses metni ve kredi tahmini gelir." : "Onaylarsan önizleme render'ı otomatik başlar."}</div>
     <div class="kv small mt12"><div>🎙 Anlatım</div><div>${f.voice ? `${(d.voice?.lines || []).length} satır · ~${num(est?.credits || 0)} kredi` : "yok (doğal ses)"}</div><div>🎵 Müzik</div><div>${d.music?.prompt ? "tarif hazır · ~" + num(p.music_estimate?.credits || 0) + " kredi" : "tarif yok"}</div>${p.plates_estimate ? `<div>🖌 Çizimler</div><div>${p.plates_estimate.images} görsel · ~${num(p.plates_estimate.credits)} kredi</div>` : ""}</div>
     ${langPick(p)}<button class="btn accent block mt12" data-act="act" data-id="${id}" data-a="approve_idea">${ICON.check}Fikri onayla</button>${reviseBox(p)}${rejectBox(p)}</div>`;
+  else if (p.stage === "voice" && !p.eleven_status?.connected) a = `<div class="card actcard st-voice"><h3>Ses</h3><div class="note warn small">ElevenLabs bağlı değil. Anlatım sesi üretilemiyor.</div><div class="small muted mt8">Altyazılar ve video üretimi devam eder; anlatım ve klip sesleri kapatılır.</div><button class="btn accent block mt12" data-act="act" data-id="${id}" data-a="silent_continue">Sessiz devam et</button>${reviseBox(p)}${rejectBox(p)}</div>`;
   else if (p.stage === "voice") a = `<div class="card actcard st-voice"><h3>Ses · kredi onayı</h3>
     <div class="kv mt8"><div>Metin</div><div>${est.chars} karakter</div><div>Tahmin</div><div><b>~${num(est.credits)} kredi</b></div><div>Bu ay</div><div>${num(est.budget.spent)} → ${num(est.budget.after)} / ${num(est.budget.cap)}</div></div>
     ${est.budget.ok ? "" : `<div class="note err mt8">${esc(est.budget.why || "Aylık tavan aşılır")}</div>`}
