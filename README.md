@@ -81,7 +81,8 @@ None of these are in git. Back them up separately (e.g. a nightly copy of `data/
 
 ## Setup on a new machine
 
-Requirements: Linux, Python 3.10+, Node 18+, ffmpeg, the Claude Code CLI (logged in), optionally Tailscale.
+Requirements: Linux or macOS, Python 3.10+, Node 18+, ffmpeg, the Claude Code CLI (logged in), optionally Tailscale.
+On a Mac, read [macOS](#macos) first.
 
 ```bash
 git clone https://github.com/aliakay/content-factory.git
@@ -109,6 +110,27 @@ Then:
    17 6 * * *  cd /path/to/content-factory && .venv/bin/python -m radar.cli run && .venv/bin/python -m radar.cli snapshot
    30 7 * * *  cd /path/to/content-factory && .venv/bin/python -m factory.discover
    ```
+
+### macOS
+
+The factory was built on a Linux VM; it runs on a Mac (Apple silicon tested) with these differences:
+
+- **Tools from Homebrew** instead of apt: `brew install python@3.12 node ffmpeg`. The installer's hints say `apt`;
+  ignore them. `CF_CHROME_LIBS` and `playwright install-deps` are Linux-only and not needed: Playwright's Chromium
+  runs as is.
+- **No `setsid`.** macOS doesn't ship it (Homebrew's `util-linux` has one, but keg-only, so not on PATH).
+  `bin/start-factory.sh` falls back to plain `nohup`, so the panels still start.
+- **Host.** Without Tailscale set `CF_HOST=127.0.0.1` in `config.env`; the start script stops with an error when it
+  finds neither. With the Tailscale app, its CLI is not on PATH by default: set `CF_HOST` to the Mac's Tailscale IP.
+- **Tool paths.** Homebrew lives in `/opt/homebrew/bin`. A Terminal finds it, but cron and launchd start with a
+  bare PATH (`/usr/bin:/bin`), so the panels and jobs would miss ffmpeg, node and claude. Either put
+  `PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin` as the first line of the crontab, or set `CF_FFMPEG`,
+  `CF_FFPROBE`, `CF_CLAUDE` and `CF_NODE` to full paths (`which ffmpeg` etc.) in `config.env`.
+- **Keeping it up.** The crontab lines above work on macOS once the PATH line is in, but cron needs Full Disk
+  Access to read files under `~/Documents`/`~/Desktop` (System Settings → Privacy & Security). A Mac also sleeps:
+  the panels only answer while it is awake.
+- **Restart** after Python changes:
+  `pkill -f studio/server.py; pkill -f shorts/server.py; pkill -f "streamlit run factory/app.py"; bin/start-factory.sh`.
 
 A new install starts empty: no footage, productions or history. Those live in the other machine's `data/` and media
 folders.
