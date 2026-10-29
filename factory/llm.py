@@ -228,9 +228,12 @@ def codex_elevenlabs_status():
         if isinstance(server, dict) and "elevenlabs" in json.dumps(server).lower():
             name = server.get("name")
             if name:
+                auth_status = str(server.get("auth_status") or "unknown").lower()
                 return {"configured": True, "name": name,
-                        "connected": server.get("auth_status") == "logged_in",
-                        "auth_status": server.get("auth_status") or "unknown"}
+                        # Current Codex CLI serializes its logged-in OAuth enum as
+                        # `o_auth`; older versions used `logged_in`.
+                        "connected": auth_status in ("logged_in", "o_auth", "oauth"),
+                        "auth_status": auth_status}
     return {"configured": False, "name": None, "connected": False, "auth_status": "not_configured"}
 
 
