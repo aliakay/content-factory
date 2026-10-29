@@ -97,7 +97,18 @@ def test_bloom_and_beat_grid():
     sys.path.insert(0, os.path.join(ROOT, "bin"))
     import htmlmotion
     vf = htmlmotion.post_vf({"bloom": 0.4, "grain": 0.2})
-    assert vf.startswith("split[bl_a][bl_b]") and "blend=all_mode=screen" in vf and "noise=" in vf
+    assert vf.startswith("format=gbrp,split[bl_a][bl_b]") and "blend=all_mode=screen" in vf and "noise=" in vf
+    # the glow must not tint the picture: an orange sunset frame keeps its hue (it went magenta when blended in YUV)
+    import subprocess
+    from factory.config import FFMPEG
+    def chroma(vf):
+        out = subprocess.run([FFMPEG, "-v", "error", "-f", "lavfi", "-i", "color=c=0xd2691e:s=64x64:d=0.1",
+                              "-vf", (vf + "," if vf else "") + "signalstats,metadata=print:file=-", "-frames:v", "1",
+                              "-f", "null", "-"], capture_output=True, text=True).stdout
+        tag = lambda k: float(out.split(f"lavfi.signalstats.{k}=")[1].split()[0])
+        return tag("UAVG"), tag("VAVG")
+    (u0, v0), (u1, v1) = chroma(""), chroma(htmlmotion.post_vf({"bloom": 0.4}))
+    assert abs(u1 - u0) < 8 and abs(v1 - v0) < 8
     assert htmlmotion.beat_grid({}) == {}
     assert htmlmotion.beat_grid({"music": {"file": "does/not/exist.mp3"}}) == {}
 
