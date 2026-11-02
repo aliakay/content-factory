@@ -177,7 +177,7 @@ yüz takibiyle kadraj, B-roll, ses zinciri.
 **İyi olduğu:** Bir uzun içerikten haftalık kısa video stoku.
 **İyi olmadığı:** Zaten kısa olan kaynaklar.
 **İster:** Uzun video/ses. **Kapılar:** 2 (klip listesi) · 5 · 8.
-**Durum:** Hazır (t203). Fikir: video analizi + ilk kesim; Kesim kararı kapısında kalan/kesilen cümleler, geri bildirim yeniden keser; ses yok, müzik onaylı bütçeyle. Video panodan yüklenir (raw/talk/, dokunulmaz).
+**Durum:** Yeni; talk.py'nin transkript ve kesim altyapısı kullanılır.
 
 ### 6.8 Podcast dönüştürme · `podcast`
 **Ne üretir:** Podcast sesinden altyazılı/dalga formlu klipler, alıntı kartları; istenirse bölüm eşlik videosu.
