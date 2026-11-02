@@ -23,7 +23,7 @@ const TX = {
     st_pending: "Bekliyor", st_running: "Çalışıyor", st_awaiting_approval: "Kararını bekliyor", st_approved: "Onaylandı",
     st_done: "Bitti", st_failed: "Hata", st_stale: "Yeniden yapılacak",
     back_list: "Üretimler", continue: "Devam et", feedback: "Geri bildirim", fb_ph: "Neyi değiştirelim? Somut yaz: \"hook daha sert olsun\", \"3. sahnede rakam yanlış\"…",
-    redo: "Bu aşamayı yeniden yap", revisions: "Revizyon {0}/3", go_back: "Bu aşamaya geri dön",
+    redo: "Bu aşamayı yeniden yap", start_stage: "Bu aşamayı başlat", approved_ok_start: "Aşama başladı", revisions: "Revizyon {0}/3", go_back: "Bu aşamaya geri dön",
     back_warn: "Sonraki aşamalar yeniden yapılacak olarak işaretlenir; yaptıkları silinmez.", retry: "Tekrar dene",
     decision: "Karar", waiting_prev: "Önceki aşamalar bitince başlar.", not_built: "Bu aşama bu hatta henüz yazılmadı.",
     working: "Çalışıyor…", live: "Canlı akış", spent: "Harcanan", credits: "kredi", note_sent: "Not gönderildi, aşama yeniden çalışıyor",
@@ -61,7 +61,7 @@ const TX = {
     st_pending: "Waiting", st_running: "Working", st_awaiting_approval: "Waiting for you", st_approved: "Approved",
     st_done: "Done", st_failed: "Error", st_stale: "To redo",
     back_list: "Productions", continue: "Continue", feedback: "Feedback", fb_ph: "What should change? Be specific: \"a harder hook\", \"the figure in scene 3 is wrong\"…",
-    redo: "Redo this stage", revisions: "Revision {0}/3", go_back: "Go back to this stage",
+    redo: "Redo this stage", start_stage: "Start this stage", approved_ok_start: "Stage started", revisions: "Revision {0}/3", go_back: "Go back to this stage",
     back_warn: "Later stages are marked to redo; their work is kept.", retry: "Try again",
     decision: "Decision", waiting_prev: "Starts when the earlier stages are done.", not_built: "This stage is not written on this line yet.",
     working: "Working…", live: "Live feed", spent: "Spent", credits: "credits", note_sent: "Note sent; the stage runs again",
@@ -301,6 +301,7 @@ function decisionHtml(s, f) {
     return `<div class="card hl-dec"><h3>${esc(t("st_" + s.status))}</h3>${s.summary ? `<div class="small">${esc(s.summary)}</div>` : ""}
       ${busy ? "" : `<button class="btn ghost block mt12" data-act="hatAct" data-a="back" data-stage="${id}">${ICON.back}${esc(t("go_back"))}</button><div class="tiny faint mt8">${esc(t("back_warn"))}</div>`}</div>`;
   }
+  if (f.state === "run" && f.current === s.id && s.run !== "planned") return `<div class="card hl-dec"><button class="btn accent block" data-act="hatAct" data-a="advance" data-stage="${id}">${esc(t("start_stage"))}</button></div>`;
   return `<div class="card hl-dec"><div class="small muted">${esc(s.run === "planned" ? t("not_built") : t("waiting_prev"))}</div></div>`;
 }
 function eventText(e, f) {
@@ -343,7 +344,7 @@ ACT.hatAct = async (el) => {
   el.disabled = true;
   try {
     await post("/api/hat/project/" + encodeURIComponent(pid), { action: a, stage, note });
-    toast(t({ approve: "approved_ok", feedback: "note_sent", back: "back_ok", retry: "working" }[a]));
+    toast(t({ approve: "approved_ok", feedback: "note_sent", back: "back_ok", retry: "working", advance: "approved_ok_start" }[a]));
     if (a !== "back") delete HS.sel[pid];
     S.drafts = {}; S.sig = null; route({ poll: true });
   } finally { el.disabled = false; }

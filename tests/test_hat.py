@@ -490,3 +490,17 @@ def test_assets_edit_compose_render_for_real(monkeypatch, tmp_path):
     finally:
         import shutil
         shutil.rmtree(pdir, ignore_errors=True)
+
+
+def test_api_advance_starts_a_stalled_line(d, monkeypatch):
+    """A line that stands still in 'run' (nothing queued it) is started by the board's advance action."""
+    from studio import hat_api
+    runner = _fake_line(monkeypatch, {})
+    monkeypatch.setattr(hat_api, "_check", lambda pid: pid)
+    monkeypatch.setattr(hat_api.accounts, "current", lambda: "ali")
+    monkeypatch.setattr(runner, "advance", lambda pid, q, by=None, d_=None, **k: runner.__dict__["_adv"](pid, q, by))
+    pid = P.create("explainer", "t", d=d)["id"]
+    calls = []
+    runner._adv = lambda pid_, q, by: calls.append((pid_, by)) or ("busy", "research")
+    out = hat_api.post(None, f"/api/hat/project/{pid}", {"action": "advance"}, lambda *a: 1)
+    assert out == {"id": pid, "state": "busy", "stage": "research"} and calls == [(pid, "ali")]

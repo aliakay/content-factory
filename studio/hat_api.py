@@ -5,7 +5,7 @@ GET  /api/hat/projects                 every project with where it stands
 GET  /api/hat/project/<id>             the flow view of one project: stages, their outputs, stills, live events
 POST /api/hat/lang          {lang}     the user's interface language (tr | en)
 POST /api/hat/projects      {line, brief, title?, video_lang, aspect, channel?}   create and start
-POST /api/hat/project/<id>  {action: approve|feedback|back|retry, stage, note?}  a gate action
+POST /api/hat/project/<id>  {action: approve|feedback|back|retry|advance, stage, note?}  a gate action
 """
 import glob, os, re
 
@@ -156,6 +156,8 @@ def _post(con, path, b, queue):
             state, stage = runner.back(pid, sid, by=uid)
         elif a == "retry":
             state, stage = runner.retry(pid, sid, queue, by=uid)
+        elif a == "advance":          # start the next stage of a line that stands still (nothing queued it)
+            state, stage = runner.advance(pid, queue, by=uid)
         else:
             raise ValueError("unknown action")
         return {"id": pid, "state": state, "stage": stage}
