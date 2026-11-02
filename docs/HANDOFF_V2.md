@@ -82,3 +82,23 @@ continue on the board, or call `runner.advance`.
   113 Fiber numbering, 25 Kuyt DB says voice but out/116_kuyt exists). Import them with `--include-flagged` after the
   user decides. `--force` refuses a project that has events beyond created/imported.
 - Next: t115 after the script decision; t114 held rows; phase 2 lines.
+
+## Update 2026-11-02 (night)
+- Old productions: per the user, all 11 are imported as a **read-only archive** (`migrate --apply --archive`); no work
+  on them. The board shows "Arşiv" and refuses every action on them.
+- Tests can no longer reach a real model (autouse guard + the fake agent replaces the package attribute). A leak had
+  cost ~$1.9 before the fix.
+- Lines ready: explainer, animation (t201, music-led beats), travel_vlog (t202, footage engine bridge in
+  `factory/hat/footage.py`), hybrid v1 (t204, travel_facts + fact-check gate), talking_head (t203, upload + cut gate),
+  series_episode (t205, book/characters from the Series page). None of the new ones has had a real end-to-end run
+  yet (each needs Claude + credits, approved by the user at the proposal gate).
+- Menu (t206/t207): Produce (Make, Productions, Discover, Tracking) · Library · Settings; "#/" and the old board
+  redirect to Productions.
+- Every stage's credits count against the one approved budget (`explainer.spent_credits`).
+- t301: `factory/hat/media.py` (image/video/avatar/lip-sync models from the stored schema notes + a scored picker),
+  tools `media_models`, `image_gen`, `video_gen`. Avatar and lip-sync generation need connector uploads
+  (creative_create_asset_upload -> PUT -> finalize), not written yet: that is t303/t304 and needs a real, approved
+  test run.
+- Project 901: the user approved the script; scene_plan first failed on the Claude session limit and was retried.
+  It stops at its gate for the user.
+- Restart the test Studio (:8511) only when no stage is running: a restart kills a running agent.
