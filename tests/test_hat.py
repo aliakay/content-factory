@@ -660,7 +660,7 @@ def test_api_refuses_what_the_gate_rules_forbid(api):
 def test_api_create_checks_line_and_brief(api, monkeypatch):
     hat_api, _, q = api
     with pytest.raises(ValueError, match="not ready"):
-        hat_api.post(None, "/api/hat/projects", {"line": "animation", "brief": "a long enough brief"}, q)
+        hat_api.post(None, "/api/hat/projects", {"line": "cinematic", "brief": "a long enough brief"}, q)
     with pytest.raises(ValueError, match="few words"):
         hat_api.post(None, "/api/hat/projects", {"line": "explainer", "brief": "x"}, q)
     monkeypatch.setattr(hat_api.accounts, "default_eleven", lambda uid: None, raising=False)
@@ -700,3 +700,41 @@ def test_archive_imports_every_row_read_only(tmp_path, d, monkeypatch):
     assert listed[rep[1]["project"]]["state"] == "archived" and listed[rep[1]["project"]]["video"].endswith("201_yayinda.mp4")
     with pytest.raises(ValueError, match="archive"):
         hat_api.post(None, f"/api/hat/project/{rep[1]['project']}", {"action": "back", "stage": "script"}, lambda *a: 1)
+
+
+# ---------------------------------------------------------------- motion graphics: music-led beats
+
+def test_beats_hold_their_seconds_and_hide_captions(d):
+    from factory.hat import explainer as X
+    words, lt, dur = X.beat_timing(["Yüz avro", "%74,9", "Kim kazanır?"], [1.0, 2.0, None])
+    assert dur == 1.0 + 2.0 + X.HOLD and lt[1] == {"start": 1.0, "end": 3.0}
+    assert words[0] == ("Yüz", 0.0, 0.5) and words[2][1] == 1.0
+    pid = P.create("animation", "t", d=d)["id"]
+    P.write_artifact(pid, "script", {"lines": ["a b", "c", "d"], "narrate": False, "holds": [1, 1, 2]}, d)
+    plan = {"scenes": [{"id": "s1", "lines": [0, 1]}, {"id": "s2", "lines": [2, 2]}]}
+    sp = X.spec(pid, plan, d)
+    assert sp["timing"] == "beats" and all(s["hide_captions"] for s in sp["scenes"])
+    assert sp["scenes"][1]["start"] == round(2 + X.VOICE_START, 3)
+    P.write_artifact(pid, "script", {"lines": ["a b", "c"]}, d)               # narrated: captions stay
+    assert not any(s["hide_captions"] for s in X.spec(pid, {"scenes": [{"id": "s1", "lines": [0, 1]}]}, d)["scenes"])
+
+
+def test_music_led_assets_make_no_voice_and_stay_in_budget(d, monkeypatch):
+    from factory.hat import explainer as X
+    from factory import eleven, accounts
+    pid = P.create("animation", "t", d=d)["id"]
+    p = P.load(pid, d); p["budget"] = {"credits": 900}; P.save(p, d)
+    P.write_artifact(pid, "proposal", {"music": {"use": True, "prompt": "120 BPM synth pulse"}}, d)
+    P.write_artifact(pid, "script", {"lines": ["a", "b"], "narrate": False, "holds": [2, 3]}, d)
+    seen = {}
+    monkeypatch.setattr(eleven, "tts", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no voice in a music-led piece")))
+    def gen(con, kind, model, prompt, params, units, unit, ext=None, approved=None, account=None):
+        seen.update(prompt=prompt, secs=params["duration_seconds"], approved=approved)
+        return "/tmp/m.mp3", 400.0
+    monkeypatch.setattr(eleven, "generate", gen)
+    monkeypatch.setattr(accounts, "default_eleven", lambda u: "ali")
+    monkeypatch.setattr(X, "_con", lambda: None)
+    monkeypatch.setattr(X, "_render", lambda pid_, final, d=None: ({"file": "/tmp/p.mp4"}, {"duration": 6.45}))
+    out = X.assets(pid, {"id": "assets"}, d=d)
+    assert seen["approved"] == 900 and seen["prompt"].startswith("Instrumental") and seen["secs"] == round(5 + X.VOICE_START + X.TAIL + 1.5, 1)
+    assert out["cost"] == {"credits": 400} and out["artifact"]["voice"] is None and out["artifact"]["music"]["db"] == -10

@@ -141,7 +141,7 @@ Three.js 3D dünyalar.
 **İyi olduğu:** Lansman, duyuru, istatistik vurgusu, döngü içerikler, müzikli anlatımsız videolar.
 **İyi olmadığı:** Uzun sözlü anlatım; gerçek görüntü isteyen konular.
 **İster:** Konu ya da mesaj + istenirse müzik. **Kapılar:** 2·3·4·5·8.
-**Durum:** Büyük ölçüde var (htmlmotion, FX kit, Three.js).
+**Durum:** Hazır (t201). Konu anlatımının kod aşamalarını kullanır; senaryo `narrate: false` ise ses yok, her satır `holds` saniye kalan bir ekran vuruşu, altyazı kapalı, müzik zorunlu.
 
 ### 6.3 Seyahat vlog · `travel_vlog` *(bize özel)*
 **Ne üretir:** Kendi çekimlerinden sakin, sinematik ya da referans tarzında kurgu: en iyi anlar, ritim, yazılar, müzik.

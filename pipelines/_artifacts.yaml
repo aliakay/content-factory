@@ -61,6 +61,8 @@ script:
       items: {type: object, required: [text, verified], properties: {text: {type: string}, verified: {type: boolean},
                                                                         source: {type: string}}}
     caption: {type: string}
+    narrate: {type: boolean}          # false: music-led on-screen beats, no voice, no captions
+    holds: {type: array, items: {type: number, minimum: 0.6, maximum: 12}}   # seconds per line when narrate is false
     summary: {type: string}
 
 scene_plan:

@@ -1,7 +1,9 @@
-"""The explainer line's code side: timing and bundles for the HTML motion engine (bin/htmlmotion.py).
+"""The code side of the HTML motion lines (explainer, animation): timing and bundles for bin/htmlmotion.py.
 
 Before the voice exists, timing is drafted from the script (words per second of the video language); once the
-assets stage has the real voice, its word timings replace the draft. The scene plan (the stage agent's artifact)
+assets stage has the real voice, its word timings replace the draft. A script with `narrate: false` (motion
+graphics led by music) has no voice: each line is an on-screen beat held for `holds[i]` seconds, and the captions
+are off because the text is the motion itself. The scene plan (the stage agent's artifact)
 plus that timing becomes the bundle the renderer and the design tools (stills, layout lint, readcheck) load.
 """
 import json, os, sys
@@ -13,6 +15,7 @@ WPS = {"tr": 2.4, "en": 2.6}       # spoken words per second, for draft timing
 PAUSE = 0.3                         # gap between lines in the draft
 VOICE_START = 0.15
 TAIL = 0.8
+HOLD = 2.5                          # seconds an on-screen beat stays when the script gives no hold
 CAPTIONS = {"mode": "chunk", "pos": "low", "energy": "talk"}
 
 
@@ -39,6 +42,24 @@ def draft_timing(lines, lang="tr"):
     return words, line_times, round(max(t - PAUSE, 0.0), 3)
 
 
+def narrated(script):
+    return (script or {}).get("narrate", True) is not False
+
+
+def beat_timing(lines, holds=None):
+    """Words and line times for unnarrated beats: line i is held holds[i] seconds (words spread across it, so scene
+    triggers still find their word)."""
+    t, words, line_times = 0.0, [], []
+    for i, line in enumerate(lines):
+        hold = float((holds or [])[i]) if holds and i < len(holds) and holds[i] else HOLD
+        ws = line.split() or ["·"]
+        for j, w in enumerate(ws):
+            words.append((w, round(t + hold * j / len(ws), 3), round(t + hold * (j + 1) / len(ws), 3)))
+        line_times.append({"start": round(t, 3), "end": round(t + hold, 3)})
+        t += hold
+    return words, line_times, round(t, 3)
+
+
 def timing(pid, d=None):
     """The real voice timing when the assets stage made it, else the draft from the script."""
     p = P.load(pid, d)
@@ -47,6 +68,9 @@ def timing(pid, d=None):
     if voice.get("words") and voice.get("line_times"):
         return [tuple(w) for w in voice["words"]], voice["line_times"], voice["duration"], "voice"
     script = P.read_artifact(pid, "script", d) or {}
+    if not narrated(script):
+        words, lt, dur = beat_timing(script.get("lines") or [], script.get("holds"))
+        return words, lt, dur, "beats"
     words, lt, dur = draft_timing(script.get("lines") or [], p.get("video_lang", "tr"))
     return words, lt, dur, "draft"
 
@@ -56,13 +80,14 @@ def spec(pid, plan=None, d=None):
     p = P.load(pid, d)
     plan = plan or P.read_artifact(pid, "scene_plan", d) or {}
     words, line_times, dur, source = timing(pid, d)
+    silent = source == "beats" or not narrated(P.read_artifact(pid, "script", d))
     total = round(dur + VOICE_START + TAIL, 3)
     scenes, n = [], len(line_times)
     for i, sc in enumerate(plan.get("scenes") or []):
         a, b = (sc.get("lines") or [0, 0])[:2]
         a, b = max(0, min(a, n - 1)), max(0, min(b, n - 1))
         start = 0.0 if i == 0 else round(line_times[a]["start"] + VOICE_START, 3)
-        scenes.append({"id": sc["id"], "lines": [a, b], "start": start, "hide_captions": bool(sc.get("hide_captions"))})
+        scenes.append({"id": sc["id"], "lines": [a, b], "start": start, "hide_captions": silent or bool(sc.get("hide_captions"))})
     for i, sc in enumerate(scenes):
         sc["end"] = scenes[i + 1]["start"] if i + 1 < len(scenes) else total
     return {"name": pid, "words": words, "line_times": line_times, "voice_start": VOICE_START, "duration": total,
@@ -176,7 +201,8 @@ def _render(pid, final, d=None):
 
 
 def assets(pid, s, note=None, d=None):
-    """Narration (inside the approved budget), word alignment, optional music, then a preview of the whole video."""
+    """Narration (inside the approved budget), word alignment, optional music, then a preview of the whole video.
+    An unnarrated script skips the voice and must have music."""
     from .. import accounts, eleven, formats, productions
     con, p = _con(), P.load(pid, d)
     script = P.read_artifact(pid, "script", d) or {}
@@ -186,6 +212,8 @@ def assets(pid, s, note=None, d=None):
         raise P.GateError("the script has no lines")
     lang = p.get("video_lang", "tr")
     account = p.get("eleven_account") or accounts.default_eleven(p.get("created_by"))
+    if not narrated(script):
+        return _music_only(pid, p, prop, con, account, d)
     voice_id = (prop.get("voice") or {}).get("voice_id") or p.get("voice_id") or formats.default_voice(lang, account)
     text = " ".join(lines)
     path, cost = eleven.tts(con, text, voice_id, formats.VOICE_MODEL, approved=remaining_budget(pid, d), account=account)
@@ -213,6 +241,27 @@ def assets(pid, s, note=None, d=None):
                         "en": f"Voice ready ({dur:.1f} s, {total} credits){', with music' if music else ''}. Watch the preview."
                         }[p.get("ui_lang", "tr") if p.get("ui_lang") in ("tr", "en") else "tr"])
     return {"artifact": art, "summary": art["summary"], "cost": {"credits": total}}
+
+
+def _music_only(pid, p, prop, con, account, d=None):
+    from .. import eleven, productions
+    _, _, dur, _ = timing(pid, d)
+    secs = round(dur + VOICE_START + TAIL + 1.5, 1)
+    mu = prop.get("music") or {}
+    prompt = mu.get("prompt") or "Instrumental, no vocals. A confident pulse with clear accents for motion graphics."
+    if "instrumental" not in prompt.lower():
+        prompt = "Instrumental, no vocals. " + prompt
+    mpath, mcost = eleven.generate(con, "music", productions.MUSIC_MODEL, prompt, {"duration_seconds": secs,
+                                   "instrumental": True}, secs, "s", ext="mp3",
+                                   approved=remaining_budget(pid, d), account=account)
+    art = {"voice": None, "music": {"file": _rel(mpath), "prompt": prompt, "credits": round(mcost), "db": -10}}
+    P.write_artifact(pid, "assets", art, d)
+    res, sp = _render(pid, final=False, d=d)
+    ui = p.get("ui_lang") if p.get("ui_lang") in ("tr", "en") else "tr"
+    art.update(preview=_rel(res["file"]), duration=sp["duration"],
+               summary={"tr": f"Müzik hazır ({secs:.0f} sn, {round(mcost)} kredi). Önizlemeyi izle.",
+                        "en": f"Music ready ({secs:.0f} s, {round(mcost)} credits). Watch the preview."}[ui])
+    return {"artifact": art, "summary": art["summary"], "cost": {"credits": round(mcost)}}
 
 
 def edit(pid, s, note=None, d=None):
