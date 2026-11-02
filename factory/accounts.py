@@ -174,6 +174,26 @@ def set_llm_settings(uid, provider, models):
     return llm_settings(uid)
 
 
+UI_LANGS = ("tr", "en")
+
+
+def ui_lang(uid=None):
+    """The Studio's interface language for this user: everything they see is in it (videos have their own language)."""
+    lang = (user(uid or current()) or {}).get("ui_lang")
+    return lang if lang in UI_LANGS else "tr"
+
+
+def set_ui_lang(uid, lang):
+    if lang not in UI_LANGS:
+        raise ValueError("unknown interface language")
+    u = users()
+    if uid not in u["users"] and uid != OWNER:
+        raise ValueError("Kullanıcı bulunamadı")
+    u["users"].setdefault(uid, {"name": "Ali", "role": "owner"})["ui_lang"] = lang
+    _save(USERS, u)
+    return lang
+
+
 class NoClaude(RuntimeError):
     pass
 

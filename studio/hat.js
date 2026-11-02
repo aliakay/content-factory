@@ -1,0 +1,324 @@
+/* v2 production lines in the Studio (factory/hat, studio/hat_api.py).
+   Pages: #/uret (the 14 lines, start one), #/uretimler (every v2 production), #/u/<project> (one production as a flow:
+   stages left to right, the selected stage's output, and at a gate one decision: continue, feedback, or go back).
+   Every word on these pages comes from TX in the user's interface language (S.me.ui_lang). */
+(() => {
+const LANGS = { tr: "Türkçe", en: "English" };
+const L = () => ((S.me && S.me.ui_lang) || "tr");
+const TX = {
+  tr: {
+    nav_make: "Üret", nav_prods: "Üretimler", lang: "Arayüz dili",
+    make_title: "Ne üretelim?", make_lead: "Bir üretim hattı seç. Her hat videoyu aynı sırayla, adım adım üretir ve her kapıda senin kararını bekler.",
+    status_ready: "Hazır", status_partial: "Kısmen hazır", status_planned: "Yakında",
+    makes: "Ne üretir", good: "İyi olduğu", not: "Uygun değil", needs: "Ne ister", cost: "Maliyet", duration: "Tipik süre",
+    stages: "Aşamalar", gate: "kapı", sec: "sn",
+    start_with: "Bu hatla başla", not_ready: "Bu hat henüz hazır değil; aşamaları yazıldıkça açılacak.",
+    brief: "Ne anlatsın?", brief_ph: "Konu, haber linki ya da istediğin açı. Örn: Avrupa'da doğal gaz 100 avroyu aştı; nedenleri ve faturalara etkisi.",
+    title: "Başlık (isteğe bağlı)", video_lang: "Video dili", aspect: "Kadraj", channel: "Kanal", none: "Seçme",
+    create: "Başlat", cancel: "Vazgeç", started: "Başladı: ilk aşama çalışıyor",
+    prods_title: "Üretimler", prods_lead: "Yeni hatlardaki videolar. Kartı açınca akışı ve senden beklenen kararı görürsün.",
+    prods_empty: "Henüz yeni hatta bir üretim yok.", new_prod: "Yeni üretim",
+    state_busy: "Çalışıyor", state_gate: "Kararını bekliyor", state_failed: "Hata", state_done: "Bitti", state_run: "Sırada",
+    state_planned: "Bu hatta sıradaki aşama henüz yok",
+    st_pending: "Bekliyor", st_running: "Çalışıyor", st_awaiting_approval: "Kararını bekliyor", st_approved: "Onaylandı",
+    st_done: "Bitti", st_failed: "Hata", st_stale: "Yeniden yapılacak",
+    back_list: "Üretimler", continue: "Devam et", feedback: "Geri bildirim", fb_ph: "Neyi değiştirelim? Somut yaz: \"hook daha sert olsun\", \"3. sahnede rakam yanlış\"…",
+    redo: "Bu aşamayı yeniden yap", revisions: "Revizyon {0}/3", go_back: "Bu aşamaya geri dön",
+    back_warn: "Sonraki aşamalar yeniden yapılacak olarak işaretlenir; yaptıkları silinmez.", retry: "Tekrar dene",
+    decision: "Karar", waiting_prev: "Önceki aşamalar bitince başlar.", not_built: "Bu aşama bu hatta henüz yazılmadı.",
+    working: "Çalışıyor…", live: "Canlı akış", spent: "Harcanan", credits: "kredi", note_sent: "Not gönderildi, aşama yeniden çalışıyor",
+    approved_ok: "Onaylandı, sıradaki aşama başladı", back_ok: "Aşama yeniden açıldı",
+    review: "Denetim", verdict_pass: "Denetimden geçti", verdict_fix: "Açık kritik bulgu var", verdict_unknown: "Denetim alınamadı",
+    sev_critical: "Kritik", sev_suggestion: "Öneri", sev_nitpick: "Ayrıntı", rounds: "{0} tur",
+    insight: "Ana fikir", misconception: "Yaygın yanlış", data: "Veriler", sources: "Kaynaklar", angles: "Açılar",
+    concepts: "Üç yaklaşım", chosen: "Seçilen", look: "Görünüm", music: "Müzik", yes: "Var", no: "Yok", total: "Toplam",
+    render_time: "Render süresi", preview_t: "önizleme", final_t: "final", structure: "Yapı", key_frame: "Ana kare",
+    script: "Senaryo", claims: "İddialar", verified: "doğrulandı", unverified: "doğrulanmadı", caption: "Paylaşım metni",
+    words: "kelime", lines_n: "satır",
+    scenes: "Sahneler", concept: "Görsel fikir", palette: "Renkler", no_stills: "Henüz kare yok.", line_range: "satır {0}–{1}",
+    preview: "Önizleme", voice: "Ses", final: "Final video", qa: "Kalite kontrolü", covers: "Kapak adayları", download: "İndir",
+    no_problems: "Teknik sorun bulunmadı.", hashtags: "Etiketler", notes: "Notlar", copy: "Kopyala",
+    summary: "Özet", output_none: "Bu aşamanın çıktısı henüz yok.", error: "Hata",
+    ev_created: "Üretim açıldı", ev_stage_start: "{0} başladı", ev_stage_finish: "{0} bitti", ev_stage_fail: "{0} hata verdi",
+    ev_agent_start: "Ajan çalışıyor ({0})", ev_agent_end: "Ajan teslim etti", ev_review: "Denetçi baktı ({0})",
+    ev_review_fix: "Denetçi düzeltme istedi", ev_tool: "Araç: {0}", ev_approve: "{0} onaylandı", ev_feedback: "{0} için not",
+    ev_reopen: "{0} yeniden açıldı", ev_queued: "{0} sıraya alındı", ev_tool_error: "Araç hatası: {0}",
+  },
+  en: {
+    nav_make: "Make", nav_prods: "Productions", lang: "Interface language",
+    make_title: "What shall we make?", make_lead: "Pick a production line. Each line makes the video step by step in the same order and waits for your decision at every gate.",
+    status_ready: "Ready", status_partial: "Partly built", status_planned: "Coming soon",
+    makes: "What it makes", good: "Good for", not: "Not for", needs: "What it needs", cost: "Cost", duration: "Typical length",
+    stages: "Stages", gate: "gate", sec: "s",
+    start_with: "Start with this line", not_ready: "This line is not ready yet; it opens as its stages are written.",
+    brief: "What should it say?", brief_ph: "A topic, a news link or the angle you want. E.g.: European gas crossed 100 euros; why, and what it means for bills.",
+    title: "Title (optional)", video_lang: "Video language", aspect: "Aspect", channel: "Channel", none: "None",
+    create: "Start", cancel: "Cancel", started: "Started: the first stage is running",
+    prods_title: "Productions", prods_lead: "Videos on the new lines. Open one to see its flow and the decision waiting for you.",
+    prods_empty: "No production on the new lines yet.", new_prod: "New production",
+    state_busy: "Working", state_gate: "Waiting for you", state_failed: "Error", state_done: "Done", state_run: "Up next",
+    state_planned: "The next stage is not built on this line yet",
+    st_pending: "Waiting", st_running: "Working", st_awaiting_approval: "Waiting for you", st_approved: "Approved",
+    st_done: "Done", st_failed: "Error", st_stale: "To redo",
+    back_list: "Productions", continue: "Continue", feedback: "Feedback", fb_ph: "What should change? Be specific: \"a harder hook\", \"the figure in scene 3 is wrong\"…",
+    redo: "Redo this stage", revisions: "Revision {0}/3", go_back: "Go back to this stage",
+    back_warn: "Later stages are marked to redo; their work is kept.", retry: "Try again",
+    decision: "Decision", waiting_prev: "Starts when the earlier stages are done.", not_built: "This stage is not written on this line yet.",
+    working: "Working…", live: "Live feed", spent: "Spent", credits: "credits", note_sent: "Note sent; the stage runs again",
+    approved_ok: "Approved; the next stage started", back_ok: "Stage reopened",
+    review: "Review", verdict_pass: "Passed review", verdict_fix: "Open critical findings", verdict_unknown: "No review",
+    sev_critical: "Critical", sev_suggestion: "Suggestion", sev_nitpick: "Nitpick", rounds: "{0} rounds",
+    insight: "Insight", misconception: "Common misconception", data: "Data points", sources: "Sources", angles: "Angles",
+    concepts: "Three approaches", chosen: "Chosen", look: "Look", music: "Music", yes: "Yes", no: "No", total: "Total",
+    render_time: "Render time", preview_t: "preview", final_t: "final", structure: "Structure", key_frame: "Key frame",
+    script: "Script", claims: "Claims", verified: "verified", unverified: "not verified", caption: "Post caption",
+    words: "words", lines_n: "lines",
+    scenes: "Scenes", concept: "Visual idea", palette: "Colours", no_stills: "No frames yet.", line_range: "lines {0}–{1}",
+    preview: "Preview", voice: "Voice", final: "Final video", qa: "Quality check", covers: "Cover candidates", download: "Download",
+    no_problems: "No technical problems found.", hashtags: "Hashtags", notes: "Notes", copy: "Copy",
+    summary: "Summary", output_none: "This stage has no output yet.", error: "Error",
+    ev_created: "Production opened", ev_stage_start: "{0} started", ev_stage_finish: "{0} finished", ev_stage_fail: "{0} failed",
+    ev_agent_start: "Agent working ({0})", ev_agent_end: "Agent submitted", ev_review: "Reviewer checked ({0})",
+    ev_review_fix: "Reviewer asked for fixes", ev_tool: "Tool: {0}", ev_approve: "{0} approved", ev_feedback: "Note on {0}",
+    ev_reopen: "{0} reopened", ev_queued: "{0} queued", ev_tool_error: "Tool error: {0}",
+  },
+};
+const t = (k, ...a) => { let s = (TX[L()] || TX.tr)[k] ?? TX.tr[k] ?? k; a.forEach((v, i) => { s = s.replace("{" + i + "}", v); }); return s; };
+const STATUS_ICON = { pending: "○", running: "", awaiting_approval: "⏸", approved: "✓", done: "✓", failed: "!", stale: "↻" };
+const HS = { lines: null, open: null, sel: {} };
+
+// ---------------- shell: nav entries and the language switch ----------------
+NAV.unshift(["#/uret", "wand", ""], ["#/uretimler", "film", ""]);
+const _renderShell = renderShell;
+renderShell = function () {
+  NAV[0][2] = t("nav_make"); NAV[1][2] = t("nav_prods");
+  _renderShell();
+  const top = $("#top");
+  if (top && !top.querySelector(".langsw")) {
+    top.insertAdjacentHTML("beforeend", `<div class="seg langsw" title="${esc(t("lang"))}">${Object.keys(LANGS).map((k) =>
+      `<button class="${L() === k ? "on" : ""}" data-act="hatLang" data-v="${k}">${k.toUpperCase()}</button>`).join("")}</div>`);
+  }
+};
+ACT.hatLang = async (el) => {
+  const r = await post("/api/hat/lang", { lang: el.dataset.v });
+  if (S.me) S.me.ui_lang = r.ui_lang;
+  HS.lines = null; S.sig = null; route();
+};
+
+// ---------------- #/uret: the lines ----------------
+function lineCard(l) {
+  const st = { ready: "ok", partial: "warn", planned: "" }[l.status];
+  return `<article class="hl-card ${l.status}" data-line="${esc(l.id)}">
+    <div class="row"><h3>${esc(l.name)}</h3><span class="sp"></span><span class="badge hl-st ${st}">${esc(t("status_" + l.status))}</span></div>
+    <p class="hl-tag">${esc(l.tagline)}</p>
+    <details><summary class="small muted">${esc(t("makes"))} · ${esc(t("stages"))}</summary>
+      <p class="small">${esc(l.makes)}</p>
+      <div class="hl-kv small"><b>${esc(t("good"))}</b><ul>${l.good_for.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+        <b>${esc(t("not"))}</b><ul>${l.not_for.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+        <b>${esc(t("needs"))}</b><div>${esc(l.needs)}</div>
+        <b>${esc(t("duration"))}</b><div>${l.duration ? `${l.duration[0]}–${l.duration[1]} ${esc(t("sec"))}` : "—"}</div>
+        <b>${esc(t("cost"))}</b><div>${esc(l.cost)}</div></div>
+      <ol class="hl-stages">${l.stages.map((s) => `<li>${esc(s.name)}${s.gate ? ` <span class="tiny faint">🔒 ${esc(t("gate"))}</span>` : ""}</li>`).join("")}</ol>
+    </details>
+    ${l.status === "ready" ? `<button class="btn accent block mt12" data-act="hatOpen" data-id="${esc(l.id)}">${esc(t("start_with"))}</button>`
+      : `<div class="tiny faint mt12">${esc(t("not_ready"))}</div>`}
+    ${HS.open === l.id ? startForm(l) : ""}
+  </article>`;
+}
+function startForm(l) {
+  const vl = L();
+  return `<div class="hl-form mt12">
+    <label class="field"><span>${esc(t("brief"))}</span><textarea id="hlBrief" data-keep="hl-brief" placeholder="${esc(t("brief_ph"))}"></textarea></label>
+    <label class="field mt8"><span>${esc(t("title"))}</span><input id="hlTitle" data-keep="hl-title" maxlength="80"></label>
+    <div class="row mt8" style="gap:12px;align-items:flex-end">
+      <label class="field"><span>${esc(t("video_lang"))}</span><select id="hlVlang">${Object.entries(LANGS).map(([k, v]) => `<option value="${k}" ${k === vl ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+      <label class="field"><span>${esc(t("aspect"))}</span><select id="hlAspect"><option>9:16</option><option>16:9</option></select></label>
+      <label class="field"><span>${esc(t("channel"))}</span><select id="hlChan"><option value="">${esc(t("none"))}</option>${S.channels.map((c) => `<option value="${esc(c.id)}" ${c.id === S.ch ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
+    </div>
+    <div class="row mt12"><button class="btn accent" data-act="hatCreate" data-id="${esc(l.id)}">${esc(t("create"))}</button>
+      <button class="btn ghost" data-act="hatClose">${esc(t("cancel"))}</button></div>
+  </div>`;
+}
+ROUTES["#/uret"] = async () => {
+  crumb([t("nav_make")]);
+  HS.lines = HS.lines || await api("/api/hat/lines");
+  paint(`<h1>${esc(t("make_title"))}</h1><p class="lead">${esc(t("make_lead"))}</p>
+    <div class="hl-grid mt16">${HS.lines.map(lineCard).join("")}</div>`, JSON.stringify([L(), HS.open]));
+  return {};
+};
+ACT.hatOpen = (el) => { HS.open = el.dataset.id; S.sig = null; route({ poll: true }); setTimeout(() => $("#hlBrief") && $("#hlBrief").focus(), 60); };
+ACT.hatClose = () => { HS.open = null; S.sig = null; route({ poll: true }); };
+ACT.hatCreate = async (el) => {
+  el.disabled = true;
+  try {
+    const r = await post("/api/hat/projects", { line: el.dataset.id, brief: $("#hlBrief").value, title: $("#hlTitle").value,
+      video_lang: $("#hlVlang").value, aspect: $("#hlAspect").value, channel: $("#hlChan").value || null });
+    HS.open = null; S.drafts = {}; toast(t("started"));
+    location.hash = "#/u/" + r.id;
+  } finally { el.disabled = false; }
+};
+
+// ---------------- #/uretimler: the list ----------------
+const stateBadge = (state) => `<span class="badge hl-state s-${esc(state)}">${state === "busy" ? '<span class="spin"></span>' : ""}${esc(t("state_" + state))}</span>`;
+ROUTES["#/uretimler"] = async () => {
+  crumb([t("nav_prods")]);
+  const ps = await api("/api/hat/projects");
+  paint(`<div class="row"><div><h1>${esc(t("prods_title"))}</h1><p class="lead">${esc(t("prods_lead"))}</p></div><span class="sp"></span>
+      <a class="btn accent" href="#/uret">${ICON.plus}${esc(t("new_prod"))}</a></div>
+    <div class="hl-list mt16">${ps.map((p) => `<a class="hl-row" href="#/u/${esc(p.id)}">
+        <span class="mono tiny faint">${esc(p.id.slice(0, 3))}</span>
+        <span class="hl-row-t"><b>${esc(p.title)}</b><span class="tiny muted">${esc(p.line_name)} · ${esc((p.video_lang || "").toUpperCase())} · ${esc(p.aspect || "")}</span></span>
+        <span class="small muted">${esc(p.stage_name || "")}</span>${stateBadge(p.state)}</a>`).join("") || `<div class="empty">${esc(t("prods_empty"))}</div>`}</div>`,
+    JSON.stringify([L(), ps.map((p) => [p.id, p.state, p.stage])]));
+  return { poll: ps.some((p) => p.state === "busy") ? 5000 : 0 };
+};
+
+// ---------------- #/u/<id>: one production as a flow ----------------
+function flowRail(f, sel) {
+  return `<ol class="hl-flow">${f.stages.map((s, i) => `<li class="hl-node st-${esc(s.status)} ${s.id === sel ? "sel" : ""}" data-act="hatSel" data-id="${esc(s.id)}">
+      <span class="ic">${s.status === "running" ? '<span class="spin"></span>' : STATUS_ICON[s.status] || ""}</span>
+      <span class="nm">${esc(s.name)}${s.gate ? ' <span class="lock" aria-hidden="true">🔒</span>' : ""}</span>
+      <span class="tiny faint">${esc(t("st_" + s.status))}</span></li>${i < f.stages.length - 1 ? '<li class="hl-link" aria-hidden="true"></li>' : ""}`).join("")}</ol>`;
+}
+const link = (u) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(String(u).replace(/^https?:\/\/(www\.)?/, "").slice(0, 60))}</a>`;
+function outResearch(o) {
+  return `${o.insight ? `<div class="hl-big">${esc(o.insight)}</div>` : ""}
+    ${o.misconception ? `<div class="note mt12"><b>${esc(t("misconception"))}:</b> ${esc(o.misconception)}</div>` : ""}
+    ${(o.data_points || []).length ? `<h3 class="mt16">${esc(t("data"))}</h3><ul class="hl-ul">${o.data_points.map((x) => `<li>${esc(x.claim)}${x.value ? ` <span class="muted">— ${esc(x.value)}</span>` : ""}${x.source && /^https?:/.test(x.source) ? ` <span class="tiny">${link(x.source)}</span>` : ""}</li>`).join("")}</ul>` : ""}
+    ${(o.angles || []).length ? `<h3 class="mt16">${esc(t("angles"))}</h3><ul class="hl-ul">${o.angles.map((x) => `<li><b>${esc(x.title)}</b> <span class="muted small">${esc(x.grounded_in || "")}</span></li>`).join("")}</ul>` : ""}
+    ${(o.sources || []).length ? `<h3 class="mt16">${esc(t("sources"))}</h3><ol class="hl-ul small">${o.sources.map((x) => `<li>${esc(x.title || "")} ${link(x.url)}</li>`).join("")}</ol>` : ""}`;
+}
+function outProposal(o) {
+  const c = o.cost || {};
+  return `<h3>${esc(t("concepts"))}</h3><div class="hl-concepts">${(o.concepts || []).map((x) => `<div class="hl-concept ${x.id === o.chosen ? "on" : ""}">
+      ${x.id === o.chosen ? `<span class="badge ok">${esc(t("chosen"))}</span>` : ""}<h4>${esc(x.title)}</h4>
+      <div class="hl-hook">“${esc(x.hook)}”</div><div class="small mt8"><b>${esc(t("structure"))}:</b> ${esc(x.structure)}</div>
+      <div class="small mt8"><b>${esc(t("look"))}:</b> ${esc(x.look)}</div>${x.key_frame ? `<div class="small mt8 muted"><b>${esc(t("key_frame"))}:</b> ${esc(x.key_frame)}</div>` : ""}</div>`).join("")}</div>
+    <div class="kv mt16"><div>${esc(t("duration"))}</div><div>${esc(o.seconds)} ${esc(t("sec"))}</div><div>${esc(t("look"))}</div><div>${esc(o.look || "")}</div>
+      <div>${esc(t("music"))}</div><div>${(o.music || {}).use ? esc(t("yes")) + " · " + esc((o.music || {}).prompt || "") : esc(t("no"))}</div>
+      ${o.render_time ? `<div>${esc(t("render_time"))}</div><div>${esc(t("preview_t"))} ~${Math.round((o.render_time.preview_s || 0) / 60)} dk · ${esc(t("final_t"))} ~${Math.round((o.render_time.final_s || 0) / 60)} dk</div>` : ""}</div>
+    <div class="costs mt12">${(c.lines || []).map((l) => `<div class="ln"><span class="muted">${esc(l.label || l.kind)}</span><b>~${num(l.credits)} ${esc(t("credits"))}</b></div>`).join("")}
+      <div class="ln"><span>${esc(t("total"))}</span><b>~${num(c.credits)} ${esc(t("credits"))}</b></div></div>`;
+}
+function outScript(o) {
+  const n = (o.lines || []).join(" ").split(/\s+/).filter(Boolean).length;
+  return `<div class="tiny muted">${o.lines.length} ${esc(t("lines_n"))} · ${n} ${esc(t("words"))}</div>
+    <ol class="hl-script">${(o.lines || []).map((l) => `<li>${esc(l)}</li>`).join("")}</ol>
+    ${(o.claims || []).length ? `<h3 class="mt16">${esc(t("claims"))}</h3><ul class="hl-ul small">${o.claims.map((c) => `<li><span class="${c.verified ? "ok" : "bad"}">${c.verified ? "✓" : "✕"}</span> ${esc(c.text)}${c.source && /^https?:/.test(c.source) ? ` ${link(c.source)}` : ""}</li>`).join("")}</ul>` : ""}
+    ${o.caption ? `<div class="mt12 small"><b>${esc(t("caption"))}:</b> ${esc(o.caption)}</div>` : ""}`;
+}
+function outScenes(o, s) {
+  const pal = o.palette || {};
+  return `${o.concept ? `<div class="hl-big small">${esc(o.concept)}</div>` : ""}
+    <div class="hl-swatch mt8">${Object.entries(pal).map(([k, v]) => `<span title="${esc(k)}" style="background:${esc(v)}"></span>`).join("")}</div>
+    ${(s.stills || []).length ? `<div class="hl-stills mt12">${s.stills.map((u, i) => `<figure><img loading="lazy" src="${esc(u)}" data-act="hatZoom" data-src="${esc(u)}" alt="">
+      <figcaption class="tiny muted">${esc(((o.scenes || [])[i] || {}).id || "")} · ${esc(t("line_range", ...(((o.scenes || [])[i] || {}).lines || [0, 0]).map((x) => x + 1)))}</figcaption></figure>`).join("")}</div>`
+      : `<div class="tiny faint mt12">${esc(t("no_stills"))}</div>`}`;
+}
+function player(u, wide) { return u ? `<div class="player ${wide ? "wide" : ""}"><video src="${esc(u)}" controls playsinline preload="metadata"></video></div>` : ""; }
+function outAssets(o, s, f) {
+  return `${player(o.preview_url, f.project.aspect === "16:9")}
+    <div class="kv mt12"><div>${esc(t("voice"))}</div><div>${o.voice ? `${esc(o.voice.duration)} ${esc(t("sec"))} · ${num(o.voice.credits)} ${esc(t("credits"))}` : "—"}</div>
+      <div>${esc(t("music"))}</div><div>${o.music ? esc(o.music.prompt || t("yes")) : esc(t("no"))}</div></div>`;
+}
+function outRender(o, s, f) {
+  const tq = ((o.qa || {}).technical) || {};
+  return `${player(o.final_url, f.project.aspect === "16:9")}
+    ${o.final_url ? `<div class="row mt8"><a class="btn sm" href="${esc(o.final_url)}?dl=1">${ICON.download}${esc(t("download"))}</a></div>` : ""}
+    <h3 class="mt16">${esc(t("qa"))}</h3><div class="small">${(tq.problems || []).length ? `<ul class="hl-ul">${tq.problems.map((p) => `<li class="warn">${esc(p)}</li>`).join("")}</ul>` : esc(t("no_problems"))}
+      <div class="tiny muted mt8">${esc(tq.duration ?? "")} ${esc(t("sec"))} · ${esc(tq.lufs ?? "—")} LUFS · ${esc(tq.true_peak_db ?? "—")} dBTP</div></div>
+    ${(o.cover_urls || []).length ? `<h3 class="mt16">${esc(t("covers"))}</h3><div class="hl-stills">${o.cover_urls.map((u) => `<figure><img src="${esc(u)}" alt=""></figure>`).join("")}</div>` : ""}`;
+}
+function outPublish(o, s, f) {
+  const text = [o.caption, (o.hashtags || []).join(" ")].filter(Boolean).join("\n\n");
+  const fin = (f.stages.find((x) => x.id === "compose") || {}).output || {};
+  return `${player(fin.final_url, f.project.aspect === "16:9")}
+    <div class="hl-big mt12">${esc(o.caption || "")}</div><div class="mt8">${(o.hashtags || []).map((h) => `<span class="chip">${esc(h)}</span>`).join(" ")}</div>
+    <div class="row mt12"><button class="btn sm" data-act="copy" data-text="${esc(text)}">${ICON.copy}${esc(t("copy"))}</button>
+      ${fin.final_url ? `<a class="btn sm" href="${esc(fin.final_url)}?dl=1">${ICON.download}${esc(t("download"))}</a>` : ""}</div>
+    ${o.notes ? `<h3 class="mt16">${esc(t("notes"))}</h3><div class="small" style="white-space:pre-wrap">${esc(o.notes)}</div>` : ""}`;
+}
+const OUT = { research: outResearch, proposal: outProposal, script: outScript, scene_plan: outScenes, assets: outAssets,
+  render: outRender, publish: outPublish };
+function outputHtml(s, f) {
+  const o = s.output;
+  if (!o) return `<div class="tiny faint">${esc(s.status === "pending" ? t("waiting_prev") : t("output_none"))}</div>`;
+  const fn = OUT[s.artifact];
+  return fn ? fn(o, s, f) : `<pre class="log">${esc(JSON.stringify(o, null, 1).slice(0, 4000))}</pre>`;
+}
+function reviewHtml(r) {
+  if (!r) return "";
+  const v = r.verdict === "pass" ? "ok" : r.verdict === "fix" ? "bad" : "";
+  return `<div class="card"><h3>${esc(t("review"))} <span class="badge ${v}">${esc(t("verdict_" + (r.verdict || "unknown")))}</span>
+      ${r.rounds ? `<span class="tiny faint">${esc(t("rounds", r.rounds))}</span>` : ""}</h3>
+    ${r.summary ? `<div class="small">${esc(r.summary)}</div>` : ""}
+    ${(r.findings || []).map((x) => `<div class="hl-find sev-${esc(x.severity)} mt8"><span class="badge">${esc(t("sev_" + x.severity))}</span>
+      <div class="small"><b>${esc(x.item || "")}</b> ${esc(x.problem || "")}</div>${x.fix ? `<div class="tiny muted">→ ${esc(x.fix)}</div>` : ""}</div>`).join("")}
+    ${r.error ? `<div class="tiny faint">${esc(r.error)}</div>` : ""}</div>`;
+}
+function decisionHtml(s, f) {
+  const id = esc(s.id);
+  if (s.status === "running") return `<div class="card hl-dec"><h3><span class="spin"></span> ${esc(t("working"))}</h3><div class="small muted">${esc(s.says)}</div></div>`;
+  if (s.status === "awaiting_approval") return `<div class="card hl-dec gate"><h3>🔒 ${esc(t("decision"))}</h3>
+      ${s.summary ? `<div class="small">${esc(s.summary)}</div>` : ""}${s.gate_says ? `<div class="tiny muted mt8">${esc(s.gate_says)}</div>` : ""}
+      <button class="btn accent block mt12" data-act="hatAct" data-a="approve" data-stage="${id}">${ICON.check}${esc(t("continue"))}</button>
+      <label class="field mt16"><span>${esc(t("feedback"))} · <span class="faint">${esc(t("revisions", s.revisions || 0))}</span></span>
+        <textarea id="hlNote" data-keep="hl-note-${id}" placeholder="${esc(t("fb_ph"))}"></textarea></label>
+      <button class="btn block mt8" data-act="hatAct" data-a="feedback" data-stage="${id}" ${(s.revisions || 0) >= 3 ? "disabled" : ""}>${esc(t("redo"))}</button></div>`;
+  if (s.status === "failed") return `<div class="card hl-dec bad"><h3>${esc(t("error"))}</h3><pre class="log">${esc(s.error || "")}</pre>
+      <button class="btn accent block mt12" data-act="hatAct" data-a="retry" data-stage="${id}">${esc(t("retry"))}</button>
+      <textarea id="hlNote" class="mt12" data-keep="hl-note-${id}" placeholder="${esc(t("fb_ph"))}"></textarea>
+      <button class="btn block mt8" data-act="hatAct" data-a="feedback" data-stage="${id}">${esc(t("redo"))}</button></div>`;
+  if (s.status === "approved" || s.status === "done") {
+    const busy = f.stages.some((x) => x.status === "running");
+    return `<div class="card hl-dec"><h3>${esc(t("st_" + s.status))}</h3>${s.summary ? `<div class="small">${esc(s.summary)}</div>` : ""}
+      ${busy ? "" : `<button class="btn ghost block mt12" data-act="hatAct" data-a="back" data-stage="${id}">${ICON.back}${esc(t("go_back"))}</button><div class="tiny faint mt8">${esc(t("back_warn"))}</div>`}</div>`;
+  }
+  return `<div class="card hl-dec"><div class="small muted">${esc(s.run === "planned" ? t("not_built") : t("waiting_prev"))}</div></div>`;
+}
+function eventText(e, f) {
+  const nm = (sid) => ((f.stages.find((x) => x.id === sid) || {}).name || sid || "");
+  const k = "ev_" + e.kind;
+  if (!(k in TX.tr)) return "";
+  if (e.kind === "tool" || e.kind === "tool_error") return t(k, e.tool || "");
+  if (e.kind === "agent_start" || e.kind === "review") return t(k, e.model || "");
+  return t(k, nm(e.stage));
+}
+function eventsHtml(f) {
+  const rows = f.events.slice().reverse().map((e) => [e, eventText(e, f)]).filter(([, x]) => x).slice(0, 18);
+  return `<div class="card"><h3>${esc(t("live"))}</h3><div class="hl-ev">${rows.map(([e, x]) => `<div><time>${esc(dt(e.at))}</time><span>${esc(x)}${e.seconds != null && e.kind !== "tool" ? ` <span class="faint">${e.seconds}s</span>` : ""}</span></div>`).join("")}</div>
+    <div class="tiny muted mt8">${esc(t("spent"))}: ${num(f.spent.credits)} ${esc(t("credits"))} · $${(f.spent.usd || 0).toFixed(2)}</div></div>`;
+}
+async function viewProject(pid) {
+  const f = await api("/api/hat/project/" + encodeURIComponent(pid));
+  const p = f.project;
+  crumb([t("nav_prods"), p.title]);
+  const sel = HS.sel[pid] && f.stages.some((x) => x.id === HS.sel[pid]) ? HS.sel[pid] : (f.current || f.stages[f.stages.length - 1].id);
+  const s = f.stages.find((x) => x.id === sel);
+  const html = `<div class="row"><a class="btn ghost sm" href="#/uretimler">${ICON.back}${esc(t("back_list"))}</a><span class="sp"></span>
+      <span class="badge">${esc(f.line.name)}</span><span class="badge">${esc((p.video_lang || "").toUpperCase())}</span><span class="badge">${esc(p.aspect || "")}</span>${stateBadge(f.state)}</div>
+    <h1 class="mt12">${esc(p.title)}</h1>${p.brief ? `<div class="lead">${esc(p.brief)}</div>` : ""}
+    ${flowRail(f, sel)}
+    <div class="split mt16"><div class="col" style="gap:14px"><div class="card"><div class="row"><h2 style="margin:0">${esc(s.name)}</h2><span class="sp"></span>
+        <span class="badge hl-sb st-${esc(s.status)}">${esc(t("st_" + s.status))}</span></div><div class="small muted mt8">${esc(s.says)}</div>
+        ${s.note ? `<div class="note mt12 small"><b>${esc(t("feedback"))}:</b> ${esc(s.note)}</div>` : ""}<div class="mt16">${outputHtml(s, f)}</div></div></div>
+      <div class="col sticky" style="gap:14px">${decisionHtml(s, f)}${reviewHtml(s.review)}${eventsHtml(f)}</div></div>`;
+  const busy = f.state === "busy" || f.stages.some((x) => x.status === "running");
+  paint(html, JSON.stringify([L(), sel, f.state, f.current, f.stages.map((x) => [x.status, x.revisions]), f.events.length]));
+  return { poll: busy ? 4000 : 0 };
+}
+ROUTE_RX.push([/^#\/u\/([\w-]+)/, viewProject]);
+ACT.hatSel = (el) => { const pid = location.hash.split("/")[2]; HS.sel[pid] = el.dataset.id; S.sig = null; route({ poll: true }); };
+ACT.hatZoom = (el) => openVideo(el.dataset.src, true);
+ACT.hatAct = async (el) => {
+  const pid = location.hash.split("/")[2], a = el.dataset.a, stage = el.dataset.stage;
+  const note = ($("#hlNote") || {}).value || "";
+  el.disabled = true;
+  try {
+    await post("/api/hat/project/" + encodeURIComponent(pid), { action: a, stage, note });
+    toast(t({ approve: "approved_ok", feedback: "note_sent", back: "back_ok", retry: "working" }[a]));
+    if (a !== "back") delete HS.sel[pid];
+    S.drafts = {}; S.sig = null; route({ poll: true });
+  } finally { el.disabled = false; }
+};
+})();

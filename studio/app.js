@@ -139,6 +139,7 @@ function modeTr(m) { return { footage: "çekimli", topic: "çekimsiz", mixed: "k
 
 // ---------------- router + poller ----------------
 const ROUTES = {};
+const ROUTE_RX = [];   // [regex, view] pairs other scripts add (studio/hat.js: #/u/<project>)
 let pollT = null, routeSeq = 0;
 function keepDrafts() { for (const el of $$("[data-keep]")) S.drafts[el.dataset.keep] = el.type === "checkbox" ? el.checked : el.value; }
 function restoreDrafts() { for (const el of $$("[data-keep]")) { const v = S.drafts[el.dataset.keep]; if (v !== undefined) { if (el.type === "checkbox") el.checked = v; else el.value = v; } } }
@@ -149,7 +150,7 @@ async function route(opts = {}) {
   const h = location.hash || "#/";
   const path = h.split("?")[0];
   let view = ROUTES[path], arg = null;
-  for (const [re, fn] of [[/^#\/p\/(\d+)/, viewProd], [/^#\/c\/([\w-]+)/, viewChannel], [/^#\/s\/(\d+)/, viewSeries]]) { const m = path.match(re); if (m) { view = fn; arg = m[1]; } }
+  for (const [re, fn] of [...ROUTE_RX, [/^#\/p\/(\d+)/, viewProd], [/^#\/c\/([\w-]+)/, viewChannel], [/^#\/s\/(\d+)/, viewSeries]]) { const m = path.match(re); if (m) { view = fn; arg = m[1]; } }
   view = view || viewHome;
   if (!opts.poll) { S.drafts = {}; S.sig = null; }
   renderShell();

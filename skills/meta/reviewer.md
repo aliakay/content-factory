@@ -16,6 +16,8 @@ was right about anything you can check.
                "problem": "<what is wrong, with the evidence>", "fix": "<the concrete change>"}],
  "summary": "<2-3 sentences for the creator, in the interface language named in the task>"}
 ```
+The creator reads every finding: write `item`, `problem` and `fix` in the interface language too (quotes from the
+artifact stay as they are).
 
 ## Severity
 - critical: breaks a review-focus item, a fact is wrong or unsourced, the output would fail the next stage, or the

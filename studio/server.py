@@ -15,6 +15,8 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 from factory import accounts, channels, claudeauth, credits, discover, eleven_api, explainer, illustrate, planner, series, styles, formats, jobs, productions as P, refs, signals, tracking, usage, llm  # noqa: E402
 from factory.store import connect  # noqa: E402
+sys.path.insert(0, HERE)
+import hat_api  # noqa: E402  (v2 production lines: /api/hat/*, /media/projects/*)
 
 # the Shorts panel's module (caption parsing, out/ listing, thumbnails, range streaming), loaded by path because
 # both files are called server.py
@@ -825,7 +827,7 @@ def me(con):
            "llm_settings": accounts.llm_settings(uid), "codex_elevenlabs": codex_elevenlabs,
            "llm_models": {p: llm.model_options(p) for p in ("claude", "codex")},
            "llm_default_models": {p: {step: llm.default_model(step, p) for step in llm.AGENT_STEPS} for p in ("claude", "codex")},
-           "llm_agents": [{"id": k, "name": v} for k, v in llm.AGENT_STEPS.items()]}
+           "llm_agents": [{"id": k, "name": v} for k, v in llm.AGENT_STEPS.items()], "ui_lang": accounts.ui_lang(uid)}
     if accounts.is_owner(uid):
         out["users"] = [{"id": k, "name": v["name"], "role": v["role"], "claude": accounts.claude_status(k)}
                         for k, v in accounts.users()["users"].items()]
@@ -1178,6 +1180,8 @@ class Handler(shorts.Handler):
 
     def post(self, con, path, b):
         uid = accounts.current()
+        if path.startswith("/api/hat/"):
+            return hat_api.post(con, path, b, lambda kind, arg: jobs.queue(con, kind, arg))
         if path == "/api/llm/settings":
             provider, models = b.get("provider"), b.get("models", {})
             if provider not in ("claude", "codex") or not isinstance(models, dict):
@@ -1552,6 +1556,10 @@ class Handler(shorts.Handler):
                 return self.json(500, {"error": f"{type(e).__name__}: {e}"}, head)
             finally:
                 con.close()
+        if path.startswith("/media/projects/"):   # v2 project files: renders, stills, voice
+            hit = hat_api.media_file(path[len("/media/projects/"):])
+            if hit:
+                return self.send_file(hit[0], hit[1], head, download="dl" in q, cache="no-store")
         if path.startswith("/media/out/"):
             f = self.inside(OUT, path[len("/media/out/"):])
             if f and f.endswith(".mp4"):
@@ -1633,6 +1641,8 @@ class Handler(shorts.Handler):
 
     def get_api(self, con, path, q):
         ch = (q.get("channel") or [None])[0]
+        if path.startswith("/api/hat/"):
+            return hat_api.get(con, path, q)
         if path == "/api/overview":
             return overview(con, ch)
         if path == "/api/formats":

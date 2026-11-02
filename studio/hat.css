@@ -1,0 +1,87 @@
+/* v2 production lines (studio/hat.js). Built on app.css tokens so both themes follow. */
+
+/* language switch in the top bar */
+.langsw{margin-left:6px}
+.langsw button{min-width:34px}
+
+/* #/uret: line cards */
+.hl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:start}
+.hl-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;min-width:0}
+.hl-card.ready{border-color:color-mix(in srgb,var(--ok) 35%,var(--line))}
+.hl-card.planned{opacity:.82}
+.hl-card h3{margin:0;font-size:17px}
+.hl-tag{margin:6px 0 8px;color:var(--muted);font-size:14px}
+.hl-card details summary{cursor:pointer;list-style:none}
+.hl-card details summary::-webkit-details-marker{display:none}
+.hl-card details summary::before{content:"▸ ";color:var(--faint)}
+.hl-card details[open] summary::before{content:"▾ "}
+.hl-kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin-top:8px}
+.hl-kv b{color:var(--muted);font-weight:600}
+.hl-kv ul{margin:0;padding-left:16px}
+.hl-stages{margin:10px 0 0;padding-left:20px;font-size:13px;color:var(--muted);display:grid;gap:2px}
+.hl-st.ok{color:var(--ok)}.hl-st.warn{color:var(--warn)}
+.hl-form textarea{min-height:96px}
+.hl-form .field{min-width:0}
+
+/* #/uretimler: list */
+.hl-list{display:flex;flex-direction:column;gap:6px}
+.hl-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:14px;align-items:center;padding:12px 16px;
+  background:var(--surface);border:1px solid var(--line);border-radius:12px;color:inherit;text-decoration:none}
+.hl-row:hover{border-color:var(--line2)}
+.hl-row-t{display:flex;flex-direction:column;min-width:0}
+.hl-row-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:640px){.hl-row{grid-template-columns:minmax(0,1fr) auto}.hl-row>.mono,.hl-row>.small{display:none}}
+.hl-state{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.hl-state.s-gate{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--text)}
+.hl-state.s-failed{color:var(--bad)}
+.hl-state.s-done{color:var(--ok)}
+
+/* #/u/<id>: the flow rail */
+.hl-flow{list-style:none;margin:18px 0 0;padding:4px 2px 8px;display:flex;align-items:stretch;overflow-x:auto;gap:0}
+.hl-node{flex:0 0 auto;min-width:118px;max-width:170px;display:flex;flex-direction:column;gap:4px;padding:10px 12px;cursor:pointer;
+  background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.hl-node:hover{border-color:var(--line2)}
+.hl-node .ic{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;
+  background:var(--surface2);color:var(--muted)}
+.hl-node .nm{font-weight:650;font-size:14px;line-height:1.2}
+.hl-node .lock{font-size:11px}
+.hl-node.sel{box-shadow:0 0 0 2px var(--accent)}
+.hl-node.st-approved .ic,.hl-node.st-done .ic{background:color-mix(in srgb,var(--ok) 22%,transparent);color:var(--ok)}
+.hl-node.st-awaiting_approval{border-color:var(--accent)}
+.hl-node.st-awaiting_approval .ic{background:var(--accent);color:var(--accent-ink)}
+.hl-node.st-running .ic{background:color-mix(in srgb,var(--info) 25%,transparent);color:var(--info)}
+.hl-node.st-failed .ic{background:color-mix(in srgb,var(--bad) 25%,transparent);color:var(--bad)}
+.hl-node.st-stale{border-style:dashed}
+.hl-node.st-stale .ic{color:var(--warn)}
+.hl-node.st-pending{opacity:.7}
+.hl-link{flex:0 0 18px;align-self:center;height:2px;background:var(--line2)}
+.hl-sb.st-awaiting_approval{background:var(--accent);color:var(--accent-ink)}
+.hl-sb.st-failed{color:var(--bad)}
+
+/* stage outputs */
+.hl-big{font-size:17px;font-weight:600;line-height:1.4;max-width:72ch}
+.hl-ul{margin:6px 0 0;padding-left:18px;display:grid;gap:5px}
+.hl-ul a,.hl-script a{word-break:break-all}
+.hl-concepts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:8px}
+.hl-concept{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface2);min-width:0}
+.hl-concept.on{border-color:var(--ok);box-shadow:inset 0 0 0 1px var(--ok)}
+.hl-concept h4{margin:6px 0 4px;font-size:15px}
+.hl-hook{font-style:italic;color:var(--text)}
+.hl-script{margin:8px 0 0;padding-left:26px;display:grid;gap:8px;font-size:16px;line-height:1.45;max-width:68ch}
+.hl-script li::marker{color:var(--faint);font-size:12px}
+.hl-swatch{display:flex;gap:4px;flex-wrap:wrap}
+.hl-swatch span{width:22px;height:22px;border-radius:6px;border:1px solid var(--line2)}
+.hl-stills{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.hl-stills figure{margin:0;display:flex;flex-direction:column;gap:4px;min-width:0}
+.hl-stills img{width:100%;border-radius:10px;border:1px solid var(--line);cursor:zoom-in;background:var(--surface2)}
+
+/* decision, review, live feed */
+.hl-dec.gate{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.hl-dec.bad{border-color:var(--bad)}
+.hl-dec textarea{width:100%;min-height:84px}
+.hl-find{display:grid;gap:2px;padding-left:10px;border-left:3px solid var(--line2)}
+.hl-find.sev-critical{border-color:var(--bad)}
+.hl-find.sev-suggestion{border-color:var(--warn)}
+.hl-ev{display:grid;gap:4px;font-size:13px;max-height:320px;overflow-y:auto}
+.hl-ev div{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px}
+.hl-ev time{color:var(--faint);font-variant-numeric:tabular-nums}
