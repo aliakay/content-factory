@@ -1,8 +1,8 @@
 {
  "tts:eleven_v4": {
   "unit": "char",
-  "rate": 1.12088959478022,
-  "samples": 10
+  "rate": 1.1511130602949682,
+  "samples": 19
  },
  "tts:eleven_flash_v2_5": {
   "unit": "char",
@@ -22,8 +22,8 @@
  },
  "image:gpt-image-2": {
   "unit": "img",
-  "rate": 191.5754372920952,
-  "samples": 4
+  "rate": 213.01129505318568,
+  "samples": 5
  },
  "video:bytedance-seedance-v2.5": {
   "unit": "s",
@@ -33,8 +33,8 @@
  },
  "image:gpt-image-2.5-sunburst": {
   "unit": "img",
-  "rate": 432.8223199353447,
-  "samples": 0,
+  "rate": 498.2280915475524,
+  "samples": 4,
   "note": "connector estimate_only for one 1K high-quality edit from a reference (2026-10-29); replaced by the first real run"
  }
 }

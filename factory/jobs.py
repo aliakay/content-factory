@@ -231,13 +231,14 @@ def run_production(con, kind, arg, job_id):
         if kind == "p_design":
             productions.design(con, pid, o.get("note", "") if isinstance(o, dict) else "")
             p = productions.get(con, pid)
-            if p["stage"] == "preview" and p["data"].get("voice_take"):
+            if p["stage"] == "preview" and (p["data"].get("voice_take") or p["data"].get("voice_skipped")):
                 productions.preview(con, pid)
             return "hareket tasarımı hazır"
         if kind == "p_direct":
             productions.direct(con, pid, o.get("note", "") if isinstance(o, dict) else "")
             p = productions.get(con, pid)
-            fmt_ok = not productions.formats.for_data(p["format"], p["data"])["voice"] or p["data"].get("voice_take")
+            fmt_ok = (not productions.formats.for_data(p["format"], p["data"])["voice"]
+                      or p["data"].get("voice_take") or p["data"].get("voice_skipped"))
             if p["stage"] == "preview" and fmt_ok:
                 productions.preview(con, pid)
             return "art direction hazır"
@@ -249,7 +250,7 @@ def run_production(con, kind, arg, job_id):
             if p["data"].get("look_pack") == "illustrated":
                 productions.design(con, pid)
             p = productions.get(con, pid)
-            if p["stage"] == "preview" and p["data"].get("voice_take"):
+            if p["stage"] == "preview" and (p["data"].get("voice_take") or p["data"].get("voice_skipped")):
                 productions.preview(con, pid)
             return f"çizimler {round(cost)} kredi + hareket tasarımı"
         if kind == "p_music":

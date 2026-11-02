@@ -37,8 +37,11 @@ style) and the motion designer animates camera moves and annotations over it. Wr
   Good sequences move the camera through ONE world: street level -> top-down map of the same street -> zoom into a
   detail. Prefer that over unrelated pictures. The hook plate must read instantly at frame 0."""
 
-DESIGN_RULES = """ILLUSTRATED SCENES: each scene has a ready illustration (its "plate") that MUST be the scene's full-bleed base:
-<img src="{{plate:SCENE_ID}}"> (object-fit: cover; make it ~115% of the frame so the camera can move). Animate:
+DESIGN_RULES = """ILLUSTRATED SCENES: each scene has a ready illustration (its "plate") that MUST be the scene's visible,
+full-bleed base: <img src="{{plate:SCENE_ID}}"> (object-fit: cover; make it ~115% of the frame so the camera can move).
+The plate must remain clearly visible across the central part of the frame and supply the main scene artwork. Do not
+hide it behind a full-screen paper/sheet/card, opaque scene background, grayscale filter, or low opacity. Keep large
+overlays transparent or at most 25% opaque; use small text backplates only where readability needs them. Animate:
 - camera: the plate's "camera" + "focus" with slow, continuous GSAP scale/x/y on a wrapper (power1.inOut / sine.inOut,
   the whole scene long, never static); "zoom_to" = a decisive push into the focus point on the trigger word.
 - transitions: when a scene has "same_place_as", continue the camera INTO the next plate (scale the old one up toward

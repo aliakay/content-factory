@@ -7,7 +7,7 @@
   ElevenLabs connector of the owner's Claude login (no API key); other accounts use an ElevenLabs API key. A production
   picks the account it spends from; voices and the balance are read from that account automatically. The owner
   decides whether members may use the owner's account and up to how many credits a month.
-- The current user travels with every job (jobs.user + env FACTORY_USER), so the right Claude login and the right
+- The current user travels with every job (jobs.user + env FACTORY_USER), so their CLI/model preferences and the right
   ElevenLabs account are used inside the job processes too.
 """
 import contextvars, hashlib, hmac, json, os, secrets, time
@@ -139,6 +139,39 @@ def claude_status(uid=None):
     return {"connected": login or bool(c.get("token")), "mode": "login" if login else ("token" if c.get("token") else None),
             "how": "kendi Claude hesabı, tam giriş (connector'lar dahil)" if login else "kendi Claude aboneliği (sadece model)",
             "connectors": login, "at": c.get("connected_at")}
+
+
+CLI_PROVIDERS = {"claude", "codex"}
+
+
+def llm_settings(uid=None):
+    """Per-user provider and optional model overrides keyed by the calling agent step."""
+    uid = uid or current()
+    saved = (user(uid) or {}).get("llm_settings") or {}
+    provider = saved.get("provider") if saved.get("provider") in CLI_PROVIDERS else "claude"
+    models = saved.get("models") if isinstance(saved.get("models"), dict) else {}
+    return {"provider": provider, "models": {str(k): str(v) for k, v in models.items()
+                                                if isinstance(k, str) and isinstance(v, str)}}
+
+
+def set_llm_settings(uid, provider, models):
+    if provider not in CLI_PROVIDERS:
+        raise ValueError("CLI seçimi geçersiz")
+    if not isinstance(models, dict) or len(models) > 80:
+        raise ValueError("Agent model seçimleri geçersiz")
+    clean = {}
+    for step, model in models.items():
+        if not isinstance(step, str) or len(step) > 80 or not isinstance(model, str) or len(model) > 100:
+            raise ValueError("Agent model seçimi geçersiz")
+        if model:
+            clean[step] = model
+    u = users()
+    if uid not in u["users"] and uid != OWNER:
+        raise ValueError("Kullanıcı bulunamadı")
+    rec = u["users"].setdefault(uid, {"name": "Ali", "role": "owner"})
+    rec["llm_settings"] = {"provider": provider, "models": clean}
+    _save(USERS, u)
+    return llm_settings(uid)
 
 
 class NoClaude(RuntimeError):

@@ -1,0 +1,123 @@
+{
+ "id": "storm-slate-glow",
+ "created_at": "2026-10-27T22:02:55+00:00",
+ "palette": [
+  [
+   "#59636f",
+   0.162
+  ],
+  [
+   "#414248",
+   0.135
+  ],
+  [
+   "#878684",
+   0.134
+  ],
+  [
+   "#0d1014",
+   0.124
+  ],
+  [
+   "#7a6b67",
+   0.123
+  ],
+  [
+   "#2e323b",
+   0.122
+  ],
+  [
+   "#b7bab3",
+   0.11
+  ],
+  [
+   "#614a43",
+   0.09
+  ]
+ ],
+ "roles": {
+  "name": "storm-slate-glow",
+  "paper": false,
+  "bg_top": "#2e323b",
+  "bg_bot": "#0d1014",
+  "text": "#ece9e1",
+  "muted": "#b7bab3",
+  "accent": "#f2c14e",
+  "hot": "#e4533a",
+  "hero": "#f2c14e",
+  "notes": "Flat-vector editorial illustration under a moody stormy slate-blue sky. Heavy condensed cream headlines carry one punch word in red-orange, and warm yellow window light gives the only warmth against cool grey rain."
+ },
+ "notes": "Flat-vector editorial illustration under a moody stormy slate-blue sky. Heavy condensed cream headlines carry one punch word in red-orange, and warm yellow window light gives the only warmth against cool grey rain.",
+ "creator_note": "",
+ "refs": [],
+ "theme": {
+  "BG_TOP": [
+   46,
+   50,
+   59
+  ],
+  "BG_BOT": [
+   13,
+   16,
+   20
+  ],
+  "TEAL": [
+   242,
+   193,
+   78
+  ],
+  "ORANGE": [
+   228,
+   83,
+   58
+  ],
+  "TEXT": [
+   236,
+   233,
+   225
+  ],
+  "MUTED": [
+   183,
+   186,
+   179
+  ],
+  "HERO": [
+   242,
+   193,
+   78
+  ],
+  "COUNTER": [
+   242,
+   193,
+   78
+  ],
+  "PRICE2": [
+   242,
+   193,
+   78
+  ],
+  "SRC": [
+   183,
+   186,
+   179
+  ],
+  "TRACK": [
+   236,
+   233,
+   225,
+   22
+  ],
+  "OLD": [
+   183,
+   186,
+   179
+  ],
+  "STROKE": [
+   0,
+   0,
+   0
+  ],
+  "DARK": 0.62,
+  "PAPER": false
+ }
+}
