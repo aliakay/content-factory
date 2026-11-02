@@ -94,3 +94,33 @@ def bundle(pid, plan=None, d=None):
 def scene_times(pid, plan=None, d=None):
     """One settled moment per scene (70 % in), for stills and review sheets."""
     return [round(s["start"] + (s["end"] - s["start"]) * 0.7, 2) for s in spec(pid, plan, d)["scenes"]]
+
+
+# ---------------------------------------------------------------- texts the stage briefs include
+# Stage briefs (skills/pipelines/explainer/*.md) pull these with {{include:factory.hat.explainer:<name>}} so the craft
+# rules have one source: the motion designer's and writer's existing rules, minus their old output formats.
+
+def design_rules(p):
+    from .. import motiondesign as M
+    out = M.rules(p.get("aspect", "9:16"), CAPTIONS).replace(M.FORMAT, "").rstrip()
+    return out.replace('(use them as <img src="{{img:ID}}">)',
+                       '(find each with the stock_search tool and use it as <img src="/<file>"> with the returned file)')
+
+
+def design_kit(p):
+    from .. import motiondesign as M
+    return "\n\n".join([M.fx_doc(), M.TASTE, M.MOTION_DOCTRINE, M.SOUND_RULES])
+
+
+def grammars(p):
+    from .. import motiondesign as M
+    return "\n".join(f"- {k}: {v}" for k, v in M.GRAMMARS.items())
+
+
+def lang_rule(p):
+    from .. import explainer as X
+    return X.LANG_RULE.get(p.get("video_lang"), X.LANG_RULE["en"])
+
+
+def words_per_second(p):
+    return f"{WPS.get(p.get('video_lang'), 2.5)} words per second"

@@ -5,7 +5,7 @@ manifest's review focus, the project facts and the creator's feedback note; it s
 allows (factory-tools MCP server + CLI built-ins such as WebSearch) and hands its output in with submit_artifact.
 The stage counts as done only if an accepted artifact was written during this run.
 """
-import json, os, time
+import importlib, json, os, re, time
 
 from .. import llm
 from ..config import ROOT
@@ -22,11 +22,23 @@ class AgentError(RuntimeError):
     pass
 
 
-def skill(line_id, sid):
+INCLUDE = re.compile(r"\{\{include:([\w.]+):(\w+)\}\}")
+
+
+def expand(text, p):
+    """{{include:module:name}} -> that module's text constant, or name(project) for a function: the craft rules keep
+    one source in code and the briefs stay short."""
+    def sub(m):
+        obj = getattr(importlib.import_module(m.group(1)), m.group(2))
+        return str(obj(p) if callable(obj) else obj)
+    return INCLUDE.sub(sub, text)
+
+
+def skill(line_id, sid, p=None):
     path = os.path.join(SKILLS, "pipelines", line_id, sid + ".md")
     if not os.path.exists(path):
         raise AgentError(f"no stage brief {os.path.relpath(path, ROOT)}")
-    return open(path, encoding="utf-8").read()
+    return expand(open(path, encoding="utf-8").read(), p or {})
 
 
 def contract():
@@ -54,7 +66,7 @@ Aspect: {p.get('aspect')} · Earlier artifacts you can read: {', '.join(earlier)
 {review}
 
 ## Stage brief
-{skill(p['line'], s['id'])}
+{skill(p['line'], s['id'], p)}
 """
 
 

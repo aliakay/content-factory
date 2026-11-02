@@ -130,7 +130,8 @@ def project_info(ctx):
     p = P.load(ctx.pid, ctx.d)
     cp = P.checkpoint(ctx.pid, ctx.stage, ctx.d) if ctx.stage else {}
     return {k: p.get(k) for k in ("id", "line", "title", "brief", "video_lang", "aspect", "channel", "budget")} | \
-        {"stage": ctx.stage, "feedback": cp.get("note"), "revision": cp.get("revisions", 0)}
+        {"stage": ctx.stage, "feedback": cp.get("note"), "revision": cp.get("revisions", 0),
+         "today": time.strftime("%Y-%m-%d")}
 
 
 @tool("read_artifact", "project", "Read an earlier stage's output (research, proposal, script, scene_plan, assets, ...).",

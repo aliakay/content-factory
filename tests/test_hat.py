@@ -431,3 +431,17 @@ def test_a_broken_review_never_blocks_the_stage(d, skills, monkeypatch):
     monkeypatch.setattr(llm, "ask_text", fake_cli)
     out = skills.run_stage(pid, s, d=d)
     assert out["review"]["verdict"] == "unknown" and "timed out" in out["review"]["error"]
+
+
+def test_every_agent_stage_of_a_ready_line_has_a_brief_that_expands(d):
+    from factory.hat import agent as A
+    for m in manifest.all_lines().values():
+        if m["status"] != "ready":
+            continue
+        pid = P.create(m["id"], "brief check", video_lang="tr", d=d)["id"]
+        for s in m["stages"]:
+            if s["run"] == "agent":
+                text = A.task(pid, s, note=None, d=d)
+                assert "{{include" not in text and len(text) > 1500, (m["id"], s["id"])
+    sp = A.task(pid, manifest.stage(manifest.get("explainer"), "scene_plan"), d=d)
+    assert "FX LIBRARY" in sp and "@@SCENE" not in sp and "stock_search" in sp
