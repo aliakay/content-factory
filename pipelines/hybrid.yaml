@@ -1,0 +1,33 @@
+id: hybrid
+order: 5
+status: planned
+category: mixed
+inputs: [footage, topic]
+duration: [20, 90]
+name: {tr: Hibrit, en: Hybrid}
+tagline:
+  tr: "Gerçek görüntünün üstüne tasarlanmış bilgi katmanları."
+  en: "Designed information layers over real footage."
+makes:
+  tr: "Kaynak görüntü + üstünde diyagram, harita, veri kartı ve etiketler; ikisi tek bir görsel dil içinde."
+  en: "Source footage plus diagrams, maps, data cards and labels on top, in one visual language."
+good_for:
+  tr: ["Röportaj + grafik", "Ürün görüntüsü + açıklama", "Gezi görüntüsü + bilgi kartları"]
+  en: ["Interview plus graphics", "Product footage plus explanation", "Travel footage plus fact cards"]
+not_for:
+  tr: ["Görüntüsüz konular (→ Konu anlatımı)"]
+  en: ["Topics without footage (→ Explainer)"]
+needs:
+  tr: "Görüntü + anlatılacak konu."
+  en: "Footage plus the topic to explain."
+cost:
+  tr: "Seslendirme ve müzik isteğe bağlı."
+  en: "Narration and music optional."
+stages:
+  - {id: idea, gate: true, run: planned}
+  - {id: script, gate: true, run: planned}
+  - {id: scene_plan, gate: true, run: planned}
+  - {id: assets, gate: true, run: planned}
+  - {id: edit, run: planned}
+  - {id: compose, run: planned}
+  - {id: publish, gate: true, run: planned}

@@ -1,0 +1,32 @@
+id: clip_factory
+order: 7
+status: planned
+category: footage
+inputs: [video, audio]
+duration: [15, 60]
+name: {tr: Klip fabrikası, en: Clip factory}
+tagline:
+  tr: "Tek bir uzun içerikten puanlanmış bir dizi kısa video."
+  en: "A ranked batch of shorts from one long piece."
+makes:
+  tr: "Yayın, sunum ya da röportajdan en güçlü anlar bulunur, puanlanır; her biri kendi kancası, kadrajı ve altyazısıyla bağımsız bir kısa video olur."
+  en: "The strongest moments of a stream, talk or interview are found and ranked; each becomes its own short with a hook, framing and captions."
+good_for:
+  tr: ["Bir uzun içerikten haftalık kısa video stoku", "Webinar ve canlı yayın tekrarları"]
+  en: ["A week of shorts from one long piece", "Webinar and stream repurposing"]
+not_for:
+  tr: ["Zaten kısa olan kaynaklar"]
+  en: ["Sources that are already short"]
+needs:
+  tr: "Uzun bir video ya da ses dosyası ve kaç klip istediğin."
+  en: "A long video or audio file and how many clips you want."
+cost:
+  tr: "Kredi gerekmez; transkript yerelde yapılır."
+  en: "No credits; transcription runs locally."
+stages:
+  - {id: idea, gate: true, run: planned, name: {tr: Klip seçimi, en: Clip selection}}
+  - {id: scene_plan, gate: true, run: planned}
+  - {id: assets, gate: true, run: planned}
+  - {id: edit, run: planned}
+  - {id: compose, run: planned}
+  - {id: publish, gate: true, run: planned}

@@ -1,0 +1,32 @@
+id: documentary
+order: 11
+status: planned
+category: footage
+inputs: [theme]
+duration: [45, 120]
+name: {tr: Belgesel montaj, en: Documentary montage}
+tagline:
+  tr: "Açık lisanslı gerçek görüntülerden tematik bir montaj."
+  en: "A thematic montage of open-licence real footage."
+makes:
+  tr: "Wikimedia, Archive.org, NASA ve Pexels arşivlerinden anlamsal aramayla seçilen gerçek görüntülerle kurgulanmış, anlatımlı ya da yalnız müzikli bir montaj."
+  en: "A narrated or music-only montage cut from real footage found by semantic search across Wikimedia, Archive.org, NASA and Pexels."
+good_for:
+  tr: ["Tarih, şehir ve doğa videoları", "\"Bir duygu\" videoları", "Üretim maliyeti olmadan gerçek görüntü"]
+  en: ["History, city and nature videos", "Mood pieces", "Real footage without generation costs"]
+not_for:
+  tr: ["Güncel haber (arşivde görüntüsü olmaz)"]
+  en: ["Breaking news (the archive has no footage of it)"]
+needs:
+  tr: "Bir tema ve ton."
+  en: "A theme and a tone."
+cost:
+  tr: "Görüntü ücretsiz; seslendirme ve müzik isteğe bağlı."
+  en: "Footage is free; narration and music optional."
+stages:
+  - {id: idea, gate: true, run: planned}
+  - {id: scene_plan, gate: true, run: planned}
+  - {id: assets, gate: true, run: planned}
+  - {id: edit, gate: true, run: planned}
+  - {id: compose, run: planned}
+  - {id: publish, gate: true, run: planned}

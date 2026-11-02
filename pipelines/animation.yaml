@@ -1,0 +1,34 @@
+id: animation
+order: 2
+status: partial
+category: generated
+inputs: [topic, message]
+duration: [10, 60]
+name: {tr: Hareketli grafik, en: Motion graphics}
+tagline:
+  tr: "Anlatımın değil hareketin öne çıktığı kısa, çarpıcı işler."
+  en: "Short, striking pieces where motion leads, not narration."
+makes:
+  tr: "Kinetik tipografi, diyagram ve veri animasyonları, Three.js ile 3D dünyalar; anlatımlı ya da yalnız müzikli."
+  en: "Kinetic typography, diagram and data animation, Three.js 3D worlds; narrated or music-only."
+good_for:
+  tr: ["Lansman ve duyurular", "Tek bir istatistiği vurgulamak", "Döngü (loop) içerikler", "Müzikli, anlatımsız videolar"]
+  en: ["Launches and announcements", "Landing one statistic", "Loop content", "Music-led videos without narration"]
+not_for:
+  tr: ["Uzun sözlü anlatım", "Gerçek görüntü isteyen konular"]
+  en: ["Long spoken explanations", "Topics that need real footage"]
+needs:
+  tr: "Bir konu ya da tek cümlelik mesaj; istersen müzik tarzı."
+  en: "A topic or a one-line message; a music style if you like."
+cost:
+  tr: "Müzik istenirse ~47 kredi/sn; seslendirme isteğe bağlı. Claude tasarım."
+  en: "Music ~47 credits/s if wanted; narration optional. Claude for design."
+stages:
+  - {id: research, run: planned}
+  - {id: proposal, gate: true, run: planned}
+  - {id: script, gate: true, run: planned}
+  - {id: scene_plan, gate: true, run: planned}
+  - {id: assets, gate: true, run: planned}
+  - {id: edit, run: planned}
+  - {id: compose, run: planned}
+  - {id: publish, gate: true, run: planned}

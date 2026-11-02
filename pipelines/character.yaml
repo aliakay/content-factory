@@ -1,0 +1,36 @@
+id: character
+order: 10
+status: partial
+category: generated
+inputs: [story]
+duration: [30, 120]
+name: {tr: Karakter animasyonu, en: Character animation}
+tagline:
+  tr: "Tekrar kullanılabilir çizgi karakterlerle hikâyeler."
+  en: "Stories told with reusable cartoon characters."
+makes:
+  tr: "Karakter tasarımı, poz kütüphanesi ve sahne sahne oyunculukla çizgi animasyon; aynı karakterler her bölümde aynı görünür."
+  en: "Cartoon animation with character design, a pose library and scene-by-scene acting; the same characters look the same in every episode."
+good_for:
+  tr: ["Seriler ve maskot içerikler", "Çocuk ve eğitim hikâyeleri"]
+  en: ["Series and mascot content", "Children's and educational stories"]
+not_for:
+  tr: ["Gerçekçi insan sahneleri"]
+  en: ["Realistic human scenes"]
+needs:
+  tr: "Bir hikâye ya da seri fikri."
+  en: "A story or series idea."
+cost:
+  tr: "Karakter ve sahne çizimleri görsel başına kredi; seslendirme ek."
+  en: "Character and scene art costs credits per image; narration extra."
+stages:
+  - {id: research, run: planned}
+  - {id: proposal, gate: true, run: planned}
+  - {id: script, gate: true, run: planned}
+  - {id: character_design, gate: true, run: planned}
+  - {id: rig_plan, run: planned}
+  - {id: scene_plan, gate: true, run: planned}
+  - {id: assets, gate: true, run: planned}
+  - {id: edit, run: planned}
+  - {id: compose, run: planned}
+  - {id: publish, gate: true, run: planned}

@@ -1,0 +1,31 @@
+id: localize
+order: 12
+status: planned
+category: transform
+inputs: [video]
+duration: [10, 600]
+name: {tr: Yerelleştirme & dublaj, en: Localization & dub}
+tagline:
+  tr: "Bitmiş bir videonun başka dillerde altyazılı ve dublajlı sürümleri."
+  en: "Subtitled and dubbed versions of a finished video in other languages."
+makes:
+  tr: "Transkript, çeviri, aynı zamanlamayla altyazı ve konuşmacının sesini koruyan dublaj; istenirse dudak senkronu."
+  en: "Transcript, translation, subtitles on the same timing and a dub that keeps the speaker's voice; lip-sync if wanted."
+good_for:
+  tr: ["Türkçe videoyu İngilizce kanala taşımak (ve tersi)", "Bir videoyu birden çok pazara açmak"]
+  en: ["Taking a Turkish video to an English channel (and back)", "Opening one video to several markets"]
+not_for:
+  tr: ["Yakın planda dudak senkronu kritik videolar (ek adım gerekir)"]
+  en: ["Close-up videos where lip-sync is critical (needs an extra step)"]
+needs:
+  tr: "Bitmiş video + hedef diller."
+  en: "A finished video plus target languages."
+cost:
+  tr: "Dublaj dakika başına ElevenLabs kredisi."
+  en: "Dubbing costs ElevenLabs credits per minute."
+stages:
+  - {id: idea, gate: true, run: planned}
+  - {id: script, gate: true, run: planned, name: {tr: Çeviri, en: Translation}}
+  - {id: assets, gate: true, run: planned}
+  - {id: compose, run: planned}
+  - {id: publish, gate: true, run: planned}

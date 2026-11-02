@@ -1,0 +1,32 @@
+id: talking_head
+order: 6
+status: partial
+category: footage
+inputs: [video]
+duration: [15, 90]
+name: {tr: Konuşan kafa, en: Talking head}
+tagline:
+  tr: "Kameraya konuştuğun ham videodan sıkı, altyazılı bir kısa video."
+  en: "A tight, captioned short from your raw talk-to-camera video."
+makes:
+  tr: "Tekrarlar, takılmalar ve duraklamalar kesilir; yüz takibiyle dikey kadraj, punch-in'ler, B-roll, kelime kelime altyazı ve temiz ses zinciri."
+  en: "Retakes, stumbles and pauses are cut; face-tracked vertical framing, punch-ins, B-roll, word-level captions and a clean voice chain."
+good_for:
+  tr: ["Görüş ve yorum videoları", "İpuçları", "Hikâye anlatımı"]
+  en: ["Opinion and commentary", "Tips", "Storytelling"]
+not_for:
+  tr: ["Konuşma olmayan görüntüler"]
+  en: ["Footage without speech"]
+needs:
+  tr: "Ham konuşma videosu."
+  en: "A raw talking video."
+cost:
+  tr: "Kredi gerekmez (müzik istenmezse)."
+  en: "No credits needed (unless you want music)."
+stages:
+  - {id: idea, gate: true, run: planned}
+  - {id: script, gate: true, run: planned, name: {tr: Kesim kararı, en: Cut decision}}
+  - {id: assets, gate: true, run: planned}
+  - {id: edit, run: planned}
+  - {id: compose, run: planned}
+  - {id: publish, gate: true, run: planned}

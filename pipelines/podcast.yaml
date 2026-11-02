@@ -1,0 +1,32 @@
+id: podcast
+order: 8
+status: planned
+category: footage
+inputs: [audio, video]
+duration: [15, 90]
+name: {tr: Podcast dönüştürme, en: Podcast repurpose}
+tagline:
+  tr: "Podcast sesinden sosyal medyaya hazır klipler ve alıntı kartları."
+  en: "Social-ready clips and quote cards from podcast audio."
+makes:
+  tr: "Altyazılı ya da ses dalgalı klipler, alıntı kartları; istenirse bölümün tamamına eşlik eden bir video."
+  en: "Captioned or waveform clips, quote cards and, if wanted, a companion video for the whole episode."
+good_for:
+  tr: ["Sesli içeriği görünür kılmak", "Bölüm tanıtımları"]
+  en: ["Making audio content visible", "Episode promos"]
+not_for:
+  tr: ["Kötü kayıtlı ses (önce ses izolasyonu gerekir)"]
+  en: ["Badly recorded audio (needs isolation first)"]
+needs:
+  tr: "Podcast ses ya da video dosyası."
+  en: "A podcast audio or video file."
+cost:
+  tr: "Ses izolasyonu istenirse ElevenLabs kredisi."
+  en: "ElevenLabs credits if voice isolation is needed."
+stages:
+  - {id: idea, gate: true, run: planned}
+  - {id: scene_plan, gate: true, run: planned}
+  - {id: assets, gate: true, run: planned}
+  - {id: edit, run: planned}
+  - {id: compose, run: planned}
+  - {id: publish, gate: true, run: planned}

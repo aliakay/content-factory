@@ -1,0 +1,33 @@
+id: avatar
+order: 9
+status: planned
+category: generated
+inputs: [script, portrait]
+duration: [15, 120]
+name: {tr: Avatar sunucu, en: Avatar presenter}
+tagline:
+  tr: "Dijital bir sunucunun anlattığı duyuru ve tanıtım videoları."
+  en: "Announcements and intros told by a digital presenter."
+makes:
+  tr: "Bir sunucu görselinden dudak senkronlu konuşan video (OmniHuman, HeyGen, Creatify) ve sade destek grafikleri."
+  en: "A lip-synced talking video from one presenter image (OmniHuman, HeyGen, Creatify) with simple support graphics."
+good_for:
+  tr: ["Yüzünü göstermeden \"biri anlatıyor\" hissi", "Duyuru, eğitim, onboarding"]
+  en: ["A \"someone is telling you\" feel without showing your face", "Announcements, training, onboarding"]
+not_for:
+  tr: ["Doğal oyunculuk ve duygu isteyen sahneler"]
+  en: ["Scenes that need natural acting and emotion"]
+needs:
+  tr: "Metin ya da konu + sunucu görseli (ya da kayıtlı avatar)."
+  en: "A script or topic plus a presenter image (or a saved avatar)."
+cost:
+  tr: "Avatar videosu saniye başına ElevenLabs kredisi; öneride kalem kalem."
+  en: "Avatar video costs ElevenLabs credits per second; itemised at the proposal."
+stages:
+  - {id: idea, gate: true, run: planned}
+  - {id: script, gate: true, run: planned}
+  - {id: scene_plan, gate: true, run: planned}
+  - {id: assets, gate: true, run: planned}
+  - {id: edit, run: planned}
+  - {id: compose, run: planned}
+  - {id: publish, gate: true, run: planned}

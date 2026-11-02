@@ -1,0 +1,34 @@
+id: screen_demo
+order: 13
+status: planned
+category: capture
+inputs: [url, screen_recording]
+duration: [20, 120]
+name: {tr: Ekran demosu, en: Screen demo}
+tagline:
+  tr: "Uygulama ya da web gezintisinden cilalı bir demo videosu."
+  en: "A polished demo from an app or website walkthrough."
+makes:
+  tr: "Otomatik ya da senin kaydettiğin ekran gezintisi; yakınlaştırmalar, imleç vurguları, işaretler, altyazı ve anlatım."
+  en: "An automated or your own screen walkthrough with zooms, cursor highlights, callouts, captions and narration."
+good_for:
+  tr: ["Ürün tanıtımı", "\"Nasıl yapılır\" anlatımları", "Kod ve terminal demoları"]
+  en: ["Product demos", "How-to walkthroughs", "Code and terminal demos"]
+not_for:
+  tr: ["Gerçek dünya görüntüsü"]
+  en: ["Real-world footage"]
+needs:
+  tr: "Bir URL / uygulama ya da ekran kaydı."
+  en: "A URL / app or a screen recording."
+cost:
+  tr: "Seslendirme istenirse kredi."
+  en: "Credits only for narration."
+stages:
+  - {id: idea, gate: true, run: planned}
+  - {id: script, gate: true, run: planned}
+  - {id: capture, run: planned}
+  - {id: scene_plan, gate: true, run: planned}
+  - {id: assets, gate: true, run: planned}
+  - {id: edit, run: planned}
+  - {id: compose, run: planned}
+  - {id: publish, gate: true, run: planned}

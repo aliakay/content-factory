@@ -1,0 +1,34 @@
+id: cinematic
+order: 4
+status: partial
+category: mixed
+inputs: [concept, footage]
+duration: [15, 90]
+name: {tr: Sinematik, en: Cinematic}
+tagline:
+  tr: "Fragman, marka filmi ya da duygu odaklı kısa bir film."
+  en: "A trailer, brand film or mood-led short."
+makes:
+  tr: "Kendi görüntün ve gerektiğinde yapay zekâyla üretilen video klipler (Kling, Veo, Seedance) ile atmosferi güçlü bir kurgu; müzik, ses tasarımı, film görünümü."
+  en: "A strongly atmospheric edit from your footage plus AI-generated clips where needed (Kling, Veo, Seedance); score, sound design, film look."
+good_for:
+  tr: ["Teaser ve fragmanlar", "Motivasyon videoları", "\"Bir dünya kur\" konseptleri"]
+  en: ["Teasers and trailers", "Motivation videos", "\"Build a world\" concepts"]
+not_for:
+  tr: ["Bilgi yoğun anlatım"]
+  en: ["Information-heavy explanation"]
+needs:
+  tr: "Bir konsept; varsa görüntü ya da referans."
+  en: "A concept; footage or a reference if you have them."
+cost:
+  tr: "Üretilen her video klip ElevenLabs kredisi harcar (modele göre); öneri aşamasında kalem kalem gösterilir."
+  en: "Every generated clip spends ElevenLabs credits (per model); itemised at the proposal."
+stages:
+  - {id: research, run: planned}
+  - {id: proposal, gate: true, run: planned}
+  - {id: script, gate: true, run: planned}
+  - {id: scene_plan, gate: true, run: planned}
+  - {id: assets, gate: true, run: planned}
+  - {id: edit, run: planned}
+  - {id: compose, run: planned}
+  - {id: publish, gate: true, run: planned}

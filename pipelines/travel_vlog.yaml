@@ -1,0 +1,32 @@
+id: travel_vlog
+order: 3
+status: partial
+category: footage
+inputs: [footage]
+duration: [15, 60]
+name: {tr: Seyahat vlog, en: Travel vlog}
+tagline:
+  tr: "Kendi çekimlerinden sinematik ya da referans tarzında bir gezi videosu."
+  en: "A cinematic or reference-styled trip video from your own footage."
+makes:
+  tr: "Albümündeki en iyi anlar seçilir; ritim, geçişler, yazılar, renk ve müzikle sakin-sinematik ya da hızlı-ritmik bir kurgu."
+  en: "The best moments of your album, cut calm-cinematic or fast and rhythmic, with titles, grade and music."
+good_for:
+  tr: ["iCloud albümünden gezi videoları", "Rota ve itinerary videoları", "\"Gerçek gibi durmayan yerler\""]
+  en: ["Trip videos from an iCloud album", "Route and itinerary videos", "\"Places that don't look real\""]
+not_for:
+  tr: ["Çekimi olmayan konular (→ Konu anlatımı)"]
+  en: ["Topics with no footage (→ Explainer)"]
+needs:
+  tr: "Albüm ya da klip seçimi; istersen bir referans reel."
+  en: "An album or clip selection; a reference reel if you like."
+cost:
+  tr: "Anlatım ve müzik isteğe bağlı; görüntü senin."
+  en: "Narration and music optional; the footage is yours."
+stages:
+  - {id: idea, gate: true, run: planned}
+  - {id: scene_plan, gate: true, run: planned}
+  - {id: assets, gate: true, run: planned}
+  - {id: edit, run: planned}
+  - {id: compose, run: planned}
+  - {id: publish, gate: true, run: planned}

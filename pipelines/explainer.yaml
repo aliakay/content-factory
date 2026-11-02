@@ -1,0 +1,98 @@
+id: explainer
+order: 1
+status: ready            # ready | partial | planned
+category: generated
+inputs: [topic]
+duration: [28, 90]       # seconds a typical video runs
+
+name: {tr: Konu anlatımı, en: Explainer}
+tagline:
+  tr: "Bir konu ver, araştırılmış ve seslendirilmiş bir anlatım videosu al."
+  en: "Give a topic, get a researched, narrated explainer."
+makes:
+  tr: "Çekim gerektirmeyen, kaynaklara dayalı 30–90 saniyelik anlatım videosu: seslendirme, kodla çizilmiş hareketli grafikler, kinetik altyazı ve ses tasarımı."
+  en: "A 30–90 second, source-backed explainer that needs no footage: narration, code-drawn motion graphics, kinetic captions and sound design."
+good_for:
+  tr: ["Haber açıklamaları (\"ne oldu, neden önemli\")", "\"Neden / nasıl\" soruları", "Veri ve karşılaştırma hikâyeleri", "Keşif kartlarından gelen konular"]
+  en: ["News explainers (\"what happened, why it matters\")", "\"Why / how\" questions", "Data and comparison stories", "Topics picked from Discovery cards"]
+not_for:
+  tr: ["Gerçek mekân ya da kişi görüntüsü gereken hikâyeler", "Uzun belgesel anlatımlar"]
+  en: ["Stories that need real places or people on screen", "Long documentary narration"]
+needs:
+  tr: "Bir konu cümlesi ya da bir Keşif kartı. İstersen kaynak linkleri."
+  en: "A topic sentence or a Discovery card. Source links if you have them."
+cost:
+  tr: "Seslendirme ~500–800 ElevenLabs kredisi; müzik istenirse ek. Claude araştırma + tasarım."
+  en: "Narration ~500–800 ElevenLabs credits; music extra if wanted. Claude for research + design."
+
+stages:
+  - id: research
+    run: agent
+    model: sonnet
+    tools: [web_search, web_fetch]
+    review:
+      - "At least 5 sources with URLs; every data point names its source"
+      - "Numbers carry their unit, date and the exact figure (no rounding without saying so)"
+      - "At least 3 genuinely different angles, each grounded in a finding"
+      - "States the one insight the video must land and the common misconception"
+
+  - id: proposal
+    gate: true
+    run: agent
+    model: opus
+    tools: [read_artifact, catalog, memory, estimate_cost, render_time]
+    review:
+      - "Three concepts that differ in structure, hook and look, not just wording"
+      - "Every concept is grounded in the research, not generic"
+      - "The chosen concept names its hook, duration, look, voice and music plan"
+      - "Cost is itemised from the estimate tool, never guessed"
+
+  - id: script
+    gate: true
+    run: agent
+    model: opus
+    tools: [read_artifact, web_fetch, verify_claim]
+    review:
+      - "Word count fits the approved duration within 10% (Turkish ~2.4 words/s, English ~2.6)"
+      - "Hook in the first line; arc hook -> setup -> turn -> landing; a question or CTA at the end"
+      - "Every factual claim is marked verified with a source, or removed"
+      - "Numbers are written the way the narrator should say them"
+
+  - id: scene_plan
+    gate: true
+    run: agent
+    model: opus
+    tools: [read_artifact, catalog, stock_search, design_scenes, render_stills, layout_lint, readcheck]
+    review:
+      - "Scenes cover the whole script with no gaps; every scene has a trigger word"
+      - "No two consecutive scenes use the same visual device"
+      - "Layout lint has no errors; no text sits under the caption band"
+      - "Every on-screen number matches the script and the research"
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.explainer:assets
+    tools: [tts, align_words, music, sfx_plan, preview_render]
+    review:
+      - "Voice duration fits the plan; alignment found every trigger word"
+      - "Spend stays inside the approved budget"
+
+  - id: edit
+    run: code
+    call: factory.hat.explainer:edit
+    tools: [compile_bundle, sound_plan]
+
+  - id: compose
+    run: code
+    call: factory.hat.explainer:compose
+    tools: [final_render, qa_technical, qa_visual, qa_sound]
+
+  - id: publish
+    gate: true
+    run: agent
+    model: sonnet
+    tools: [read_artifact, thumbnails]
+    review:
+      - "Caption in the video's language, under 150 characters, ends with a question"
+      - "3–5 hashtags that match the topic"

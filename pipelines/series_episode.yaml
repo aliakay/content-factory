@@ -1,0 +1,33 @@
+id: series_episode
+order: 14
+status: partial
+category: generated
+inputs: [series]
+duration: [30, 120]
+name: {tr: Seri bölümü, en: Series episode}
+tagline:
+  tr: "Var olan bir serinin sıradaki bölümü, aynı dünya ve karakterlerle."
+  en: "The next episode of an existing series, same world and characters."
+makes:
+  tr: "Seri kitabındaki karakterler, çizim dili ve anlatıcıyla yeni bir bölüm; önceki bölümlerle tutarlı."
+  en: "A new episode with the series bible's characters, art style and narrator, consistent with earlier episodes."
+good_for:
+  tr: ["Düzenli yayınlanan hikâye serileri"]
+  en: ["Regularly published story series"]
+not_for:
+  tr: ["Tek seferlik videolar (→ Karakter animasyonu ya da Konu anlatımı)"]
+  en: ["One-off videos (→ Character animation or Explainer)"]
+needs:
+  tr: "Bir seri ve (istersen) bölüm notu."
+  en: "A series and (optionally) an episode note."
+cost:
+  tr: "Sahne çizimleri ve seslendirme kredisi; öneride kalem kalem."
+  en: "Scene art and narration credits; itemised at the proposal."
+stages:
+  - {id: proposal, gate: true, run: planned}
+  - {id: script, gate: true, run: planned}
+  - {id: scene_plan, gate: true, run: planned}
+  - {id: assets, gate: true, run: planned}
+  - {id: edit, run: planned}
+  - {id: compose, run: planned}
+  - {id: publish, gate: true, run: planned}
