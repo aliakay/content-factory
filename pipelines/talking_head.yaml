@@ -1,6 +1,6 @@
 id: talking_head
 order: 6
-status: partial
+status: ready
 category: footage
 inputs: [video]
 duration: [15, 90]
@@ -24,9 +24,34 @@ cost:
   tr: "Kredi gerekmez (müzik istenmezse)."
   en: "No credits needed (unless you want music)."
 stages:
-  - {id: idea, gate: true, run: planned}
-  - {id: script, gate: true, run: planned, name: {tr: Kesim kararı, en: Cut decision}}
-  - {id: assets, gate: true, run: planned}
-  - {id: edit, run: planned}
-  - {id: compose, run: planned}
-  - {id: publish, gate: true, run: planned}
+  - id: idea
+    gate: true
+    run: code
+    call: factory.hat.talkhead:idea
+
+  - id: script
+    gate: true
+    artifact: cut
+    name: {tr: Kesim kararı, en: Cut decision}
+    run: code
+    call: factory.hat.talkhead:script
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.talkhead:assets
+    tools: [music, preview_render]
+
+  - id: edit
+    run: code
+    call: factory.hat.talkhead:edit
+
+  - id: compose
+    run: code
+    call: factory.hat.talkhead:compose
+    tools: [final_render, qa_technical, qa_sound, thumbnails]
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.talkhead:publish

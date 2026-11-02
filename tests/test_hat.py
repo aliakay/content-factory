@@ -818,3 +818,53 @@ def test_travel_vlog_refuses_a_foreign_production(d, engine):
     P.write_artifact(pid, "proposal", {"concepts": [{"id": "A", "prod_id": 99}], "chosen": "A"}, d)
     with pytest.raises(P.GateError, match="does not belong"):
         F.chosen_prod(pid, d)
+
+
+# ---------------------------------------------------------------- talking head: the creator's video, cut by talk.py
+
+def test_talking_head_cuts_at_its_gates(d, engine, monkeypatch, tmp_path):
+    from factory import talk, productions as PR
+    from factory.hat import runner, talkhead as T
+    rows, calls = engine
+    raw = os.path.join(T.ROOT, "raw", "talk")
+    os.makedirs(raw, exist_ok=True)
+    src = os.path.join(raw, "_test_clip.mp4")
+    open(src, "wb").write(b"v")
+    try:
+        def create(con, path, brief, channel, aspect, lang=None):
+            calls.append(("create", os.path.basename(path)))
+            rows[50] = {"prod_id": 50, "title": "Kesim", "format": "talking_head", "qa": None,
+                        "data": {"logline": "l", "music": {"prompt": "lofi"}, "post": {"caption": "Ne dersin?", "hashtags": "#a"}}}
+            return 50
+        cut = {"kept": [True, False]}
+        monkeypatch.setattr(talk, "create", create)
+        monkeypatch.setattr(talk, "revise", lambda con, row, note: calls.append(("revise", note)) or cut.update(kept=[True, True]))
+        monkeypatch.setattr(talk, "summary", lambda dd: {"raw_s": 60.0, "kept_s": 31.0, "hook": "Dur!", "grade": "film",
+            "phrases": [{"id": i, "text": f"p{i}", "kept": k, "pos": i + 1, "flags": []} for i, k in enumerate(cut["kept"])]})
+        pid = P.create("talking_head", "t", d=d, extra={"source": "raw/talk/_test_clip.mp4"})["id"]
+        q = Q(runner, d)
+        assert runner.advance(pid, q, d=d) == ("gate", "idea")
+        prop = P.read_artifact(pid, "proposal", d)
+        assert prop["concepts"][0]["prod_id"] == 50 and prop["cost"]["credits"] == 900 and prop["seconds"] == 31.0
+        assert runner.approve(pid, "idea", q, d=d) == ("gate", "script")
+        assert [p["kept"] for p in P.read_artifact(pid, "cut", d)["phrases"]] == [True, False]
+        runner.feedback(pid, "script", "ikinci cümleyi geri koy", q, d=d)
+        assert ("revise", "ikinci cümleyi geri koy") in calls and P.read_artifact(pid, "cut", d)["phrases"][1]["kept"]
+        assert runner.approve(pid, "script", q, d=d) == ("gate", "assets")
+        assert not any(c[0] == "voice" for c in calls) and ("music", 900) in calls      # no voice: it is the creator's
+        assert runner.approve(pid, "assets", q, d=d) == ("gate", "publish")
+        assert P.read_artifact(pid, "publish", d)["caption"] == "Ne dersin?"
+    finally:
+        os.remove(src)
+
+
+def test_talking_head_needs_an_uploaded_video(d, api):
+    hat_api, _, q = api
+    with pytest.raises(ValueError, match="Upload your video"):
+        hat_api.post(None, "/api/hat/projects", {"line": "talking_head", "brief": "my talk about cities"}, q)
+    with pytest.raises(ValueError, match="Upload your video"):
+        hat_api.post(None, "/api/hat/projects", {"line": "talking_head", "brief": "my talk about cities",
+                                                 "source": "raw/talk/../../data/users.json"}, q)
+    from factory.hat import talkhead as T
+    with pytest.raises(P.GateError, match="no uploaded video"):
+        T._source({"source": "../data/users.json"})

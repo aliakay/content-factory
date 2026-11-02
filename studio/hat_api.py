@@ -159,8 +159,17 @@ def _post(con, path, b, queue):
         vl = b.get("video_lang") if b.get("video_lang") in VIDEO_LANGS else lang()
         aspect = b.get("aspect") if b.get("aspect") in ASPECTS else "9:16"
         title = str(b.get("title") or "").strip() or brief.split(".")[0][:60]
+        extra = {"ui_lang": lang(), "eleven_account": accounts.default_eleven(uid)}
+        if "video" in (line.get("inputs") or []):          # the creator's own video, uploaded to raw/talk/ first
+            src = str(b.get("source") or "")
+            if not re.fullmatch(r"raw/talk/[\w.-]+", src) or not os.path.isfile(os.path.join(ROOT, src)):
+                raise ValueError({"tr": "Önce videonu yükle.", "en": "Upload your video first."}[lang()])
+            extra["source"] = src
+        from factory.hat import footage
+        if b.get("format") in footage.FORMATS:
+            extra["format"] = b["format"]
         p = P.create(line["id"], title, brief=brief, video_lang=vl, aspect=aspect, channel=b.get("channel"), user=uid,
-                     con=con, extra={"ui_lang": lang(), "eleven_account": accounts.default_eleven(uid)})
+                     con=con, extra=extra)
         state, stage = runner.advance(p["id"], queue, by=uid)
         return {"id": p["id"], "state": state, "stage": stage}
     m = re.fullmatch(r"/api/hat/project/([\w-]+)", path)

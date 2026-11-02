@@ -18,7 +18,7 @@ const TX = {
     create: "Başlat", cancel: "Vazgeç", started: "Başladı: ilk aşama çalışıyor",
     prods_title: "Üretimler", prods_lead: "Yeni hatlardaki videolar. Kartı açınca akışı ve senden beklenen kararı görürsün.",
     prods_empty: "Henüz yeni hatta bir üretim yok.", new_prod: "Yeni üretim",
-    state_busy: "Çalışıyor", state_gate: "Kararını bekliyor", state_failed: "Hata", state_done: "Bitti", state_run: "Sırada", state_archived: "Arşiv", shots: "plan", warnings: "Uyarılar", archived_note: "Eski sistemden arşivlendi; üzerinde iş yapılmaz.",
+    state_busy: "Çalışıyor", state_gate: "Kararını bekliyor", state_failed: "Hata", state_done: "Bitti", state_run: "Sırada", state_archived: "Arşiv", video_file: "Videon (MP4/MOV, en fazla 600 MB)", need_video: "Önce videonu seç", uploading: "Yükleniyor", style: "Kurgu tarzı", cut_word: "kesildi", fmt_cinematic_calm: "Sakin sinematik", fmt_story_vo: "Hikâye (kendi sesin)", fmt_unreal_places: "Gerçek gibi durmayan yerler", fmt_travel_facts: "Gezi bilgileri (kaynaklı)", fmt_long_compilation: "Uzun derleme (1 dk+)",  shots: "plan", warnings: "Uyarılar", archived_note: "Eski sistemden arşivlendi; üzerinde iş yapılmaz.",
     state_planned: "Bu hatta sıradaki aşama henüz yok",
     st_pending: "Bekliyor", st_running: "Çalışıyor", st_awaiting_approval: "Kararını bekliyor", st_approved: "Onaylandı",
     st_done: "Bitti", st_failed: "Hata", st_stale: "Yeniden yapılacak",
@@ -56,7 +56,7 @@ const TX = {
     create: "Start", cancel: "Cancel", started: "Started: the first stage is running",
     prods_title: "Productions", prods_lead: "Videos on the new lines. Open one to see its flow and the decision waiting for you.",
     prods_empty: "No production on the new lines yet.", new_prod: "New production",
-    state_busy: "Working", state_gate: "Waiting for you", state_failed: "Error", state_done: "Done", state_run: "Up next", state_archived: "Archive", shots: "shots", warnings: "Warnings", archived_note: "Archived from the old system; no work is done on it.",
+    state_busy: "Working", state_gate: "Waiting for you", state_failed: "Error", state_done: "Done", state_run: "Up next", state_archived: "Archive", video_file: "Your video (MP4/MOV, up to 600 MB)", need_video: "Pick your video first", uploading: "Uploading", style: "Edit style", cut_word: "cut", fmt_cinematic_calm: "Cinematic calm", fmt_story_vo: "Story (your own voice)", fmt_unreal_places: "Places that look unreal", fmt_travel_facts: "Travel facts (sourced)", fmt_long_compilation: "Long compilation (1 min+)",  shots: "shots", warnings: "Warnings", archived_note: "Archived from the old system; no work is done on it.",
     state_planned: "The next stage is not built on this line yet",
     st_pending: "Waiting", st_running: "Working", st_awaiting_approval: "Waiting for you", st_approved: "Approved",
     st_done: "Done", st_failed: "Error", st_stale: "To redo",
@@ -162,6 +162,8 @@ function startForm(l) {
       <label class="field"><span>${esc(t("aspect"))}</span><select id="hlAspect"><option>9:16</option><option>16:9</option></select></label>
       <label class="field"><span>${esc(t("channel"))}</span><select id="hlChan"><option value="">${esc(t("none"))}</option>${S.channels.map((c) => `<option value="${esc(c.id)}" ${c.id === S.ch ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
     </div>
+    ${(l.inputs || []).includes("video") ? `<label class="field mt8"><span>${esc(t("video_file"))}</span><input type="file" id="hlVideo" accept="video/mp4,video/quicktime,.mov,.m4v"></label><div id="hlProg" class="tiny faint"></div>` : ""}
+    ${l.id === "travel_vlog" ? `<label class="field mt8"><span>${esc(t("style"))}</span><select id="hlFormat">${["cinematic_calm", "story_vo", "unreal_places", "travel_facts", "long_compilation"].map((f) => `<option value="${f}">${esc(t("fmt_" + f))}</option>`).join("")}</select></label>` : ""}
     <div class="row mt12"><button class="btn accent" data-act="hatCreate" data-id="${esc(l.id)}">${esc(t("create"))}</button>
       <button class="btn ghost" data-act="hatClose">${esc(t("cancel"))}</button></div>
   </div>`;
@@ -178,8 +180,15 @@ ACT.hatClose = () => { HS.open = null; S.sig = null; route({ poll: true }); };
 ACT.hatCreate = async (el) => {
   el.disabled = true;
   try {
+    let source = null;
+    if ($("#hlVideo")) {          // a line that edits the creator's own video: upload it first (kept as is in raw/talk/)
+      const f = $("#hlVideo").files[0];
+      if (!f) { toast(t("need_video"), 1); return; }
+      source = (await upload("/api/refs/upload", f, { "X-Talk": "1" }, (k) => ($("#hlProg").textContent = t("uploading") + " %" + Math.round(k * 100)))).file;
+    }
     const r = await post("/api/hat/projects", { line: el.dataset.id, brief: $("#hlBrief").value, title: $("#hlTitle").value,
-      video_lang: $("#hlVlang").value, aspect: $("#hlAspect").value, channel: $("#hlChan").value || null });
+      video_lang: $("#hlVlang").value, aspect: $("#hlAspect").value, channel: $("#hlChan").value || null, source,
+      format: $("#hlFormat") ? $("#hlFormat").value : null });
     HS.open = null; S.drafts = {}; toast(t("started"));
     location.hash = "#/u/" + r.id;
   } finally { el.disabled = false; }
@@ -265,6 +274,14 @@ function outPublish(o, s, f) {
       ${fin.final_url ? `<a class="btn sm" href="${esc(fin.final_url)}?dl=1">${ICON.download}${esc(t("download"))}</a>` : ""}</div>
     ${o.notes ? `<h3 class="mt16">${esc(t("notes"))}</h3><div class="small" style="white-space:pre-wrap">${esc(o.notes)}</div>` : ""}`;
 }
+function outCut(o) {
+  return `${o.hook ? `<div class="hl-big">“${esc(o.hook)}”</div>` : ""}
+    <div class="tiny muted mt8">${esc(o.raw_s)} → ${esc(o.kept_s)} ${esc(t("sec"))}</div>
+    <ol class="hl-ul small mt8">${(o.phrases || []).map((x) => `<li class="${x.kept ? "" : "faint"}" style="${x.kept ? "" : "text-decoration:line-through"}">
+      ${x.kept ? `<span class="badge ok">${esc(x.pos)}</span>` : `<span class="badge">${esc(t("cut_word"))}</span>`} ${esc(x.text)}
+      ${(x.flags || []).length ? `<span class="tiny warn">${esc(x.flags.join(", "))}</span>` : ""}</li>`).join("")}</ol>
+    ${(o.broll || []).length ? `<h3 class="mt16">B-roll</h3><ul class="hl-ul small">${o.broll.map((b) => `<li>${esc(b.kind)} · ${esc(b.text || "")}</li>`).join("")}</ul>` : ""}`;
+}
 function outCutPlan(o, s, f) {
   return `${player(o.preview_url, f.project.aspect === "16:9")}
     ${o.concept ? `<div class="hl-big small mt12">${esc(o.concept)}</div>` : ""}
@@ -274,7 +291,7 @@ function outCutPlan(o, s, f) {
     ${(o.warnings || []).length ? `<h3 class="mt16">${esc(t("warnings"))}</h3><ul class="hl-ul small">${o.warnings.map((w) => `<li class="warn">${esc(w)}</li>`).join("")}</ul>` : ""}`;
 }
 const OUT = { research: outResearch, proposal: outProposal, script: outScript, scene_plan: outScenes, assets: outAssets,
-  render: outRender, publish: outPublish, cut_plan: outCutPlan };
+  render: outRender, publish: outPublish, cut_plan: outCutPlan, cut: outCut };
 function outputHtml(s, f) {
   const o = s.output;
   if (!o) return `<div class="tiny faint">${esc(s.status === "pending" ? t("waiting_prev") : t("output_none"))}</div>`;

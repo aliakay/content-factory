@@ -170,14 +170,14 @@ yüz takibiyle kadraj, B-roll, ses zinciri.
 **İyi olduğu:** Görüş, ipucu, hikâye anlatımı.
 **İyi olmadığı:** Konuşmasız görüntü.
 **İster:** Ham video. **Kapılar:** 3 (kesim kararı) · 5 · 8.
-**Durum:** Var (talk + talkcut).
+**Durum:** Hazır (t203). Fikir: video analizi + ilk kesim; Kesim kararı kapısında kalan/kesilen cümleler, geri bildirim yeniden keser; ses yok, müzik onaylı bütçeyle. Video panodan yüklenir (raw/talk/, dokunulmaz).
 
 ### 6.7 Klip fabrikası · `clip_factory`
 **Ne üretir:** Uzun bir kaynaktan (yayın, sunum, röportaj) puanlanmış N adet bağımsız kısa klip.
 **İyi olduğu:** Bir uzun içerikten haftalık kısa video stoku.
 **İyi olmadığı:** Zaten kısa olan kaynaklar.
 **İster:** Uzun video/ses. **Kapılar:** 2 (klip listesi) · 5 · 8.
-**Durum:** Yeni; talk.py'nin transkript ve kesim altyapısı kullanılır.
+**Durum:** Hazır (t203). Fikir: video analizi + ilk kesim; Kesim kararı kapısında kalan/kesilen cümleler, geri bildirim yeniden keser; ses yok, müzik onaylı bütçeyle. Video panodan yüklenir (raw/talk/, dokunulmaz).
 
 ### 6.8 Podcast dönüştürme · `podcast`
 **Ne üretir:** Podcast sesinden altyazılı/dalga formlu klipler, alıntı kartları; istenirse bölüm eşlik videosu.
