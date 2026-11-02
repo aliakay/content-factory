@@ -197,3 +197,78 @@ def test_feedback_reaches_the_stage_and_failures_wait(d, monkeypatch):
 def test_job_dispatch_is_wired():
     src = open(os.path.join(os.path.dirname(__file__), "..", "factory", "jobs.py"), encoding="utf-8").read()
     assert 'kind == "hat_stage"' in src
+
+
+# ---------------------------------------------------------------- tools
+
+def test_agent_stages_only_name_real_tools():
+    from factory.hat import tools as T
+    for m in manifest.all_lines().values():
+        for s in m["stages"]:
+            if s["run"] != "agent":
+                continue
+            for n in s["tools"]:
+                assert n in T.BUILTIN or (n in T.TOOLS and T.TOOLS[n]["agent"]), (m["id"], s["id"], n)
+
+
+def test_tool_contract_and_argument_check(d):
+    from factory.hat import tools as T
+    pid = P.create("explainer", "t", video_lang="en", d=d)["id"]
+    ctx = T.Ctx(pid, "research", d)
+    info = T.call("project_info", ctx)
+    assert info["video_lang"] == "en" and info["stage"] == "research"
+    with pytest.raises(T.ToolError, match="bad arguments"):
+        T.call("read_artifact", ctx, {})
+    with pytest.raises(T.ToolError, match="no artifact"):
+        T.call("read_artifact", ctx, {"name": "script"})
+    listed = {t["name"]: t for t in T.describe()}
+    assert "fn" not in listed["render_stills"] and listed["render_stills"]["capability"] == "design"
+    ours, builtins = T.agent_tools(["web_search", "catalog", "nope"])
+    assert ours[:3] == ["project_info", "read_artifact", "submit_artifact"] and "catalog" in ours
+    assert builtins == ["WebSearch"] and "nope" not in ours
+    assert any(e["kind"] == "tool" and e["tool"] == "project_info" for e in P.tail(pid, d=d))
+
+
+def test_submit_artifact_is_checked_against_the_schema(d):
+    from factory.hat import tools as T
+    pid = P.create("explainer", "t", d=d)["id"]
+    ctx = T.Ctx(pid, "research", d)
+    r = T.call("submit_artifact", ctx, {"data": {"insight": "short"}})
+    assert not r["accepted"] and any("sources" in x for x in r["problems"])
+    good = {"insight": "TTF crossed 100 EUR/MWh intraday", "summary": "ok",
+            "sources": [{"url": f"https://x.org/{i}", "title": "x"} for i in range(3)],
+            "data_points": [{"claim": "100.425 EUR/MWh", "source": "https://x.org/0"}],
+            "angles": [{"title": "a", "grounded_in": "x"}, {"title": "b", "grounded_in": "y"}]}
+    assert T.call("submit_artifact", ctx, {"data": good})["accepted"]
+    assert P.read_artifact(pid, "research", d)["insight"].startswith("TTF")
+
+
+def test_draft_timing_follows_the_language():
+    from factory.hat import explainer as E
+    words, lt, dur = E.draft_timing(["bir iki üç dört", "beş altı"], "tr")
+    assert len(words) == 6 and len(lt) == 2 and lt[1]["start"] > lt[0]["end"]
+    assert abs((lt[0]["end"] - lt[0]["start"]) - 4 / E.WPS["tr"]) < 0.01
+
+
+PLAN = {"concept": "test", "palette": {"bg": "#14232B", "ink": "#EDF1E8", "accent": "#F5B942"}, "summary": "s",
+        "scenes": [{"id": "hook", "lines": [0, 0], "html": '<div class="sc" style="background:#14232B"><h1 '
+                    'style="position:absolute;left:64px;top:400px;color:#F5B942;font-size:90px">AVRUPA GAZI</h1></div>'},
+                   {"id": "end", "lines": [1, 1], "html": '<div class="sc" style="background:#101E26"><h1 '
+                    'style="position:absolute;left:64px;top:700px;color:#EDF1E8;font-size:80px">TAKİP ET</h1></div>'}]}
+
+
+def test_render_stills_draws_the_plan(d, monkeypatch, tmp_path):
+    from factory.hat import tools as T
+    if not T.available("render_stills")[0]:
+        pytest.skip("no chromium here")
+    from factory import config
+    root = os.path.realpath(config.ROOT)
+    pdir = os.path.join(root, "projects", "_test_" + os.path.basename(str(tmp_path)))   # the renderer serves ROOT only
+    try:
+        pid = P.create("explainer", "stills", d=pdir)["id"]
+        P.write_artifact(pid, "script", {"lines": ["Avrupa gazı yüz avroyu aştı.", "Takip et."]}, pdir)
+        r = T.call("render_stills", T.Ctx(pid, "scene_plan", pdir), {"plan": PLAN})
+        assert len(r["stills"]) == 2 and all(os.path.getsize(s) > 1000 for s in r["stills"]), r
+    finally:
+        import shutil
+        shutil.rmtree(pdir, ignore_errors=True)
