@@ -1,5 +1,5 @@
 """Production lines v2: manifests and the gate rules of a project folder."""
-import os
+import json, os
 
 import pytest
 import yaml
@@ -272,3 +272,38 @@ def test_render_stills_draws_the_plan(d, monkeypatch, tmp_path):
     finally:
         import shutil
         shutil.rmtree(pdir, ignore_errors=True)
+
+
+# ---------------------------------------------------------------- MCP server
+
+def test_mcp_lists_and_calls_only_allowed_tools(d):
+    from factory.hat import mcp_server as M, tools as T
+    pid = P.create("explainer", "t", d=d)["id"]
+    ctx, allowed = T.Ctx(pid, "research", d), ["project_info", "read_artifact", "submit_artifact"]
+    init = M.handle({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}},
+                    ctx, allowed)
+    assert init["result"]["capabilities"]["tools"] is not None
+    assert M.handle({"jsonrpc": "2.0", "method": "notifications/initialized"}, ctx, allowed) is None
+    names = [t["name"] for t in M.handle({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, ctx, allowed)["result"]["tools"]]
+    assert names == allowed
+    r = M.handle({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "catalog"}}, ctx, allowed)
+    assert r["result"]["isError"] and "not allowed" in r["result"]["content"][0]["text"]
+    r = M.handle({"jsonrpc": "2.0", "id": 4, "method": "tools/call",
+                  "params": {"name": "project_info", "arguments": {}}}, ctx, allowed)
+    assert not r["result"]["isError"] and json.loads(r["result"]["content"][0]["text"])["stage"] == "research"
+
+
+def test_mcp_server_speaks_stdio(d):
+    import subprocess
+    from factory.hat import mcp_server as M
+    pid = P.create("explainer", "t", video_lang="en", d=d)["id"]
+    cfg = M.config(pid, "research", ["project_info", "read_artifact", "submit_artifact"], d=d)
+    msgs = [{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+            {"jsonrpc": "2.0", "method": "notifications/initialized"},
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+            {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "project_info", "arguments": {}}}]
+    p = subprocess.run([cfg["command"], *cfg["args"]], input="\n".join(json.dumps(m) for m in msgs) + "\n",
+                       capture_output=True, text=True, env={**os.environ, **cfg["env"]}, timeout=60)
+    out = [json.loads(x) for x in p.stdout.splitlines() if x.strip()]
+    assert [o["id"] for o in out] == [1, 2, 3], p.stderr
+    assert json.loads(out[2]["result"]["content"][0]["text"])["video_lang"] == "en"
