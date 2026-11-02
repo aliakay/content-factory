@@ -594,3 +594,66 @@ def test_imported_projects_show_on_the_board_in_both_languages(tmp_path, d, monk
             P.next_stage(pid, d)
     gate = next(i for i in P.list_ids(d) if "onizlemedeki" in i)
     assert hat_api.project(gate)["state"] == "run"
+
+
+# ---------------------------------------------------------------- the board's API: gate actions and their refusals
+
+@pytest.fixture
+def api(d, monkeypatch):
+    from studio import hat_api
+    monkeypatch.setattr(P, "DIR", d)
+    monkeypatch.setattr(hat_api.accounts, "current", lambda: "ali")
+    monkeypatch.setattr(hat_api, "lang", lambda: "en")
+    runner = _fake_line(monkeypatch, {"proposal": {"artifact": {"cost": {"credits": 100, "usd": 0.0}}}})
+    pid = P.create("explainer", "t", d=d)["id"]
+    q = Q(runner, d)
+    runner.advance(pid, q, d=d)
+    return hat_api, pid, q
+
+
+def test_api_approve_feedback_and_back_walk_the_gates(api):
+    hat_api, pid, q = api
+    post = lambda **b: hat_api.post(None, f"/api/hat/project/{pid}", b, q)
+    assert post(action="approve", stage="proposal") == {"id": pid, "state": "gate", "stage": "script"}
+    assert P.load(pid)["budget"]["credits"] == 100 and P.load(pid)["budget"]["approved_by"] == "ali"
+    assert post(action="feedback", stage="script", note="shorter")["state"] == "gate"
+    assert P.checkpoint(pid, "script")["revisions"] == 1
+    assert post(action="back", stage="proposal")["state"] == "gate"      # reopening marks the later stages stale
+    assert P.checkpoint(pid, "script")["status"] == "stale"
+
+
+def test_api_refuses_what_the_gate_rules_forbid(api):
+    hat_api, pid, q = api
+    post = lambda **b: hat_api.post(None, f"/api/hat/project/{pid}", b, q)
+    with pytest.raises(ValueError, match="not waiting for approval"):
+        post(action="approve", stage="script")                              # a stage that is not at its gate
+    with pytest.raises(ValueError, match="needs a note"):
+        post(action="feedback", stage="proposal", note="  ")
+    with pytest.raises(ValueError, match="unknown action"):
+        post(action="skip", stage="proposal")
+    for i in range(P.MAX_REVISIONS):
+        post(action="feedback", stage="proposal", note=f"again {i}")
+    with pytest.raises(ValueError, match="revisions"):
+        post(action="feedback", stage="proposal", note="once more")
+    assert post(action="approve", stage="proposal")["stage"] == "script"    # the cap leaves approving possible
+    with pytest.raises(ValueError, match="no such project"):
+        hat_api.post(None, "/api/hat/project/nope", {"action": "approve", "stage": "proposal"}, q)
+
+
+def test_api_create_checks_line_and_brief(api, monkeypatch):
+    hat_api, _, q = api
+    with pytest.raises(ValueError, match="not ready"):
+        hat_api.post(None, "/api/hat/projects", {"line": "animation", "brief": "a long enough brief"}, q)
+    with pytest.raises(ValueError, match="few words"):
+        hat_api.post(None, "/api/hat/projects", {"line": "explainer", "brief": "x"}, q)
+    monkeypatch.setattr(hat_api.accounts, "default_eleven", lambda uid: None, raising=False)
+    out = hat_api.post(None, "/api/hat/projects", {"line": "explainer", "brief": "Why gas prices rose", "video_lang": "de"}, q)
+    assert P.load(out["id"])["video_lang"] == "en"          # an unknown video language falls back to the interface one
+
+
+def test_media_file_stays_inside_projects(api, d):
+    hat_api, pid, _ = api
+    open(P.path(pid, "renders", "a.mp4"), "wb").write(b"x")
+    open(os.path.join(d, "..", "secret.mp4"), "wb").write(b"x")
+    assert hat_api.media_file(f"{pid}/renders/a.mp4")[1] == "video/mp4"
+    assert hat_api.media_file("../secret.mp4") is None and hat_api.media_file(f"{pid}/project.json") is None

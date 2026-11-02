@@ -69,3 +69,16 @@ continue on the board, or call `runner.advance`.
 - OpenMontage and the noncommercial repos: ideas only, no code (AGPL/NC).
 - No GPU: FreeVideo goes through minimax-h3 via ElevenLabs; ManimGX only after evaluation.
 - Never spend credits without approval.
+
+## Update 2026-11-02 (evening)
+- Done: t110–t113 (board verified at 390px in TR and EN), t114 tooling, most of t116 (34 tests in `tests/test_hat.py`).
+- Project 901: research done, proposal approved (2472 credits locked), **script waits at its gate for the user**. The
+  reviewer's three points are still open: split line 10, align the closing question with the caption and the Turkey
+  angle, write "sıvılaştırılmış doğal gaz" instead of "LNG" (TTS may spell it out). Do not approve for the user.
+- Budget check: the connector account is capped by the app's monthly cap (100000, spent 0), so 2472 fits; the real
+  ElevenLabs balance is not read for connector accounts.
+- Migration (`python -m factory.hat.migrate`): 4 of 11 imported (103, 107, 108, 111); unfinished ones restart at research
+  because later stages read the proposal. 7 rows are held for the user (QA failed ×4, 113 Avrupa = same topic as 901,
+  113 Fiber numbering, 25 Kuyt DB says voice but out/116_kuyt exists). Import them with `--include-flagged` after the
+  user decides. `--force` refuses a project that has events beyond created/imported.
+- Next: t115 after the script decision; t114 held rows; phase 2 lines.
