@@ -89,6 +89,9 @@ const HS = { lines: null, open: null, sel: {} };
 
 // ---------------- shell: nav entries and the language switch ----------------
 NAV.unshift(["#/uret", "wand", ""], ["#/uretimler", "film", ""]);
+// One way in: the planner home and the old board send you to the productions list (t206); their pages stay reachable
+// from old links until go-live removes them.
+for (const old of ["#/", "#/hat"]) ROUTES[old] = () => { location.replace("#/uretimler"); return { poll: 0 }; };
 // The old shell (app.js) is written in Turkish. In EN the visible chrome is translated here, after it renders,
 // so app.js stays untouched. Page bodies of the old pages are not covered (tracker follow-up).
 const SHELL_EN = {
@@ -96,7 +99,7 @@ const SHELL_EN = {
   "Stüdyo": "Studio", "Üretim panosu": "Production board", "Teknik kataloğu": "Technique catalogue", "Seriler": "Series",
   "Keşif": "Discover", "Takip": "Tracking", "Videolar": "Videos", "Stiller": "Styles", "Referanslar": "References",
   "Yerler & çekimler": "Places & shoots", "Ses & avatar": "Voice & avatar", "Bütçe": "Budget", "Sinyaller": "Signals",
-  "Hesaplar": "Accounts", "Pano": "Board", "Menü": "Menu", "Ara ya da git…": "Search or go to…", "işler boşta": "no jobs running",
+  "Hesaplar": "Accounts", "Ayarlar": "Settings", "Üretimler": "Productions", "Üret": "Make", "Pano": "Board", "Menü": "Menu", "Ara ya da git…": "Search or go to…", "işler boşta": "no jobs running",
   "Tema": "Theme", "Yeni kanal": "New channel", "Kanal yok": "No channel", "🌙 Koyu tema": "🌙 Dark theme", "☀️ Açık tema": "☀️ Light theme",
 };
 const SHELL_RE = [[/^(\d+) iş sürüyor$/, "$1 jobs running"], [/^çekimli\b/, "footage"], [/^çekimsiz\b/, "topic only"], [/^karışık\b/, "mixed"]];
