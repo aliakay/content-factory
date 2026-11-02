@@ -180,12 +180,18 @@ def selected_model(step, requested=None, uid=None):
     return default_model(step, "codex")
 
 
-def _codex(prompt, tools, timeout, model, effort, step):
-    """One read-only Codex CLI turn. WebSearch/WebFetch map to Codex's live web search."""
-    cmd = [CODEX, "--ask-for-approval", "never"]
+def _codex(prompt, tools, timeout, model, effort, step, approve_mcp=False):
+    """One Codex CLI turn. MCP write tools need the CLI's automatic approval review."""
+    if approve_mcp:
+        # ElevenLabs generation tools are write actions. With `never`, Codex rejects them
+        # before they reach ElevenLabs; use its automatic review only for explicitly
+        # requested MCP turns. Non-MCP work remains read-only and approval-free.
+        cmd = [CODEX, "--approve-for-me"]
+    else:
+        cmd = [CODEX, "--ask-for-approval", "never"]
     if any(t in ("WebSearch", "WebFetch") for t in tools):
         cmd.append("--search")
-    cmd += ["exec", "--json", "--ephemeral", "--sandbox", "read-only", "--skip-git-repo-check",
+    cmd += ["exec", "--json", "--ephemeral", "--sandbox", "workspace-write" if approve_mcp else "read-only", "--skip-git-repo-check",
             "--model", model, "-C", WORKDIR, "-c", f'model_reasoning_effort="{effort}"', "-"]
     os.makedirs(WORKDIR, exist_ok=True)
     try:
@@ -315,7 +321,7 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
     model = selected_model(step, model) if provider == "codex" or not mcp else (model or MODEL)
     level = min(effort, MAX_EFFORT, key=EFFORTS.index) if effort in EFFORTS else effort_for(step, model)
     if provider == "codex":
-        return _codex(prompt, tools, timeout, model, level, step)
+        return _codex(prompt, tools, timeout, model, level, step, approve_mcp=mcp)
     cmd = [CLAUDE, "-p", prompt, "--output-format", "stream-json", "--verbose", "--allowedTools", ",".join(tools),
            "--disable-slash-commands"]
     if not mcp:  # connectors (e.g. ElevenLabs) are only loaded when a step needs them

@@ -98,5 +98,10 @@
   ],
   "DARK": 0.72,
   "PAPER": true
- }
+ },
+ "stills": [
+  "data/styles/cream-grid-highlighter/preview0.png",
+  "data/styles/cream-grid-highlighter/preview1.png",
+  "data/styles/cream-grid-highlighter/preview2.png"
+ ]
 }

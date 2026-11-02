@@ -207,7 +207,7 @@ def image(con, prompt_text, approved, account=None, aspect="9:16", flow_id=None,
     if acc["type"] == "apikey":
         raise ElevenError("görsel üretimi yalnızca connector hesabıyla yapılabiliyor")
     credits.guard(con, "image", model, 1, approved, account)
-    ratio = "2:3" if aspect == "9:16" else "3:2"
+    ratio = "9:16" if aspect == "9:16" else "16:9"
     if refs:
         how = (f"Call creative_edit_image on flow_id \"{flow_id}\" with model_id \"{model}\", connect_from "
                f"{json.dumps(list(refs))} (these nodes are the reference images: keep their characters, faces, outfits, "
@@ -219,8 +219,10 @@ def image(con, prompt_text, approved, account=None, aspect="9:16", flow_id=None,
     prompt = f"""Use the ElevenLabs tools, in this order, exactly once each:
 1. {how}, generations_count 1, estimate_only true and this prompt: <<<{prompt_text}>>>
    This only creates the node (nothing is generated or charged); note its flow_id and node_id.
-2. creative_get_flow_node on that node to read its model_parameters, then creative_update_node with the same
-   model_parameters except "aspect_ratio": "{ratio}" (portrait for a 9:16 video, landscape for 16:9).
+2. Call creative_get_model_schema(node_type="image-generation", model_id="{model}") and
+   creative_get_flow_node on that node. Call creative_update_node with its existing model_parameters, setting
+   "aspect_ratio": "{ratio}". Keep only parameters listed in the schema. Never include "images" in
+   model_parameters: references are already wired by creative_edit_image's connect_from argument.
 3. creative_run_flow_nodes on that one node with generations_count 1.
 4. Poll creative_get_flow_run_status until finished, then read the signed image URL.
 Reply ONLY JSON: {{"url": "<signed image url>", "credit_cost": <number>, "flow_id": "<flow id>", "node_id": "<the

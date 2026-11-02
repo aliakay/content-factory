@@ -410,12 +410,29 @@ def resolve_stock(design, d):
 
 
 def resolve_plates(design, d):
-    """{{plate:SCENE}} -> the scene's illustration (factory/illustrate.py); an unknown id gets the scene's own plate."""
+    """Make every generated plate part of its scene, then resolve the image URLs.
+
+    The motion model is asked to place a {{plate:SCENE}} image in each illustrated scene, but it can omit that
+    markup. Injecting it here makes the asset-to-render connection an invariant instead of relying on prompt
+    compliance.
+    """
     urls = illustrate.plate_urls(d)
     if not urls:
         return
+    # Keep this layer behind the scene content and full-bleed. Inline fallback styles make it work even when a
+    # designer's global CSS does not define the plate classes.
+    base_css = design.get("global_css", "")
+    if ".plate-wrap" not in base_css:
+        design["global_css"] = (base_css + "\n" if base_css else "") + (
+            ".plate-wrap{position:absolute;inset:-8%;width:116%;height:116%;transform-origin:50% 50%;"
+            "opacity:1;filter:none;z-index:0;pointer-events:none}"
+            ".plate{display:block;width:100%;height:100%;object-fit:cover;opacity:1;filter:none}"
+        )
     for sid, sc in design["scenes"].items():
         own = urls.get(sid, "data:,")
+        if own != "data:," and not re.search(r"\{\{plate:[\w-]+\}\}", sc.get("html", "")):
+            sc["html"] = (f'<div class="plate-wrap" aria-hidden="true"><img class="plate" '
+                          f'src="{{{{plate:{sid}}}}}" alt=""></div>\n' + sc.get("html", ""))
         for k in ("html", "css", "js"):
             sc[k] = re.sub(r"\{\{plate:([\w-]+)\}\}", lambda m: urls.get(m.group(1), own), sc[k])
 
