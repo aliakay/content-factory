@@ -4,7 +4,10 @@ import json, os
 import pytest
 import yaml
 
+from factory import llm as _llm
 from factory.hat import manifest, project as P
+
+_REAL_ASK_TEXT = _llm.ask_text      # for the one test that checks the CLI command with subprocess faked
 
 
 # ---------------------------------------------------------------- manifests
@@ -47,6 +50,17 @@ def test_manifest_errors_are_caught(tmp_path):
 
 
 # ---------------------------------------------------------------- project gates
+
+@pytest.fixture(autouse=True)
+def no_real_llm(monkeypatch):
+    """No test may reach a real model: a leak costs money and hangs the run."""
+    from factory import llm
+    def refuse(*a, **k):
+        raise AssertionError("a test tried to call a real model")
+    for name in ("ask_text", "ask", "ask_json"):
+        if hasattr(llm, name):
+            monkeypatch.setattr(llm, name, refuse)
+
 
 @pytest.fixture
 def d(tmp_path):
@@ -147,8 +161,10 @@ def _fake_line(monkeypatch, outputs, fail_on=()):
             raise RuntimeError(f"{s['id']} broke")
         out = outputs.get(s["id"], {"artifact": {"ok": s["id"], "note": note}})
         return out(note) if callable(out) else out
-    import types, sys
-    monkeypatch.setitem(sys.modules, "factory.hat.agent", types.SimpleNamespace(run_stage=fake_agent))
+    import types, sys, factory.hat
+    fake = types.SimpleNamespace(run_stage=fake_agent)
+    monkeypatch.setitem(sys.modules, "factory.hat.agent", fake)
+    monkeypatch.setattr(factory.hat, "agent", fake, raising=False)   # `from . import agent` reads the package first
     monkeypatch.setattr(runner, "_code_step", lambda call: fake_agent)
     return runner
 
@@ -384,6 +400,7 @@ def test_cli_commands_attach_our_server(monkeypatch, tmp_path):
     monkeypatch.setattr(llm, "selected_provider", lambda *a, **k: "claude")
     monkeypatch.setattr(accounts, "claude_env", lambda: {})
     monkeypatch.setattr(llm, "WORKDIR", str(tmp_path))
+    monkeypatch.setattr(llm, "ask_text", _REAL_ASK_TEXT)      # subprocess is faked above, so nothing real runs
     llm.ask_text("hi", tools=("mcp__factory__project_info",), servers=servers, budget_usd=2.0, model="sonnet")
     cmd = seen["cmd"]
     cfg = cmd[cmd.index("--mcp-config") + 1]
