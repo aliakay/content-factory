@@ -89,16 +89,43 @@ const HS = { lines: null, open: null, sel: {} };
 
 // ---------------- shell: nav entries and the language switch ----------------
 NAV.unshift(["#/uret", "wand", ""], ["#/uretimler", "film", ""]);
+// The old shell (app.js) is written in Turkish. In EN the visible chrome is translated here, after it renders,
+// so app.js stays untouched. Page bodies of the old pages are not covered (tracker follow-up).
+const SHELL_EN = {
+  "Üretim": "Produce", "Kütüphane": "Library", "Sistem": "System", "Kanallar": "Channels",
+  "Stüdyo": "Studio", "Üretim panosu": "Production board", "Teknik kataloğu": "Technique catalogue", "Seriler": "Series",
+  "Keşif": "Discover", "Takip": "Tracking", "Videolar": "Videos", "Stiller": "Styles", "Referanslar": "References",
+  "Yerler & çekimler": "Places & shoots", "Ses & avatar": "Voice & avatar", "Bütçe": "Budget", "Sinyaller": "Signals",
+  "Hesaplar": "Accounts", "Pano": "Board", "Menü": "Menu", "Ara ya da git…": "Search or go to…", "işler boşta": "no jobs running",
+  "Tema": "Theme", "Yeni kanal": "New channel", "Kanal yok": "No channel", "🌙 Koyu tema": "🌙 Dark theme", "☀️ Açık tema": "☀️ Light theme",
+};
+const SHELL_RE = [[/^(\d+) iş sürüyor$/, "$1 jobs running"], [/^çekimli\b/, "footage"], [/^çekimsiz\b/, "topic only"], [/^karışık\b/, "mixed"]];
+const trText = (x) => { const k = x.trim(); if (!k) return x; let v = SHELL_EN[k]; for (const [re, to] of SHELL_RE) if (v == null && re.test(k)) v = k.replace(re, to); return v == null ? x : x.replace(k, v); };
+function translateShell() {
+  if (L() === "tr") return;
+  for (const sel of ["#rail", "#side", "#top", "#mtop", "#tabbar", "#drawerPanel"]) {
+    const root = $(sel); if (!root) continue;
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) { const v = trText(n.nodeValue); if (v !== n.nodeValue) n.nodeValue = v; }
+    root.querySelectorAll("[data-tip],[title]").forEach((e) => { for (const a of ["data-tip", "title"]) if (e.hasAttribute(a)) e.setAttribute(a, trText(e.getAttribute(a))); });
+  }
+}
 const _renderShell = renderShell;
 renderShell = function () {
   NAV[0][2] = t("nav_make"); NAV[1][2] = t("nav_prods");
+  document.documentElement.lang = L();   // text-transform: uppercase needs the right language (tr: i→İ, en: i→I)
   _renderShell();
+  translateShell();
   const top = $("#top");
   if (top && !top.querySelector(".langsw")) {
     top.insertAdjacentHTML("beforeend", `<div class="seg langsw" title="${esc(t("lang"))}">${Object.keys(LANGS).map((k) =>
       `<button class="${L() === k ? "on" : ""}" data-act="hatLang" data-v="${k}">${k.toUpperCase()}</button>`).join("")}</div>`);
   }
 };
+const _jobsTick = jobsTick;
+jobsTick = async function () { await _jobsTick(); const el = $(".jobs-ind"); if (el && L() !== "tr") el.childNodes.forEach((n) => { if (n.nodeType === 3) n.nodeValue = trText(n.nodeValue); }); };
+const _dt = dt;
+dt = function (iso) { return L() === "tr" ? _dt(iso) : (iso ? new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : ""); };
 ACT.hatLang = async (el) => {
   const r = await post("/api/hat/lang", { lang: el.dataset.v });
   if (S.me) S.me.ui_lang = r.ui_lang;
