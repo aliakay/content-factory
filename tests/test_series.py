@@ -190,3 +190,16 @@ def test_owner_default_voice_comes_from_the_profile(monkeypatch, tmp_path):
     prof.write_text(json.dumps({"defaults": {"en": "CLONE_EN", "tr": "CLONE_TR"}}))
     assert formats.default_voice("tr", "ali") == "CLONE_TR" and formats.default_voice("de", "ali") == "CLONE_EN"
     assert formats.default_voice("tr", "fatih") == formats.DEFAULT_VOICES["tr"]["voice_id"]  # a member's connector
+
+
+def test_plate_prompt_never_sends_reference_ports_to_update_node(monkeypatch):
+    seen = []
+    def ask(prompt, **k):
+        seen.append(prompt)
+        return {"url": None, "error": "stop here"}, {}
+    monkeypatch.setattr(eleven.llm, "ask", ask)
+    monkeypatch.setattr(eleven.credits, "guard", lambda *a, **k: 0)
+    monkeypatch.setattr(eleven, "_account", lambda a: ("ali", {"type": "connector", "owner": "ali"}))
+    with pytest.raises(eleven.ElevenError):
+        eleven.image(None, "a ferry at night", 500, "ali", "9:16", "F1", refs=("n1",))
+    assert 'Leave out "images"' in seen[0] and '"aspect_ratio": "2:3"' in seen[0]
