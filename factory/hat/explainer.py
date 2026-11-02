@@ -124,3 +124,130 @@ def lang_rule(p):
 
 def words_per_second(p):
     return f"{WPS.get(p.get('video_lang'), 2.5)} words per second"
+
+
+# ---------------------------------------------------------------- code stages: assets -> edit -> compose
+# Each is `fn(pid, stage, note=None, d=None) -> {artifact, summary, cost}` (factory/hat/runner.py calls it).
+
+def _con():
+    from ..store import connect
+    return connect()
+
+
+def _rel(path):
+    return os.path.relpath(path, ROOT)
+
+
+def spent_credits(pid, d=None):
+    return sum((P.checkpoint(pid, s, d).get("cost") or {}).get("credits", 0) for s in ("assets", "edit", "compose"))
+
+
+def remaining_budget(pid, d=None):
+    """Credits still allowed by the approved proposal. Raises when nothing was approved (no budget, no spending)."""
+    b = (P.load(pid, d).get("budget") or {})
+    if not b or b.get("credits") is None:
+        raise P.GateError("no approved budget: approve the proposal first")
+    return max(0, int(b["credits"]) - int(spent_credits(pid, d)))
+
+
+def _render_spec(pid, plan, d=None, final=False):
+    """The bundle spec plus what render_bundle needs for the sound."""
+    sp = spec(pid, plan, d)
+    assets = P.read_artifact(pid, "assets", d) or {}
+    edit = P.read_artifact(pid, "edit", d) or {}
+    v, mu = assets.get("voice") or {}, assets.get("music")
+    sp.update(name=pid, voice={"file": v["file"]} if v.get("file") else None,
+              music={"file": mu["file"], "db": mu.get("db", -22)} if mu and mu.get("file") else None,
+              sound=edit.get("sound") or {"level": "full"}, voice_chain=edit.get("voice_chain") or "clean",
+              post_fx=edit.get("post_fx") if final else None, motion_blur=edit.get("motion_blur") if final else None)
+    return sp
+
+
+def _render(pid, final, d=None):
+    plan = P.read_artifact(pid, "scene_plan", d)
+    sp = _render_spec(pid, plan, d, final)
+    out = P.path(pid, "work", "final" if final else "preview", d=d)
+    os.makedirs(out, exist_ok=True)
+    b = os.path.join(out, "bundle.json")
+    with open(b, "w", encoding="utf-8") as f:
+        json.dump(_htmlmotion().make_bundle(sp, design(plan)), f, ensure_ascii=False)
+    dst = P.path(pid, "renders", "final.mp4" if final else "preview.mp4", d=d)
+    return _htmlmotion().render_bundle(b, sp, out, dst, preview=not final), sp
+
+
+def assets(pid, s, note=None, d=None):
+    """Narration (inside the approved budget), word alignment, optional music, then a preview of the whole video."""
+    from .. import accounts, eleven, formats, productions
+    con, p = _con(), P.load(pid, d)
+    script = P.read_artifact(pid, "script", d) or {}
+    prop = P.read_artifact(pid, "proposal", d) or {}
+    lines = script.get("lines") or []
+    if not lines:
+        raise P.GateError("the script has no lines")
+    lang = p.get("video_lang", "tr")
+    account = p.get("eleven_account") or accounts.default_eleven(p.get("created_by"))
+    voice_id = (prop.get("voice") or {}).get("voice_id") or p.get("voice_id") or formats.default_voice(lang, account)
+    text = " ".join(lines)
+    path, cost = eleven.tts(con, text, voice_id, formats.VOICE_MODEL, approved=remaining_budget(pid, d), account=account)
+    times, dur, words = productions.align(path, lines, lang)
+    P.decision(pid, "voice", voice_id, reason="proposal voice or channel default", d=d, model=formats.VOICE_MODEL)
+    voice = {"file": _rel(path), "voice_id": voice_id, "model": formats.VOICE_MODEL, "credits": round(cost),
+             "duration": dur, "line_times": times, "words": [list(w) for w in words]}
+    music, mcost = None, 0.0
+    mu = prop.get("music") or {}
+    if mu.get("use"):
+        secs = round(dur + VOICE_START + TAIL + 1.5, 1)
+        prompt = mu.get("prompt") or "Instrumental, no vocals. Subtle, steady pulse under a spoken explainer."
+        if "instrumental" not in prompt.lower():
+            prompt = "Instrumental, no vocals. " + prompt
+        mpath, mcost = eleven.generate(con, "music", productions.MUSIC_MODEL, prompt, {"duration_seconds": secs,
+                                       "instrumental": True}, secs, "s", ext="mp3",
+                                       approved=max(0, remaining_budget(pid, d) - round(cost)), account=account)
+        music = {"file": _rel(mpath), "prompt": prompt, "credits": round(mcost), "db": -22}
+    art = {"voice": voice, "music": music}
+    P.write_artifact(pid, "assets", art, d)          # the preview reads the real timing from here
+    res, sp = _render(pid, final=False, d=d)
+    total = round(cost + mcost)
+    art.update(preview=_rel(res["file"]), duration=sp["duration"],
+               summary={"tr": f"Ses hazır ({dur:.1f} sn, {total} kredi){', müzikle' if music else ''}. Önizlemeyi izle.",
+                        "en": f"Voice ready ({dur:.1f} s, {total} credits){', with music' if music else ''}. Watch the preview."
+                        }[p.get("ui_lang", "tr") if p.get("ui_lang") in ("tr", "en") else "tr"])
+    return {"artifact": art, "summary": art["summary"], "cost": {"credits": total}}
+
+
+def edit(pid, s, note=None, d=None):
+    """Final edit decisions (deterministic for the explainer): sound level, voice chain, film post from the look."""
+    prop = P.read_artifact(pid, "proposal", d) or {}
+    from .. import capabilities
+    look = (capabilities.get(prop.get("look") or "") or {}).get("data") or {}   # a film style carries its post and blur
+    post, blur = look.get("post_fx") or None, look.get("motion_blur")
+    art = {"sound": {"level": "full"}, "voice_chain": "clean", "post_fx": post, "motion_blur": blur,
+           "summary": "", "note": note}
+    P.decision(pid, "edit", "sound full, voice chain clean" + (", film post" if post else ""), d=d)
+    return {"artifact": art, "summary": ""}
+
+
+def compose(pid, s, note=None, d=None):
+    """Final render + technical and sound QA + cover candidates."""
+    from .. import qa, soundqa, thumbs
+    p = P.load(pid, d)
+    res, sp = _render(pid, final=True, d=d)
+    tech = qa.technical(res["file"], sp["duration"])
+    try:
+        snd = soundqa.review(res["file"], total=sp["duration"])
+        sound = {"findings": snd.get("findings", []), "metrics": snd.get("metrics", {})}
+    except Exception as e:
+        sound = {"error": f"{type(e).__name__}: {e}"[:300]}
+    script = P.read_artifact(pid, "script", d) or {}
+    plan = P.read_artifact(pid, "scene_plan", d) or {}
+    covers = thumbs.make(res["file"], P.path(pid, "renders", d=d), script.get("title") or p["title"], p.get("aspect", "9:16"),
+                         (plan.get("palette") or {}).get("accent", "#FFD93D"), lang=p.get("video_lang", "tr"))
+    problems = tech.get("problems", [])
+    ui = p.get("ui_lang", "tr")
+    summary = ({"tr": "Final hazır; teknik kontrol temiz.", "en": "Final ready; technical checks clean."} if not problems else
+               {"tr": f"Final hazır; {len(problems)} teknik bulgu var.", "en": f"Final ready; {len(problems)} technical findings."}
+               )[ui if ui in ("tr", "en") else "tr"]
+    art = {"final": _rel(res["file"]), "duration": sp["duration"], "qa": {"technical": tech, "sound": sound},
+           "covers": [_rel(c) for c in covers], "render": {k: res[k] for k in ("cues", "music_cuts", "capture_s")},
+           "summary": summary}
+    return {"artifact": art, "summary": summary}

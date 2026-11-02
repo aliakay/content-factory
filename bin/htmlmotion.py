@@ -164,8 +164,24 @@ def main(path, preview=False, stills=None):
         return shots(bundle, stills, out)[0]
     out_dir = os.path.join(ROOT, "work", "preview") if preview else os.path.join(ROOT, "out", name)
     os.makedirs(out_dir, exist_ok=True)
-    silent = os.path.join(ROOT, "work", "auto", name, "silent.mp4")
-    cues_path = os.path.join(ROOT, "work", "auto", name, "cues.json")
+    dst = os.path.join(out_dir, f"{name}.mp4")
+    render_bundle(bundle, spec, os.path.join(ROOT, "work", "auto", name), dst, preview)
+    if spec.get("post") and not preview:
+        sys.path.insert(0, os.path.join(ROOT, "bin"))
+        import cinecut
+        cinecut.write_caption(os.path.join(out_dir, "caption.txt"), spec["post"])
+    print(f"{dst}  ({total:.2f}s)")
+    return dst, total
+
+
+def render_bundle(bundle, spec, workdir, dst, preview=False):
+    """Capture a bundle, mix its sound (voice, music, the scenes' own cues) and encode `dst`. `spec` carries name,
+    duration, voice {file (ROOT-relative), db?}, music, voice_start, words, voice_chain, post_fx, motion_blur, sound."""
+    name, total = spec["name"], spec["duration"]
+    os.makedirs(workdir, exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.abspath(dst)), exist_ok=True)
+    silent = os.path.join(workdir, "silent.mp4")
+    cues_path = os.path.join(workdir, "cues.json")
     blur = [] if preview or not spec.get("motion_blur") else [f"--blur={int(spec['motion_blur'])}"]   # real sub-frame blur, final only
     fps = 15 if preview else 30
     t0 = time.time()
@@ -174,7 +190,6 @@ def main(path, preview=False, stills=None):
     if r.returncode or not os.path.exists(silent):
         raise RuntimeError("html render failed: " + (r.stderr or "")[-400:])
     capture_s, t1 = time.time() - t0, time.time()
-    dst = os.path.join(out_dir, f"{name}.mp4")
     from factory import audiofx
     cues, mutes, drop = sound_plan(cues_path, spec, total)
     voice = dict(spec["voice"], file=os.path.join(ROOT, spec["voice"]["file"])) if spec.get("voice") else None
@@ -188,7 +203,7 @@ def main(path, preview=False, stills=None):
     vs = spec.get("voice_start", 0)
     words = spec.get("words") or []        # relative to the voice file, which starts at voice_start
     audiofx.save_placed(name, cues, words, vs)
-    mixed = os.path.join(ROOT, "work", "auto", name, "mixed.mp4")
+    mixed = os.path.join(workdir, "mixed.mp4")
     audiofx.mix(silent, mixed, total, voice=voice, music=music, cues=cues, words=words, voice_offset=vs,
                 chain=spec.get("voice_chain"))
     vpost = post_vf(spec.get("post_fx"), preview)
@@ -205,12 +220,8 @@ def main(path, preview=False, stills=None):
                            capture_s, post_per_s=round((time.time() - t1) / max(1.0, total), 3))
     except Exception as e:
         print(f"render speed not recorded: {e}", flush=True)
-    if spec.get("post") and not preview:
-        sys.path.insert(0, os.path.join(ROOT, "bin"))
-        import cinecut
-        cinecut.write_caption(os.path.join(out_dir, "caption.txt"), spec["post"])
-    print(f"{dst}  ({total:.2f}s)")
-    return dst, total
+    return {"file": dst, "duration": total, "cues": len(cues), "music_cuts": len(mutes), "drop": drop,
+            "capture_s": round(capture_s, 1)}
 
 
 if __name__ == "__main__":

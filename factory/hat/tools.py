@@ -269,3 +269,85 @@ def agent_tools(stage_tools):
         elif n in TOOLS and TOOLS[n]["agent"] and n not in ours:
             ours.append(n)
     return ours, builtins
+
+
+# ---------------------------------------------------------------- code-stage tools (listed in the catalogue; run by the
+# explainer's code stages, not by agents)
+
+@tool("tts", "voice", "Narration from ElevenLabs (cloned or stock voice), cached by text, voice and model. Spends credits "
+      "and refuses to run beyond the project's approved budget.", provider="elevenlabs", runtime="cloud",
+      spends="credits per character", needs=("network",), agent=False,
+      schema={"type": "object", "required": ["text"], "properties": {"text": {"type": "string"}, "voice_id": {"type": "string"}}})
+def tts_tool(ctx, text, voice_id=None):
+    from .. import eleven, formats
+    from . import explainer as E
+    p = P.load(ctx.pid, ctx.d)
+    path, cost = eleven.tts(E._con(), text, voice_id or formats.default_voice(p.get("video_lang")), formats.VOICE_MODEL,
+                            approved=E.remaining_budget(ctx.pid, ctx.d))
+    return {"file": E._rel(path), "credits": cost}
+
+
+@tool("align_words", "voice", "Word-level timings of a voice file against its script lines (faster-whisper, local).",
+      needs=("ffmpeg",), agent=False,
+      schema={"type": "object", "required": ["file", "lines"], "properties": {"file": {"type": "string"},
+                                                                            "lines": {"type": "array", "items": {"type": "string"}}}})
+def align_tool(ctx, file, lines):
+    from .. import productions
+    times, dur, words = productions.align(os.path.join(ROOT, file), lines, P.load(ctx.pid, ctx.d).get("video_lang", "tr"))
+    return {"line_times": times, "duration": dur, "words": words}
+
+
+@tool("music", "music", "An instrumental track from ElevenLabs Music for a given length and mood. Spends credits inside "
+      "the approved budget.", provider="elevenlabs", runtime="cloud", spends="credits per second", needs=("network",),
+      agent=False, schema={"type": "object", "required": ["prompt", "seconds"],
+                           "properties": {"prompt": {"type": "string"}, "seconds": {"type": "number"}}})
+def music_tool(ctx, prompt, seconds):
+    from .. import eleven, productions
+    from . import explainer as E
+    path, cost = eleven.generate(E._con(), "music", productions.MUSIC_MODEL, prompt, {"duration_seconds": seconds,
+                                 "instrumental": True}, seconds, "s", ext="mp3", approved=E.remaining_budget(ctx.pid, ctx.d))
+    return {"file": E._rel(path), "credits": cost}
+
+
+@tool("preview_render", "compose", "Half-size 15 fps preview of the whole video with its sound.", needs=("node", "chromium",
+      "ffmpeg"), agent=False)
+def preview_render(ctx):
+    from . import explainer as E
+    return E._render(ctx.pid, final=False, d=ctx.d)[0]
+
+
+@tool("final_render", "compose", "Full-size 30 fps final render with mixed sound and the look's film post.",
+      needs=("node", "chromium", "ffmpeg"), agent=False)
+def final_render(ctx):
+    from . import explainer as E
+    return E._render(ctx.pid, final=True, d=ctx.d)[0]
+
+
+@tool("compile_bundle", "edit", "Scene plan + timing -> the renderer's bundle.", agent=False)
+def compile_bundle(ctx):
+    from . import explainer as E
+    return {"bundle": E.bundle(ctx.pid, d=ctx.d)}
+
+
+@tool("qa_technical", "qa", "Black frames, frozen time, flashes, broken frames, duration and loudness of a video.",
+      needs=("ffmpeg",), agent=False, schema={"type": "object", "required": ["file"], "properties": {"file": {"type": "string"}}})
+def qa_technical(ctx, file):
+    from .. import qa
+    return qa.technical(os.path.join(ROOT, file))
+
+
+@tool("qa_sound", "qa", "Measure a finished mix like a sound supervisor: loudness, peaks, clicks, voice clarity.",
+      needs=("ffmpeg",), agent=False, schema={"type": "object", "required": ["file"], "properties": {"file": {"type": "string"}}})
+def qa_sound(ctx, file):
+    from .. import soundqa
+    return soundqa.review(os.path.join(ROOT, file))
+
+
+@tool("thumbnails", "publish", "Three cover candidates drawn from the best frames of the final video.", agent=False)
+def thumbnails(ctx):
+    from .. import thumbs
+    fin = P.read_artifact(ctx.pid, "render", ctx.d) or {}
+    if not fin.get("final"):
+        raise ToolError("no final render yet")
+    p = P.load(ctx.pid, ctx.d)
+    return {"covers": thumbs.make(os.path.join(ROOT, fin["final"]), ctx.path("renders"), p["title"], p.get("aspect", "9:16"))}

@@ -73,7 +73,7 @@ stages:
     gate: true
     run: code
     call: factory.hat.explainer:assets
-    tools: [tts, align_words, music, sfx_plan, preview_render]
+    tools: [tts, align_words, music, preview_render]
     review:
       - "Voice duration fits the plan; alignment found every trigger word"
       - "Spend stays inside the approved budget"
@@ -81,12 +81,12 @@ stages:
   - id: edit
     run: code
     call: factory.hat.explainer:edit
-    tools: [compile_bundle, sound_plan]
+    tools: [compile_bundle]
 
   - id: compose
     run: code
     call: factory.hat.explainer:compose
-    tools: [final_render, qa_technical, qa_visual, qa_sound]
+    tools: [final_render, qa_technical, qa_sound, thumbnails]
 
   - id: publish
     gate: true

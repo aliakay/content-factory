@@ -205,10 +205,12 @@ def test_agent_stages_only_name_real_tools():
     from factory.hat import tools as T
     for m in manifest.all_lines().values():
         for s in m["stages"]:
-            if s["run"] != "agent":
-                continue
-            for n in s["tools"]:
-                assert n in T.BUILTIN or (n in T.TOOLS and T.TOOLS[n]["agent"]), (m["id"], s["id"], n)
+            if s["run"] == "agent":
+                for n in s["tools"]:
+                    assert n in T.BUILTIN or (n in T.TOOLS and T.TOOLS[n]["agent"]), (m["id"], s["id"], n)
+            elif s["run"] == "code":
+                for n in s["tools"]:
+                    assert n in T.TOOLS, (m["id"], s["id"], n)
 
 
 def test_tool_contract_and_argument_check(d):
@@ -445,3 +447,46 @@ def test_every_agent_stage_of_a_ready_line_has_a_brief_that_expands(d):
                 assert "{{include" not in text and len(text) > 1500, (m["id"], s["id"])
     sp = A.task(pid, manifest.stage(manifest.get("explainer"), "scene_plan"), d=d)
     assert "FX LIBRARY" in sp and "@@SCENE" not in sp and "stock_search" in sp
+
+
+# ---------------------------------------------------------------- explainer code stages (real render, no credits)
+
+def test_assets_edit_compose_render_for_real(monkeypatch, tmp_path):
+    from factory import config, eleven, productions
+    from factory.hat import explainer as E, tools as T
+    if not T.available("render_stills")[0]:
+        pytest.skip("no chromium here")
+    voice = os.path.join(config.ROOT, "assets", "eleven", "tts_2bf8194fcfed0971.mp3")
+    if not os.path.exists(voice):
+        pytest.skip("no sample voice file")
+    pdir = os.path.join(os.path.realpath(config.ROOT), "projects", "_test_" + os.path.basename(str(tmp_path)))
+    lines = ["Avrupa gazı yüz avroyu aştı.", "Takip et."]
+    spent = []
+
+    def fake_tts(con, text, voice_id, model, approved=None, account=None):
+        spent.append(approved)
+        return voice, 12.0
+    monkeypatch.setattr(eleven, "tts", fake_tts)
+    monkeypatch.setattr(productions, "align", lambda path, ls, lang: (E.draft_timing(ls, lang)[1], 3.0,
+                                                                       E.draft_timing(ls, lang)[0]))
+    try:
+        pid = P.create("explainer", "render", d=pdir, extra={"ui_lang": "tr"})["id"]
+        P.write_artifact(pid, "script", {"title": "Avrupa gazı", "lines": lines}, pdir)
+        P.write_artifact(pid, "proposal", {"music": {"use": False}, "look": "finance"}, pdir)
+        P.write_artifact(pid, "scene_plan", PLAN, pdir)
+        with pytest.raises(P.GateError, match="budget"):
+            E.assets(pid, {}, d=pdir)                                    # no approved budget, no spending
+        p = P.load(pid, pdir)
+        p["budget"] = {"credits": 640}
+        P.save(p, pdir)
+        out = E.assets(pid, {}, d=pdir)
+        assert spent == [640] and out["cost"]["credits"] == 12 and "Ses hazır" in out["summary"]
+        assert os.path.getsize(P.path(pid, "renders", "preview.mp4", d=pdir)) > 10000
+        P.write_artifact(pid, "assets", out["artifact"], pdir)
+        P.write_artifact(pid, "edit", E.edit(pid, {}, d=pdir)["artifact"], pdir)
+        fin = E.compose(pid, {}, d=pdir)["artifact"]
+        assert os.path.getsize(os.path.join(config.ROOT, fin["final"])) > 10000
+        assert "technical" in fin["qa"] and fin["covers"], fin
+    finally:
+        import shutil
+        shutil.rmtree(pdir, ignore_errors=True)
