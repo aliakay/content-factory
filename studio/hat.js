@@ -18,7 +18,7 @@ const TX = {
     create: "Başlat", cancel: "Vazgeç", started: "Başladı: ilk aşama çalışıyor",
     prods_title: "Üretimler", prods_lead: "Yeni hatlardaki videolar. Kartı açınca akışı ve senden beklenen kararı görürsün.",
     prods_empty: "Henüz yeni hatta bir üretim yok.", new_prod: "Yeni üretim",
-    state_busy: "Çalışıyor", state_gate: "Kararını bekliyor", state_failed: "Hata", state_done: "Bitti", state_run: "Sırada", state_archived: "Arşiv", archived_note: "Eski sistemden arşivlendi; üzerinde iş yapılmaz.",
+    state_busy: "Çalışıyor", state_gate: "Kararını bekliyor", state_failed: "Hata", state_done: "Bitti", state_run: "Sırada", state_archived: "Arşiv", shots: "plan", warnings: "Uyarılar", archived_note: "Eski sistemden arşivlendi; üzerinde iş yapılmaz.",
     state_planned: "Bu hatta sıradaki aşama henüz yok",
     st_pending: "Bekliyor", st_running: "Çalışıyor", st_awaiting_approval: "Kararını bekliyor", st_approved: "Onaylandı",
     st_done: "Bitti", st_failed: "Hata", st_stale: "Yeniden yapılacak",
@@ -56,7 +56,7 @@ const TX = {
     create: "Start", cancel: "Cancel", started: "Started: the first stage is running",
     prods_title: "Productions", prods_lead: "Videos on the new lines. Open one to see its flow and the decision waiting for you.",
     prods_empty: "No production on the new lines yet.", new_prod: "New production",
-    state_busy: "Working", state_gate: "Waiting for you", state_failed: "Error", state_done: "Done", state_run: "Up next", state_archived: "Archive", archived_note: "Archived from the old system; no work is done on it.",
+    state_busy: "Working", state_gate: "Waiting for you", state_failed: "Error", state_done: "Done", state_run: "Up next", state_archived: "Archive", shots: "shots", warnings: "Warnings", archived_note: "Archived from the old system; no work is done on it.",
     state_planned: "The next stage is not built on this line yet",
     st_pending: "Waiting", st_running: "Working", st_awaiting_approval: "Waiting for you", st_approved: "Approved",
     st_done: "Done", st_failed: "Error", st_stale: "To redo",
@@ -265,8 +265,16 @@ function outPublish(o, s, f) {
       ${fin.final_url ? `<a class="btn sm" href="${esc(fin.final_url)}?dl=1">${ICON.download}${esc(t("download"))}</a>` : ""}</div>
     ${o.notes ? `<h3 class="mt16">${esc(t("notes"))}</h3><div class="small" style="white-space:pre-wrap">${esc(o.notes)}</div>` : ""}`;
 }
+function outCutPlan(o, s, f) {
+  return `${player(o.preview_url, f.project.aspect === "16:9")}
+    ${o.concept ? `<div class="hl-big small mt12">${esc(o.concept)}</div>` : ""}
+    <div class="tiny muted mt8">${(o.shots || []).length} ${esc(t("shots"))} · ${esc(o.duration ?? "")} ${esc(t("sec"))}</div>
+    <ol class="hl-ul small mt8">${(o.shots || []).map((x) => `<li><span class="mono tiny">${esc(x.clip || "")} ${esc(x.in ?? "")}–${esc(x.out ?? "")}</span>
+      ${x.text ? ` <b>“${esc(x.text)}”</b>` : ""} <span class="muted">${esc(x.shows || "")}</span></li>`).join("")}</ol>
+    ${(o.warnings || []).length ? `<h3 class="mt16">${esc(t("warnings"))}</h3><ul class="hl-ul small">${o.warnings.map((w) => `<li class="warn">${esc(w)}</li>`).join("")}</ul>` : ""}`;
+}
 const OUT = { research: outResearch, proposal: outProposal, script: outScript, scene_plan: outScenes, assets: outAssets,
-  render: outRender, publish: outPublish };
+  render: outRender, publish: outPublish, cut_plan: outCutPlan };
 function outputHtml(s, f) {
   const o = s.output;
   if (!o) return `<div class="tiny faint">${esc(s.status === "pending" ? t("waiting_prev") : t("output_none"))}</div>`;

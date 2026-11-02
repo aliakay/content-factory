@@ -148,7 +148,7 @@ Three.js 3D dünyalar.
 **İyi olduğu:** iCloud albümünden gezi videoları, rota, "gerçek gibi durmayan yerler".
 **İyi olmadığı:** Çekim olmayan konular.
 **İster:** Albüm/klip seçimi. **Kapılar:** 2·4·5·8.
-**Durum:** Var (cinecut, stylecut, artdirector).
+**Durum:** Hazır (t202). Eski klip motoru (fikir, sanat yönetmeni, cinecut, QA) köprü ile aşamalara bağlı; proje başına bir üretim satırı (project["prods"]). Fikir aşaması 3 fikir üretir; geri bildirime harf yazmak (B) yeni çağrı yapmadan seçer.
 
 ### 6.4 Sinematik · `cinematic`
 **Ne üretir:** Fragman, marka filmi, duygu odaklı kısa kurgular; kendi görüntün + gerektiğinde üretilen video klipler.

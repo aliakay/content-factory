@@ -462,7 +462,8 @@ def test_every_agent_stage_of_a_ready_line_has_a_brief_that_expands(d):
             if s["run"] == "agent":
                 text = A.task(pid, s, note=None, d=d)
                 assert "{{include" not in text and len(text) > 1500, (m["id"], s["id"])
-    sp = A.task(pid, manifest.stage(manifest.get("explainer"), "scene_plan"), d=d)
+    ex = P.create("explainer", "brief check", video_lang="tr", d=d)["id"]
+    sp = A.task(ex, manifest.stage(manifest.get("explainer"), "scene_plan"), d=d)
     assert "FX LIBRARY" in sp and "@@SCENE" not in sp and "stock_search" in sp
 
 
@@ -738,3 +739,82 @@ def test_music_led_assets_make_no_voice_and_stay_in_budget(d, monkeypatch):
     out = X.assets(pid, {"id": "assets"}, d=d)
     assert seen["approved"] == 900 and seen["prompt"].startswith("Instrumental") and seen["secs"] == round(5 + X.VOICE_START + X.TAIL + 1.5, 1)
     assert out["cost"] == {"credits": 400} and out["artifact"]["voice"] is None and out["artifact"]["music"]["db"] == -10
+
+
+# ---------------------------------------------------------------- travel vlog: the footage engine behind the gates
+
+@pytest.fixture
+def engine(monkeypatch, tmp_path):
+    """The old footage engine, faked: rows in a dict, renders as tiny files."""
+    from factory import productions as PR
+    from factory.hat import footage as F
+    rows, calls = {}, []
+    def generate(con, fmt, n=3, brief="", aspect="9:16", channel_id=None, lang=None, **k):
+        calls.append(("generate", fmt, brief))
+        ids = []
+        for i in range(n):
+            pid = len(rows) + 1
+            rows[pid] = {"prod_id": pid, "title": f"Fikir {pid}", "format": fmt, "data": {"hook": f"hook {pid}",
+                         "logline": "a walk", "why": "y", "shots": [{"clip_id": "IMG_1.MOV", "in": 0, "out": 3,
+                         "shows": "lake", "place": "Eibsee"}], "voice": {"lines": ["bir", "iki"]} if i == 0 else None,
+                         "post": {"caption": "Göl mü?", "hashtags": "#eibsee #alps"}}, "qa": None}
+            ids.append(pid)
+        return ids, {"cost_usd": 0.4}
+    def render_file(name):
+        f = tmp_path / name
+        f.write_bytes(b"v")
+        return str(f)
+    monkeypatch.setattr(PR, "generate", generate)
+    monkeypatch.setattr(PR, "get", lambda con, i: rows[i])
+    monkeypatch.setattr(PR, "voice_estimate", lambda con, d: {"credits": 300})
+    monkeypatch.setattr(PR, "music_estimate", lambda con, r: {"credits": 900, "seconds": 22.5, "prompt": "calm"})
+    monkeypatch.setattr(PR, "voice_text", lambda d: " ".join((d.get("voice") or {}).get("lines") or []))
+    monkeypatch.setattr(PR, "direct", lambda con, i, note="": calls.append(("direct", i, note)) or rows[i])
+    monkeypatch.setattr(PR, "preview", lambda con, i: render_file("prev.mp4"))
+    monkeypatch.setattr(PR, "timeline", lambda con, r: ({}, 21.0, [], ["shot 3 is short"]))
+    def voice(con, i, approved):
+        calls.append(("voice", approved)); return render_file("v.mp3"), 280.0
+    def music(con, i, approved, prompt=None):
+        calls.append(("music", approved)); return render_file("m.mp3"), 880.0
+    monkeypatch.setattr(PR, "make_voice", voice)
+    monkeypatch.setattr(PR, "make_music", music)
+    def render(con, i):
+        rows[i]["qa"] = {"pass": True, "technical": {"problems": []}}
+        return render_file("final.mp4")
+    monkeypatch.setattr(PR, "render", render)
+    monkeypatch.setattr(F, "_con", lambda: None)
+    return rows, calls
+
+
+def test_travel_vlog_runs_on_the_footage_engine_through_every_gate(d, engine, monkeypatch):
+    from factory.hat import runner
+    rows, calls = engine
+    pid = P.create("travel_vlog", "Eibsee", brief="Eibsee sabahı", d=d)["id"]
+    q = Q(runner, d)
+    assert runner.advance(pid, q, d=d) == ("gate", "idea")
+    prop = P.read_artifact(pid, "proposal", d)
+    assert [c["id"] for c in prop["concepts"]] == ["A", "B", "C"] and prop["chosen"] == "A"
+    assert prop["cost"]["credits"] == 1200 and P.load(pid, d)["prods"] == [1, 2, 3]
+    # naming a concept picks it without a new idea call
+    runner.feedback(pid, "idea", "B'yi seç", q, d=d)
+    assert P.read_artifact(pid, "proposal", d)["chosen"] == "B" and [c[0] for c in calls].count("generate") == 1
+    runner.feedback(pid, "idea", "A", q, d=d)
+    assert runner.approve(pid, "idea", q, d=d) == ("gate", "scene_plan")
+    assert P.load(pid, d)["budget"]["credits"] == 1200                 # the idea's proposal fixed the budget
+    cut = P.read_artifact(pid, "cut_plan", d)
+    assert cut["prod_id"] == 1 and cut["warnings"] == ["shot 3 is short"] and os.path.exists(P.path(pid, "renders", "preview.mp4", d=d))
+    assert runner.approve(pid, "scene_plan", q, d=d) == ("gate", "assets")
+    assert ("voice", 1200) in calls and ("music", 1200 - 280) in calls     # each spend inside what is left
+    assert P.checkpoint(pid, "assets", d)["cost"]["credits"] == 1160
+    assert runner.approve(pid, "assets", q, d=d) == ("gate", "publish")
+    assert P.read_artifact(pid, "render", d)["qa"]["pass"] and os.path.exists(P.path(pid, "renders", "final.mp4", d=d))
+    pub = P.read_artifact(pid, "publish", d)
+    assert pub["caption"] == "Göl mü?" and pub["hashtags"] == ["#eibsee", "#alps"]
+
+
+def test_travel_vlog_refuses_a_foreign_production(d, engine):
+    from factory.hat import footage as F
+    pid = P.create("travel_vlog", "x", d=d)["id"]
+    P.write_artifact(pid, "proposal", {"concepts": [{"id": "A", "prod_id": 99}], "chosen": "A"}, d)
+    with pytest.raises(P.GateError, match="does not belong"):
+        F.chosen_prod(pid, d)
