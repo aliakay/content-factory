@@ -8,15 +8,19 @@ Every old production becomes a project of its line. The old state maps to checkp
                               proposal (look, length, budget), which the old data cannot supply, and the old
                               scene format cannot become the new html scenes. The old script stays in legacy.json.
 
+With archive=True (the creator's choice for the old videos) every row is imported as a read-only archive: all stages
+complete, project status "archived", nothing can be run or approved on it, and flags are only reported.
+
 Only artifacts the old data really supports are built (script, publish, compose); research, proposal and
 scene_plan are never invented. The whole old row is kept as artifacts/legacy.json. No budget is set, so an imported
 project cannot spend credits before the proposal is approved again.
 
-    python -m factory.hat.migrate [--src ROOT] [--dst DIR] [--apply] [--force]     (without --apply: dry run)
+    python -m factory.hat.migrate [--src ROOT] [--dst DIR] [--apply] [--archive] [--force]   (without --apply: dry run)
 """
 import argparse, glob, json, os, shutil, sqlite3, sys
 
 from . import manifest, project as P
+from ..config import ROOT
 from ..store import now
 
 LINE_OF = {"explainer_short": "explainer", "story_vo": "travel_vlog"}
@@ -42,10 +46,21 @@ def source_rows(src):
         con.close()
 
 
+def _out_dir(src, row):
+    """The old output folder: the recorded name, or for a row without one the folder named after its title."""
+    out = row.get("output") or row.get("name")
+    if out:
+        return out
+    word = P.slug(row.get("title") or "").split("-")[0]        # "Kuyt’ın ..." -> "kuytin"; its folder is 116_kuyt
+    hits = [os.path.basename(x) for x in glob.glob(os.path.join(src, "out", "[0-9][0-9][0-9]_*"))
+            if len(os.path.basename(x)[4:]) >= 4 and word.startswith(os.path.basename(x)[4:])]
+    return hits[0] if len(hits) == 1 else None
+
+
 def _files(src, row):
     """Files of this production found on disk: {role: relative path}."""
     found = {}
-    out = row.get("output") or row.get("name")
+    out = _out_dir(src, row)
     if out:
         mp4 = glob.glob(os.path.join(src, "out", out, "*.mp4"))
         cap = os.path.join(src, "out", out, "caption.txt")
@@ -64,7 +79,7 @@ def _files(src, row):
     return found
 
 
-def plan(row, src):
+def plan(row, src, archive=False):
     """What would be imported for one old row: the mapped states, the files found, the flags."""
     flags = []
     old = row.get("stage")
@@ -73,7 +88,11 @@ def plan(row, src):
         return {"prod": row["prod_id"], "skip": f"format '{row.get('format')}' has no line"}
     stage_ids = [s["id"] for s in manifest.get(line)["stages"]]
     files = _files(src, row)
-    if old in ("ready", "published"):
+    if archive:
+        states = {s: "done" for s in stage_ids}
+        if old == "published":
+            states[stage_ids[-1]] = "approved"
+    elif old in ("ready", "published"):
         states = {s: "done" for s in stage_ids}
         states[stage_ids[-1]] = "approved" if old == "published" else "awaiting_approval"
         if "final" not in files:
@@ -88,7 +107,7 @@ def plan(row, src):
     if old == "ready" and qa.get("pass") is False:
         flags.append("qa did not pass")
     if not row.get("name") and not row.get("output"):
-        flags.append("no output name recorded")
+        flags.append("no output name recorded" + (f"; found out/{_out_dir(src, row)}" if _out_dir(src, row) else ""))
     return {"prod": row["prod_id"], "title": row["title"], "line": line, "old_stage": old, "states": states,
             "files": files, "flags": flags}
 
@@ -138,29 +157,31 @@ def _topic(title):
     return "-".join(P.slug(title, 80).split("-")[:3])
 
 
-def migrate(src, dst=None, apply=False, force=False, include_flagged=False):
+def migrate(src, dst=None, apply=False, force=False, include_flagged=False, archive=False):
     """Plan (and with apply=True write) every importable production. Returns a report per old row.
     Rows with a flag are held for the creator: they are imported only with include_flagged."""
     report = []
     rows = source_rows(src)
-    nums = [_number(r) for r in rows]
+    nums = [_number(r, src) for r in rows]
     existing = {_topic(P.load(i, dst)["title"]): i for i in P.list_ids(dst) if not P.load(i, dst).get("imported_from")}
     for row in rows:
-        pl = plan(row, src)
+        pl = plan(row, src, archive)
         if "skip" not in pl:
-            if nums.count(_number(row)) > 1:
-                pl["flags"].append("number %d is used by %d old productions" % (_number(row), nums.count(_number(row))))
+            n = _number(row, src)
+            if nums.count(n) > 1:
+                pl["flags"].append("number %d is used by %d old productions" % (n, nums.count(n)))
             if _topic(row["title"]) in existing:
                 pl["flags"].append("same topic as the new project " + existing[_topic(row["title"])])
         if "skip" in pl:
             report.append(pl)
             continue
-        num = _number(row)
+        num = _number(row, src)
         pid = f"{num:03d}-{P.slug(row['title'])}"
         pl["project"] = pid
         exists = os.path.exists(P.path(pid, d=dst))
         pl["exists"] = exists
-        if apply and pl["flags"] and not include_flagged:
+        pl["archive"] = archive
+        if apply and pl["flags"] and not (include_flagged or archive):
             pl["result"] = "held (flagged)"
         elif apply and exists and not force:
             pl["result"] = "skipped (already imported)"
@@ -178,8 +199,8 @@ def migrate(src, dst=None, apply=False, force=False, include_flagged=False):
     return report
 
 
-def _number(row):
-    n = (row.get("name") or row.get("output") or "")[:3]
+def _number(row, src=None):
+    n = (row.get("name") or row.get("output") or (_out_dir(src, row) if src else None) or "")[:3]
     return int(n) if n.isdigit() else 900 + row["prod_id"]
 
 
@@ -188,14 +209,16 @@ def _write(row, pl, src, dst, num):
     p = P.create(pl["line"], row["title"], row.get("brief") or d.get("topic") or "", video_lang=d.get("lang") or "tr",
                  aspect=d.get("aspect") or "9:16", channel=row.get("channel_id"), user="import", d=dst, num=num,
                  extra={"imported_from": {"prod_id": row["prod_id"], "stage": row["stage"], "name": row.get("name"),
-                                          "at": now()}, "created_at": row.get("created_at") or now()})
+                                          "at": now()}, "created_at": row.get("created_at") or now(),
+                        **({"status": "archived"} if pl.get("archive") else {})})
     pid = p["id"]
     P.write_artifact(pid, "legacy", row, dst)            # the whole old row, as it was
     stage_of = {s["id"]: s["artifact"] for s in manifest.get(pl["line"])["stages"]}
     built = {"script": _script(row), "publish": _publish(row)}
     for sid, status in pl["states"].items():
         cp = P.checkpoint(pid, sid, dst)
-        cp.update(status=status, imported=True, summary="Imported from the old system")
+        cp.update(status=status, imported=True,
+                  summary="Archived from the old system" if pl.get("archive") else "Imported from the old system")
         art = built.get(stage_of[sid]) if status != "pending" else None
         if art and (status != "pending"):
             P.write_artifact(pid, stage_of[sid], art, dst)
@@ -205,7 +228,7 @@ def _write(row, pl, src, dst, num):
     for role, rel in pl["files"].items():
         copied = _copy(src, P.path(pid, "renders" if role in ("final", "preview") else "assets", d=dst), rel)
         if copied:
-            files[role] = os.path.relpath(copied, P.path(pid, d=dst))
+            files[role] = os.path.relpath(copied, ROOT)          # the form every stage artifact uses
     if files.get("final") and "compose" in pl["states"]:
         qa = _j(row.get("qa"), {}) or {}
         P.write_artifact(pid, stage_of["compose"], {"final": files["final"], "qa": qa, "imported": True}, dst)
@@ -219,9 +242,10 @@ def main(argv=None):
     ap.add_argument("--dst", default=None, help="projects directory (default: this repo's projects/)")
     ap.add_argument("--apply", action="store_true", help="write the projects (default is a dry run)")
     ap.add_argument("--include-flagged", action="store_true", help="also import rows that carry a flag")
+    ap.add_argument("--archive", action="store_true", help="import every row as a read-only archive")
     ap.add_argument("--force", action="store_true", help="overwrite projects that were imported before")
     a = ap.parse_args(argv)
-    rep = migrate(a.src, a.dst, apply=a.apply, force=a.force, include_flagged=a.include_flagged)
+    rep = migrate(a.src, a.dst, apply=a.apply, force=a.force, include_flagged=a.include_flagged, archive=a.archive)
     for r in rep:
         if "skip" in r:
             print(f"  prod {r['prod']:>3}  SKIP  {r['skip']}")

@@ -18,7 +18,7 @@ const TX = {
     create: "Başlat", cancel: "Vazgeç", started: "Başladı: ilk aşama çalışıyor",
     prods_title: "Üretimler", prods_lead: "Yeni hatlardaki videolar. Kartı açınca akışı ve senden beklenen kararı görürsün.",
     prods_empty: "Henüz yeni hatta bir üretim yok.", new_prod: "Yeni üretim",
-    state_busy: "Çalışıyor", state_gate: "Kararını bekliyor", state_failed: "Hata", state_done: "Bitti", state_run: "Sırada",
+    state_busy: "Çalışıyor", state_gate: "Kararını bekliyor", state_failed: "Hata", state_done: "Bitti", state_run: "Sırada", state_archived: "Arşiv", archived_note: "Eski sistemden arşivlendi; üzerinde iş yapılmaz.",
     state_planned: "Bu hatta sıradaki aşama henüz yok",
     st_pending: "Bekliyor", st_running: "Çalışıyor", st_awaiting_approval: "Kararını bekliyor", st_approved: "Onaylandı",
     st_done: "Bitti", st_failed: "Hata", st_stale: "Yeniden yapılacak",
@@ -56,7 +56,7 @@ const TX = {
     create: "Start", cancel: "Cancel", started: "Started: the first stage is running",
     prods_title: "Productions", prods_lead: "Videos on the new lines. Open one to see its flow and the decision waiting for you.",
     prods_empty: "No production on the new lines yet.", new_prod: "New production",
-    state_busy: "Working", state_gate: "Waiting for you", state_failed: "Error", state_done: "Done", state_run: "Up next",
+    state_busy: "Working", state_gate: "Waiting for you", state_failed: "Error", state_done: "Done", state_run: "Up next", state_archived: "Archive", archived_note: "Archived from the old system; no work is done on it.",
     state_planned: "The next stage is not built on this line yet",
     st_pending: "Waiting", st_running: "Working", st_awaiting_approval: "Waiting for you", st_approved: "Approved",
     st_done: "Done", st_failed: "Error", st_stale: "To redo",
@@ -285,6 +285,7 @@ function reviewHtml(r) {
 }
 function decisionHtml(s, f) {
   const id = esc(s.id);
+  if (f.state === "archived") return `<div class="card hl-dec"><h3>${esc(t("state_archived"))}</h3><div class="small muted">${esc(t("archived_note"))}</div></div>`;
   if (s.status === "running") return `<div class="card hl-dec"><h3><span class="spin"></span> ${esc(t("working"))}</h3><div class="small muted">${esc(s.says)}</div></div>`;
   if (s.status === "awaiting_approval") return `<div class="card hl-dec gate"><h3>🔒 ${esc(t("decision"))}</h3>
       ${s.summary ? `<div class="small">${esc(s.summary)}</div>` : ""}${s.gate_says ? `<div class="tiny muted mt8">${esc(s.gate_says)}</div>` : ""}
@@ -325,7 +326,7 @@ async function viewProject(pid) {
   const s = f.stages.find((x) => x.id === sel);
   const html = `<div class="row"><a class="btn ghost sm" href="#/uretimler">${ICON.back}${esc(t("back_list"))}</a><span class="sp"></span>
       <span class="badge">${esc(f.line.name)}</span><span class="badge">${esc((p.video_lang || "").toUpperCase())}</span><span class="badge">${esc(p.aspect || "")}</span>${stateBadge(f.state)}</div>
-    <h1 class="mt12">${esc(p.title)}</h1>${p.brief ? `<div class="lead">${esc(p.brief)}</div>` : ""}
+    <h1 class="mt12">${esc(p.title)}</h1>${p.brief ? `<div class="lead hl-brief">${esc(p.brief)}</div>` : ""}
     ${flowRail(f, sel)}
     <div class="split mt16"><div class="col" style="gap:14px"><div class="card"><div class="row"><h2 style="margin:0">${esc(s.name)}</h2><span class="sp"></span>
         <span class="badge hl-sb st-${esc(s.status)}">${esc(t("st_" + s.status))}</span></div><div class="small muted mt8">${esc(s.says)}</div>

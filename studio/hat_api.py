@@ -60,6 +60,10 @@ def projects():
         cur_name = next((s["name"] for s in m["stages"] if s["id"] == cur), None)
         final = P.path(pid, "renders", "final.mp4")
         preview = P.path(pid, "renders", "preview.mp4")
+        if p.get("status") == "archived":
+            state, cur = "archived", None
+            cur_name = None
+            final = _archived_final(pid) or final
         out.append({"id": pid, "title": p["title"], "line": p["line"], "line_name": m["name"], "state": state,
                     "stage": cur, "stage_name": cur_name, "video_lang": p.get("video_lang"), "aspect": p.get("aspect"),
                     "channel": p.get("channel"), "created_at": p.get("created_at"),
@@ -67,6 +71,18 @@ def projects():
                     "video": _media(final if os.path.exists(final) else preview if os.path.exists(preview) else None),
                     "legacy": p.get("legacy")})
     return out
+
+
+def _archived(pid):
+    try:
+        return P.load(pid).get("status") == "archived"
+    except P.GateError:
+        return False
+
+
+def _archived_final(pid):
+    f = (P.read_artifact(pid, "render") or {}).get("final")      # the compose stage's artifact
+    return os.path.join(ROOT, f) if f else None
 
 
 def _stills(pid, stage):
@@ -105,6 +121,8 @@ def project(pid):
             s["stills"] = _stills(pid, "scene_plan")
     f["events"] = P.tail(pid, n=40)
     f["ui_lang"] = lang()
+    if _archived(pid):
+        f["state"], f["current"] = "archived", None
     return f
 
 
@@ -148,6 +166,9 @@ def _post(con, path, b, queue):
     m = re.fullmatch(r"/api/hat/project/([\w-]+)", path)
     if m:
         pid, a, sid = _check(m.group(1)), b.get("action"), b.get("stage")
+        if _archived(pid):
+            raise ValueError({"tr": "Bu bir arşiv kaydı; üzerinde iş yapılmaz.",
+                              "en": "This is an archive record; no work is done on it."}[lang()])
         if a == "approve":
             state, stage = runner.approve(pid, sid, queue, by=uid, note=b.get("note"))
         elif a == "feedback":

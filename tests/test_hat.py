@@ -674,3 +674,29 @@ def test_media_file_stays_inside_projects(api, d):
     open(os.path.join(d, "..", "secret.mp4"), "wb").write(b"x")
     assert hat_api.media_file(f"{pid}/renders/a.mp4")[1] == "video/mp4"
     assert hat_api.media_file("../secret.mp4") is None and hat_api.media_file(f"{pid}/project.json") is None
+
+
+def test_archive_imports_every_row_read_only(tmp_path, d, monkeypatch):
+    from factory.hat import migrate
+    from studio import hat_api
+    src = _old_system(tmp_path)
+    # a row without a recorded name whose render sits in a folder named after the title
+    import sqlite3
+    con = sqlite3.connect(src / "data" / "factory.db")
+    con.execute("insert into productions (prod_id,format,title,stage,data) values (5,'explainer_short','Kuyt ne yaptı','voice','{}')")
+    con.commit(); con.close()
+    (src / "out" / "116_kuyt").mkdir(parents=True)
+    (src / "out" / "116_kuyt" / "116_kuyt.mp4").write_bytes(b"v")
+    rep = {r["prod"]: r for r in migrate.migrate(str(src), d, apply=True, archive=True)}
+    assert all(r["result"] == "imported" for r in rep.values())                   # flags do not hold an archive
+    assert rep[5]["project"].startswith("116-") and rep[5]["files"]["final"] == "out/116_kuyt/116_kuyt.mp4"
+    monkeypatch.setattr(P, "DIR", d)
+    monkeypatch.setattr(hat_api, "lang", lambda: "en")
+    monkeypatch.setattr(hat_api.accounts, "current", lambda: "ali")
+    for r in rep.values():
+        assert P.load(r["project"], d)["status"] == "archived" and P.next_stage(r["project"], d)[0] == "done"
+        assert hat_api.project(r["project"])["state"] == "archived"
+    listed = {p["id"]: p for p in hat_api.projects()}
+    assert listed[rep[1]["project"]]["state"] == "archived" and listed[rep[1]["project"]]["video"].endswith("201_yayinda.mp4")
+    with pytest.raises(ValueError, match="archive"):
+        hat_api.post(None, f"/api/hat/project/{rep[1]['project']}", {"action": "back", "stage": "script"}, lambda *a: 1)
