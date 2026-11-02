@@ -351,3 +351,54 @@ def thumbnails(ctx):
         raise ToolError("no final render yet")
     p = P.load(ctx.pid, ctx.d)
     return {"covers": thumbs.make(os.path.join(ROOT, fin["final"]), ctx.path("renders"), p["title"], p.get("aspect", "9:16"))}
+
+
+# ---------------------------------------------------------------- images, video, avatars (factory/hat/media.py)
+
+@tool("media_models", "planning", "Which image / video / avatar / lip-sync model fits a shot: give the family, what you "
+      "have (prompt, images, start_frame, image, audio, video), the tags you need (e.g. talking_head, illustration, "
+      "refs, sound, cinematic, cheap), the clip seconds and aspect. Returns the models ranked with reasons.",
+      schema={"type": "object", "required": ["family"], "properties": {
+          "family": {"type": "string", "enum": ["image", "video", "avatar", "lipsync", "performance"]},
+          "have": {"type": "array", "items": {"type": "string"}}, "need": {"type": "array", "items": {"type": "string"}},
+          "seconds": {"type": "number"}, "aspect": {"type": "string"}, "cheap": {"type": "boolean"}}})
+def media_models_tool(ctx, family, have=(), need=(), seconds=None, aspect=None, cheap=False):
+    from . import media
+    return {"models": media.pick(family, have, need, seconds, aspect or P.load(ctx.pid, ctx.d).get("aspect"), cheap)}
+
+
+@tool("image_gen", "image", "One image through the ElevenLabs connector (optionally from reference image nodes on a flow, "
+      "for the same character or place). Spends credits inside the approved budget.", provider="elevenlabs",
+      runtime="cloud", spends="credits per image", needs=("network",), agent=False,
+      schema={"type": "object", "required": ["prompt"], "properties": {"prompt": {"type": "string"},
+              "model": {"type": "string"}, "flow_id": {"type": "string"}, "refs": {"type": "array", "items": {"type": "string"}}}})
+def image_gen_tool(ctx, prompt, model=None, flow_id=None, refs=()):
+    from .. import eleven
+    from . import explainer as E
+    p = P.load(ctx.pid, ctx.d)
+    path, cost, flow, node = eleven.image(E._con(), prompt, E.remaining_budget(ctx.pid, ctx.d), p.get("eleven_account"),
+                                          p.get("aspect", "9:16"), flow_id, tuple(refs), model=model)
+    return {"file": E._rel(path), "credits": cost, "flow_id": flow, "node_id": node}
+
+
+@tool("video_gen", "video", "One generated video clip (Seedance 2.5 by default, Veo 3.1 for short cinematic shots) through "
+      "the ElevenLabs connector. Spends credits inside the approved budget.", provider="elevenlabs", runtime="cloud",
+      spends="credits per second", needs=("network",), agent=False,
+      schema={"type": "object", "required": ["prompt", "seconds"], "properties": {"prompt": {"type": "string"},
+              "seconds": {"type": "number", "minimum": 4, "maximum": 30}, "model": {"type": "string"},
+              "audio": {"type": "boolean"}}})
+def video_gen_tool(ctx, prompt, seconds, model=None, audio=False):
+    from .. import eleven
+    from . import explainer as E, media
+    p = P.load(ctx.pid, ctx.d)
+    m = media.get(model or "bytedance-seedance-v2.5")
+    if not m or m["family"] != "video":
+        raise ValueError(f"unknown video model {model}")
+    lo, hi = m.get("seconds") or (4, 30)
+    secs = max(lo, min(hi, seconds))
+    if m.get("steps"):
+        secs = min(m["steps"], key=lambda s: abs(s - secs))
+    params = {"duration_secs": secs, "aspect_ratio": p.get("aspect", "9:16"), "generate_audio": bool(audio)}
+    path, cost = eleven.generate(E._con(), "video", m["id"], prompt, params, secs, "s", ext="mp4",
+                                 approved=E.remaining_budget(ctx.pid, ctx.d), account=p.get("eleven_account"))
+    return {"file": E._rel(path), "credits": cost, "seconds": secs, "model": m["id"]}

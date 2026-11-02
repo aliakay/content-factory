@@ -935,3 +935,33 @@ def test_hybrid_checks_every_fact_at_its_gate(d, engine, monkeypatch):
     sc = P.read_artifact(pid, "script", d)
     assert [c["verified"] for c in sc["claims"]] == [True, False] and sc["claims"][0]["source"].endswith("Eibsee")
     assert "1/2" in P.checkpoint(pid, "script", d)["summary"]
+
+
+# ---------------------------------------------------------------- media models and the picker
+
+def test_picker_filters_by_inputs_and_ranks_by_need():
+    from factory.hat import media
+    assert {m["family"] for m in media.MODELS} >= {"image", "video", "avatar", "lipsync"}
+    ids = [m["id"] for m in media.pick("avatar", have=["image", "audio"], need=["illustration"], seconds=10, cheap=True)]
+    assert ids[0] == "minimax-h3-max-lipsync"                           # the cheap no-GPU path for a drawn character
+    long = media.pick("avatar", have=["image", "audio"], need=["talking_head"], seconds=40)
+    assert long[0]["id"] != "minimax-h3-max-lipsync" and any("outside" in w for m in long for w in m["why"])
+    assert media.pick("avatar", have=["prompt"]) == []                  # an avatar needs an image and audio
+    assert [m["id"] for m in media.pick("lipsync", have=["video", "audio"])][0] == "sync-lipsync-v3"
+    v = media.pick("video", need=["cinematic", "sound"], seconds=6, aspect="9:16")
+    assert v[0]["id"] == "veo-3.1-generate-001"
+
+
+def test_video_gen_snaps_length_and_stays_in_budget(d, monkeypatch):
+    from factory import eleven
+    from factory.hat import tools as T, explainer as E
+    pid = P.create("explainer", "t", d=d)["id"]
+    p = P.load(pid, d); p["budget"] = {"credits": 5000}; P.save(p, d)
+    seen = {}
+    monkeypatch.setattr(E, "_con", lambda: None)
+    monkeypatch.setattr(eleven, "generate", lambda con, kind, model, prompt, params, units, unit, ext=None, approved=None,
+                        account=None: seen.update(kind=kind, model=model, params=params, approved=approved, ext=ext) or ("/tmp/v.mp4", 700.0))
+    out = T.call("video_gen", T.Ctx(pid, "assets", d), {"prompt": "fog over a lake", "seconds": 7, "model": "veo-3.1-generate-001"})
+    assert out["seconds"] == 6 and seen["params"]["duration_secs"] == 6 and seen["approved"] == 5000 and seen["ext"] == "mp4"
+    picked = T.call("media_models", T.Ctx(pid, "proposal", d), {"family": "video", "need": ["long"], "seconds": 20})
+    assert picked["models"][0]["id"] == "bytedance-seedance-v2.5"
