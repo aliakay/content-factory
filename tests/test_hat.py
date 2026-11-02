@@ -318,6 +318,7 @@ def skills(tmp_path, monkeypatch):
     (root / "meta").mkdir(parents=True)
     (root / "pipelines" / "explainer").mkdir(parents=True)
     (root / "meta" / "stage-agent.md").write_text("CONTRACT TEXT")
+    (root / "meta" / "reviewer.md").write_text("REVIEWER CONTRACT")
     (root / "pipelines" / "explainer" / "research.md").write_text("RESEARCH BRIEF")
     monkeypatch.setattr(A, "SKILLS", str(root))
     return A
@@ -337,12 +338,15 @@ def test_agent_stage_counts_only_a_submitted_artifact(d, skills, monkeypatch):
     seen = {}
 
     def fake_cli(prompt, tools=(), servers=None, **k):
+        if "REVIEWER CONTRACT" in prompt:
+            return '{"verdict": "pass", "findings": [], "summary": "İyi."}', {"cost_usd": 0.03}
         seen.update(prompt=prompt, tools=tools, servers=servers, k=k)
         T.call("submit_artifact", T.Ctx(pid, "research", d), {"data": GOOD_RESEARCH})
         return "submitted", {"cost_usd": 0.12}
     monkeypatch.setattr(llm, "ask_text", fake_cli)
     out = skills.run_stage(pid, s, note="daha güncel kaynak", d=d)
-    assert out["summary"] == "Kaynaklar hazır." and out["cost"]["usd"] == 0.12
+    assert out["summary"] == "Kaynaklar hazır." and out["cost"]["usd"] == 0.15
+    assert out["review"]["verdict"] == "pass" and out["review"]["rounds"] == 1
     assert "CONTRACT TEXT" in seen["prompt"] and "RESEARCH BRIEF" in seen["prompt"]
     assert "daha güncel kaynak" in seen["prompt"] and "Video language: English" in seen["prompt"]
     assert "Interface language for `summary`: Turkish" in seen["prompt"] and "At least 5 sources" in seen["prompt"]
@@ -383,3 +387,47 @@ def test_cli_commands_attach_our_server(monkeypatch, tmp_path):
     cfg = cmd[cmd.index("--mcp-config") + 1]
     assert "--strict-mcp-config" in cmd and cmd[cmd.index("--max-budget-usd") + 1] == "2.0"
     assert json.load(open(cfg))["mcpServers"]["factory"]["type"] == "stdio"
+
+
+def test_reviewer_sends_critical_findings_back_once(d, skills, monkeypatch):
+    from factory import llm
+    from factory.hat import tools as T
+    pid = P.create("explainer", "t", d=d)["id"]
+    s = manifest.stage(manifest.get("explainer"), "research")
+    calls = {"author": [], "review": []}
+    verdicts = iter(['{"verdict": "fix", "findings": [{"severity": "critical", "item": "sources", '
+                     '"problem": "only 3 sources", "fix": "add two more"}, {"severity": "nitpick", "item": "tone", '
+                     '"problem": "dry", "fix": "warmer"}], "summary": "Kaynak az."}',
+                     '{"verdict": "pass", "findings": [{"severity": "suggestion", "item": "angles", "problem": "x", '
+                     '"fix": "y"}], "summary": "Tamam."}'])
+
+    def fake_cli(prompt, tools=(), servers=None, model=None, **k):
+        if "REVIEWER CONTRACT" in prompt:
+            calls["review"].append(model)
+            assert "mcp__factory__submit_artifact" not in tools        # the reviewer cannot rewrite the output
+            return next(verdicts), {"cost_usd": 0.05}
+        calls["author"].append(prompt)
+        T.call("submit_artifact", T.Ctx(pid, "research", d), {"data": GOOD_RESEARCH})
+        return "submitted", {"cost_usd": 0.1}
+    monkeypatch.setattr(llm, "ask_text", fake_cli)
+    out = skills.run_stage(pid, s, d=d)
+    assert len(calls["author"]) == 2 and "only 3 sources -> add two more" in calls["author"][1]
+    assert calls["review"] == ["opus", "opus"]                      # sonnet wrote it, opus reviews it
+    assert out["review"]["verdict"] == "pass" and out["review"]["open_critical"] == 0 and out["review"]["rounds"] == 2
+    assert P.checkpoint(pid, "research", d)["revisions"] == 0      # internal rounds cost the creator nothing
+
+
+def test_a_broken_review_never_blocks_the_stage(d, skills, monkeypatch):
+    from factory import llm
+    from factory.hat import tools as T
+    pid = P.create("explainer", "t", d=d)["id"]
+    s = manifest.stage(manifest.get("explainer"), "research")
+
+    def fake_cli(prompt, **k):
+        if "REVIEWER CONTRACT" in prompt:
+            raise llm.LLMError("claude timed out")
+        T.call("submit_artifact", T.Ctx(pid, "research", d), {"data": GOOD_RESEARCH})
+        return "submitted", {"cost_usd": 0.1}
+    monkeypatch.setattr(llm, "ask_text", fake_cli)
+    out = skills.run_stage(pid, s, d=d)
+    assert out["review"]["verdict"] == "unknown" and "timed out" in out["review"]["error"]
