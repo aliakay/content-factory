@@ -110,8 +110,7 @@ def post_vf(fx, preview=False):
     vf = []
     if fx.get("bloom"):      # the bright parts glow: a blurred copy of the highlights screened back on (kinetic hits, neon)
         a = min(1.0, float(fx["bloom"]))
-        # curves is per component: on a YUV frame it curves the chroma too, which swings a teal film to purple. Work the
-        # bloom in RGB, then come straight back to YUV before the remaining filters.
+        # in RGB: on YUV frames the screen blend also lifts the chroma planes and tints the whole film magenta
         vf.append(f"format=gbrp,split[bl_a][bl_b];[bl_b]curves=all='0/0 0.62/0 1/1',gblur=sigma={10 if preview else 22}[bl_g];"
                   f"[bl_a][bl_g]blend=all_mode=screen:all_opacity={0.25 + 0.5 * a:.2f},format=yuv420p")
     if fx.get("mono"):

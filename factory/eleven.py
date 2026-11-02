@@ -219,10 +219,11 @@ def image(con, prompt_text, approved, account=None, aspect="9:16", flow_id=None,
     prompt = f"""Use the ElevenLabs tools, in this order, exactly once each:
 1. {how}, generations_count 1, estimate_only true and this prompt: <<<{prompt_text}>>>
    This only creates the node (nothing is generated or charged); note its flow_id and node_id.
-2. Call creative_get_model_schema(node_type="image-generation", model_id="{model}") and
-   creative_get_flow_node on that node. Call creative_update_node with its existing model_parameters, setting
-   "aspect_ratio": "{ratio}". Keep only parameters listed in the schema. Never include "images" in
-   model_parameters: references are already wired by creative_edit_image's connect_from argument.
+2. Call creative_get_model_schema(node_type="image-generation", model_id="{model}") and creative_get_flow_node on
+   that node, then creative_update_node with only its plain settings that the schema lists (quality, resolution, ...)
+   and "aspect_ratio": "{ratio}" (portrait for a 9:16 video, landscape for 16:9). Leave out "images" and any other
+   field that holds node references ({{"template_node_id": ...}}): those are input ports, already wired by step 1,
+   and creative_update_node refuses them.
 3. creative_run_flow_nodes on that one node with generations_count 1.
 4. Poll creative_get_flow_run_status until finished, then read the signed image URL.
 Reply ONLY JSON: {{"url": "<signed image url>", "credit_cost": <number>, "flow_id": "<flow id>", "node_id": "<the

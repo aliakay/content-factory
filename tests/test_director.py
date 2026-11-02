@@ -164,6 +164,7 @@ def test_every_role_gets_a_reasoning_effort(monkeypatch):
     import subprocess
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(llm, "_record", lambda *a: None)
+    monkeypatch.setattr(llm, "selected_provider", lambda *a, **k: "claude")   # not the VM user's Codex choice
     from factory import accounts
     monkeypatch.setattr(accounts, "claude_env", lambda: {})
     assert llm.effort_for("motiondesign.author", "opus") == "medium" and llm.effort_for("x.y", "sonnet") == "medium"
