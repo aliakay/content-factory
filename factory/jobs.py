@@ -399,6 +399,9 @@ def run(job_id):
             pid = talk.create(con, os.path.join(ROOT, o["file"]), o.get("brief", ""), o.get("channel"), o.get("aspect", "9:16"),
                               o.get("recipe"), o.get("lang"))
             result = f"konuşma kurgusu {pid}"
+        elif kind == "hat_stage":   # one stage of a v2 production line; the line keeps moving until a gate
+            from .hat import runner
+            result = runner.run_job(arg, lambda k, a: queue(con, k, a, user=job["user"]))
         elif kind.startswith("p_"):
             result = run_production(con, kind, arg, job_id)
         elif kind == "ideas":

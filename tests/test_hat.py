@@ -134,3 +134,66 @@ def test_planned_stages_cannot_run(d):
     pid = P.create("documentary", "Şehir 4'te", d=d)["id"]
     with pytest.raises(P.GateError, match="not built"):
         P.start(pid, "idea", d=d)
+
+
+# ---------------------------------------------------------------- the line manager
+
+def _fake_line(monkeypatch, outputs, fail_on=()):
+    """Stand in for the stage agent and the code steps: each stage returns outputs[sid] (or a default)."""
+    from factory.hat import runner
+
+    def fake_agent(pid, s, note=None, d=None):
+        if s["id"] in fail_on:
+            raise RuntimeError(f"{s['id']} broke")
+        out = outputs.get(s["id"], {"artifact": {"ok": s["id"], "note": note}})
+        return out(note) if callable(out) else out
+    import types, sys
+    monkeypatch.setitem(sys.modules, "factory.hat.agent", types.SimpleNamespace(run_stage=fake_agent))
+    monkeypatch.setattr(runner, "_code_step", lambda call: fake_agent)
+    return runner
+
+
+class Q:
+    """A job queue that runs each job at once, like the real worker would."""
+    def __init__(self, runner, d):
+        self.runner, self.d, self.jobs = runner, d, []
+
+    def __call__(self, kind, arg):
+        self.jobs.append((kind, arg))
+        self.runner.run_job(arg, self, d=self.d)
+        return len(self.jobs)
+
+
+def test_line_runs_until_each_gate(d, monkeypatch):
+    runner = _fake_line(monkeypatch, {"proposal": {"artifact": {"cost": {"credits": 640, "usd": 0.0}}}})
+    pid = P.create("explainer", "t", d=d)["id"]
+    q = Q(runner, d)
+    assert runner.advance(pid, q, d=d) == ("gate", "proposal")   # research ran and the line stopped at the gate
+    assert [j[0] for j in q.jobs] == ["hat_stage", "hat_stage"]
+    assert runner.approve(pid, "proposal", q, by="ali", d=d) == ("gate", "script")
+    assert P.load(pid, d)["budget"]["credits"] == 640                 # the approved proposal fixed the budget
+    for sid in ("script", "scene_plan", "assets"):
+        runner.approve(pid, sid, q, d=d)
+    assert P.next_stage(pid, d) == ("gate", "publish")              # edit and compose ran on their own
+    runner.approve(pid, "publish", q, d=d)
+    assert P.next_stage(pid, d) == ("done", None)
+
+
+def test_feedback_reaches_the_stage_and_failures_wait(d, monkeypatch):
+    runner = _fake_line(monkeypatch, {"script": lambda note: {"artifact": {"lines": [note or "ilk"]}}},
+                        fail_on=("scene_plan",))
+    pid = P.create("explainer", "t", d=d)["id"]
+    q = Q(runner, d)
+    runner.advance(pid, q, d=d)
+    runner.approve(pid, "proposal", q, d=d)
+    assert P.read_artifact(pid, "script", d)["lines"] == ["ilk"]
+    assert runner.feedback(pid, "script", "daha kısa", q, d=d) == ("gate", "script")
+    assert P.read_artifact(pid, "script", d)["lines"] == ["daha kısa"]
+    assert runner.approve(pid, "script", q, d=d) == ("failed", "scene_plan")
+    assert "broke" in P.checkpoint(pid, "scene_plan", d)["error"]
+    assert runner.back(pid, "script", d=d) == ("gate", "script")
+
+
+def test_job_dispatch_is_wired():
+    src = open(os.path.join(os.path.dirname(__file__), "..", "factory", "jobs.py"), encoding="utf-8").read()
+    assert 'kind == "hat_stage"' in src
