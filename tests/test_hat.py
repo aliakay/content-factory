@@ -307,3 +307,79 @@ def test_mcp_server_speaks_stdio(d):
     out = [json.loads(x) for x in p.stdout.splitlines() if x.strip()]
     assert [o["id"] for o in out] == [1, 2, 3], p.stderr
     assert json.loads(out[2]["result"]["content"][0]["text"])["video_lang"] == "en"
+
+
+# ---------------------------------------------------------------- stage agent
+
+@pytest.fixture
+def skills(tmp_path, monkeypatch):
+    from factory.hat import agent as A
+    root = tmp_path / "skills"
+    (root / "meta").mkdir(parents=True)
+    (root / "pipelines" / "explainer").mkdir(parents=True)
+    (root / "meta" / "stage-agent.md").write_text("CONTRACT TEXT")
+    (root / "pipelines" / "explainer" / "research.md").write_text("RESEARCH BRIEF")
+    monkeypatch.setattr(A, "SKILLS", str(root))
+    return A
+
+
+GOOD_RESEARCH = {"insight": "TTF crossed 100 EUR/MWh intraday", "summary": "Kaynaklar hazır.",
+                 "sources": [{"url": f"https://x.org/{i}", "title": "x"} for i in range(3)],
+                 "data_points": [{"claim": "100.425 EUR/MWh", "source": "https://x.org/0"}],
+                 "angles": [{"title": "a", "grounded_in": "x"}, {"title": "b", "grounded_in": "y"}]}
+
+
+def test_agent_stage_counts_only_a_submitted_artifact(d, skills, monkeypatch):
+    from factory import llm
+    from factory.hat import tools as T
+    pid = P.create("explainer", "t", video_lang="en", d=d, extra={"ui_lang": "tr"})["id"]
+    s = manifest.stage(manifest.get("explainer"), "research")
+    seen = {}
+
+    def fake_cli(prompt, tools=(), servers=None, **k):
+        seen.update(prompt=prompt, tools=tools, servers=servers, k=k)
+        T.call("submit_artifact", T.Ctx(pid, "research", d), {"data": GOOD_RESEARCH})
+        return "submitted", {"cost_usd": 0.12}
+    monkeypatch.setattr(llm, "ask_text", fake_cli)
+    out = skills.run_stage(pid, s, note="daha güncel kaynak", d=d)
+    assert out["summary"] == "Kaynaklar hazır." and out["cost"]["usd"] == 0.12
+    assert "CONTRACT TEXT" in seen["prompt"] and "RESEARCH BRIEF" in seen["prompt"]
+    assert "daha güncel kaynak" in seen["prompt"] and "Video language: English" in seen["prompt"]
+    assert "Interface language for `summary`: Turkish" in seen["prompt"] and "At least 5 sources" in seen["prompt"]
+    assert "WebSearch" in seen["tools"] and "mcp__factory__submit_artifact" in seen["tools"]
+    assert seen["servers"]["factory"]["env"]["HAT_STAGE"] == "research" and seen["k"]["budget_usd"] == 2.0
+
+    def lazy_cli(prompt, **k):
+        return "I think it is fine.", {"cost_usd": 0.01}
+    monkeypatch.setattr(llm, "ask_text", lazy_cli)
+    os.utime(P.path(pid, "artifacts", "research.json", d=d), (1, 1))     # an old artifact must not count
+    with pytest.raises(skills.AgentError, match="without an accepted"):
+        skills.run_stage(pid, s, d=d)
+
+
+def test_cli_commands_attach_our_server(monkeypatch, tmp_path):
+    from factory import accounts, llm
+    servers = {"factory": {"command": "/py", "args": ["-m", "factory.hat.mcp_server"], "env": {"HAT_PROJECT": "001-x"}}}
+    flags = llm._codex_server_flags(servers)
+    assert 'mcp_servers.factory.command="/py"' in flags
+    assert 'mcp_servers.factory.env={HAT_PROJECT="001-x"}' in flags
+    seen = {}
+
+    class R:
+        returncode, stderr = 0, ""
+        stdout = json.dumps({"type": "result", "result": "ok", "total_cost_usd": 0, "usage": {}})
+
+    def fake_run(cmd, **k):
+        seen["cmd"] = cmd
+        return R()
+    import subprocess
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(llm, "_record", lambda *a, **k: None)
+    monkeypatch.setattr(llm, "selected_provider", lambda *a, **k: "claude")
+    monkeypatch.setattr(accounts, "claude_env", lambda: {})
+    monkeypatch.setattr(llm, "WORKDIR", str(tmp_path))
+    llm.ask_text("hi", tools=("mcp__factory__project_info",), servers=servers, budget_usd=2.0, model="sonnet")
+    cmd = seen["cmd"]
+    cfg = cmd[cmd.index("--mcp-config") + 1]
+    assert "--strict-mcp-config" in cmd and cmd[cmd.index("--max-budget-usd") + 1] == "2.0"
+    assert json.load(open(cfg))["mcpServers"]["factory"]["type"] == "stdio"
