@@ -162,7 +162,7 @@ Three.js 3D dünyalar.
 **İyi olduğu:** Röportaj + grafik, ürün görüntüsü + açıklama, gezi + bilgi kartları.
 **İyi olmadığı:** Görüntüsüz konular (→ Konu anlatımı).
 **İster:** Görüntü + konu. **Kapılar:** 2·3·4·5·8.
-**Durum:** Parçaları var (cinecut + htmlmotion katmanları).
+**Durum:** Hazır, v1 (t204): klip motorunun "travel_facts" biçimi üzerinde; Bilgi kontrolü kapısında her bilgi kaynakla doğrulanır, doğrulanamayanlar adıyla gösterilir. Tasarlanmış (htmlmotion) bilgi katmanları v2 işi.
 
 ### 6.6 Konuşan kafa · `talking_head`
 **Ne üretir:** Kameraya konuştuğun ham videodan sıkı, dikey, altyazılı kısa video: tekrarlar ve duraklamalar kesilir,

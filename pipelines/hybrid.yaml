@@ -1,6 +1,6 @@
 id: hybrid
 order: 5
-status: planned
+status: ready
 category: mixed
 inputs: [footage, topic]
 duration: [20, 90]
@@ -24,10 +24,40 @@ cost:
   tr: "Seslendirme ve müzik isteğe bağlı."
   en: "Narration and music optional."
 stages:
-  - {id: idea, gate: true, run: planned}
-  - {id: script, gate: true, run: planned}
-  - {id: scene_plan, gate: true, run: planned}
-  - {id: assets, gate: true, run: planned}
-  - {id: edit, run: planned}
-  - {id: compose, run: planned}
-  - {id: publish, gate: true, run: planned}
+  - id: idea
+    gate: true
+    run: code
+    call: factory.hat.hybrid:idea
+
+  - id: script
+    gate: true
+    name: {tr: Bilgi kontrolü, en: Fact check}
+    run: code
+    call: factory.hat.hybrid:script
+
+  - id: scene_plan
+    gate: true
+    artifact: cut_plan
+    run: code
+    call: factory.hat.hybrid:scene_plan
+    tools: [preview_render]
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.hybrid:assets
+    tools: [tts, align_words, music, preview_render]
+
+  - id: edit
+    run: code
+    call: factory.hat.hybrid:edit
+
+  - id: compose
+    run: code
+    call: factory.hat.hybrid:compose
+    tools: [final_render, qa_technical, qa_sound, thumbnails]
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.hybrid:publish

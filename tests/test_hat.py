@@ -915,3 +915,23 @@ def test_series_episode_form_needs_series_and_episode(d, api):
     hat_api, _, q = api
     with pytest.raises(ValueError, match="Pick a series"):
         hat_api.post(None, "/api/hat/projects", {"line": "series_episode", "brief": "episode three please"}, q)
+
+
+def test_hybrid_checks_every_fact_at_its_gate(d, engine, monkeypatch):
+    from factory import productions as PR
+    from factory.hat import runner
+    rows, calls = engine
+    def verify(con, prod):
+        rows[prod]["data"]["claims"] = [{"claim": "Eibsee 973 m"}, {"claim": "En derin göl"}]
+        rows[prod]["verification"] = {"verdicts": [{"claim": "Eibsee 973 m", "verdict": "supported",
+                                                    "sources": [{"url": "https://de.wikipedia.org/wiki/Eibsee"}]},
+                                                   {"claim": "En derin göl", "verdict": "refuted"}]}
+    monkeypatch.setattr(PR, "verify", verify)
+    pid = P.create("hybrid", "Eibsee", d=d)["id"]
+    q = Q(runner, d)
+    assert runner.advance(pid, q, d=d) == ("gate", "idea")
+    assert P.load(pid, d)["format"] == "travel_facts" and calls[0] == ("generate", "travel_facts", "")
+    assert runner.approve(pid, "idea", q, d=d) == ("gate", "script")
+    sc = P.read_artifact(pid, "script", d)
+    assert [c["verified"] for c in sc["claims"]] == [True, False] and sc["claims"][0]["source"].endswith("Eibsee")
+    assert "1/2" in P.checkpoint(pid, "script", d)["summary"]
