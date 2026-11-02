@@ -18,7 +18,7 @@ const TX = {
     create: "Başlat", cancel: "Vazgeç", started: "Başladı: ilk aşama çalışıyor",
     prods_title: "Üretimler", prods_lead: "Yeni hatlardaki videolar. Kartı açınca akışı ve senden beklenen kararı görürsün.",
     prods_empty: "Henüz yeni hatta bir üretim yok.", new_prod: "Yeni üretim",
-    state_busy: "Çalışıyor", state_gate: "Kararını bekliyor", state_failed: "Hata", state_done: "Bitti", state_run: "Sırada", state_archived: "Arşiv", video_file: "Videon (MP4/MOV, en fazla 600 MB)", need_video: "Önce videonu seç", uploading: "Yükleniyor", style: "Kurgu tarzı", cut_word: "kesildi", fmt_cinematic_calm: "Sakin sinematik", fmt_story_vo: "Hikâye (kendi sesin)", fmt_unreal_places: "Gerçek gibi durmayan yerler", fmt_travel_facts: "Gezi bilgileri (kaynaklı)", fmt_long_compilation: "Uzun derleme (1 dk+)",  shots: "plan", warnings: "Uyarılar", archived_note: "Eski sistemden arşivlendi; üzerinde iş yapılmaz.",
+    state_busy: "Çalışıyor", state_gate: "Kararını bekliyor", state_failed: "Hata", state_done: "Bitti", state_run: "Sırada", state_archived: "Arşiv", series: "Seri", episode: "Bölüm", no_series: "Kitabı ve karakterleri hazır bir serin yok.", to_series: "Seriler sayfasına git",  video_file: "Videon (MP4/MOV, en fazla 600 MB)", need_video: "Önce videonu seç", uploading: "Yükleniyor", style: "Kurgu tarzı", cut_word: "kesildi", fmt_cinematic_calm: "Sakin sinematik", fmt_story_vo: "Hikâye (kendi sesin)", fmt_unreal_places: "Gerçek gibi durmayan yerler", fmt_travel_facts: "Gezi bilgileri (kaynaklı)", fmt_long_compilation: "Uzun derleme (1 dk+)",  shots: "plan", warnings: "Uyarılar", archived_note: "Eski sistemden arşivlendi; üzerinde iş yapılmaz.",
     state_planned: "Bu hatta sıradaki aşama henüz yok",
     st_pending: "Bekliyor", st_running: "Çalışıyor", st_awaiting_approval: "Kararını bekliyor", st_approved: "Onaylandı",
     st_done: "Bitti", st_failed: "Hata", st_stale: "Yeniden yapılacak",
@@ -56,7 +56,7 @@ const TX = {
     create: "Start", cancel: "Cancel", started: "Started: the first stage is running",
     prods_title: "Productions", prods_lead: "Videos on the new lines. Open one to see its flow and the decision waiting for you.",
     prods_empty: "No production on the new lines yet.", new_prod: "New production",
-    state_busy: "Working", state_gate: "Waiting for you", state_failed: "Error", state_done: "Done", state_run: "Up next", state_archived: "Archive", video_file: "Your video (MP4/MOV, up to 600 MB)", need_video: "Pick your video first", uploading: "Uploading", style: "Edit style", cut_word: "cut", fmt_cinematic_calm: "Cinematic calm", fmt_story_vo: "Story (your own voice)", fmt_unreal_places: "Places that look unreal", fmt_travel_facts: "Travel facts (sourced)", fmt_long_compilation: "Long compilation (1 min+)",  shots: "shots", warnings: "Warnings", archived_note: "Archived from the old system; no work is done on it.",
+    state_busy: "Working", state_gate: "Waiting for you", state_failed: "Error", state_done: "Done", state_run: "Up next", state_archived: "Archive", series: "Series", episode: "Episode", no_series: "You have no series with its book and characters ready.", to_series: "Go to Series",  video_file: "Your video (MP4/MOV, up to 600 MB)", need_video: "Pick your video first", uploading: "Uploading", style: "Edit style", cut_word: "cut", fmt_cinematic_calm: "Cinematic calm", fmt_story_vo: "Story (your own voice)", fmt_unreal_places: "Places that look unreal", fmt_travel_facts: "Travel facts (sourced)", fmt_long_compilation: "Long compilation (1 min+)",  shots: "shots", warnings: "Warnings", archived_note: "Archived from the old system; no work is done on it.",
     state_planned: "The next stage is not built on this line yet",
     st_pending: "Waiting", st_running: "Working", st_awaiting_approval: "Waiting for you", st_approved: "Approved",
     st_done: "Done", st_failed: "Error", st_stale: "To redo",
@@ -166,6 +166,10 @@ function startForm(l) {
       <label class="field"><span>${esc(t("channel"))}</span><select id="hlChan"><option value="">${esc(t("none"))}</option>${S.channels.map((c) => `<option value="${esc(c.id)}" ${c.id === S.ch ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
     </div>
     ${(l.inputs || []).includes("video") ? `<label class="field mt8"><span>${esc(t("video_file"))}</span><input type="file" id="hlVideo" accept="video/mp4,video/quicktime,.mov,.m4v"></label><div id="hlProg" class="tiny faint"></div>` : ""}
+    ${(l.inputs || []).includes("series") ? ((HS.series || []).length ? `<div class="row mt8" style="gap:12px;align-items:flex-end">
+      <label class="field"><span>${esc(t("series"))}</span><select id="hlSeries">${HS.series.map((x) => `<option value="${x.id}" data-next="${Math.min(x.made + 1, x.episodes)}">${esc(x.title)} (${x.made}/${x.episodes})</option>`).join("")}</select></label>
+      <label class="field"><span>${esc(t("episode"))}</span><input id="hlEp" type="number" min="1" value="${Math.min(HS.series[0].made + 1, HS.series[0].episodes)}" style="width:90px"></label></div>`
+      : `<div class="note mt8 small">${esc(t("no_series"))} <a href="#/seriler">${esc(t("to_series"))}</a></div>`) : ""}
     ${l.id === "travel_vlog" ? `<label class="field mt8"><span>${esc(t("style"))}</span><select id="hlFormat">${["cinematic_calm", "story_vo", "unreal_places", "travel_facts", "long_compilation"].map((f) => `<option value="${f}">${esc(t("fmt_" + f))}</option>`).join("")}</select></label>` : ""}
     <div class="row mt12"><button class="btn accent" data-act="hatCreate" data-id="${esc(l.id)}">${esc(t("create"))}</button>
       <button class="btn ghost" data-act="hatClose">${esc(t("cancel"))}</button></div>
@@ -174,6 +178,7 @@ function startForm(l) {
 ROUTES["#/uret"] = async () => {
   crumb([t("nav_make")]);
   HS.lines = HS.lines || await api("/api/hat/lines");
+  if (HS.open === "series_episode") HS.series = await api("/api/hat/series");
   paint(`<h1>${esc(t("make_title"))}</h1><p class="lead">${esc(t("make_lead"))}</p>
     <div class="hl-grid mt16">${HS.lines.map(lineCard).join("")}</div>`, JSON.stringify([L(), HS.open]));
   return {};
@@ -191,7 +196,8 @@ ACT.hatCreate = async (el) => {
     }
     const r = await post("/api/hat/projects", { line: el.dataset.id, brief: $("#hlBrief").value, title: $("#hlTitle").value,
       video_lang: $("#hlVlang").value, aspect: $("#hlAspect").value, channel: $("#hlChan").value || null, source,
-      format: $("#hlFormat") ? $("#hlFormat").value : null });
+      format: $("#hlFormat") ? $("#hlFormat").value : null,
+      series: $("#hlSeries") ? $("#hlSeries").value : null, episode: $("#hlEp") ? $("#hlEp").value : null });
     HS.open = null; S.drafts = {}; toast(t("started"));
     location.hash = "#/u/" + r.id;
   } finally { el.disabled = false; }
@@ -285,6 +291,10 @@ function outCut(o) {
       ${(x.flags || []).length ? `<span class="tiny warn">${esc(x.flags.join(", "))}</span>` : ""}</li>`).join("")}</ol>
     ${(o.broll || []).length ? `<h3 class="mt16">B-roll</h3><ul class="hl-ul small">${o.broll.map((b) => `<li>${esc(b.kind)} · ${esc(b.text || "")}</li>`).join("")}</ul>` : ""}`;
 }
+function outPlates(o) {
+  return `${o.concept ? `<div class="hl-big small">${esc(o.concept)}</div>` : ""}
+    <div class="hl-stills mt12">${(o.plate_urls || []).map((u) => `<figure><img loading="lazy" src="${esc(u)}" data-act="hatZoom" data-src="${esc(u)}" alt=""></figure>`).join("")}</div>`;
+}
 function outCutPlan(o, s, f) {
   return `${player(o.preview_url, f.project.aspect === "16:9")}
     ${o.concept ? `<div class="hl-big small mt12">${esc(o.concept)}</div>` : ""}
@@ -294,7 +304,7 @@ function outCutPlan(o, s, f) {
     ${(o.warnings || []).length ? `<h3 class="mt16">${esc(t("warnings"))}</h3><ul class="hl-ul small">${o.warnings.map((w) => `<li class="warn">${esc(w)}</li>`).join("")}</ul>` : ""}`;
 }
 const OUT = { research: outResearch, proposal: outProposal, script: outScript, scene_plan: outScenes, assets: outAssets,
-  render: outRender, publish: outPublish, cut_plan: outCutPlan, cut: outCut };
+  render: outRender, publish: outPublish, cut_plan: outCutPlan, cut: outCut, plates: outPlates };
 function outputHtml(s, f) {
   const o = s.output;
   if (!o) return `<div class="tiny faint">${esc(s.status === "pending" ? t("waiting_prev") : t("output_none"))}</div>`;

@@ -104,6 +104,8 @@ def _public(name, data):
     for k in ("preview", "final"):
         if isinstance(data.get(k), str):
             data[k + "_url"] = _media(data[k])
+    if isinstance(data.get("plates"), list):
+        data["plate_urls"] = [_media(c) for c in data["plates"]]
     if isinstance(data.get("covers"), list):
         data["cover_urls"] = [_media(c) for c in data["covers"]]
     if isinstance(data.get("voice"), dict) and data["voice"].get("file"):
@@ -131,6 +133,10 @@ def get(con, path, q):
         return lines()
     if path == "/api/hat/projects":
         return projects()
+    if path == "/api/hat/series":           # series whose book and characters are ready, for the episode line's form
+        from factory import series
+        return [{"id": x["series_id"], "title": x["title"], "episodes": x["episodes"], "made": x["made"]}
+                for x in series.listing(con) if x["status"] == "ready"]
     m = re.fullmatch(r"/api/hat/project/([\w-]+)", path)
     if m:
         return project(m.group(1))
@@ -165,6 +171,11 @@ def _post(con, path, b, queue):
             if not re.fullmatch(r"raw/talk/[\w.-]+", src) or not os.path.isfile(os.path.join(ROOT, src)):
                 raise ValueError({"tr": "Önce videonu yükle.", "en": "Upload your video first."}[lang()])
             extra["source"] = src
+        if "series" in (line.get("inputs") or []):
+            try:
+                extra["series"] = {"id": int(b.get("series")), "episode": int(b.get("episode"))}
+            except (TypeError, ValueError):
+                raise ValueError({"tr": "Bir seri ve bölüm seç.", "en": "Pick a series and an episode."}[lang()]) from None
         from factory.hat import footage
         if b.get("format") in footage.FORMATS:
             extra["format"] = b["format"]

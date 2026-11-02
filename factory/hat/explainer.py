@@ -164,7 +164,8 @@ def _rel(path):
 
 
 def spent_credits(pid, d=None):
-    return sum((P.checkpoint(pid, s, d).get("cost") or {}).get("credits", 0) for s in ("assets", "edit", "compose"))
+    """Credits every stage of the project has spent so far (a line may spend before its assets stage)."""
+    return sum((cp.get("cost") or {}).get("credits", 0) for _, cp in P.stages(pid, d))
 
 
 def remaining_budget(pid, d=None):

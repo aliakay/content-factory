@@ -39,6 +39,8 @@ def _rel(path):
 def chosen_prod(pid, d=None):
     """The production row of the concept the creator approved."""
     p = P.load(pid, d)
+    if p.get("current_prod") in (p.get("prods") or []):      # a line that replaces its row on feedback (episode)
+        return p["current_prod"]
     prop = P.read_artifact(pid, "proposal", d) or {}
     c = next((c for c in prop.get("concepts") or [] if c["id"] == prop.get("chosen")), None)
     if not c or not c.get("prod_id"):

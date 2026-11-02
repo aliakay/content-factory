@@ -227,6 +227,8 @@ ya da yalnız müzikli.
 Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim dili sabit. Karakter animasyonu hattının
 "karakter tasarımı" aşamasını atlar (seri kitabından gelir).
 
+**Durum:** Hazır (t205). Kitap ve karakter sayfaları Seriler sayfasında; hat bir bölümü üretir: bölüm metni + maliyet, konuşanlarıyla satırlar, karakter sayfalarından çizimler (bütçe içinde), sesler + müzik, final.
+
 ## 7. Studio: sade arayüz
 
 - **Ana sayfa:** "Ne üretelim?" kutusu + 14 hat kartı. Yazılan istekten planner bir hat önerir; kart seçmek de olur.

@@ -868,3 +868,50 @@ def test_talking_head_needs_an_uploaded_video(d, api):
     from factory.hat import talkhead as T
     with pytest.raises(P.GateError, match="no uploaded video"):
         T._source({"source": "../data/users.json"})
+
+
+# ---------------------------------------------------------------- series episode: same characters, same art
+
+def test_series_episode_spends_plates_and_voices_inside_one_budget(d, engine, monkeypatch):
+    from factory import series, illustrate, productions as PR
+    from factory.hat import runner
+    rows, calls = engine
+    def write(con, sid, n, note=""):
+        pid = 70 + len([c for c in calls if c[0] == "write"])
+        calls.append(("write", sid, n, note))
+        rows[pid] = {"prod_id": pid, "title": f"Bölüm {n}", "format": "series_episode", "qa": None,
+                     "data": {"hook": "Önceki bölümde...", "voice": {"lines": ["Önceki bölümde...", "Kaç!"],
+                              "speakers": ["narrator", "kedi"]}, "post": {"caption": "Sence ne olacak?", "hashtags": "#seri"},
+                              "plates": {}, "motion": {"concept": "c"}}}
+        return pid
+    monkeypatch.setattr(series, "write_episode", write)
+    monkeypatch.setattr(series, "cast_for", lambda con, row: ([{"id": "kedi"}], "flow1"))
+    monkeypatch.setattr(illustrate, "estimate", lambda con, dd, acc, chars: {"images": 6, "credits": 600})
+    def plates(con, row, approved, chars, flow):
+        calls.append(("plates", approved, flow))
+        row["data"]["plates"] = {"s1": {"file": "assets/x.png"}}
+        return 550.0
+    monkeypatch.setattr(illustrate, "make_plates", plates)
+    monkeypatch.setattr(PR, "eleven_account", lambda dd: "ali")
+    monkeypatch.setattr(PR, "save", lambda con, row, *a: None)
+    monkeypatch.setattr(PR, "design", lambda con, prod, note="": None)
+    pid = P.create("series_episode", "Kedi 3", d=d, extra={"series": {"id": 4, "episode": 3}})["id"]
+    q = Q(runner, d)
+    assert runner.advance(pid, q, d=d) == ("gate", "proposal")
+    assert P.read_artifact(pid, "proposal", d)["cost"]["credits"] == 600 + 300 + 900
+    runner.approve(pid, "proposal", q, d=d)
+    assert P.read_artifact(pid, "script", d)["lines"][1] == "kedi: Kaç!"
+    runner.feedback(pid, "script", "kedi daha korkak olsun", q, d=d)          # a rewrite becomes the current row
+    assert ("write", 4, 3, "kedi daha korkak olsun") in calls and P.load(pid, d)["current_prod"] == 71
+    runner.approve(pid, "script", q, d=d)
+    assert ("plates", 1800, "flow1") in calls and P.read_artifact(pid, "plates", d)["plates"] == ["assets/x.png"]
+    runner.approve(pid, "scene_plan", q, d=d)
+    assert ("voice", 1800 - 550) in calls                                  # the plates' spend counts against the budget
+    runner.approve(pid, "assets", q, d=d)
+    assert P.read_artifact(pid, "publish", d)["caption"] == "Sence ne olacak?"
+
+
+def test_series_episode_form_needs_series_and_episode(d, api):
+    hat_api, _, q = api
+    with pytest.raises(ValueError, match="Pick a series"):
+        hat_api.post(None, "/api/hat/projects", {"line": "series_episode", "brief": "episode three please"}, q)

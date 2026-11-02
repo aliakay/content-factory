@@ -1,6 +1,6 @@
 id: series_episode
 order: 14
-status: partial
+status: ready
 category: generated
 inputs: [series]
 duration: [30, 120]
@@ -24,10 +24,39 @@ cost:
   tr: "Sahne çizimleri ve seslendirme kredisi; öneride kalem kalem."
   en: "Scene art and narration credits; itemised at the proposal."
 stages:
-  - {id: proposal, gate: true, run: planned}
-  - {id: script, gate: true, run: planned}
-  - {id: scene_plan, gate: true, run: planned}
-  - {id: assets, gate: true, run: planned}
-  - {id: edit, run: planned}
-  - {id: compose, run: planned}
-  - {id: publish, gate: true, run: planned}
+  - id: proposal
+    gate: true
+    run: code
+    call: factory.hat.episode:proposal
+
+  - id: script
+    gate: true
+    run: code
+    call: factory.hat.episode:script
+
+  - id: scene_plan
+    gate: true
+    artifact: plates
+    run: code
+    call: factory.hat.episode:scene_plan
+    tools: [preview_render]
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.episode:assets
+    tools: [tts, align_words, music, preview_render]
+
+  - id: edit
+    run: code
+    call: factory.hat.episode:edit
+
+  - id: compose
+    run: code
+    call: factory.hat.episode:compose
+    tools: [final_render, qa_technical, qa_sound, thumbnails]
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.episode:publish
