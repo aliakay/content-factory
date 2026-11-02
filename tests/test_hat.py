@@ -504,3 +504,90 @@ def test_api_advance_starts_a_stalled_line(d, monkeypatch):
     runner._adv = lambda pid_, q, by: calls.append((pid_, by)) or ("busy", "research")
     out = hat_api.post(None, f"/api/hat/project/{pid}", {"action": "advance"}, lambda *a: 1)
     assert out == {"id": pid, "state": "busy", "stage": "research"} and calls == [(pid, "ali")]
+
+
+# ---------------------------------------------------------------- migrating the old productions
+
+def _old_system(tmp_path):
+    import sqlite3
+    src = tmp_path / "old"
+    (src / "data").mkdir(parents=True)
+    con = sqlite3.connect(src / "data" / "factory.db")
+    con.execute("""CREATE TABLE productions (prod_id INTEGER PRIMARY KEY, created_at TEXT, updated_at TEXT, format TEXT,
+        title TEXT, stage TEXT, brief TEXT, data TEXT, name TEXT, preview TEXT, output TEXT, qa TEXT, verification TEXT,
+        history TEXT, job_id INT, note TEXT, channel_id TEXT)""")
+    data = json.dumps({"lang": "tr", "hook": "Kanca", "aspect": "9:16", "topic": "konu",
+                       "voice": {"lines": ["Birinci satır.", "İkinci satır."]},
+                       "facts": [{"claim": "A yüzde 5", "source": "https://x.org/a"}, {"claim": "B 7", "source": "https://x.org/b"}],
+                       "post": {"caption": "Altyazı burada?", "hashtags": "#bir #iki"}})
+    ver = json.dumps({"verdicts": [{"claim": "A yüzde 5", "verdict": "supported", "sources": []}]})
+    rows = [(1, "explainer_short", "Yayında Olan", "published", "201_yayinda", ver, json.dumps({"pass": True})),
+            (2, "explainer_short", "Önizlemedeki", "preview", "202_onizleme", None, None),
+            (3, "explainer_short", "Hazır ama kaldı", "ready", "203_hazir", ver, json.dumps({"pass": False})),
+            (4, "story_vo", "Hikâye", "ready", "204_hikaye", None, None)]
+    for pid, fmt, title, stage, name, v, qa in rows:
+        con.execute("insert into productions (prod_id,format,title,stage,data,name,output,verification,qa) values (?,?,?,?,?,?,?,?,?)",
+                    (pid, fmt, title, stage, data, name, name, v, qa))
+        if stage in ("ready", "published"):
+            (src / "out" / name).mkdir(parents=True)
+            (src / "out" / name / f"{name}.mp4").write_bytes(b"video")
+            (src / "out" / name / "caption.txt").write_text("cap")
+    con.commit(); con.close()
+    return src
+
+
+def test_migrate_dry_run_maps_states_and_writes_nothing(tmp_path, d):
+    from factory.hat import migrate
+    src = _old_system(tmp_path)
+    rep = {r["prod"]: r for r in migrate.migrate(str(src), d)}
+    assert rep[1]["states"]["publish"] == "approved" and set(rep[1]["states"].values()) == {"done", "approved"}
+    assert rep[2]["states"]["script"] == "awaiting_approval" and rep[2]["states"]["scene_plan"] == "pending"
+    assert rep[3]["states"]["publish"] == "awaiting_approval" and "qa did not pass" in rep[3]["flags"]
+    assert rep[4]["line"] == "travel_vlog" and rep[4]["states"]["idea"] == "done"
+    assert P.list_ids(d) == []
+
+
+def test_migrate_imports_unflagged_copies_files_and_holds_the_rest(tmp_path, d, monkeypatch):
+    from factory.hat import migrate
+    src = _old_system(tmp_path)
+    before = sorted(str(p) for p in src.rglob("*"))
+    rep = {r["prod"]: r for r in migrate.migrate(str(src), d, apply=True)}
+    assert [rep[i]["result"] for i in (1, 2, 4)] == ["imported"] * 3 and rep[3]["result"] == "held (flagged)"
+    assert sorted(str(p) for p in src.rglob("*")) == before                       # the old system is untouched
+    assert (src / "out" / "201_yayinda" / "201_yayinda.mp4").exists()
+    pid = rep[1]["project"]
+    p = P.load(pid, d)
+    assert p["budget"] is None and p["imported_from"]["prod_id"] == 1 and p["video_lang"] == "tr"
+    assert os.path.exists(P.path(pid, "renders", "201_yayinda.mp4", d=d))
+    script = P.read_artifact(pid, "script", d)
+    assert script["lines"][0] == "Birinci satır." and script["caption"].startswith("Altyazı")
+    # only the fact the old check marked as supported is verified
+    assert [c["verified"] for c in script["claims"]] == [True, False]
+    assert P.read_artifact(pid, "legacy", d)["prod_id"] == 1
+    assert P.read_artifact(pid, "research", d) is None and P.read_artifact(pid, "scene_plan", d) is None
+    # the in-progress one resumes at the script gate; the published one is complete
+    assert P.next_stage(rep[2]["project"], d) == ("gate", "script")
+    assert P.next_stage(pid, d) == ("done", None)
+    # idempotent: a second run skips what exists; --force redoes it
+    again = {r["prod"]: r for r in migrate.migrate(str(src), d, apply=True)}
+    assert again[1]["result"] == "skipped (already imported)"
+    assert {r["prod"]: r for r in migrate.migrate(str(src), d, apply=True, force=True)}[1]["result"] == "imported"
+    # the flagged row comes in only when asked for
+    assert {r["prod"]: r for r in migrate.migrate(str(src), d, apply=True, include_flagged=True)}[3]["result"] == "imported"
+
+
+def test_imported_projects_show_on_the_board_in_both_languages(tmp_path, d, monkeypatch):
+    from factory.hat import migrate
+    from studio import hat_api
+    src = _old_system(tmp_path)
+    migrate.migrate(str(src), d, apply=True, include_flagged=True)
+    monkeypatch.setattr(P, "DIR", d)
+    for lang in ("tr", "en"):
+        monkeypatch.setattr(hat_api, "lang", lambda l=lang: l)
+        assert len(hat_api.projects()) == 4
+        for pid in P.list_ids(d):
+            f = hat_api.project(pid)
+            assert f["stages"] and f["state"] in ("run", "gate", "busy", "failed", "done")
+            P.next_stage(pid, d)
+    gate = next(i for i in P.list_ids(d) if "onizlemedeki" in i)
+    assert hat_api.project(gate)["state"] == "gate"
