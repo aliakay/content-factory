@@ -4,8 +4,9 @@ Every old production becomes a project of its line. The old state maps to checkp
 
   published                -> all stages complete (imported), publish approved
   ready                    -> all complete (imported), publish waits at its gate
-  preview, voice (explainer) -> research+proposal complete (imported), script waits at its gate, the rest pending
-                              (the old scene format cannot become the new html scenes, so the work resumes at the script)
+  preview, voice (explainer) -> every stage pending: the line starts again at research. The later stages read the
+                              proposal (look, length, budget), which the old data cannot supply, and the old
+                              scene format cannot become the new html scenes. The old script stays in legacy.json.
 
 Only artifacts the old data really supports are built (script, publish, compose); research, proposal and
 scene_plan are never invented. The whole old row is kept as artifacts/legacy.json. No budget is set, so an imported
@@ -79,8 +80,6 @@ def plan(row, src):
             flags.append("state is %s but no final mp4 was found on disk" % old)
     elif old in ("preview", "voice") and line == "explainer":
         states = {s: "pending" for s in stage_ids}
-        states["research"] = states["proposal"] = "done"
-        states["script"] = "awaiting_approval"
         if files.get("final"):
             flags.append("DB says %s but a final render exists on disk" % old)
     else:
@@ -167,6 +166,11 @@ def migrate(src, dst=None, apply=False, force=False, include_flagged=False):
             pl["result"] = "skipped (already imported)"
         elif apply:
             if exists:
+                worked = [e for e in P.tail(pid, n=1000, d=dst) if e.get("kind") not in ("created", "imported")]
+                if worked:
+                    pl["result"] = "refused: the project has work after the import"
+                    report.append(pl)
+                    continue
                 shutil.rmtree(P.path(pid, d=dst))
             _write(row, pl, src, dst, num)
             pl["result"] = "imported"
@@ -224,7 +228,7 @@ def main(argv=None):
             continue
         print(f"  prod {r['prod']:>3}  {r['old_stage']:<9} -> {r['project']}  [{r['line']}]  "
               f"{r.get('result', 'dry run')}{'  (exists)' if r['exists'] else ''}")
-        print("            states: " + ", ".join(f"{k}={v}" for k, v in r["states"].items() if v != "pending") or "none")
+        print("            states: " + (", ".join(f"{k}={v}" for k, v in r["states"].items() if v != "pending") or "all pending (starts at research)"))
         for role, rel in r["files"].items():
             sz = os.path.getsize(os.path.join(a.src, rel)) if os.path.isfile(os.path.join(a.src, rel)) else 0
             print(f"            file {role}: {rel} ({sz // 1024} KB)")

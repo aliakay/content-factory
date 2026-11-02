@@ -541,7 +541,7 @@ def test_migrate_dry_run_maps_states_and_writes_nothing(tmp_path, d):
     src = _old_system(tmp_path)
     rep = {r["prod"]: r for r in migrate.migrate(str(src), d)}
     assert rep[1]["states"]["publish"] == "approved" and set(rep[1]["states"].values()) == {"done", "approved"}
-    assert rep[2]["states"]["script"] == "awaiting_approval" and rep[2]["states"]["scene_plan"] == "pending"
+    assert set(rep[2]["states"].values()) == {"pending"}
     assert rep[3]["states"]["publish"] == "awaiting_approval" and "qa did not pass" in rep[3]["flags"]
     assert rep[4]["line"] == "travel_vlog" and rep[4]["states"]["idea"] == "done"
     assert P.list_ids(d) == []
@@ -566,12 +566,15 @@ def test_migrate_imports_unflagged_copies_files_and_holds_the_rest(tmp_path, d, 
     assert P.read_artifact(pid, "legacy", d)["prod_id"] == 1
     assert P.read_artifact(pid, "research", d) is None and P.read_artifact(pid, "scene_plan", d) is None
     # the in-progress one resumes at the script gate; the published one is complete
-    assert P.next_stage(rep[2]["project"], d) == ("gate", "script")
+    assert P.next_stage(rep[2]["project"], d) == ("run", "research")
     assert P.next_stage(pid, d) == ("done", None)
     # idempotent: a second run skips what exists; --force redoes it
     again = {r["prod"]: r for r in migrate.migrate(str(src), d, apply=True)}
     assert again[1]["result"] == "skipped (already imported)"
     assert {r["prod"]: r for r in migrate.migrate(str(src), d, apply=True, force=True)}[1]["result"] == "imported"
+    # --force refuses a project somebody worked on after the import
+    P.event(rep[1]["project"], "approve", d=d, stage="publish")
+    assert {r["prod"]: r for r in migrate.migrate(str(src), d, apply=True, force=True)}[1]["result"].startswith("refused")
     # the flagged row comes in only when asked for
     assert {r["prod"]: r for r in migrate.migrate(str(src), d, apply=True, include_flagged=True)}[3]["result"] == "imported"
 
@@ -590,4 +593,4 @@ def test_imported_projects_show_on_the_board_in_both_languages(tmp_path, d, monk
             assert f["stages"] and f["state"] in ("run", "gate", "busy", "failed", "done")
             P.next_stage(pid, d)
     gate = next(i for i in P.list_ids(d) if "onizlemedeki" in i)
-    assert hat_api.project(gate)["state"] == "gate"
+    assert hat_api.project(gate)["state"] == "run"
