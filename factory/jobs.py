@@ -384,6 +384,9 @@ def run(job_id):
             from . import catalog
             done, failed = catalog.render_all(jload(arg, {}).get("ids") or None, bool(jload(arg, {}).get("force")))
             result = f"{len(done)} örnek klip" + (f", {len(failed)} hata: {failed[0]}" if failed else "")
+        elif kind == "own_style_sample":   # an own film style's sample frame (headless render, no Claude / credits)
+            from . import ownstyles
+            result = "örnek kare: " + ownstyles.render_sample(arg)["id"]
         elif kind == "style_extract":
             o = jload(arg, {})
             result = "stil: " + styles.extract(o["files"], o.get("note", ""))

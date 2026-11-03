@@ -1722,3 +1722,90 @@ def test_style_pick_at_the_proposal_gate_sets_the_look_and_keeps_waiting(d):
     assert cp["status"] == "awaiting_approval" and cp["revisions"] == 0 and not queued   # no agent re-run, no credits
     runner.feedback(pid, "proposal", "daha cesur", lambda *a: queued.append(a), d=d)   # an ordinary note re-runs
     assert queued and P.checkpoint(pid, "proposal", d)["revisions"] == 1
+
+
+# ---------------------------------------------------------------- own film styles (t502)
+
+@pytest.fixture
+def own(tmp_path, monkeypatch):
+    from factory import capabilities, filmstyles, ownstyles
+    monkeypatch.setattr(ownstyles, "DIR", str(tmp_path / "own"))
+    drawn = []
+    def draw(sc, post, out, name, logo=None):
+        drawn.append({"scene": sc, "post": post, "logo": logo})
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        open(out, "wb").write(b"jpg")
+        return out
+    monkeypatch.setattr(filmstyles, "draw", draw)
+    yield ownstyles, drawn
+    for k in [k for k in capabilities.CAPS if k.startswith("style.own_")]:
+        capabilities.CAPS.pop(k)
+
+
+def test_own_style_starts_from_a_library_card_and_joins_the_library(own, tmp_path, monkeypatch):
+    O, drawn = own
+    from factory import capabilities, filmstyles
+    st = O.create("Deniz Kıyısı", "riso_print", user="ali")
+    a = st["answers"]
+    assert st["id"] == "own_deniz_kiyisi" and st["status"] == "draft"
+    assert a["palette"] == ["#f4eee2", "#0078bf", "#ff48b0", "#ffe800"] and a["title_font"] == "Montserrat"
+    assert a["look"].startswith("Tek tek basılmış") and a["texture"] == "grain" and not O.missing(st)
+    assert O.create("Deniz Kıyısı", "noir")["id"] == "own_deniz_kiyisi_2"          # names never collide
+    with pytest.raises(O.StyleError):
+        O.answer(st["id"], "palette", "#fff, red")
+    with pytest.raises(O.StyleError):
+        O.answer(st["id"], "palette", "#111111, #222222")                         # 3 to 6 colours
+    with pytest.raises(O.StyleError):
+        O.answer(st["id"], "logo", "../config.env")
+    O.answer(st["id"], "brand_colors", "00A19A, #e94e1b")
+    O.answer(st["id"], "title_font", "DM Serif Display")
+    os.makedirs(tmp_path / "raw" / "logo")
+    monkeypatch.setattr(O, "ROOT", str(tmp_path))
+    (tmp_path / "raw" / "logo" / "l.png").write_bytes(b"png")
+    st = O.answer(st["id"], "logo", "raw/logo/l.png")
+    st = O.answer(st["id"], "characters", "Mira: kızıl saç\nBay Tosun: gri bıyık\n\n")
+    assert O.palette(st) == ["#f4eee2", "#0078bf", "#00a19a", "#e94e1b", "#ff48b0", "#ffe800"]   # brand leads the accents
+    assert st["answers"]["characters"] == [{"name": "Mira", "look": "kızıl saç"}, {"name": "Bay Tosun", "look": "gri bıyık"}]
+    sc = O.scene(st)
+    assert "#00a19a" in sc["js"] and "#ff48b0" not in sc["js"].split("KIYI")[0][:200] and "DM Serif Display" in sc["js"]
+    assert "Montserrat" not in sc["js"]
+    with pytest.raises(O.StyleError, match="sample frame"):
+        O.approve(st["id"], ui="en")                                                         # never without a drawn frame
+    st = O.render_sample(st["id"])
+    assert st["status"] == "sampled" and drawn[-1]["post"] == {"grain": 0.3} and drawn[-1]["logo"].endswith("logo.png")
+    assert not capabilities.get("style." + st["id"])
+    O.approve(st["id"], by="ali")
+    cap = capabilities.get("style." + st["id"])
+    assert cap["data"]["post_fx"] == {"grain": 0.3} and "Mira (kızıl saç)" in cap["designer"] and "#00a19a" in cap["designer"]
+    card = filmstyles.card(filmstyles.get(st["id"]), "en")
+    assert card["name"] == "Deniz Kıyısı" and card["preview"].startswith("/media/filmstyles/own_deniz_kiyisi.jpg")
+    assert st["id"] in filmstyles.ids()
+    O.answer(st["id"], "motion", "daha yavaş")                                     # a change after the sample
+    assert O.load(st["id"])["status"] == "draft" and st["id"] not in filmstyles.ids()
+
+
+def test_own_style_from_a_blank_page_through_the_api(own, monkeypatch):
+    O, drawn = own
+    from studio import hat_api
+    monkeypatch.setattr(hat_api.accounts, "current", lambda: "ali")
+    monkeypatch.setattr(hat_api, "lang", lambda: "en")
+    queued = []
+    q = lambda kind, arg: queued.append((kind, arg)) or 7
+    post = lambda path, **b: hat_api.post(None, path, b, q)
+    v = post("/api/hat/ownstyles", name="Plain", base="blank")
+    sid = v["id"]
+    assert v["base"] == "blank" and set(v["missing"]) == {"look", "motion", "sound", "avoid"}
+    assert v["questions"][0]["q"].startswith("What should it look like") and len(v["bases"]) == 12
+    with pytest.raises(ValueError, match="Answer every question"):
+        post(f"/api/hat/ownstyle/{sid}", action="sample")
+    for k, val in (("look", "Flat colour"), ("motion", "slow"), ("sound", "piano"), ("avoid", "gradients")):
+        v = post(f"/api/hat/ownstyle/{sid}", action="answer", q=k, value=val)
+    assert not v["missing"]
+    assert post(f"/api/hat/ownstyle/{sid}", action="sample")["job_id"] == 7 and queued == [("own_style_sample", sid)]
+    O.render_sample(sid)                                   # what the job does
+    assert "Plain" in drawn[-1]["scene"]["js"] and drawn[-1]["post"] == {}
+    v = post(f"/api/hat/ownstyle/{sid}", action="approve")
+    assert v["status"] == "approved" and hat_api.get(None, f"/api/hat/ownstyle/{sid}", {})["sample"]
+    assert any(c["id"] == sid for c in hat_api.get(None, "/api/hat/styles", {}))
+    assert post(f"/api/hat/ownstyle/{sid}", action="delete") == {"deleted": sid}
+    assert hat_api.get(None, "/api/hat/ownstyles", {}) == []

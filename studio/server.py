@@ -1132,13 +1132,13 @@ class Handler(shorts.Handler):
         os.replace(part, dst)
         return self.json(200, {"ok": True, "file": os.path.relpath(dst, ROOT), "name": name})
 
-    def avatar_upload(self, n, name):
-        """The presenter portrait for the avatar line -> raw/avatar/ (kept as is)."""
+    def avatar_upload(self, n, name, folder="avatar"):
+        """The presenter portrait for the avatar line -> raw/avatar/; a brand logo for an own film style -> raw/logo/."""
         ext = os.path.splitext(name)[1].lower()
         if ext not in (".jpg", ".jpeg", ".png", ".webp") or not 0 < n <= 30 << 20:
             self.rfile.read(min(n, 1 << 20))
             return self.json(400, {"error": "JPG/PNG/WEBP, en fazla 30 MB"})
-        d = os.path.join(ROOT, "raw", "avatar")
+        d = os.path.join(ROOT, "raw", folder)
         os.makedirs(d, exist_ok=True)
         safe = re.sub(r"[^\w-]", "_", os.path.splitext(name)[0])[:60]
         dst = os.path.join(d, f"{safe}_{int(time.time())}{ext}")
@@ -1159,6 +1159,8 @@ class Handler(shorts.Handler):
             return self.talk_upload(n, name)
         if self.headers.get("X-Avatar") == "1":
             return self.avatar_upload(n, name)
+        if self.headers.get("X-Logo") == "1":
+            return self.avatar_upload(n, name, "logo")
         if not name.lower().endswith((".mp4", ".mov", ".m4v") + refs.REF_PHOTO_EXT) or not 0 < n <= MAX_UPLOAD:
             self.rfile.read(min(n, 1 << 20))
             return self.json(400, {"error": "MP4/MOV ya da JPG/PNG/WEBP fotoğraf, en fazla 600 MB"})
@@ -1591,10 +1593,16 @@ class Handler(shorts.Handler):
                     "image/png" if f.endswith(".png") else None
                 if ctype:
                     return self.send_file(f, ctype, head, cache="no-store")
-        if path.startswith("/media/filmstyles/"):   # film style preview frames (styles/previews/<id>.jpg)
-            f = self.inside(os.path.join(ROOT, "styles", "previews"), path[len("/media/filmstyles/"):])
-            if f and f.endswith(".jpg"):
-                return self.send_file(f, "image/jpeg", head, cache="no-store")
+        if path.startswith("/media/filmstyles/"):   # film style frames: styles/previews/<id>.jpg, own styles' samples
+            m = re.fullmatch(r"([a-z0-9_]{1,48})\.jpg", path[len("/media/filmstyles/"):])
+            if m:
+                from factory import filmstyles
+                try:
+                    f = filmstyles.preview_file(m.group(1))
+                except ValueError:
+                    f = None
+                if f and os.path.isfile(f):
+                    return self.send_file(f, "image/jpeg", head, cache="no-store")
         if path.startswith("/media/art/"):  # stills of the auto art directions
             f = self.inside(os.path.join(ROOT, "work", "explainer"), path[len("/media/art/"):])
             if f and f.endswith(".png"):

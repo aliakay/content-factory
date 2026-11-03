@@ -247,6 +247,16 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
   katalogdan seçen öneri kapılarında (konu anlatımı, hareketli grafik) çıktının altında kütüphane görünür; "Bu stili
   kullan" düğmesi `stil: <id>` notunu gönderir: görünüm doğrudan `style.<id>` olur, ajan yeniden çalışmaz, revizyon
   sayılmaz, kapı bekler. API: `GET /api/hat/styles`, kareler `/media/filmstyles/<id>.jpg`.
+- **Kendi stilini yap (t502):** "Film stilleri" sayfası (`#/film-stilleri`): kütüphane + senin stillerin. Beş adım
+  (`factory/ownstyles.py`): **1 başlangıç** bir kütüphane stilinden ("Bunu değiştir"), kendi stillerinden ya da boş
+  sayfadan; **2 plan** soru soru (görünüş, 3-6 renk, başlık ve metin yazı tipi, hareket, ses, kaçınılacaklar, film
+  dokusu), her yanıt temel stilin kartıyla dolu gelir; **3 marka** marka renkleri (zemin ve yazıdan sonra vurguların
+  başına geçer), logo (`raw/logo/`, örnek karenin köşesine), tekrar eden karakterler ("Ad: görünüş"); **4 örnek kare**
+  temel stilin sahnesi senin renk ve yazı tiplerinle (boş başlangıçta sade şablon), dokunun film post'u ve logo; iş
+  olarak çizilir (`own_style_sample`, ~1 dk, kredi yok); **5 onay** stil `style.own_<ad>` olarak kütüphaneye girer:
+  öneri kapıları sunar, düzenleme aşaması post'unu alır, tasarımcı onu marka renkleri ve karakterlerle birlikte stil
+  kitabı olarak görür. Yanıtlar senin kelimelerin, model yeniden yazmaz. Örnekten sonra bir değişiklik stili taslağa
+  döndürür; yeni kare ve onay gerekir. Dosyalar `data/own_styles/<ad>/` (git dışı).
 - Menü sadeleşir: Stüdyo · Üretimler · Keşif · Takip · Ayarlar (kanallar, sesler, hesaplar, bütçe, stiller tek yerde).
 
 ## 8. Fazlar

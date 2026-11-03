@@ -7,7 +7,7 @@ const LANGS = { tr: "Türkçe", en: "English" };
 const L = () => ((S.me && S.me.ui_lang) || "tr");
 const TX = {
   tr: {
-    nav_make: "Üret", nav_prods: "Üretimler", lang: "Arayüz dili",
+    nav_make: "Üret", nav_prods: "Üretimler", nav_fstyles: "Film stilleri", fs_lead: "Kütüphanedeki 12 stil ve senin kendi stillerin. Bir stili değiştirerek ya da boş sayfadan kendi stilini yap; onaylanınca öneri kapılarında seçilebilir.", fs_lib: "Kütüphane", fs_own: "Senin stillerin", fs_new: "Kendi stilini yap", fs_name: "Stilin adı", fs_base: "Nereden başlayalım?", fs_blank: "Boş sayfa", fs_create: "Başla", fs_change: "Bunu değiştir", fs_st_start: "Başlangıç", fs_st_plan: "Plan", fs_st_brand: "Marka", fs_st_sample: "Örnek kare", fs_st_approve: "Onay", fs_next: "İleri", fs_prev: "Geri", fs_save: "Kaydet", fs_skip: "Atla", fs_draw: "Örnek kareyi çiz", fs_drawing: "Çiziliyor (yaklaşık 1 dk)…", fs_redraw: "Yeniden çiz", fs_approve: "Onayla, kütüphaneye ekle", fs_draft: "taslak", fs_sampled: "kare hazır", fs_approved: "onaylı", fs_stale: "Değişiklikten sonra örnek kareyi yeniden çiz.", fs_need: "Yanıtlanmamış: {0}", fs_logo_up: "Logo yükle", fs_logo_ok: "Logo yüklü", fs_delete: "Sil", fs_del_q: "Bu stil silinsin mi?", fs_saved: "Kaydedildi", fs_in_lib: "Bu stil kütüphanede; öneri kapılarında seçilebilir.", fs_no_cost: "Kredi harcanmaz: kare stüdyonun kendi motoruyla çizilir.", fs_based: "Temel: {0}", lang: "Arayüz dili",
     make_title: "Ne üretelim?", make_lead: "Bir üretim hattı seç. Her hat videoyu aynı sırayla, adım adım üretir ve her kapıda senin kararını bekler.",
     status_ready: "Hazır", status_partial: "Kısmen hazır", status_planned: "Yakında",
     makes: "Ne üretir", good: "İyi olduğu", not: "Uygun değil", needs: "Ne ister", cost: "Maliyet", duration: "Tipik süre",
@@ -46,7 +46,7 @@ const TX = {
     ev_reopen: "{0} yeniden açıldı", ev_queued: "{0} sıraya alındı", ev_tool_error: "Araç hatası: {0}",
   },
   en: {
-    nav_make: "Make", nav_prods: "Productions", lang: "Interface language",
+    nav_make: "Make", nav_prods: "Productions", nav_fstyles: "Film styles", fs_lead: "The library's 12 styles and your own. Make your own by changing a style or from a blank page; once approved it can be picked at proposal gates.", fs_lib: "Library", fs_own: "Your styles", fs_new: "Make your own style", fs_name: "Style name", fs_base: "Where to start?", fs_blank: "Blank page", fs_create: "Start", fs_change: "Change this", fs_st_start: "Start", fs_st_plan: "Plan", fs_st_brand: "Brand", fs_st_sample: "Sample frame", fs_st_approve: "Approve", fs_next: "Next", fs_prev: "Back", fs_save: "Save", fs_skip: "Skip", fs_draw: "Draw the sample frame", fs_drawing: "Drawing (about 1 min)…", fs_redraw: "Draw again", fs_approve: "Approve, add to the library", fs_draft: "draft", fs_sampled: "frame ready", fs_approved: "approved", fs_stale: "Draw the sample frame again after a change.", fs_need: "Unanswered: {0}", fs_logo_up: "Upload logo", fs_logo_ok: "Logo uploaded", fs_delete: "Delete", fs_del_q: "Delete this style?", fs_saved: "Saved", fs_in_lib: "This style is in the library; proposal gates can pick it.", fs_no_cost: "No credits: the frame is drawn by the studio's own engine.", fs_based: "Based on: {0}", lang: "Interface language",
     make_title: "What shall we make?", make_lead: "Pick a production line. Each line makes the video step by step in the same order and waits for your decision at every gate.",
     status_ready: "Ready", status_partial: "Partly built", status_planned: "Coming soon",
     makes: "What it makes", good: "Good for", not: "Not for", needs: "What it needs", cost: "Cost", duration: "Typical length",
@@ -87,10 +87,10 @@ const TX = {
 };
 const t = (k, ...a) => { let s = (TX[L()] || TX.tr)[k] ?? TX.tr[k] ?? k; a.forEach((v, i) => { s = s.replace("{" + i + "}", v); }); return s; };
 const STATUS_ICON = { pending: "○", running: "", awaiting_approval: "⏸", approved: "✓", done: "✓", failed: "!", stale: "↻" };
-const HS = { lines: null, open: null, sel: {} };
+const HS = { lines: null, open: null, sel: {}, fsQ: {} };
 
 // ---------------- shell: nav entries and the language switch ----------------
-NAV.unshift(["#/uret", "wand", ""], ["#/uretimler", "film", ""]);
+NAV.unshift(["#/uret", "wand", ""], ["#/uretimler", "film", ""], ["#/film-stilleri", "palette", ""]);
 // One way in: the planner home and the old board send you to the productions list (t206); their pages stay reachable
 // from old links until go-live removes them.
 for (const old of ["#/", "#/hat"]) ROUTES[old] = () => { location.replace("#/uretimler"); return { poll: 0 }; };
@@ -117,7 +117,7 @@ function translateShell() {
 }
 const _renderShell = renderShell;
 renderShell = function () {
-  NAV[0][2] = t("nav_make"); NAV[1][2] = t("nav_prods");
+  NAV[0][2] = t("nav_make"); NAV[1][2] = t("nav_prods"); NAV[2][2] = t("nav_fstyles");
   document.documentElement.lang = L();   // text-transform: uppercase needs the right language (tr: i→İ, en: i→I)
   _renderShell();
   translateShell();
@@ -412,6 +412,100 @@ async function viewProject(pid) {
   return { poll: busy ? 4000 : 0 };
 }
 ROUTE_RX.push([/^#\/u\/([\w-]+)/, viewProject]);
+// ---------------- film styles: the library and the creator's own (factory/filmstyles.py, factory/ownstyles.py) ----------------
+async function viewStyles() {
+  crumb([t("nav_fstyles")]);
+  const [lib, own] = await Promise.all([api("/api/hat/styles"), api("/api/hat/ownstyles")]);
+  const mine = own.filter((x) => x.status !== "approved");
+  const tile = (c) => `<div class="hl-style-t">${c.preview ? `<img src="${esc(c.preview)}" alt="" data-act="open" data-src="${esc(c.preview)}" data-photo="1">` : ""}
+      <div class="tiny"><b>${esc(c.name)}</b></div><div class="tiny muted">${esc(c.look)}</div><div class="hl-pal mt8">${(c.palette || []).map((h) => `<i style="background:${esc(h)}"></i>`).join("")}</div>
+      <button class="btn sm block mt8" data-act="fsBase" data-id="${esc(c.id)}">${esc(t("fs_change"))}</button></div>`;
+  const ownTile = (s) => `<a class="hl-style-t" href="#/film-stilleri/${esc(s.id)}">${s.sample ? `<img src="${esc(s.sample)}" alt="">` : `<div class="hl-pal">${(s.palette || []).map((h) => `<i style="background:${esc(h)}"></i>`).join("")}</div>`}
+      <div class="tiny"><b>${esc(s.name)}</b></div><span class="badge ${s.status === "approved" ? "ok" : "warn"}">${esc(t("fs_" + s.status))}</span></a>`;
+  paint(`<h1>${esc(t("nav_fstyles"))}</h1><p class="lead">${esc(t("fs_lead"))}</p>
+    <div class="card mt16"><h3>${esc(t("fs_new"))}</h3><div class="row">
+      <label class="field" style="flex:1;min-width:200px"><span>${esc(t("fs_name"))}</span><input id="fsName" data-keep="fs-name" type="text" maxlength="40"></label>
+      <label class="field" style="flex:1;min-width:200px"><span>${esc(t("fs_base"))}</span><select id="fsBase"><option value="blank">${esc(t("fs_blank"))}</option>
+        ${lib.map((c) => `<option value="${esc(c.id)}" ${HS.fsBase === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label></div>
+      <button class="btn accent mt12" data-act="fsCreate">${esc(t("fs_create"))}</button><div class="tiny faint mt8">${esc(t("fs_no_cost"))}</div></div>
+    ${mine.length ? `<h2>${esc(t("fs_own"))}</h2><div class="hl-styles">${mine.map(ownTile).join("")}</div>` : ""}
+    <h2>${esc(t("fs_lib"))}</h2><div class="hl-styles wide">${lib.map((c) => c.id.startsWith("own_") ? ownTile(own.find((x) => x.id === c.id) || c) : tile(c)).join("")}</div>`,
+    JSON.stringify([L(), lib.length, own.map((x) => [x.id, x.status, x.sample])]));
+  return { poll: 0 };
+}
+function fsQuestion(st, q) {
+  const v = q.value;
+  if (q.kind === "text") return `<textarea id="fsVal" rows="3">${esc(v || "")}</textarea>`;
+  if (q.kind === "colors") return `<input id="fsVal" type="text" value="${esc((v || []).join(", "))}" placeholder="#f4eee2, #0078bf, #ff48b0">
+      <div class="hl-pal mt8">${(v || []).map((h) => `<i style="background:${esc(h)}"></i>`).join("")}</div>`;
+  if (q.kind === "font") return `<select id="fsVal">${st.fonts.map((f) => `<option ${f === v ? "selected" : ""} style="font-family:'${esc(f)}'">${esc(f)}</option>`).join("")}</select>
+      <div class="mt8" style="font:400 34px '${esc(v)}'">Aa Ğğ Şş İı 123</div>`;
+  if (q.kind === "texture") return `<div class="chips">${st.textures.map((x) => `<span class="chip ${x.id === v ? "on" : ""}" data-act="fsPick" data-v="${esc(x.id)}">${esc(x.name)}</span>`).join("")}</div>`;
+  if (q.kind === "logo") return `<label class="drop">${esc(st.logo ? t("fs_logo_ok") : t("fs_logo_up"))}<input type="file" id="fsLogo" accept="image/png,image/jpeg,image/webp" style="display:none"></label>`;
+  return `<textarea id="fsVal" rows="4" placeholder="Mira: kısa kızıl saç, sarı yağmurluk">${esc((v || []).map((c) => c.name + ": " + c.look).join("\n"))}</textarea>`;
+}
+async function viewOwnStyle(sid) {
+  const st = await api("/api/hat/ownstyle/" + encodeURIComponent(sid));
+  crumb([t("nav_fstyles"), st.name]);
+  const qs = st.questions.filter((q) => q.step === "plan" || q.step === "brand");
+  const at = Math.min(HS.fsQ[sid] ?? Math.max(0, qs.findIndex((q) => st.missing.includes(q.id))), qs.length);
+  const step = at < qs.length ? qs[at].step : (st.status === "draft" ? "sample" : "approve");
+  const base = (st.bases.find((b) => b.id === st.base) || {}).name || t("fs_blank");
+  const rail = `<div class="chips mt12">${st.steps.map((s, i) => `<span class="chip ${s === step ? "on" : ""}">${st.steps.indexOf(step) > i ? "✓" : i + 1} · ${esc(t("fs_st_" + s))}</span>`).join("")}</div>`;
+  let body;
+  if (at < qs.length) {
+    const q = qs[at];
+    body = `<div class="card"><div class="tiny muted">${at + 1} / ${qs.length}</div><h3>${esc(q.q)}</h3>${fsQuestion(st, q)}
+      <div class="row mt12">${at ? `<button class="btn ghost" data-act="fsGo" data-to="${at - 1}">${esc(t("fs_prev"))}</button>` : ""}<span class="sp"></span>
+        ${q.optional ? `<button class="btn ghost" data-act="fsGo" data-to="${at + 1}">${esc(t("fs_skip"))}</button>` : ""}
+        ${q.kind === "logo" || q.kind === "texture" ? `<button class="btn accent" data-act="fsGo" data-to="${at + 1}">${esc(t("fs_next"))}</button>`
+          : `<button class="btn accent" data-act="fsAnswer" data-q="${esc(q.id)}" data-to="${at + 1}">${esc(t("fs_next"))}</button>`}</div></div>`;
+  } else {
+    const busy = HS.fsBusy === sid && st.status === "draft";
+    body = `<div class="card"><h3>${esc(t("fs_st_sample"))}</h3>
+      ${st.sample ? `<img class="hl-sample" src="${esc(st.sample)}" alt="">` : ""}
+      ${st.missing.length ? `<div class="small bad">${esc(t("fs_need", st.missing.join(", ")))}</div>` : ""}
+      ${st.sample && st.status === "draft" ? `<div class="tiny muted mt8">${esc(t("fs_stale"))}</div>` : ""}
+      ${st.status === "approved" ? `<div class="small mt8">${esc(t("fs_in_lib"))}</div>` : ""}
+      <div class="row mt12"><button class="btn ghost" data-act="fsGo" data-to="0">${esc(t("fs_prev"))}</button><span class="sp"></span>
+        ${busy ? `<span class="small"><span class="spin"></span> ${esc(t("fs_drawing"))}</span>` : st.missing.length ? "" : `<button class="btn ${st.status === "draft" ? "accent" : ""}" data-act="fsSample">${esc(st.sample ? t("fs_redraw") : t("fs_draw"))}</button>`}
+        ${st.status === "sampled" ? `<button class="btn accent" data-act="fsApprove">${ICON.check}${esc(t("fs_approve"))}</button>` : ""}</div>
+      <div class="tiny faint mt8">${esc(t("fs_no_cost"))}</div></div>`;
+  }
+  paint(`<div class="row"><a class="btn ghost sm" href="#/film-stilleri">${ICON.back}${esc(t("nav_fstyles"))}</a><span class="sp"></span>
+      <span class="badge ${st.status === "approved" ? "ok" : "warn"}">${esc(t("fs_" + st.status))}</span>
+      <button class="btn sm ghost danger" data-act="fsDelete">${ICON.trash}${esc(t("fs_delete"))}</button></div>
+    <h1 class="mt12">${esc(st.name)}</h1><div class="small muted">${esc(t("fs_based", base))}</div>${rail}
+    <div class="split mt16"><div class="col">${body}</div><div class="col sticky"><div class="card"><div class="hl-pal">${st.palette.map((h) => `<i style="background:${esc(h)}"></i>`).join("")}</div>
+      ${st.questions.filter((q) => q.kind === "text" && q.value).map((q) => `<div class="tiny mt8"><b>${esc(q.q.split(/[?:.]/)[0])}:</b> ${esc(q.value)}</div>`).join("")}</div></div></div>`,
+    JSON.stringify([L(), at, st.status, st.sample, st.updated, HS.fsBusy]));
+  return { poll: HS.fsBusy === sid && st.status === "draft" ? 4000 : 0 };
+}
+ROUTE_RX.push([/^#\/film-stilleri\/(own_[\w]+)/, viewOwnStyle]);
+ROUTES["#/film-stilleri"] = viewStyles;
+const fsId = () => location.hash.split("/")[2];
+const fsPost = (b) => post("/api/hat/ownstyle/" + encodeURIComponent(fsId()), b);
+const fsRedraw = () => { S.sig = null; route({ poll: true }); };
+ACT.fsBase = (el) => { HS.fsBase = el.dataset.id; const s = $("#fsBase"); if (s) s.value = el.dataset.id; const n = $("#fsName"); if (n) { n.focus(); n.scrollIntoView({ block: "center" }); } };
+ACT.fsCreate = async () => {
+  const st = await post("/api/hat/ownstyles", { name: ($("#fsName") || {}).value || "", base: ($("#fsBase") || {}).value || "blank" });
+  S.drafts = {}; location.hash = "#/film-stilleri/" + st.id;
+};
+ACT.fsGo = (el) => { HS.fsQ[fsId()] = +el.dataset.to; fsRedraw(); };
+ACT.fsAnswer = async (el) => {
+  await fsPost({ action: "answer", q: el.dataset.q, value: ($("#fsVal") || {}).value || "" });
+  HS.fsQ[fsId()] = +el.dataset.to; fsRedraw();
+};
+ACT.fsPick = async (el) => { await fsPost({ action: "answer", q: "texture", value: el.dataset.v }); fsRedraw(); };
+ACT.fsSample = async () => { await fsPost({ action: "sample" }); HS.fsBusy = fsId(); toast(t("fs_drawing")); fsRedraw(); };
+ACT.fsApprove = async () => { await fsPost({ action: "approve" }); HS.fsBusy = null; toast(t("fs_saved")); fsRedraw(); };
+ACT.fsDelete = async () => { if (!confirm(t("fs_del_q"))) return; await fsPost({ action: "delete" }); location.hash = "#/film-stilleri"; };
+document.addEventListener("change", async (e) => {
+  if (e.target.id !== "fsLogo" || !e.target.files[0]) return;
+  const r = await upload("/api/refs/upload", e.target.files[0], { "X-Logo": "1" }, () => {});
+  await fsPost({ action: "answer", q: "logo", value: r.file }); toast(t("fs_logo_ok")); fsRedraw();
+});
+
 ACT.hatSel = (el) => { const pid = location.hash.split("/")[2]; HS.sel[pid] = el.dataset.id; S.sig = null; route({ poll: true }); };
 ACT.hatZoom = (el) => openVideo(el.dataset.src, true);
 ACT.hatStyle = async (el) => {

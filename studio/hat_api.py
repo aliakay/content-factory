@@ -3,6 +3,9 @@
 GET  /api/hat/lines                    every line, in the user's interface language
 GET  /api/hat/projects                 every project with where it stands
 GET  /api/hat/styles                   the film style library (cards + preview frames)
+GET  /api/hat/ownstyles                the creator's own film styles; /api/hat/ownstyle/<id> one, with its questions
+POST /api/hat/ownstyles     {name, base}                      step 1: a draft from a base style or a blank page
+POST /api/hat/ownstyle/<id> {action: answer|sample|approve|delete, q?, value?}   steps 2-5
 GET  /api/hat/project/<id>             the flow view of one project: stages, their outputs, stills, live events
 POST /api/hat/lang          {lang}     the user's interface language (tr | en)
 POST /api/hat/projects      {line, brief, title?, video_lang, aspect, channel?}   create and start
@@ -150,6 +153,13 @@ def get(con, path, q):
     if path == "/api/hat/styles":           # the film style library: cards in the UI language with preview frames
         from factory import filmstyles
         return filmstyles.cards(lang())
+    if path == "/api/hat/ownstyles":
+        from factory import ownstyles
+        return [ownstyles.view(st, lang()) for st in ownstyles.listing()]
+    m = re.fullmatch(r"/api/hat/ownstyle/(own_[a-z0-9_]+)", path)
+    if m:
+        from factory import ownstyles
+        return ownstyles.view(ownstyles.load(m.group(1)), lang())
     m = re.fullmatch(r"/api/hat/project/([\w-]+)", path)
     if m:
         return project(m.group(1))
@@ -167,6 +177,8 @@ def _post(con, path, b, queue):
     uid = accounts.current()
     if path == "/api/hat/lang":
         return {"ui_lang": accounts.set_ui_lang(uid, b.get("lang"))}
+    if path == "/api/hat/ownstyles" or path.startswith("/api/hat/ownstyle/"):
+        return _own_style(path, b, queue, uid)
     if path == "/api/hat/projects":
         line = manifest.get(b.get("line") or "")
         if line["status"] != "ready":
@@ -232,6 +244,30 @@ def _post(con, path, b, queue):
             raise ValueError("unknown action")
         return {"id": pid, "state": state, "stage": stage}
     raise ValueError("unknown hat endpoint")
+
+
+def _own_style(path, b, queue, uid):
+    from factory import ownstyles
+    ui = lang()
+    if path == "/api/hat/ownstyles":
+        return ownstyles.view(ownstyles.create(b.get("name"), b.get("base"), user=uid, ui=ui), ui)
+    m = re.fullmatch(r"/api/hat/ownstyle/(own_[a-z0-9_]+)", path)
+    if not m:
+        raise ValueError("unknown hat endpoint")
+    sid, a = m.group(1), b.get("action")
+    if a == "answer":
+        return ownstyles.view(ownstyles.answer(sid, b.get("q"), b.get("value"), ui), ui)
+    if a == "sample":                 # drawn as a job (about a minute); the page polls until the frame is there
+        st = ownstyles.load(sid)
+        if ownstyles.missing(st):
+            raise ValueError({"tr": "Önce bütün soruları yanıtla.", "en": "Answer every question first."}[ui])
+        return {**ownstyles.view(st, ui), "job_id": queue("own_style_sample", sid)}
+    if a == "approve":
+        return ownstyles.view(ownstyles.approve(sid, by=uid, ui=ui), ui)
+    if a == "delete":
+        ownstyles.delete(sid)
+        return {"deleted": sid}
+    raise ValueError("unknown action")
 
 
 def media_file(rel):

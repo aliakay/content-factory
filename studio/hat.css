@@ -96,3 +96,6 @@
 .hl-style h4{margin:0 0 4px;font-size:15px}
 .hl-pal{display:flex;gap:4px}.hl-pal i{width:18px;height:18px;border-radius:4px;border:1px solid var(--line)}
 @media (max-width:600px){.hl-style{grid-template-columns:80px 1fr}.hl-style img{width:80px}}
+.hl-styles.wide{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+a.hl-style-t{color:inherit;text-decoration:none;display:block}
+.hl-sample{display:block;width:100%;max-width:300px;border-radius:10px;margin:0 auto 10px}

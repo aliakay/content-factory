@@ -20,15 +20,23 @@ HELPER = ("const E = (css, html) => { const d = document.createElement('div'); d
 PICK = re.compile(r"^\s*(?:stil|style)\s*[:=]\s*([\w-]+)\s*$", re.I)
 
 
+def _all():
+    """The library's styles and the creator's approved own ones (factory/ownstyles.py)."""
+    return capabilities._film_styles()
+
+
 def ids():
-    return [s["id"] for s in capabilities._film_styles()]
+    return [s["id"] for s in _all()]
 
 
 def get(sid):
-    return next((s for s in capabilities._film_styles() if s["id"] == sid), None)
+    return next((s for s in _all() if s["id"] == sid), None)
 
 
 def preview_file(sid):
+    if sid.startswith("own_"):
+        from . import ownstyles
+        return ownstyles.sample_file(sid)
     return os.path.join(PREVIEWS, sid + ".jpg")
 
 
@@ -48,11 +56,10 @@ def card(s, ui="tr"):
 
 
 def cards(ui="tr"):
-    return [card(s, ui) for s in capabilities._film_styles()]
+    return [card(s, ui) for s in _all()]
 
 
-def _bundle(sid):
-    sc = json.load(open(os.path.join(DIR, sid + ".json"), encoding="utf-8"))
+def _bundle(sc):
     from .catalog import PALETTE
     dur = float(sc.get("seconds") or 3)
     return {"palette": PALETTE, "global_css": "", "words": [], "duration": dur, "w": 1080, "h": 1920, "lang": "tr",
@@ -65,22 +72,35 @@ def render_preview(sid, force=False):
     out = preview_file(sid)
     if os.path.exists(out) and not force:
         return out
+    if sid.startswith("own_"):
+        from . import ownstyles
+        ownstyles.render_sample(sid)
+        return out
     s = get(sid)
     if not s or not os.path.exists(os.path.join(DIR, sid + ".json")):
         raise ValueError(f"no style scene for '{sid}'")
+    return draw(json.load(open(os.path.join(DIR, sid + ".json"), encoding="utf-8")), s.get("post"), out, sid)
+
+
+def draw(sc, post, out, name, logo=None):
+    """One style scene -> one 540 px wide frame with the film post (and a logo in the top right corner)."""
     os.makedirs(WORK, exist_ok=True)
-    os.makedirs(PREVIEWS, exist_ok=True)
-    b, dur = _bundle(sid)
-    bpath, clip = os.path.join(WORK, sid + ".json"), os.path.join(WORK, sid + ".mp4")
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    b, dur = _bundle(sc)
+    bpath, clip = os.path.join(WORK, name + ".json"), os.path.join(WORK, name + ".mp4")
     json.dump(b, open(bpath, "w", encoding="utf-8"), ensure_ascii=False)
     sys.path.insert(0, os.path.join(ROOT, "bin"))
     import htmlmotion
     r = htmlmotion._node(bpath, clip, dur, ["--opaque", "--scale=0.5"], 24)
     if r.returncode or not os.path.exists(clip):
-        raise RuntimeError(f"style {sid}: " + (r.stderr or "")[-300:])
-    vf = ",".join(x for x in (htmlmotion.post_vf(s.get("post"), preview=True), "scale=540:-2") if x)
-    subprocess.run([FFMPEG, "-v", "error", "-y", "-ss", str(min(SECONDS_AT, dur - 0.1)), "-i", clip, "-vf", vf,
-                    "-frames:v", "1", "-q:v", "3", out], check=True)
+        raise RuntimeError(f"style {name}: " + (r.stderr or "")[-300:])
+    vf = ",".join(x for x in (htmlmotion.post_vf(post, preview=True), "scale=540:-2") if x)
+    cmd = [FFMPEG, "-v", "error", "-y", "-ss", str(min(SECONDS_AT, dur - 0.1)), "-i", clip]
+    if logo:
+        cmd += ["-i", logo, "-filter_complex", f"[0:v]{vf}[b];[1:v]scale=110:-1[l];[b][l]overlay=W-w-28:28"]
+    else:
+        cmd += ["-vf", vf]
+    subprocess.run(cmd + ["-frames:v", "1", "-q:v", "3", out], check=True)
     return out
 
 

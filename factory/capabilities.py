@@ -405,11 +405,16 @@ CAPS = {
     },
 }
 
-def _film_styles():
+def _film_styles(own=True):
+    """The library's film styles, then the creator's approved own styles (factory/ownstyles.py)."""
     try:
-        return json.load(open(os.path.join(ROOT, "data", "film_styles.json")))["styles"]
+        lib = json.load(open(os.path.join(ROOT, "data", "film_styles.json")))["styles"]
     except (OSError, ValueError, KeyError):
-        return []
+        lib = []
+    if own:
+        from . import ownstyles
+        lib = lib + ownstyles.approved()
+    return lib
 
 
 def film_style_bible(st):
@@ -419,14 +424,18 @@ def film_style_bible(st):
         f"  {k.upper()}: {st[k]}" for k in keys if st.get(k))
 
 
-for _st in _film_styles():
-    CAPS["style." + _st["id"]] = {
-        "area": "style", "tr": _st.get("tr") or _st["name"], "kinds": ("topic",), "style": True,
-        "what": f"{_st['name']}: {_st['essence']}",
-        "designer": film_style_bible(_st),
-        "writer": f"If you write sound.music_prompt, use this film style's sound palette: {_st.get('sound', '')}",
-        "data": {"post_fx": _st.get("post") or {}},
+def register_style(st):
+    CAPS["style." + st["id"]] = {
+        "area": "style", "tr": st.get("tr") or st["name"], "kinds": ("topic",), "style": True,
+        "what": f"{st['name']}: {st['essence']}",
+        "designer": film_style_bible(st),
+        "writer": f"If you write sound.music_prompt, use this film style's sound palette: {st.get('sound', '')}",
+        "data": {"post_fx": st.get("post") or {}},
     }
+
+
+for _st in _film_styles():
+    register_style(_st)
 
 
 DEFAULTS = {
@@ -437,6 +446,10 @@ DEFAULTS = {
 
 
 def get(cid):
+    if cid not in CAPS and str(cid).startswith("style.own_"):   # approved in another process since this one started
+        for st in _film_styles():
+            if "style." + st["id"] == cid:
+                register_style(st)
     return CAPS.get(cid)
 
 
