@@ -279,7 +279,7 @@ def _beat_words(rows, lens, texts):
 def _mix(video, a, size, out, final=False):
     """Captions burned in; voice and/or music mixed and levelled to -14 LUFS."""
     ass = os.path.splitext(out)[0] + ".ass"
-    per = 4 if a.get("voice") else 1
+    per = a.get("per") or (4 if a.get("voice") else 1)
     open(ass, "w").write(captions(a["words"], size, per=per))
     ins, chains, labels = ["-i", video], [], []
     k = 1

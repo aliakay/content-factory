@@ -199,7 +199,7 @@ sahne sahne oyunculuk.
 **İyi olduğu:** Seriler, maskot içerikler, çocuk/eğitim hikâyeleri.
 **İyi olmadığı:** Gerçekçi insan sahneleri.
 **İster:** Hikâye/seri fikri. **Aşamalar:** + karakter tasarımı (kapı), + rig planı. **Kapılar:** 2·3·kt·4·5·8.
-**Durum:** Kısmen var (Seriler, çizimli görünüm, stickman rig).
+**Durum:** Hazır (t403). `factory/hat/character.py`: model hikâyeyi yazar: karakterler (sabit görünüş, boy), mekânlar, sahne sahne kim hangi pozda ne der (kapı; yeni karakter sayfası, poz, arka plan, satır başına ses ve müzik kalem kalem) → senaryo (kapı; not yalnız satırları yeniden yazar, oyuncu ve mekân aynı kalır) → her karaktere bir sayfa, poz kütüphanesi o sayfadan çizilir (en fazla 5 poz, nötr dahil), düz gri zeminden kesilir (renk anahtarı + kenara bağlı alan; u2netp modeli makinedeyse rembg maskesi de) (kapı; "Mira: atkısı kırmızı" yeniden çizer, "Mira: wave tekrar" bir pozu yeniler, "Mira: ses <id>" sesini atar) → rig: pozlar boya göre ölçeklenir, sağda duranlar ortaya döner → mekân başına boş arka plan + sahne kareleri (kapı; "3: başka", "3: Mira sol") → satır başına ayrı ses (konuşanın sesiyle), müzik, animasyon: arka plan yavaş kayar, konuşan zıplar, dinleyen salınır, pozlar replikle değişir; altyazı konuşanlar arasında bölünür → final → yayın. Aynı kadroyu başka projede kullanmak: project["cast_from"] = proje id (arayüzde henüz yok). Ağız hareketi yok. Gerçek ücretli çalışma henüz yok.
 
 ### 6.11 Belgesel montaj · `documentary`
 **Ne üretir:** Açık lisanslı gerçek görüntülerden (Wikimedia, Archive.org, NASA, Pexels) tematik montaj; anlatımlı

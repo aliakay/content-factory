@@ -1,6 +1,6 @@
 id: character
 order: 10
-status: partial
+status: ready
 category: generated
 inputs: [story]
 duration: [30, 120]
@@ -24,13 +24,45 @@ cost:
   tr: "Karakter ve sahne çizimleri görsel başına kredi; seslendirme ek."
   en: "Character and scene art costs credits per image; narration extra."
 stages:
-  - {id: research, run: planned}
-  - {id: proposal, gate: true, run: planned}
-  - {id: script, gate: true, run: planned}
-  - {id: character_design, gate: true, run: planned}
-  - {id: rig_plan, run: planned}
-  - {id: scene_plan, gate: true, run: planned}
-  - {id: assets, gate: true, run: planned}
-  - {id: edit, run: planned}
-  - {id: compose, run: planned}
-  - {id: publish, gate: true, run: planned}
+  - id: proposal
+    gate: true
+    run: code
+    call: factory.hat.character:proposal
+
+  - id: script
+    gate: true
+    run: code
+    call: factory.hat.character:script
+
+  - id: character_design
+    gate: true
+    run: code
+    call: factory.hat.character:character_design
+
+  - id: rig_plan
+    run: code
+    call: factory.hat.character:rig_plan
+
+  - id: scene_plan
+    gate: true
+    artifact: plates
+    run: code
+    call: factory.hat.character:scene_plan
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.character:assets
+
+  - id: edit
+    run: code
+    call: factory.hat.character:edit
+
+  - id: compose
+    run: code
+    call: factory.hat.character:compose
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.character:publish

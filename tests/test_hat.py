@@ -1570,3 +1570,123 @@ def test_archive_licences_hosts_and_meaning(monkeypatch, tmp_path):
     with pytest.raises(ValueError):
         A.fetch({"url": "http://localhost:8501/x.mp4"})
     assert A._seconds("29:28") == 1768 and A._seconds("12.5") == 12.5 and A._seconds("n/a") is None
+
+
+# ---------------------------------------------------------------- character animation: drawn once, posed, rigged
+
+def _char_png(path, colour):
+    """A drawn pose: a figure on the plain grey ground, with a grey-ish patch inside it that must stay opaque."""
+    from PIL import Image, ImageDraw
+    img = Image.new("RGB", (400, 600), (217, 217, 217))
+    dr = ImageDraw.Draw(img)
+    dr.rectangle((140, 80, 260, 560), fill=colour)
+    dr.rectangle((180, 140, 220, 180), fill=(215, 215, 215))
+    img.save(path)
+    return path
+
+
+def _char_fakes(monkeypatch, tmp_path):
+    from factory import accounts, credits, eleven, qa, thumbs
+    from factory.hat import character as C, documentary as D
+    import factory.hat.explainer as E
+    story = {"title": "Mira ve Kedi", "logline": "Bir kız kayıp kedisini arar.", "art_style": "flat cartoon",
+             "characters": [{"id": "mira", "name": "Mira", "look": "girl, red scarf", "size": "medium"},
+                            {"id": "Tekir Kedi", "name": "Tekir", "look": "striped cat", "size": "small"},
+                            {"id": "nolook", "name": "X", "look": ""}],                 # no look: dropped
+             "places": [{"id": "park", "prompt": "a park"}, {"id": "street", "prompt": "a street"},
+                        {"id": "unused", "prompt": "never used"}],
+             "scenes": [{"place": "park", "cast": ["mira"], "lines": [
+                            {"who": "narrator", "say": "Bir gün Mira parka gitti."},
+                            {"who": "mira", "say": "Tekir nerede?", "pose": "surprised"}]},
+                        {"place": "street", "cast": ["mira", "tekir-kedi"], "lines": [
+                            {"who": "Tekir", "say": "Miyav, buradayım!", "pose": "dance"},  # unknown pose: talk
+                            {"who": "mira", "say": "Seni buldum!", "pose": "happy"}]},
+                        {"place": "nowhere", "cast": ["mira"], "lines": [{"who": "mira", "say": "x"}]}],  # no place: dropped
+             "music": {"use": True, "prompt": "playful"}, "caption": "Mira'nın günü", "hashtags": ["animasyon"]}
+    asks = []
+    monkeypatch.setattr(C, "_ask", lambda prompt: asks.append(prompt) or (json.loads(json.dumps(story)), 0.1))
+    monkeypatch.setattr(credits, "rates", lambda: {"image:gpt-image-2": {"rate": 5}, "image:gpt-image-2.5-sunburst": {"rate": 10},
+                                                   "tts:eleven_v4": {"rate": 1}, "music:eleven_music_v2_5": {"rate": 2}})
+    images = []
+    def image(con, prompt, approved, account=None, aspect="9:16", flow_id=None, refs=(), idea_id=None, model=None):
+        n = len(images) + 1
+        images.append({"prompt": prompt, "approved": approved, "refs": list(refs), "flow": flow_id})
+        return _char_png(str(tmp_path / f"img{n}.png"), (200, 40 + n * 10, 40)), 5.0 if not refs else 10.0, "flow1", f"node{n}"
+    monkeypatch.setattr(eleven, "image", image)
+    takes = []
+    def tts(con, text, vid, model, approved=None, account=None):
+        takes.append((text, vid, approved))
+        return _tone(str(tmp_path / f"t{len(takes)}.wav"), round(0.5 * len(text.split()), 2)), float(len(text))
+    monkeypatch.setattr(eleven, "tts", tts)
+    music = _tone(str(tmp_path / "m.mp3"), 14)
+    monkeypatch.setattr(eleven, "generate", lambda *a, approved=None, **k: takes.append(("music", approved)) or (music, 20.0))
+    monkeypatch.setattr(accounts, "default_eleven", lambda uid=None: "acc")
+    monkeypatch.setattr(C, "_con", lambda: None)
+    monkeypatch.setattr(qa, "technical", lambda path, expected=None: {"problems": []})
+    monkeypatch.setattr(thumbs, "make", lambda *a, **k: [])
+    for m in (C, D, E):
+        monkeypatch.setattr(m, "ROOT", "/")
+    return images, takes, asks
+
+
+def test_character_line_draws_once_poses_rigs_and_acts(d, monkeypatch, tmp_path):
+    from PIL import Image
+    from factory import talk
+    from factory.hat import character as C, runner
+    images, takes, asks = _char_fakes(monkeypatch, tmp_path)
+    pid = P.create("character", "Mira", brief="Mira kayıp kedisini arıyor", d=d)["id"]
+    q = Q(runner, d)
+    assert runner.advance(pid, q, d=d) == ("gate", "proposal")
+    story = P.read_artifact(pid, "proposal", d)["concepts"][0]["story"]
+    assert [c["id"] for c in story["characters"]] == ["mira", "tekir-kedi"]
+    assert [s["place"] for s in story["scenes"]] == ["park", "street"] and [p["id"] for p in story["places"]] == ["park", "street"]
+    assert story["scenes"][1]["lines"][0] == {"who": "tekir-kedi", "say": "Miyav, buradayım!", "pose": "talk"}
+    need = C.poses_needed(story)
+    assert need == {"mira": ["neutral", "surprised", "happy"], "tekir-kedi": ["neutral", "talk"]}
+    chars = sum(len(ln["say"]) for s in story["scenes"] for ln in s["lines"])
+    cost = P.read_artifact(pid, "proposal", d)["cost"]
+    assert cost["credits"] == 2 * 5 + 5 * 10 + 2 * 5 + chars + round(2 * (C._seconds(story, "tr") + 1)) and not images
+    assert runner.approve(pid, "proposal", q, d=d) == ("gate", "script")
+    sc = P.read_artifact(pid, "script", d)
+    assert sc["lines"][1] == "Mira: Tekir nerede?" and sc["speakers"] == ["narrator", "mira", "tekir-kedi", "mira"]
+    assert runner.approve(pid, "script", q, d=d) == ("gate", "character_design")
+    ch = P.read_artifact(pid, "characters", d)["characters"]
+    assert len(images) == 7 and images[0]["refs"] == [] and images[1]["refs"] == ["node1"]   # poses drawn FROM the sheet
+    assert all(i["flow"] in (None, "flow1") for i in images)
+    cut = Image.open("/" + ch[0]["poses"]["neutral"]["cut"])
+    assert cut.size == (121, 481) and cut.getpixel((60, 80))[3] == 255 and cut.getpixel((0, 0))[3] < 255   # inner patch kept
+    runner.feedback(pid, "character_design", "Tekir: ses v-cat\nMira: happy tekrar", q, d=d)
+    ch = P.read_artifact(pid, "characters", d)["characters"]
+    assert len(images) == 8 and "take 2" in images[-1]["prompt"] and ch[1]["voice_id"] == "v-cat"
+    assert runner.approve(pid, "character_design", q, d=d) == ("gate", "scene_plan")
+    rigs = P.read_artifact(pid, "rig_plan", d)["rigs"]
+    assert rigs["mira"]["height"] == 960 and rigs["tekir-kedi"]["height"] == 768
+    assert Image.open("/" + rigs["mira"]["files"]["neutral_r"]).size[1] == 960
+    pl = P.read_artifact(pid, "plates", d)
+    assert len(images) == 10 and set(pl["places"]) == {"park", "street"}
+    assert [c["x"] for c in pl["scenes"][1]["cast"]] == [0.3, 0.7]
+    runner.feedback(pid, "scene_plan", "2: Mira sağ, Tekir sol", q, d=d)
+    pl = P.read_artifact(pid, "plates", d)
+    assert len(images) == 10 and [c["x"] for c in pl["scenes"][1]["cast"]] == [0.75, 0.25]   # no new image for a move
+    assert runner.approve(pid, "scene_plan", q, d=d) == ("gate", "assets")
+    assert [t[1] for t in takes][2] == "v-cat" and len({t[1] for t in takes[:4]}) == 2
+    left = P.load(pid, d)["budget"]["credits"] - 10 * 6 - 10 - 10              # sheets+poses, the redraw, backgrounds
+    assert takes[4] == ("music", left - sum(len(t[0]) for t in takes[:4]))       # music gets what the voices left
+    a = P.read_artifact(pid, "assets", d)
+    tl = a["timeline"]
+    assert tl[0]["lines"][0]["at"] == C.LEAD and tl[1]["start"] == tl[0]["end"]
+    assert tl[1]["lines"][1]["pose"] == "happy" and abs(a["duration"] - tl[-1]["end"]) < 1e-6
+    info = talk.probe("/" + a["preview"])
+    assert abs(info["duration"] - a["duration"]) < 0.15 and (info["w"], info["h"]) == (1080, 1920)
+    assert runner.approve(pid, "assets", q, d=d) == ("gate", "publish")
+    assert abs(talk.probe("/" + P.read_artifact(pid, "render", d)["final"])["duration"] - a["duration"]) < 0.15
+    assert P.read_artifact(pid, "publish", d)["hashtags"] == ["#animasyon"]
+
+
+def test_character_spans_hold_a_pose_until_the_next_line():
+    from factory.hat import character as C
+    sc = {"lines": [{"who": "a", "pose": "talk", "at": 1.0, "end": 2.0}, {"who": "b", "pose": "talk", "at": 2.2, "end": 3},
+                    {"who": "a", "pose": "talk", "at": 3.2, "end": 4.0}, {"who": "a", "pose": "happy", "at": 4.2, "end": 5}]}
+    assert C._spans(sc, "a", "neutral", 0.0, 6.0) == [("neutral", 0.0, 1.0), ("talk", 1.0, 4.2), ("happy", 4.2, 6.0)]
+    assert C._spans(sc, "c", "neutral", 0.0, 6.0) == [("neutral", 0.0, 6.0)]
+    assert C.layout(["a", "b"], {"b": "left"}) == {"a": 0.3, "b": 0.25}
