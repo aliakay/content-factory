@@ -387,6 +387,9 @@ def run(job_id):
         elif kind == "own_style_sample":   # an own film style's sample frame (headless render, no Claude / credits)
             from . import ownstyles
             result = "örnek kare: " + ownstyles.render_sample(arg)["id"]
+        elif kind == "scene_frames":       # the scene editor's frames with clickable text boxes (headless, no credits)
+            from . import sceneedit
+            result = f"{sceneedit.frames(jload(arg, {})['project'])['frames']} kare"
         elif kind == "style_extract":
             o = jload(arg, {})
             result = "stil: " + styles.extract(o["files"], o.get("note", ""))

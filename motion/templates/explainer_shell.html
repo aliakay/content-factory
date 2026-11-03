@@ -117,7 +117,8 @@ window.lintBoxes = () => {
       const b = { left: L, top: T, width: R - L, height: Bt - T };
       if (b.width < 2 || b.height < 2) continue;
       const cs = getComputedStyle(el);
-      out.push({ scene: sec.id.slice(2), text: txt.slice(0, 48), x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), flip,
+      const own = el.closest("[data-e]");     // the scene editor's address of this text (factory/sceneedit.py)
+      out.push({ scene: sec.id.slice(2), e: own ? own.getAttribute("data-e") : null, text: txt.slice(0, 48), x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), flip,
                  color: cs.color, size: parseFloat(cs.fontSize), clipText: cs.webkitBackgroundClip === "text" || cs.color === "rgba(0, 0, 0, 0)" });
     }
   }

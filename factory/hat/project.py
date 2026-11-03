@@ -21,7 +21,7 @@ from ..config import ROOT
 from ..store import now
 from . import manifest
 
-DIR = os.path.join(ROOT, "projects")
+DIR = os.environ.get("CF_PROJECTS") or os.path.join(ROOT, "projects")   # CF_PROJECTS: a throwaway folder for trials
 MAX_REVISIONS = 3
 STATUSES = ("pending", "running", "awaiting_approval", "approved", "done", "failed", "stale")
 COMPLETE = ("approved", "done")

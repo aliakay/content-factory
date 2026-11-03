@@ -47,7 +47,7 @@ def contract():
 
 def task(pid, s, note=None, d=None):
     """The full instruction text for one stage run."""
-    from .. import proof
+    from .. import proof, sceneedit
     p = P.load(pid, d)
     m = manifest.get(p["line"])
     earlier = [x["artifact"] for x in m["stages"][:[y["id"] for y in m["stages"]].index(s["id"])]
@@ -67,7 +67,7 @@ Aspect: {p.get('aspect')} · Earlier artifacts you can read: {', '.join(earlier)
 {review}
 
 ## Stage brief
-{skill(p['line'], s['id'], p)}{proof.brief(pid, s, d)}
+{skill(p['line'], s['id'], p)}{proof.brief(pid, s, d)}{sceneedit.brief(pid, s, d)}
 """
 
 

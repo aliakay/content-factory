@@ -99,3 +99,16 @@
 .hl-styles.wide{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
 a.hl-style-t{color:inherit;text-decoration:none;display:block}
 .hl-sample{display:block;width:100%;max-width:300px;border-radius:10px;margin:0 auto 10px}
+.hl-se-frame{position:relative;width:min(100%,380px);border-radius:12px;overflow:hidden;border:1px solid var(--line);user-select:none;touch-action:none}
+.hl-se-frame.wide{width:100%}
+.hl-se-frame img{display:block;width:100%;pointer-events:none}
+.hl-se-box{position:absolute;border:1px dashed rgba(255,255,255,.55);border-radius:3px;cursor:grab;background:rgba(255,214,0,.06)}
+.hl-se-box:hover{border-color:var(--accent);background:rgba(255,214,0,.14)}
+.hl-se-box.on{border:2px solid var(--accent);background:rgba(255,214,0,.18)}
+.hl-se-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto}
+.hl-se-row{display:flex;gap:8px;align-items:center;padding:5px 8px;border-radius:8px;cursor:pointer}
+.hl-se-row:hover,.hl-se-row.on{background:var(--surface2)}
+.hl-se-tl{display:flex;gap:3px;height:52px}
+.hl-se-seg{display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0;padding:0 8px;border-radius:8px;
+  background:var(--bg2,rgba(255,255,255,.04));border:1px solid var(--line2);cursor:pointer;overflow:hidden;white-space:nowrap;font-size:12px}
+.hl-se-seg.on{border-color:var(--ch);background:color-mix(in srgb,var(--ch) 14%,transparent)}

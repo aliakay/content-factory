@@ -7,11 +7,13 @@ GET  /api/hat/ownstyles                the creator's own film styles; /api/hat/o
 POST /api/hat/ownstyles     {name, base}                      step 1: a draft from a base style or a blank page
 POST /api/hat/ownstyle/<id> {action: answer|sample|approve|delete, q?, value?}   steps 2-5
 GET  /api/hat/project/<id>             the flow view of one project: stages, their outputs, stills, live events
+GET  /api/hat/project/<id>/scenes      the scene editor: scenes, their text elements, frames with boxes, versions
+POST /api/hat/project/<id>/scenes {action: edit|frames|save_version|restore, ...}   hand edits at the scene plan gate
 POST /api/hat/lang          {lang}     the user's interface language (tr | en)
 POST /api/hat/projects      {line, brief, title?, video_lang, aspect, channel?, proof?}   create and start
 POST /api/hat/project/<id>  {action: approve|feedback|back|retry|advance, stage, note?}  a gate action
 """
-import glob, os, re
+import glob, json, os, re
 
 from factory import accounts
 from factory.config import ROOT
@@ -136,6 +138,10 @@ def project(pid):
             st = styles.get(look[6:]) if look.startswith("style.") else None
             if st:
                 s["style"] = styles.card(st, lang())
+    from factory import sceneedit
+    for s in f["stages"]:
+        if sceneedit.editable(manifest.stage(line, s["id"])) and s.get("output"):
+            s["scene_edit"] = True
     from factory import proof
     if proof.on(pid):                 # proof mode: each checked gate carries its number-by-number report
         for s in f["stages"]:
@@ -148,6 +154,42 @@ def project(pid):
     if _archived(pid):
         f["state"], f["current"] = "archived", None
     return f
+
+
+def scenes(pid):
+    from factory import sceneedit
+    try:
+        v = sceneedit.view(pid)
+    except sceneedit.EditError as e:
+        raise ValueError(e.text(lang())) from None
+    for sc in v["scenes"]:
+        sc["frame"] = _media(sc["frame"])
+    v["archived"] = _archived(pid)
+    return v
+
+
+def _scenes_post(pid, b, queue, uid):
+    from factory import sceneedit
+    if _archived(pid):
+        raise ValueError({"tr": "Bu bir arşiv kaydı; üzerinde iş yapılmaz.",
+                          "en": "This is an archive record; no work is done on it."}[lang()])
+    a = b.get("action")
+    try:
+        if a == "edit":
+            return sceneedit.edit(pid, str(b.get("scene") or ""), str(b.get("e") or ""), text=b.get("text"),
+                                  color=b.get("color"), dx=b.get("dx"), dy=b.get("dy"), by=uid)
+        if a == "frames":
+            sceneedit.prepare(pid)
+            return {"job_id": queue("scene_frames", json.dumps({"project": pid}))}
+        if a == "save_version":
+            return sceneedit.save_version(pid, b.get("name"), by=uid)
+        if a == "restore":
+            return sceneedit.restore(pid, b.get("n"), by=uid)
+        if a == "cut":
+            return sceneedit.cut(pid, b.get("scene"), b.get("start"), by=uid)
+    except sceneedit.EditError as e:
+        raise ValueError(e.text(lang())) from None
+    raise ValueError("unknown action")
 
 
 def get(con, path, q):
@@ -169,6 +211,9 @@ def get(con, path, q):
     if m:
         from factory import ownstyles
         return ownstyles.view(ownstyles.load(m.group(1)), lang())
+    m = re.fullmatch(r"/api/hat/project/([\w-]+)/scenes", path)
+    if m:
+        return scenes(_check(m.group(1)))
     m = re.fullmatch(r"/api/hat/project/([\w-]+)", path)
     if m:
         return project(m.group(1))
@@ -236,6 +281,9 @@ def _post(con, path, b, queue):
                      con=con, extra=extra)
         state, stage = runner.advance(p["id"], queue, by=uid)
         return {"id": p["id"], "state": state, "stage": stage}
+    m = re.fullmatch(r"/api/hat/project/([\w-]+)/scenes", path)
+    if m:
+        return _scenes_post(_check(m.group(1)), b, queue, uid)
     m = re.fullmatch(r"/api/hat/project/([\w-]+)", path)
     if m:
         pid, a, sid = _check(m.group(1)), b.get("action"), b.get("stage")

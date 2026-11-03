@@ -268,6 +268,16 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
   "bir", "on", "altı", "yüz", "bin" gibi gündelik kelimeler tek başına rakam sayılmaz. Kapı kartında rakam rakam
   kanıt raporu; eşleşmeyen varken "Devam" kapalıdır ve onay sunucuda da reddedilir (`runner.approve` →
   `proof.guard`). Ajan görevine bağlayıcı kanıt bölümü eklenir; `proof_check` aracıyla teslimden önce kendini denetler.
+- **Sahne editörü (t504):** sahne planı kapısında (konu anlatımı, hareketli grafik) "Sahneleri düzenle" →
+  `#/u/<id>/sahneler` (`factory/sceneedit.py`). Her yazı tutan öğe kalıcı bir `data-e` adresi alır; "Kareleri yeniden
+  çiz" (`scene_frames` işi, kredi yok) sahne başına bir kare ve tıklanabilir yazı kutuları (`boxes.json`) çizer.
+  Kutuya tıkla ya da listeden seç: metin, renk ve konum (`translate`, kare pikseli) değişir; sürükleyerek taşınır.
+  İç içe öğe içeren bir öğenin metni değişmez, yalnız taşınır/renklenir. Her düzenleme `scene_plan.edits`'e yazılır
+  (önce/sonra, kim, ne zaman) ve ajan görevine bağlayıcı "elle düzenlemeler" bölümü olarak girer. Sürümler
+  `artifacts/versions/scene_plan-NNN.json`; geri yükleme de bir düzenleme olarak kaydedilir. Düzenleme yalnız kapıda.
+  **Zaman çizelgesinde kırpma:** sahneler sürelerine göre bir şeritte; seçili sahnenin başı bir satır öne/geriye
+  alınır (`cut`), önceki sahne buna göre kısalır/uzar (her sahnede en az bir satır kalır), ajana da bildirilir.
+  Denemeler için `CF_PROJECTS` proje klasörünü değiştirir (render sunucusu kökü içinde olmalı).
 - Menü sadeleşir: Stüdyo · Üretimler · Keşif · Takip · Ayarlar (kanallar, sesler, hesaplar, bütçe, stiller tek yerde).
 
 ## 8. Fazlar

@@ -37,8 +37,9 @@ const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/ja
 const server = createServer(async (req, res) => {
   const p = path.resolve(ROOT, "." + decodeURIComponent(req.url.split("?")[0].split("#")[0]));
   if (!p.startsWith(ROOT)) { res.writeHead(403).end(); return; }
-  try { res.writeHead(200, { "Content-Type": TYPES[path.extname(p)] || "application/octet-stream" }).end(await readFile(p)); }
-  catch { res.writeHead(404).end(); }
+  let body;   // read first: a missing file must answer 404, not write a second header after the 200
+  try { body = await readFile(p); } catch { res.writeHead(404).end(); return; }
+  res.writeHead(200, { "Content-Type": TYPES[path.extname(p)] || "application/octet-stream" }).end(body);
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const base = `http://127.0.0.1:${server.address().port}`;

@@ -1,5 +1,5 @@
 """Production lines v2: manifests and the gate rules of a project folder."""
-import json, os
+import json, os, time
 
 import pytest
 import yaml
@@ -1889,3 +1889,133 @@ def test_proof_mode_is_off_by_default_and_reaches_agent_and_board(d, monkeypatch
     st = next(x for x in hat_api.project(pid)["stages"] if x["id"] == "script")
     assert st["proof"]["unmatched"] == 1 and "kaynaklı bir rakamla eşleşmiyor" in st["proof"]["problems"][0]
     assert next(l for l in hat_api.lines() if l["id"] == "explainer")["proof"]
+
+
+# ---------------------------------------------------------------- scene editor (t504)
+
+def _scene_gate(d):
+    pid = P.create("explainer", "Sahne", d=d, extra={"ui_lang": "tr"})["id"]
+    for sid in ("research", "proposal", "script"):
+        cp = run(pid, sid, d, {"lines": ["a", "b"]} if sid == "script" else {"x": 1})
+        if cp["status"] == "awaiting_approval":
+            P.approve(pid, sid, d=d)
+    run(pid, "scene_plan", d, {"concept": "c", "palette": {}, "scenes": [
+        {"id": "hook", "lines": [0, 0], "html": '<div class="w"><h1>Konut <b>1,48</b> milyon</h1><p class="src">Kaynak: TÜİK</p><img src="/a.png"/></div>',
+         "js": "tl.from('.w h1', {y: 40})"},
+        {"id": "end", "lines": [1, 1], "html": "<div><span>Sonra?</span></div>"}]})
+    return pid
+
+
+def test_scene_editor_addresses_texts_and_edits_them_at_the_gate(d):
+    from factory import sceneedit as S
+    from factory.hat import agent, manifest
+    pid = _scene_gate(d)
+    v = S.view(pid, d)
+    hook = v["scenes"][0]["elements"]
+    assert [(x["e"], x["tag"], x["text"], x["nested"]) for x in hook] == \
+        [("1", "h1", "Konut milyon", True), ("2", "b", "1,48", False), ("3", "p", "Kaynak: TÜİK", False)]
+    assert v["scenes"][1]["elements"][0]["e"] == "1" and v["gate"] and not v["fresh"] and v["scenes"][0]["frame"] is None
+    html0 = P.read_artifact(pid, "scene_plan", d)["scenes"][0]["html"]
+    assert 'data-e="2"' in html0 and S.tag(html0) == html0                    # addresses are stable
+    out = S.edit(pid, "hook", "3", text="Kaynak: TÜİK, 2024 & ENAG", color="#ff8800", dx=12, dy=-40, by="ali", d=d)
+    assert out["text"] == "Kaynak: TÜİK, 2024 & ENAG" and out["color"] == "#ff8800" and (out["dx"], out["dy"]) == (12, -40)
+    plan = P.read_artifact(pid, "scene_plan", d)
+    h = plan["scenes"][0]["html"]
+    assert '<p class="src" data-e="3" style="color: #ff8800; translate: 12px -40px">Kaynak: TÜİK, 2024 &amp; ENAG</p>' in h
+    assert [x["what"] for x in plan["edits"]] == ["text", "color", "move"] and plan["edits"][0]["by"] == "ali"
+    S.edit(pid, "hook", "3", color="", dx=0, dy=0, d=d)                      # back to the scene's own colour and place
+    assert '<p class="src" data-e="3">Kaynak' in P.read_artifact(pid, "scene_plan", d)["scenes"][0]["html"]
+    with pytest.raises(S.EditError) as e:
+        S.edit(pid, "hook", "1", text="x", d=d)
+    assert e.value.code == "nested" and "tek tek" in e.value.text("tr")
+    for bad in ({"color": "red"}, {"text": " "}, {"dx": 5000}):
+        with pytest.raises(S.EditError):
+            S.edit(pid, "hook", "2", d=d, **bad)
+    s = manifest.stage(manifest.get("explainer"), "scene_plan")
+    task = agent.task(pid, s, d=d)
+    assert "hand edits (binding)" in task and 'data-e="3"' in task and "Kaynak: TÜİK, 2024 & ENAG" in task
+    # versions: save, change, restore; a restore is logged and the agent is not told to keep a restore
+    assert S.save_version(pid, "kaynaklı", by="ali", d=d)["n"] == 1
+    S.edit(pid, "end", "1", text="Ya sonra?", d=d)
+    S.restore(pid, 1, by="ali", d=d)
+    plan = P.read_artifact(pid, "scene_plan", d)
+    assert "Sonra?" in plan["scenes"][1]["html"] and plan["edits"][-1]["what"] == "restore"
+    assert [x["name"] for x in S.versions(pid, d)] == ["kaynaklı"]
+    P.approve(pid, "scene_plan", d=d)
+    with pytest.raises(S.EditError) as e:                                     # after the gate: read-only
+        S.edit(pid, "hook", "2", text="2", d=d)
+    assert e.value.code == "not_gate"
+    assert not S.editable(manifest.stage(manifest.get("talking_head"), manifest.get("talking_head")["stages"][0]["id"]))
+
+
+def test_scene_editor_trims_on_the_timeline_by_moving_the_cut(d):
+    from factory import sceneedit as S
+    from factory.hat import manifest
+    pid = P.create("explainer", "Kesme", d=d, extra={"ui_lang": "tr"})["id"]
+    for sid in ("research", "proposal", "script"):
+        cp = run(pid, sid, d, {"lines": ["bir", "iki", "üç", "dört"]} if sid == "script" else {"x": 1})
+        if cp["status"] == "awaiting_approval":
+            P.approve(pid, sid, d=d)
+    run(pid, "scene_plan", d, {"concept": "c", "palette": {}, "scenes": [
+        {"id": "hook", "lines": [0, 1], "html": "<h1>A</h1>"}, {"id": "end", "lines": [2, 3], "html": "<h1>B</h1>"}]})
+    v = S.view(pid, d)
+    assert [x["lines"] for x in v["timeline"]] == [[0, 1], [2, 3]] and v["line_texts"][2] == "üç"
+    end0 = v["timeline"][1]["start"]
+    assert S.cut(pid, "end", 1, by="ali", d=d)["lines"] == [1, 3]
+    plan = P.read_artifact(pid, "scene_plan", d)
+    assert [x["lines"] for x in plan["scenes"]] == [[0, 0], [1, 3]]
+    assert plan["edits"][-1] == {**plan["edits"][-1], "scene": "end", "what": "cut", "before": 2, "after": 1, "label": "hook"}
+    assert S.view(pid, d)["timeline"][1]["start"] < end0                     # the scene now starts earlier
+    for bad in ((("end", 0)), ("end", 4), ("hook", 1), ("end", "x")):
+        with pytest.raises(S.EditError):
+            S.cut(pid, *bad, d=d)
+    st = next(x for x in manifest.get("explainer")["stages"] if x["id"] == "scene_plan")
+    assert 'now starts at script line 1 (was 2)' in S.brief(pid, st, d)
+
+
+def test_scene_editor_frames_carry_clickable_boxes_and_the_api(d, monkeypatch, tmp_path):
+    from factory import sceneedit as S
+    from factory.hat import explainer
+    from studio import hat_api
+    pid = _scene_gate(d)
+
+    class Fake:
+        def shots(self, b, times, out, lint=False):
+            files = []
+            for i, t in enumerate(times):
+                files.append(os.path.join(out, f"shot_{i:03d}.png"))
+                open(files[-1], "wb").write(b"png")
+            lint_path = str(tmp_path / "lint.json")
+            json.dump({f"{t:.2f}": {"file": files[i], "boxes": [{"scene": ["hook", "end"][i], "e": "1", "text": "x",
+                                                                    "x": 100, "y": 200, "w": 300, "h": 80},
+                                                                   {"scene": "hook", "e": None, "text": "y"}]}
+                       for i, t in enumerate(times)}, open(lint_path, "w"))
+            return files, [], lint_path
+    monkeypatch.setattr(explainer, "bundle", lambda pid, plan=None, d=None: "b.json")
+    monkeypatch.setattr(explainer, "scene_times", lambda pid, plan=None, d=None: [1.0, 3.0])
+    monkeypatch.setattr(explainer, "_htmlmotion", lambda: Fake())
+    assert S.frames(pid, d)["frames"] == 2
+    v = S.view(pid, d)
+    assert v["fresh"] and v["scenes"][1]["frame"].endswith("shot_001.png")
+    assert v["scenes"][0]["boxes"] == [{"e": "1", "scene": "hook", "text": "x", "x": 100, "y": 200, "w": 300, "h": 80}]
+    time.sleep(0.02)
+    S.edit(pid, "hook", "2", text="1,5", d=d)
+    assert not S.view(pid, d)["fresh"]                                       # an edit makes the frames stale
+
+    monkeypatch.setattr(P, "DIR", d)
+    monkeypatch.setattr(hat_api, "_check", lambda pid: pid)
+    monkeypatch.setattr(hat_api.accounts, "current", lambda: "ali")
+    monkeypatch.setattr(hat_api, "lang", lambda: "en")
+    queued = []
+    post = lambda **b: hat_api.post(None, f"/api/hat/project/{pid}/scenes", b, lambda k, a: queued.append((k, a)) or 7)
+    assert post(action="frames") == {"job_id": 7} and queued[0][0] == "scene_frames"
+    assert post(action="edit", scene="end", e="1", text="Peki?")["text"] == "Peki?"
+    with pytest.raises(ValueError, match="Colour must look like"):
+        post(action="edit", scene="end", e="1", color="blue")
+    assert post(action="save_version", name="v1")["n"] == 1
+    g = hat_api.get(None, f"/api/hat/project/{pid}/scenes", {})
+    assert g["scenes"][0]["frame"].startswith("/media/projects/") and g["versions"][0]["name"] == "v1"
+    st = next(x for x in hat_api.project(pid)["stages"] if x["id"] == "scene_plan")
+    assert st["scene_edit"]
+    from factory import jobs
+    assert '"scene_frames"' in open(jobs.__file__).read()

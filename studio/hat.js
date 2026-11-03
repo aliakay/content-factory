@@ -32,6 +32,11 @@ const TX = {
     sev_critical: "Kritik", sev_suggestion: "Öneri", sev_nitpick: "Ayrıntı", rounds: "{0} tur",
     insight: "Ana fikir", misconception: "Yaygın yanlış", data: "Veriler", sources: "Kaynaklar", angles: "Açılar",
     concepts: "Üç yaklaşım", chosen: "Seçilen", look: "Görünüm", music: "Müzik", yes: "Var", no: "Yok", total: "Toplam",
+    se_title: "Sahne editörü", se_open: "Sahneleri düzenle", se_hint: "Karede bir yazıya tıkla; sürükleyerek taşı, sağda metnini ve rengini değiştir. Değişiklik sahne planına yazılır, tasarımcı ajan yeniden çalışırsa onu korur.",
+    se_readonly: "Sahne planı kapıda beklemiyor; düzenleme kapalı.", se_stale: "Kareler son düzenlemeyi göstermiyor.", se_redraw: "Kareleri yeniden çiz", se_drawing: "Kareler çiziliyor…", se_noframes: "Henüz kutulu kare yok. Kareleri çiz, sonra yazılara tıkla.",
+    se_elements: "Yazılar", se_text: "Metin", se_color: "Renk", se_nocolor: "Sahnenin rengi", se_move: "Konum (px)", se_save: "Kaydet", se_saved: "Düzenleme kaydedildi", se_nested: "İçinde başka parçalar var: metnini parçalar üzerinden düzenle; renk ve konum burada.",
+    se_pick: "Düzenlemek için karede ya da listede bir yazı seç.", se_versions: "Sürümler", se_vname: "Sürüm adı", se_vsave: "Sürümü kaydet", se_vsaved: "Sürüm kaydedildi", se_restore: "Geri yükle", se_restored: "Sürüm geri yüklendi", se_edits: "Elle düzenlemeler", se_timeline: "Zaman çizelgesi", se_cut_hint: "Seçili sahnenin başını bir satır öne ya da geriye al; önceki sahne buna göre kısalır ya da uzar.", se_starts: "Başladığı satır", se_earlier: "Bir satır önce", se_later: "Bir satır sonra", se_w_cut: "kesme", se_count: "{n} elle düzenleme", se_none: "Henüz düzenleme yok.",
+    se_w_text: "metin", se_w_color: "renk", se_w_move: "konum", se_w_restore: "sürüm geri yüklendi", se_back: "Projeye dön",
     proof_mode: "Kanıt modu", proof_hint: "Haber ve veri videoları için: ekrandaki ve senaryodaki her rakam kaynaklı bir veriyle eşleşmeli, kaynağı sahnede yazmalı. Eşleşmeyen rakam kapıyı geçemez.",
     proof_t: "Kanıt kontrolü", proof_ok: "Her rakam kaynaklı", proof_bad: "{0} rakam kaynaksız", proof_none: "Bu adımda rakam yok", proof_block: "Kaynaksız rakamlar düzelmeden devam edilemez. Notla düzelttir.", proof_src: "kaynak",
     style_lib: "Film stili", style_pick: "Bu stili kullan", style_now: "Seçili stil", style_avoid: "Kaçın",
@@ -73,6 +78,11 @@ const TX = {
     sev_critical: "Critical", sev_suggestion: "Suggestion", sev_nitpick: "Nitpick", rounds: "{0} rounds",
     insight: "Insight", misconception: "Common misconception", data: "Data points", sources: "Sources", angles: "Angles",
     concepts: "Three approaches", chosen: "Chosen", look: "Look", music: "Music", yes: "Yes", no: "No", total: "Total",
+    se_title: "Scene editor", se_open: "Edit scenes", se_hint: "Click a text on the frame; drag to move it, change its text and colour on the right. Edits go into the scene plan, and the designer agent keeps them if it runs again.",
+    se_readonly: "The scene plan is not waiting at its gate; editing is off.", se_stale: "The frames do not show the latest edit yet.", se_redraw: "Redraw frames", se_drawing: "Drawing frames…", se_noframes: "No frames with boxes yet. Draw them, then click a text.",
+    se_elements: "Texts", se_text: "Text", se_color: "Colour", se_nocolor: "Scene colour", se_move: "Position (px)", se_save: "Save", se_saved: "Edit saved", se_nested: "It holds other parts: edit its text through them; colour and position are here.",
+    se_pick: "Pick a text on the frame or in the list to edit it.", se_versions: "Versions", se_vname: "Version name", se_vsave: "Save version", se_vsaved: "Version saved", se_restore: "Restore", se_restored: "Version restored", se_count: "{n} hand edits", se_edits: "Hand edits", se_timeline: "Timeline", se_cut_hint: "Move the selected scene's start one line earlier or later; the scene before it gets shorter or longer.", se_starts: "Starts at line", se_earlier: "One line earlier", se_later: "One line later", se_w_cut: "cut", se_none: "No edits yet.",
+    se_w_text: "text", se_w_color: "colour", se_w_move: "position", se_w_restore: "version restored", se_back: "Back to project",
     proof_mode: "Proof mode", proof_hint: "For news and data videos: every number on screen and in the script must match a sourced figure, and its source is shown in the scene. An unmatched number cannot pass a gate.",
     proof_t: "Proof check", proof_ok: "Every number is sourced", proof_bad: "{0} number(s) without a source", proof_none: "No numbers at this step", proof_block: "You cannot continue until the unsourced numbers are fixed. Ask for a fix with a note.", proof_src: "source",
     style_lib: "Film style", style_pick: "Use this style", style_now: "Chosen style", style_avoid: "Avoid",
@@ -272,7 +282,8 @@ function outScenes(o, s) {
     <div class="hl-swatch mt8">${Object.entries(pal).map(([k, v]) => `<span title="${esc(k)}" style="background:${esc(v)}"></span>`).join("")}</div>
     ${(s.stills || []).length ? `<div class="hl-stills mt12">${s.stills.map((u, i) => `<figure><img loading="lazy" src="${esc(u)}" data-act="hatZoom" data-src="${esc(u)}" alt="">
       <figcaption class="tiny muted">${esc(((o.scenes || [])[i] || {}).id || "")} · ${esc(t("line_range", ...(((o.scenes || [])[i] || {}).lines || [0, 0]).map((x) => x + 1)))}</figcaption></figure>`).join("")}</div>`
-      : `<div class="tiny faint mt12">${esc(t("no_stills"))}</div>`}`;
+      : `<div class="tiny faint mt12">${esc(t("no_stills"))}</div>`}
+    ${s.scene_edit && HS.pid ? `<a class="btn mt12" href="#/u/${esc(HS.pid)}/sahneler">✎ ${esc(t("se_open"))}</a>` : ""}`;
 }
 function player(u, wide) { return u ? `<div class="player ${wide ? "wide" : ""}"><video src="${esc(u)}" controls playsinline preload="metadata"></video></div>` : ""; }
 function outAssets(o, s, f) {
@@ -405,6 +416,7 @@ function eventsHtml(f) {
 }
 async function viewProject(pid) {
   const f = await api("/api/hat/project/" + encodeURIComponent(pid));
+  HS.pid = pid;
   if (f.stages.some((x) => x.style_pick) && (!HS.styles || HS.styles_lang !== L())) {
     HS.styles = await api("/api/hat/styles"); HS.styles_lang = L();
   }
@@ -425,6 +437,97 @@ async function viewProject(pid) {
   return { poll: busy ? 4000 : 0 };
 }
 ROUTE_RX.push([/^#\/u\/([\w-]+)/, viewProject]);
+// ---------------- the scene editor (factory/sceneedit.py): hand edits on the scene plan's frames ----------------
+HS.se = { scene: null, e: null, drawing: 0 };
+async function viewScenes(pid) {
+  const v = await api("/api/hat/project/" + encodeURIComponent(pid) + "/scenes");
+  HS.pid = pid; HS.seV = v;
+  const se = HS.se;
+  if (!v.scenes.some((x) => x.id === se.scene)) { se.scene = v.scenes[0].id; se.e = null; }
+  const sc = v.scenes.find((x) => x.id === se.scene);
+  const el = sc.elements.find((x) => x.e === se.e);
+  const on = v.gate && !v.archived;
+  if (v.fresh) se.drawing = 0;
+  const [W, H] = v.size;
+  const pct = (a, b) => (100 * a / b).toFixed(3) + "%";
+  const boxes = sc.boxes.map((b) => `<div class="hl-se-box ${b.e === se.e ? "on" : ""}" data-act="seSel" data-e="${esc(b.e)}" title="${esc(b.text)}"
+      style="left:${pct(b.x, W)};top:${pct(b.y, H)};width:${pct(b.w, W)};height:${pct(b.h, H)}"></div>`).join("");
+  const frame = sc.frame ? `<div class="hl-se-frame ${W > H ? "wide" : ""}" id="seFrame" data-w="${W}"><img src="${esc(sc.frame)}" alt="">${on ? boxes : ""}</div>`
+    : `<div class="note small">${esc(t("se_noframes"))}</div>`;
+  const panel = !el ? `<div class="small muted">${esc(t("se_pick"))}</div>` : `
+    <label class="field"><span>${esc(t("se_text"))}</span><textarea id="seText" ${el.nested || !on ? "disabled" : ""}>${esc(el.text)}</textarea></label>
+    ${el.nested ? `<div class="tiny faint">${esc(t("se_nested"))}</div>` : ""}
+    <div class="row mt8" style="gap:12px;align-items:flex-end">
+      <label class="field"><span>${esc(t("se_color"))}</span><input type="color" id="seColor" value="${esc(el.color || "#ffffff")}" ${on ? "" : "disabled"} style="width:64px;height:38px;padding:2px"></label>
+      <label class="row tiny" style="gap:6px;align-items:center"><input type="checkbox" id="seNoColor" ${el.color ? "" : "checked"} ${on ? "" : "disabled"} style="width:auto">${esc(t("se_nocolor"))}</label></div>
+    <div class="row mt8" style="gap:8px;align-items:flex-end"><label class="field"><span>${esc(t("se_move"))} x</span><input type="number" id="seDx" value="${el.dx}" step="10" style="width:90px" ${on ? "" : "disabled"}></label>
+      <label class="field"><span>y</span><input type="number" id="seDy" value="${el.dy}" step="10" style="width:90px" ${on ? "" : "disabled"}></label></div>
+    ${on ? `<button class="btn accent block mt12" data-act="seSave">${esc(t("se_save"))}</button>` : ""}`;
+  const tl = v.timeline || [], ti = tl.findIndex((x) => x.id === se.scene), cur = tl[ti], total = tl.length ? tl[tl.length - 1].end : 0;
+  const prevA = ti > 0 ? tl[ti - 1].lines[0] : 0;
+  const timeline = !tl.length ? "" : `<div class="card"><h3>${esc(t("se_timeline"))}</h3>
+      <div class="hl-se-tl">${tl.map((x) => `<div class="hl-se-seg ${x.id === se.scene ? "on" : ""}" data-act="seScene" data-id="${esc(x.id)}" style="flex:${Math.max(0.05, x.end - x.start).toFixed(3)}"
+        title="${esc(x.id)} · ${x.start.toFixed(1)}–${x.end.toFixed(1)} s"><span>${esc(x.id)}</span><span class="tiny faint">${(x.end - x.start).toFixed(1)} s</span></div>`).join("")}</div>
+      <div class="row tiny faint mt8"><span>0 s</span><span class="sp"></span><span>${total.toFixed(1)} s</span></div>
+      ${ti > 0 ? `<div class="mt12 small">${esc(t("se_starts"))} ${cur.lines[0] + 1}: <span class="muted">“${esc((v.line_texts[cur.lines[0]] || "").slice(0, 90))}”</span></div>
+        ${on ? `<div class="row mt8" style="gap:8px"><button class="btn sm" data-act="seCut" data-start="${cur.lines[0] - 1}" ${cur.lines[0] - 1 <= prevA ? "disabled" : ""}>◀ ${esc(t("se_earlier"))}</button>
+          <button class="btn sm" data-act="seCut" data-start="${cur.lines[0] + 1}" ${cur.lines[0] + 1 > cur.lines[1] ? "disabled" : ""}>${esc(t("se_later"))} ▶</button></div>
+          <div class="tiny faint mt8">${esc(t("se_cut_hint"))}</div>` : ""}` : ""}</div>`;
+  const what = (x) => x.what === "restore" ? `${t("se_w_restore")}: ${x.after}` : x.what === "cut" ? `${x.scene} · ${t("se_w_cut")}: ${t("se_starts").toLowerCase()} ${x.before + 1} → ${x.after + 1}` : `${x.scene} · “${x.label || ""}” · ${t("se_w_" + x.what)}${x.what === "move" ? " " + x.after.join(", ") : x.what === "text" || x.what === "color" ? ": " + (x.after || "—") : ""}`;
+  const html = `<div class="row"><a class="btn ghost sm" href="#/u/${esc(pid)}">${ICON.back}${esc(t("se_back"))}</a></div>
+    <h1 class="mt12">${esc(t("se_title"))}</h1><p class="lead">${esc(on ? t("se_hint") : t("se_readonly"))}</p>
+    <div class="chips mt12">${v.scenes.map((x) => `<span class="chip ${x.id === se.scene ? "on" : ""}" data-act="seScene" data-id="${esc(x.id)}">${esc(x.id)}</span>`).join("")}</div>
+    <div class="split mt16"><div class="col" style="gap:12px">${frame}
+        ${!v.fresh || !sc.frame ? `<div class="row" style="gap:10px;align-items:center">${se.drawing ? `<span class="spin"></span><span class="small muted">${esc(t("se_drawing"))}</span>`
+          : `${sc.frame ? `<span class="small muted">${esc(t("se_stale"))}</span>` : ""}<button class="btn sm" data-act="seFrames" ${v.archived ? "disabled" : ""}>${esc(t("se_redraw"))}</button>`}</div>` : ""}${timeline}</div>
+      <div class="col sticky" style="gap:14px"><div class="card"><h3>${esc(t("se_elements"))}</h3>
+          <div class="hl-se-list">${sc.elements.map((x) => `<div class="hl-se-row ${x.e === se.e ? "on" : ""}" data-act="seSel" data-e="${esc(x.e)}"><span class="badge">${esc(x.tag)}</span><span class="small">${esc(x.text.slice(0, 60))}</span></div>`).join("")}</div>
+          <div class="mt12">${panel}</div></div>
+        <div class="card"><h3>${esc(t("se_versions"))}</h3>
+          <div class="row" style="gap:8px"><input type="text" id="seVname" data-keep="se-vname-${esc(pid)}" placeholder="${esc(t("se_vname"))}" maxlength="60" style="flex:1"><button class="btn sm" data-act="seVsave">${esc(t("se_vsave"))}</button></div>
+          ${v.versions.slice().reverse().map((x) => `<div class="row mt8" style="gap:8px;align-items:center"><span class="small"><b>${esc(x.name)}</b> <span class="tiny faint">${esc(dt(x.at))} · ${esc(t("se_count").replace("{n}", x.edits))}</span></span><span class="sp"></span>
+            ${on ? `<button class="btn ghost sm" data-act="seRestore" data-n="${x.n}">${esc(t("se_restore"))}</button>` : ""}</div>`).join("")}</div>
+        <div class="card"><h3>${esc(t("se_edits"))}</h3>${v.edits.length ? v.edits.slice().reverse().slice(0, 14).map((x) => `<div class="tiny muted mt8">${esc(dt(x.at))} · ${esc(what(x))}</div>`).join("") : `<div class="tiny faint">${esc(t("se_none"))}</div>`}</div></div></div>`;
+  crumb([t("nav_prods"), t("se_title")]);
+  paint(html, JSON.stringify([L(), se, v.fresh, v.edits.length, v.versions.length, sc.frame, v.gate]));
+  return { poll: se.drawing && !v.fresh && se.drawing < 60 ? (se.drawing++, 3000) : 0 };
+}
+ROUTE_RX.push([/^#\/u\/([\w-]+)\/sahneler/, viewScenes]);
+const seUrl = () => "/api/hat/project/" + encodeURIComponent(HS.pid) + "/scenes";
+ACT.seScene = (el) => { HS.se.scene = el.dataset.id; HS.se.e = null; route(); };
+ACT.seSel = (el) => { if (HS.seDragged) { HS.seDragged = false; return; } HS.se.e = el.dataset.e; route(); };
+ACT.seFrames = async () => { HS.se.drawing = 1; await post(seUrl(), { action: "frames" }); S.sig = null; route({ poll: true }); };
+ACT.seSave = async (el) => {
+  el.disabled = true;
+  try {
+    const b = { action: "edit", scene: HS.se.scene, e: HS.se.e, dx: +$("#seDx").value || 0, dy: +$("#seDy").value || 0, color: $("#seNoColor").checked ? "" : $("#seColor").value };
+    if (!$("#seText").disabled) b.text = $("#seText").value;
+    await post(seUrl(), b); toast(t("se_saved")); S.sig = null; route();
+  } finally { el.disabled = false; }
+};
+ACT.seVsave = async () => { await post(seUrl(), { action: "save_version", name: $("#seVname").value }); $("#seVname").value = ""; S.drafts["se-vname-" + HS.pid] = ""; toast(t("se_vsaved")); S.sig = null; route(); };
+ACT.seCut = async (el) => { el.disabled = true; try { await post(seUrl(), { action: "cut", scene: HS.se.scene, start: +el.dataset.start }); toast(t("se_saved")); } finally { S.sig = null; route(); } };
+ACT.seRestore = async (el) => { await post(seUrl(), { action: "restore", n: +el.dataset.n }); toast(t("se_restored")); S.sig = null; route(); };
+// drag a text box on the frame: the move is saved in CSS px of the video frame
+document.addEventListener("pointerdown", (ev) => {
+  const box = ev.target.closest && ev.target.closest(".hl-se-box");
+  if (!box || !HS.seV) return;
+  const fr = $("#seFrame"), k = (+fr.dataset.w) / fr.getBoundingClientRect().width, x0 = ev.clientX, y0 = ev.clientY;
+  const sc = HS.seV.scenes.find((x) => x.id === HS.se.scene), el = sc.elements.find((x) => x.e === box.dataset.e);
+  if (!el) return;
+  box.setPointerCapture(ev.pointerId);
+  const move = (e) => { box.style.transform = `translate(${e.clientX - x0}px, ${e.clientY - y0}px)`; };
+  const up = async (e) => {
+    box.removeEventListener("pointermove", move); box.removeEventListener("pointerup", up);
+    const dx = Math.round((e.clientX - x0) * k), dy = Math.round((e.clientY - y0) * k);
+    if (Math.abs(dx) + Math.abs(dy) < 6) { box.style.transform = ""; return; }
+    HS.seDragged = true; HS.se.e = el.e;
+    try { await post(seUrl(), { action: "edit", scene: HS.se.scene, e: el.e, dx: el.dx + dx, dy: el.dy + dy }); toast(t("se_saved")); }
+    catch (err) { box.style.transform = ""; toast(err.message, 1); }
+    S.sig = null; route();
+  };
+  box.addEventListener("pointermove", move); box.addEventListener("pointerup", up);
+});
 // ---------------- film styles: the library and the creator's own (factory/filmstyles.py, factory/ownstyles.py) ----------------
 async function viewStyles() {
   crumb([t("nav_fstyles")]);
