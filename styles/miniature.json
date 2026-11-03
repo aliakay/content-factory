@@ -1,0 +1,5 @@
+{
+ "seconds": 3,
+ "css": "position:absolute;inset:0;background:linear-gradient(#9fd7ff,#ffd6a5)",
+ "js": "E('left:-60px;top:980px;width:1200px;height:1000px;background:#80ed99;border-radius:40% 40% 0 0');\nconst H = (x, y, c, r) => { E(`left:${x}px;top:${y}px;width:170px;height:150px;background:${c};border-radius:16px;box-shadow:0 18px 26px rgba(40,60,120,.35)`); E(`left:${x - 10}px;top:${y - 80}px;width:190px;height:90px;background:${r};clip-path:polygon(50% 0,100% 100%,0 100%)`); };\nH(180, 1120, '#f72585', '#3a86ff'); H(450, 1060, '#ffd166', '#f72585'); H(720, 1150, '#4cc9f0', '#ff8c42');\nE('left:430px;top:1380px;padding:10px 26px;background:#fff;border-radius:40px;font:700 46px Poppins;color:#3a86ff;box-shadow:0 10px 18px rgba(40,60,120,.3)', 'Köy');\nE('left:0;right:0;top:0;height:560px;backdrop-filter:blur(10px)'); E('left:0;right:0;top:1580px;height:340px;backdrop-filter:blur(12px)');\ntl.from(root.children[2], {y: -40, duration: 1, ease: 'bounce.out'}, 0);"
+}

@@ -2,6 +2,7 @@
 
 GET  /api/hat/lines                    every line, in the user's interface language
 GET  /api/hat/projects                 every project with where it stands
+GET  /api/hat/styles                   the film style library (cards + preview frames)
 GET  /api/hat/project/<id>             the flow view of one project: stages, their outputs, stills, live events
 POST /api/hat/lang          {lang}     the user's interface language (tr | en)
 POST /api/hat/projects      {line, brief, title?, video_lang, aspect, channel?}   create and start
@@ -121,6 +122,15 @@ def project(pid):
         s["output"] = _public(s["artifact"], art) if art is not None else None
         if s["id"] == "scene_plan":
             s["stills"] = _stills(pid, "scene_plan")
+    from factory import filmstyles as styles
+    line = manifest.get(P.load(pid)["line"])
+    for s in f["stages"]:
+        if styles.picks_style(manifest.stage(line, s["id"])):   # the gate offers the style library
+            s["style_pick"] = True
+            look = str((s.get("output") or {}).get("look") or "")
+            st = styles.get(look[6:]) if look.startswith("style.") else None
+            if st:
+                s["style"] = styles.card(st, lang())
     f["events"] = P.tail(pid, n=40)
     f["ui_lang"] = lang()
     if _archived(pid):
@@ -137,6 +147,9 @@ def get(con, path, q):
         from factory import series
         return [{"id": x["series_id"], "title": x["title"], "episodes": x["episodes"], "made": x["made"]}
                 for x in series.listing(con) if x["status"] == "ready"]
+    if path == "/api/hat/styles":           # the film style library: cards in the UI language with preview frames
+        from factory import filmstyles
+        return filmstyles.cards(lang())
     m = re.fullmatch(r"/api/hat/project/([\w-]+)", path)
     if m:
         return project(m.group(1))

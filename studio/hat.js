@@ -32,7 +32,8 @@ const TX = {
     sev_critical: "Kritik", sev_suggestion: "Öneri", sev_nitpick: "Ayrıntı", rounds: "{0} tur",
     insight: "Ana fikir", misconception: "Yaygın yanlış", data: "Veriler", sources: "Kaynaklar", angles: "Açılar",
     concepts: "Üç yaklaşım", chosen: "Seçilen", look: "Görünüm", music: "Müzik", yes: "Var", no: "Yok", total: "Toplam",
-    render_time: "Render süresi", preview_t: "önizleme", final_t: "final", structure: "Yapı", key_frame: "Ana kare",
+    style_lib: "Film stili", style_pick: "Bu stili kullan", style_now: "Seçili stil", style_avoid: "Kaçın",
+    style_type: "Yazı", style_motion: "Hareket", style_sound: "Ses", style_set: "Stil seçildi", render_time: "Render süresi", preview_t: "önizleme", final_t: "final", structure: "Yapı", key_frame: "Ana kare",
     script: "Senaryo", claims: "İddialar", verified: "doğrulandı", unverified: "doğrulanmadı", caption: "Paylaşım metni",
     words: "kelime", lines_n: "satır",
     scenes: "Sahneler", concept: "Görsel fikir", palette: "Renkler", no_stills: "Henüz kare yok.", line_range: "satır {0}–{1}",
@@ -70,7 +71,8 @@ const TX = {
     sev_critical: "Critical", sev_suggestion: "Suggestion", sev_nitpick: "Nitpick", rounds: "{0} rounds",
     insight: "Insight", misconception: "Common misconception", data: "Data points", sources: "Sources", angles: "Angles",
     concepts: "Three approaches", chosen: "Chosen", look: "Look", music: "Music", yes: "Yes", no: "No", total: "Total",
-    render_time: "Render time", preview_t: "preview", final_t: "final", structure: "Structure", key_frame: "Key frame",
+    style_lib: "Film style", style_pick: "Use this style", style_now: "Chosen style", style_avoid: "Avoid",
+    style_type: "Type", style_motion: "Motion", style_sound: "Sound", style_set: "Style chosen", render_time: "Render time", preview_t: "preview", final_t: "final", structure: "Structure", key_frame: "Key frame",
     script: "Script", claims: "Claims", verified: "verified", unverified: "not verified", caption: "Post caption",
     words: "words", lines_n: "lines",
     scenes: "Scenes", concept: "Visual idea", palette: "Colours", no_stills: "No frames yet.", line_range: "lines {0}–{1}",
@@ -320,12 +322,27 @@ function outShotList(o) {
     ${(c.lines || []).length ? `<div class="costs mt12">${c.lines.map((l) => `<div class="ln"><span class="muted">${esc(l.label)}</span><b>${l.credits == null ? "?" : "~" + num(l.credits)} ${esc(t("credits"))}</b></div>`).join("")}
       <div class="ln"><span>${esc(t("total"))}</span><b>~${num(c.credits)} ${esc(t("credits"))}</b></div></div>` : ""}`;
 }
+function styleCard(c) {
+  return `<div class="hl-style on">${c.preview ? `<img src="${esc(c.preview)}" alt="">` : ""}<div><h4>${esc(t("style_now"))}: ${esc(c.name)}</h4>
+      <div class="small">${esc(c.look)}</div><div class="hl-pal mt8">${(c.palette || []).map((h) => `<i style="background:${esc(h)}"></i>`).join("")}</div>
+      <div class="tiny mt8"><b>${esc(t("style_type"))}:</b> ${esc(c.type)}</div><div class="tiny"><b>${esc(t("style_motion"))}:</b> ${esc(c.motion)}</div>
+      <div class="tiny"><b>${esc(t("style_sound"))}:</b> ${esc(c.sound)}</div><div class="tiny muted"><b>${esc(t("style_avoid"))}:</b> ${esc(c.avoid)}</div></div></div>`;
+}
+function styleLib(s) {
+  const now = (s.style || {}).id;
+  const gate = s.status === "awaiting_approval";
+  return `<h3 class="mt16">${esc(t("style_lib"))}</h3>${s.style ? styleCard(s.style) : ""}
+    <div class="hl-styles mt12">${(HS.styles || []).map((c) => `<div class="hl-style-t ${c.id === now ? "on" : ""}" title="${esc(c.look)}">
+      ${c.preview ? `<img src="${esc(c.preview)}" alt="">` : ""}<div class="tiny"><b>${esc(c.name)}</b></div>
+      ${gate && c.id !== now ? `<button class="btn sm block mt8" data-act="hatStyle" data-style="${esc(c.id)}" data-stage="${esc(s.id)}">${esc(t("style_pick"))}</button>` : ""}</div>`).join("")}</div>`;
+}
 const OUT = { research: outResearch, proposal: outProposal, script: outScript, scene_plan: outScenes, assets: outAssets,
   render: outRender, publish: outPublish, cut_plan: outCutPlan, cut: outCut, plates: outPlates, shot_list: outShotList };
 function outputHtml(s, f) {
   const o = s.output;
   if (!o) return `<div class="tiny faint">${esc(s.status === "pending" ? t("waiting_prev") : t("output_none"))}</div>`;
   const fn = OUT[s.artifact];
+  if (fn && s.style_pick) return fn(o, s, f) + styleLib(s);
   return fn ? fn(o, s, f) : `<pre class="log">${esc(JSON.stringify(o, null, 1).slice(0, 4000))}</pre>`;
 }
 function reviewHtml(r) {
@@ -375,6 +392,9 @@ function eventsHtml(f) {
 }
 async function viewProject(pid) {
   const f = await api("/api/hat/project/" + encodeURIComponent(pid));
+  if (f.stages.some((x) => x.style_pick) && (!HS.styles || HS.styles_lang !== L())) {
+    HS.styles = await api("/api/hat/styles"); HS.styles_lang = L();
+  }
   const p = f.project;
   crumb([t("nav_prods"), p.title]);
   const sel = HS.sel[pid] && f.stages.some((x) => x.id === HS.sel[pid]) ? HS.sel[pid] : (f.current || f.stages[f.stages.length - 1].id);
@@ -394,6 +414,14 @@ async function viewProject(pid) {
 ROUTE_RX.push([/^#\/u\/([\w-]+)/, viewProject]);
 ACT.hatSel = (el) => { const pid = location.hash.split("/")[2]; HS.sel[pid] = el.dataset.id; S.sig = null; route({ poll: true }); };
 ACT.hatZoom = (el) => openVideo(el.dataset.src, true);
+ACT.hatStyle = async (el) => {
+  const pid = location.hash.split("/")[2];
+  el.disabled = true;
+  try {
+    await post("/api/hat/project/" + encodeURIComponent(pid), { action: "feedback", stage: el.dataset.stage, note: "style: " + el.dataset.style });
+    toast(t("style_set")); S.sig = null; route({ poll: true });
+  } finally { el.disabled = false; }
+};
 ACT.hatAct = async (el) => {
   const pid = location.hash.split("/")[2], a = el.dataset.a, stage = el.dataset.stage;
   const note = ($("#hlNote") || {}).value || "";

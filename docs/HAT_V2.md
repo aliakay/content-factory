@@ -240,6 +240,13 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
 - Önceki aşamalar katlanmış ve salt okunur. Yan kartlar (kadraj, görünüm, gramer, müzik…) kalkar; hepsi ilgili aşamanın
   çıktısının parçası olur.
 - **Canlı akış:** aşama çalışırken `events.jsonl`'den adım adım ne yapıldığı, süre ve harcama görünür.
+- **Film stili kütüphanesi (t501):** 12 kendi stil kartımız `data/film_styles.json` içinde `card` alanında (görünüş,
+  yazı, hareket, ses, kaçınılacaklar; TR ve EN; palet ve yazı tipleri). Her stilin elle yazılmış küçük bir sahnesi
+  `styles/<id>.json`'da; `python -m factory.filmstyles` (`factory/filmstyles.py`) onu motor ile bir kez çizer, stilin kendi film post'unu (gren,
+  mono, vinyet…) ekler ve `styles/previews/<id>.jpg` karesini kaydeder (Claude ve ElevenLabs harcaması yok). Görünümü
+  katalogdan seçen öneri kapılarında (konu anlatımı, hareketli grafik) çıktının altında kütüphane görünür; "Bu stili
+  kullan" düğmesi `stil: <id>` notunu gönderir: görünüm doğrudan `style.<id>` olur, ajan yeniden çalışmaz, revizyon
+  sayılmaz, kapı bekler. API: `GET /api/hat/styles`, kareler `/media/filmstyles/<id>.jpg`.
 - Menü sadeleşir: Stüdyo · Üretimler · Keşif · Takip · Ayarlar (kanallar, sesler, hesaplar, bütçe, stiller tek yerde).
 
 ## 8. Fazlar

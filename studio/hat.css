@@ -87,3 +87,12 @@
 .hl-ev div{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px}
 .hl-ev time{color:var(--faint);font-variant-numeric:tabular-nums}
 .hl-brief{overflow-wrap:anywhere;max-height:9.5em;overflow:hidden}
+.hl-styles{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+.hl-style-t{border:1px solid var(--line);border-radius:10px;padding:6px;background:var(--surface2);min-width:0}
+.hl-style-t.on{border-color:var(--ok);box-shadow:inset 0 0 0 1px var(--ok)}
+.hl-style-t img{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:6px;display:block;margin-bottom:6px}
+.hl-style{display:grid;grid-template-columns:120px 1fr;gap:12px;border:1px solid var(--ok);border-radius:12px;padding:10px;background:var(--surface2)}
+.hl-style img{width:120px;aspect-ratio:9/16;object-fit:cover;border-radius:8px}
+.hl-style h4{margin:0 0 4px;font-size:15px}
+.hl-pal{display:flex;gap:4px}.hl-pal i{width:18px;height:18px;border-radius:4px;border:1px solid var(--line)}
+@media (max-width:600px){.hl-style{grid-template-columns:80px 1fr}.hl-style img{width:80px}}

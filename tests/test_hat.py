@@ -1690,3 +1690,35 @@ def test_character_spans_hold_a_pose_until_the_next_line():
     assert C._spans(sc, "a", "neutral", 0.0, 6.0) == [("neutral", 0.0, 1.0), ("talk", 1.0, 4.2), ("happy", 4.2, 6.0)]
     assert C._spans(sc, "c", "neutral", 0.0, 6.0) == [("neutral", 0.0, 6.0)]
     assert C.layout(["a", "b"], {"b": "left"}) == {"a": 0.3, "b": 0.25}
+
+
+# ---------------------------------------------------------------- film style library (t501)
+
+def test_every_film_style_has_a_card_in_both_languages_and_a_scene():
+    from factory import filmstyles as styles
+    assert len(styles.ids()) == 12
+    for sid in styles.ids():
+        tr, en = styles.card(styles.get(sid), "tr"), styles.card(styles.get(sid), "en")
+        for k in ("look", "type", "motion", "sound", "avoid"):
+            assert tr[k] and en[k] and tr[k] != en[k], (sid, k)
+        assert tr["palette"] and all(h.startswith("#") for h in tr["palette"]) and tr["fonts"]
+        sc = json.load(open(os.path.join(styles.DIR, sid + ".json"), encoding="utf-8"))
+        assert sc["seconds"] > styles.SECONDS_AT and sc["js"] and sc["css"]
+    assert styles.pick("stil: noir") == "noir" and styles.pick("Style = Archive-Film") == "archive_film"
+    assert styles.pick("stil: yok") is None and styles.pick("daha karanlık olsun, noir gibi") is None
+
+
+def test_style_pick_at_the_proposal_gate_sets_the_look_and_keeps_waiting(d):
+    from factory.hat import runner
+    queued = []
+    pid = P.create("explainer", "t", d=d)["id"]
+    run(pid, "research", d)
+    run(pid, "proposal", d, {"concepts": [{"id": "a", "look": "look.kinetic_type"}, {"id": "b", "look": "x"}],
+                             "chosen": "a", "look": "look.kinetic_type"})
+    state, sid = runner.feedback(pid, "proposal", "stil: noir", lambda *a: queued.append(a), by="ali", d=d)
+    prop = P.read_artifact(pid, "proposal", d)
+    assert prop["look"] == "style.noir" and prop["concepts"][0]["look"] == "style.noir" and prop["concepts"][1]["look"] == "x"
+    cp = P.checkpoint(pid, "proposal", d)
+    assert cp["status"] == "awaiting_approval" and cp["revisions"] == 0 and not queued   # no agent re-run, no credits
+    runner.feedback(pid, "proposal", "daha cesur", lambda *a: queued.append(a), d=d)   # an ordinary note re-runs
+    assert queued and P.checkpoint(pid, "proposal", d)["revisions"] == 1

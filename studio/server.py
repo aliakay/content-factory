@@ -1591,6 +1591,10 @@ class Handler(shorts.Handler):
                     "image/png" if f.endswith(".png") else None
                 if ctype:
                     return self.send_file(f, ctype, head, cache="no-store")
+        if path.startswith("/media/filmstyles/"):   # film style preview frames (styles/previews/<id>.jpg)
+            f = self.inside(os.path.join(ROOT, "styles", "previews"), path[len("/media/filmstyles/"):])
+            if f and f.endswith(".jpg"):
+                return self.send_file(f, "image/jpeg", head, cache="no-store")
         if path.startswith("/media/art/"):  # stills of the auto art directions
             f = self.inside(os.path.join(ROOT, "work", "explainer"), path[len("/media/art/"):])
             if f and f.endswith(".png"):

@@ -1,0 +1,5 @@
+{
+ "seconds": 3,
+ "css": "position:absolute;inset:0;background:radial-gradient(circle at 30% 30%,#2e4238,#1b2822 80%)",
+ "js": "const C = 'color:#f2f2ea;text-shadow:0 0 2px rgba(242,242,234,.7);';\nE('left:-100px;top:420px;width:700px;height:300px;background:rgba(242,242,234,.05);filter:blur(30px)');\nE('left:90px;top:240px;font:italic 400 120px/1 Instrument Serif;' + C, 'Fotosentez');\nE('left:90px;top:385px;width:620px;height:10px;background:#f3e37a;border-radius:6px;opacity:.85;transform:rotate(-1.5deg)');\nE('left:140px;top:760px;width:300px;height:300px;border:6px solid #f2f2ea;border-radius:50%;opacity:.85');\nE('left:520px;top:880px;width:260px;height:0;border-top:6px solid #f2f2ea;opacity:.85');\nE('left:760px;top:862px;font:400 60px Instrument Serif;' + C, '➝');\nE('left:520px;top:960px;font:italic 400 64px Instrument Serif;color:#f29bb5', 'şeker + O₂');\nE('left:180px;top:880px;font:italic 400 60px Instrument Serif;' + C, 'güneş');\ntl.from(root.children[2], {width: 0, duration: .9, ease: 'power1.inOut'}, 0);"
+}

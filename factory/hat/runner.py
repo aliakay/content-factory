@@ -41,6 +41,12 @@ def approve(pid, sid, queue, by=None, note=None, d=None):
 
 
 def feedback(pid, sid, note, queue, by=None, d=None):
+    from .. import filmstyles as styles     # "stil: noir" at a look-choosing proposal gate sets the style; no agent re-run
+    style = styles.pick(note)
+    if style and styles.picks_style(manifest.stage(manifest.get(P.load(pid, d)["line"]), sid)) \
+            and P.checkpoint(pid, sid, d)["status"] == "awaiting_approval":
+        styles.apply(pid, sid, style, by=by, d=d)
+        return P.next_stage(pid, d)
     P.feedback(pid, sid, note, by=by, d=d)
     return advance(pid, queue, by, d)
 

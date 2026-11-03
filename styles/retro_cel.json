@@ -1,0 +1,5 @@
+{
+ "seconds": 3,
+ "css": "position:absolute;inset:0;background:linear-gradient(#2b1055 0%,#7a1f7a 38%,#d53f8c 58%,#ff8c42 78%)",
+ "js": "E('left:240px;top:640px;width:600px;height:600px;border-radius:50%;background:repeating-linear-gradient(#ffd166 0 46px,transparent 46px 62px)');\nE('left:-60px;top:1060px;width:1200px;height:900px;background:#2b1055;clip-path:polygon(0 30%,20% 10%,40% 32%,62% 0,82% 26%,100% 12%,100% 100%,0 100%)');\nE('left:-60px;top:1300px;width:1200px;height:700px;background:repeating-linear-gradient(90deg,#d53f8c 0 4px,transparent 4px 120px),#1a0833');\nE('left:0;right:0;top:280px;text-align:center;font:400 170px Shrikhand;color:#ffd166;text-shadow:10px 10px 0 #d53f8c,20px 20px 0 #2b1055', 'Gece');\nE('left:760px;top:330px;font:400 70px Anton;color:#fff', '✦');\ntl.from(root.children[0], {y: 200, duration: 1.6, ease: 'power1.out'}, 0);"
+}
