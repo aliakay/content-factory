@@ -8,7 +8,9 @@ POST /api/hat/ownstyles     {name, base}                      step 1: a draft fr
 POST /api/hat/ownstyle/<id> {action: answer|sample|approve|delete, q?, value?}   steps 2-5
 GET  /api/hat/project/<id>             the flow view of one project: stages, their outputs, stills, live events
 GET  /api/hat/project/<id>/scenes      the scene editor: scenes, their text elements, frames with boxes, versions
-POST /api/hat/project/<id>/scenes {action: edit|frames|save_version|restore, ...}   hand edits at the scene plan gate
+POST /api/hat/project/<id>/scenes {action: edit|frames|save_version|restore|cut, ...}   hand edits at the scene plan gate
+GET  /api/hat/project/<id>/export      the export package card: exportable items and the packages made so far
+POST /api/hat/project/<id>/export {items: [...]}   queue the export_pack job (no credits)
 POST /api/hat/lang          {lang}     the user's interface language (tr | en)
 POST /api/hat/projects      {line, brief, title?, video_lang, aspect, channel?, proof?}   create and start
 POST /api/hat/project/<id>  {action: approve|feedback|back|retry|advance, stage, note?}  a gate action
@@ -149,6 +151,9 @@ def project(pid):
                 r = proof.check(pid, s["id"])
                 if r:
                     s["proof"] = r | {"problems": proof.problems(r, lang())}
+    from factory import export
+    if export.final(pid):             # the export package card (t505)
+        f["export"] = exports(pid)
     f["events"] = P.tail(pid, n=40)
     f["ui_lang"] = lang()
     if _archived(pid):
@@ -192,6 +197,28 @@ def _scenes_post(pid, b, queue, uid):
     raise ValueError("unknown action")
 
 
+def exports(pid):
+    """The export package card (t505): what this project can export and the packages made so far."""
+    from factory import export
+    return {"ready": bool(export.final(pid)), "archived": _archived(pid),
+            "items": [{"id": i, "name": export.NAMES[i][lang()], "default": i in export.DEFAULT} for i in export.available(pid)],
+            "exports": [{"at": x["at"], "items": x["items"], "files": x["files"], "notes": x["notes"], "size": x["size"],
+                         "zip": _media(x["zip"]), "name": os.path.basename(x["zip"] or "")} for x in export.exports(pid)[:5]]}
+
+
+def _export_post(pid, b, queue):
+    from factory import export
+    if _archived(pid):
+        raise ValueError({"tr": "Bu bir arşiv kaydı; üzerinde iş yapılmaz.",
+                          "en": "This is an archive record; no work is done on it."}[lang()])
+    if not export.final(pid):
+        raise ValueError({"tr": "Henüz final video yok.", "en": "No final video yet."}[lang()])
+    items = [i for i in b.get("items") or [] if i in export.available(pid)]
+    if not items:
+        raise ValueError({"tr": "Dışa aktarılacak en az bir şey seç.", "en": "Pick at least one thing to export."}[lang()])
+    return {"job_id": queue("export_pack", json.dumps({"project": pid, "items": items}))}
+
+
 def get(con, path, q):
     if path == "/api/hat/lines":
         return lines()
@@ -214,6 +241,9 @@ def get(con, path, q):
     m = re.fullmatch(r"/api/hat/project/([\w-]+)/scenes", path)
     if m:
         return scenes(_check(m.group(1)))
+    m = re.fullmatch(r"/api/hat/project/([\w-]+)/export", path)
+    if m:
+        return exports(_check(m.group(1)))
     m = re.fullmatch(r"/api/hat/project/([\w-]+)", path)
     if m:
         return project(m.group(1))
@@ -284,6 +314,9 @@ def _post(con, path, b, queue):
     m = re.fullmatch(r"/api/hat/project/([\w-]+)/scenes", path)
     if m:
         return _scenes_post(_check(m.group(1)), b, queue, uid)
+    m = re.fullmatch(r"/api/hat/project/([\w-]+)/export", path)
+    if m:
+        return _export_post(_check(m.group(1)), b, queue)
     m = re.fullmatch(r"/api/hat/project/([\w-]+)", path)
     if m:
         pid, a, sid = _check(m.group(1)), b.get("action"), b.get("stage")
@@ -335,6 +368,7 @@ def media_file(rel):
     full = os.path.realpath(os.path.join(P.root(), rel))
     if not full.startswith(os.path.realpath(P.root()) + os.sep) or not os.path.isfile(full):
         return None
-    types = {".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg", ".mp3": "audio/mpeg", ".wav": "audio/wav"}
+    types = {".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg", ".mp3": "audio/mpeg", ".wav": "audio/wav",
+             ".gif": "image/gif", ".zip": "application/zip"}
     t = types.get(os.path.splitext(full)[1].lower())
     return (full, t) if t else None

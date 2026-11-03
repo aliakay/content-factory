@@ -278,6 +278,15 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
   **Zaman çizelgesinde kırpma:** sahneler sürelerine göre bir şeritte; seçili sahnenin başı bir satır öne/geriye
   alınır (`cut`), önceki sahne buna göre kısalır/uzar (her sahnede en az bir satır kalır), ajana da bildirilir.
   Denemeler için `CF_PROJECTS` proje klasörünü değiştirir (render sunucusu kökü içinde olmalı).
+- **Dışa aktarma paketi (t505):** final videosu olan her projede "Dışa aktar" kartı; seçilenler kredisiz
+  `export_pack` işiyle `renders/export-<zaman>/` klasörüne ve zip'ine yazılır (`factory/export.py`): `video.mp4`,
+  `subtitles.srt` (≤42 karakterlik satırlar; HTML hatlarında ses hizalamasından, diğerlerinde finalin yerel whisper
+  dökümünden; sessiz videoda yok), `stems/` (`mix.wav` her hatta; HTML hatlarında finalin karışımını kaynak kaynak
+  yeniden kuran `voice.wav`, `music.wav` (kesmeli, ducking'siz), `sfx.wav` — mastering öncesi), `frames/` (sahne
+  başına bir PNG, sahnesiz videoda 6 kare), `preview.gif` (ilk 6 sn), `timeline.fcpxml` (sahne işaretleri + stem'ler
+  bağlı ses olarak) ve `timeline.edl` (CMX 3600, sahne başına bir olay), isteğe bağlı `alpha.mov` (ProRes 4444,
+  sahne zemini şeffaf; tam bir render sürer, yalnız HTML hatları). Kurgu dosyaları medyayı klasördeki mutlak yoldan
+  okur; klasör taşınırsa programda yeniden bağlanır. Arşiv kayıtlarında kapalı.
 - Menü sadeleşir: Stüdyo · Üretimler · Keşif · Takip · Ayarlar (kanallar, sesler, hesaplar, bütçe, stiller tek yerde).
 
 ## 8. Fazlar

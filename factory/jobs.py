@@ -390,6 +390,11 @@ def run(job_id):
         elif kind == "scene_frames":       # the scene editor's frames with clickable text boxes (headless, no credits)
             from . import sceneedit
             result = f"{sceneedit.frames(jload(arg, {})['project'])['frames']} kare"
+        elif kind == "export_pack":        # t505: SRT, stems, frames, GIF, FCPXML/EDL, alpha (no credits)
+            from . import export
+            o = jload(arg, {})
+            r = export.build(o["project"], o.get("items") or export.DEFAULT)
+            result = f"{len(r['files'])} dosya: {os.path.basename(r['zip'])}"
         elif kind == "style_extract":
             o = jload(arg, {})
             result = "stil: " + styles.extract(o["files"], o.get("note", ""))

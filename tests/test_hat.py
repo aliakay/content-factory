@@ -2019,3 +2019,70 @@ def test_scene_editor_frames_carry_clickable_boxes_and_the_api(d, monkeypatch, t
     assert st["scene_edit"]
     from factory import jobs
     assert '"scene_frames"' in open(jobs.__file__).read()
+
+
+def test_export_cues_srt_and_timelines():
+    from factory import export as X
+    ws = [("Konut", 0.15, 0.5), ("satışı", 0.5, 0.9), ("düştü.", 0.9, 1.3), ("Peki", 2.4, 2.7), ("neden?", 2.7, 3.1)]
+    cs = X.cues(ws)
+    assert cs == [(0.15, 1.3, "Konut satışı düştü."), (2.4, 3.2, "Peki neden?")]   # a sentence end breaks; >= 0.8 s
+    assert X.srt(cs).startswith("1\n00:00:00,150 --> 00:00:01,300\nKonut satışı düştü.\n\n2\n00:00:02,400")
+    long = [(f"kelime{i}", i * 0.3, i * 0.3 + 0.25) for i in range(12)]
+    assert all(len(c[2]) <= X.SRT_CHARS for c in X.cues(long))
+    scs = [{"id": "hook", "start": 0.0, "end": 2.0}, {"id": "end", "start": 2.0, "end": 3.95}]
+    e = X.edl("Konut 2024!", scs, 3.95)
+    assert "TITLE: Konut 2024" in e and "001  AX       V     C        00:00:00:00 00:00:02:00 00:00:00:00 00:00:02:00" in e
+    assert "002  AX       V     C        00:00:02:00 00:00:03:28" in e and "* COMMENT: end" in e
+    x = X.fcpxml("Konut & faiz", "/tmp/pak", (1080, 1920), 3.95, scs, ["voice", "music"])
+    import xml.dom.minidom
+    xml.dom.minidom.parseString(x.split("\n", 2)[2])                            # well formed past the doctype
+    assert 'width="1080" height="1920"' in x and '<marker start="60/30s" duration="1/30s" value="end"/>' in x
+    assert 'src="file:///tmp/pak/stems/music.wav"' in x and 'lane="-1"' in x and 'audioRole="dialogue"' in x
+    assert '<event name="Konut &amp; faiz">' in x and 'duration="118/30s"' in x
+
+
+def test_export_package_from_a_final(d, monkeypatch):
+    import subprocess, zipfile
+    from factory import export as X
+    from factory.config import FFMPEG
+    from studio import hat_api
+    pid = P.create("explainer", "Paket", d=d, extra={"ui_lang": "tr"})["id"]
+    assert X.final(pid, d) is None
+    with pytest.raises(X.ExportError):
+        X.build(pid, d=d)
+    P.write_artifact(pid, "script", {"lines": ["Konut satışı düştü.", "Peki neden?"]}, d)
+    P.write_artifact(pid, "scene_plan", {"scenes": [{"id": "hook", "lines": [0, 0], "html": "<h1>A</h1>"},
+                                          {"id": "end", "lines": [1, 1], "html": "<h1>B</h1>"}]}, d)
+    video = P.path(pid, "renders", "final.mp4", d=d)
+    os.makedirs(os.path.dirname(video), exist_ok=True)
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", "color=c=navy:s=108x192:d=3:r=30", "-f", "lavfi",
+                    "-i", "sine=f=440:d=3", "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", video], check=True)
+    P.write_artifact(pid, "render", {"final": video}, d)
+    assert X.final(pid, d) == video and X.html_engine(pid, d) and "alpha" in X.available(pid, d)
+    r = X.build(pid, X.DEFAULT, d=d, log=lambda *a: None)
+    assert {"video.mp4", "subtitles.srt", "stems/mix.wav", "frames/01-hook.png", "frames/02-end.png", "preview.gif",
+            "timeline.edl", "timeline.fcpxml"} <= set(r["files"])
+    srt = open(os.path.join(r["folder"], "subtitles.srt"), encoding="utf-8").read()
+    assert "Konut satışı düştü." in srt and "Peki neden?" in srt
+    assert "* COMMENT: hook" in open(os.path.join(r["folder"], "timeline.edl")).read()
+    names = zipfile.ZipFile(r["zip"]).namelist()
+    assert os.path.basename(r["folder"]) + "/preview.gif" in names and len(names) == len(r["files"])
+    ex = X.exports(pid, d)
+    assert len(ex) == 1 and ex[0]["items"] == list(X.DEFAULT) and ex[0]["size"] > 0
+
+    monkeypatch.setattr(P, "DIR", d)
+    monkeypatch.setattr(hat_api, "_check", lambda pid: pid)
+    monkeypatch.setattr(hat_api.accounts, "current", lambda: "ali")
+    monkeypatch.setattr(hat_api, "lang", lambda: "en")
+    g = hat_api.get(None, f"/api/hat/project/{pid}/export", {})
+    assert g["ready"] and g["exports"][0]["zip"].startswith("/media/projects/") and g["exports"][0]["zip"].endswith(".zip")
+    assert [i["id"] for i in g["items"] if i["default"]] == list(X.DEFAULT) and g["items"][-1]["name"].startswith("Transparent")
+    assert hat_api.project(pid)["export"]["ready"]
+    queued = []
+    post = lambda **b: hat_api.post(None, f"/api/hat/project/{pid}/export", b, lambda k, a: queued.append((k, a)) or 9)
+    assert post(items=["srt", "gif", "bogus"]) == {"job_id": 9}
+    assert queued[0][0] == "export_pack" and json.loads(queued[0][1]) == {"project": pid, "items": ["srt", "gif"]}
+    with pytest.raises(ValueError, match="Pick at least one"):
+        post(items=[])
+    from factory import jobs
+    assert '"export_pack"' in open(jobs.__file__).read()

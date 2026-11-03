@@ -68,9 +68,9 @@ def write_bundle(spec, design):
     return path
 
 
-def _node(page_hash_bundle, out, dur, extra, fps=30):
+def _node(page_hash_bundle, out, dur, extra, fps=30, hash=""):
     page = os.path.join(MOTION, "templates", "explainer_shell.html")
-    rel = "/" + os.path.relpath(page_hash_bundle, ROOT)
+    rel = "/" + os.path.relpath(page_hash_bundle, ROOT) + hash
     try:
         b = json.load(open(page_hash_bundle))
         w, h = b.get("w", 1080), b.get("h", 1920)
@@ -222,6 +222,48 @@ def render_bundle(bundle, spec, workdir, dst, preview=False):
         print(f"render speed not recorded: {e}", flush=True)
     return {"file": dst, "duration": total, "cues": len(cues), "music_cuts": len(mutes), "drop": drop,
             "capture_s": round(capture_s, 1)}
+
+
+def alpha(bundle, dst, total):
+    """The graphics with a transparent background (ProRes 4444 .mov): the stage paints nothing, the scenes' own shapes,
+    texts and captions stay. Silent; for laying over footage in an editor."""
+    r = _node(bundle, dst, round(total, 3), [], 30, hash="&alpha=1")
+    if r.returncode or not os.path.exists(dst):
+        raise RuntimeError("alpha render failed: " + (r.stderr or "")[-400:])
+    return dst
+
+
+def stems(spec, cues_path, outdir):
+    """The final's sound as separate WAVs on the video's timeline: voice (with its chain), music (with its cuts and drop
+    placement, not ducked), effects. Mirrors render_bundle's mix one source at a time. -> {name: path}"""
+    from factory import audiofx
+    total = spec["duration"]
+    os.makedirs(outdir, exist_ok=True)
+    black = os.path.join(outdir, ".black.mp4")
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", f"color=black:s=16x16:d={total:.3f}:r=30",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", black], check=True)
+    cues, mutes, drop = sound_plan(cues_path, spec, total) if os.path.exists(cues_path) else ([], [], None)
+    voice = dict(spec["voice"], file=os.path.join(ROOT, spec["voice"]["file"])) if spec.get("voice") else None
+    music = None
+    if spec.get("music"):
+        mu = spec["music"]
+        music = {"file": os.path.join(ROOT, mu["file"]), "db": mu.get("db", -20), "mutes": mutes + (mu.get("mutes") or []),
+                 "seek": mu.get("seek", 0), "delay": mu.get("delay", 0), "drop_t": mu.get("drop_t")}
+        if drop is not None or mu.get("drop_at") is not None:
+            music = audiofx.place_music(music, drop if drop is not None else mu["drop_at"])
+    vs, words = spec.get("voice_start", 0), spec.get("words") or []
+    out = {}
+    for name, kw in (("voice", {"voice": voice, "chain": spec.get("voice_chain")}), ("music", {"music": music}),
+                     ("sfx", {"cues": cues, "words": words, "voice_offset": vs})):
+        if not any(kw.get(k) for k in ("voice", "music", "cues")):
+            continue
+        tmp = os.path.join(outdir, f".{name}.mp4")
+        audiofx.mix(black, tmp, total, **kw)
+        out[name] = os.path.join(outdir, f"{name}.wav")
+        subprocess.run([FFMPEG, "-y", "-v", "error", "-i", tmp, "-vn", "-c:a", "pcm_s16le", "-ar", "48000", out[name]], check=True)
+        os.remove(tmp)
+    os.remove(black)
+    return out
 
 
 if __name__ == "__main__":

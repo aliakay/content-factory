@@ -35,7 +35,7 @@ const TX = {
     se_title: "Sahne editörü", se_open: "Sahneleri düzenle", se_hint: "Karede bir yazıya tıkla; sürükleyerek taşı, sağda metnini ve rengini değiştir. Değişiklik sahne planına yazılır, tasarımcı ajan yeniden çalışırsa onu korur.",
     se_readonly: "Sahne planı kapıda beklemiyor; düzenleme kapalı.", se_stale: "Kareler son düzenlemeyi göstermiyor.", se_redraw: "Kareleri yeniden çiz", se_drawing: "Kareler çiziliyor…", se_noframes: "Henüz kutulu kare yok. Kareleri çiz, sonra yazılara tıkla.",
     se_elements: "Yazılar", se_text: "Metin", se_color: "Renk", se_nocolor: "Sahnenin rengi", se_move: "Konum (px)", se_save: "Kaydet", se_saved: "Düzenleme kaydedildi", se_nested: "İçinde başka parçalar var: metnini parçalar üzerinden düzenle; renk ve konum burada.",
-    se_pick: "Düzenlemek için karede ya da listede bir yazı seç.", se_versions: "Sürümler", se_vname: "Sürüm adı", se_vsave: "Sürümü kaydet", se_vsaved: "Sürüm kaydedildi", se_restore: "Geri yükle", se_restored: "Sürüm geri yüklendi", se_edits: "Elle düzenlemeler", se_timeline: "Zaman çizelgesi", se_cut_hint: "Seçili sahnenin başını bir satır öne ya da geriye al; önceki sahne buna göre kısalır ya da uzar.", se_starts: "Başladığı satır", se_earlier: "Bir satır önce", se_later: "Bir satır sonra", se_w_cut: "kesme", se_count: "{n} elle düzenleme", se_none: "Henüz düzenleme yok.",
+    se_pick: "Düzenlemek için karede ya da listede bir yazı seç.", se_versions: "Sürümler", se_vname: "Sürüm adı", se_vsave: "Sürümü kaydet", se_vsaved: "Sürüm kaydedildi", se_restore: "Geri yükle", se_restored: "Sürüm geri yüklendi", ex_title: "Dışa aktar", ex_hint: "Videoyu başka araçlara taşı: altyazı, ses kanalları, kareler, GIF, kurgu dosyası. Kredi harcamaz.", ex_build: "Paketi hazırla", ex_building: "Paket hazırlanıyor…", ex_queued: "Paket sıraya alındı", ex_alpha_note: "tam bir render kadar sürer", ex_files: "dosya", ex_silent: "Sessiz video: altyazı yok.", ex_relink: "Kurgu dosyası medyayı bu klasörden okur; klasörü taşırsan programda yeniden bağla.", ex_pick: "En az bir şey seç.", se_edits: "Elle düzenlemeler", se_timeline: "Zaman çizelgesi", se_cut_hint: "Seçili sahnenin başını bir satır öne ya da geriye al; önceki sahne buna göre kısalır ya da uzar.", se_starts: "Başladığı satır", se_earlier: "Bir satır önce", se_later: "Bir satır sonra", se_w_cut: "kesme", se_count: "{n} elle düzenleme", se_none: "Henüz düzenleme yok.",
     se_w_text: "metin", se_w_color: "renk", se_w_move: "konum", se_w_restore: "sürüm geri yüklendi", se_back: "Projeye dön",
     proof_mode: "Kanıt modu", proof_hint: "Haber ve veri videoları için: ekrandaki ve senaryodaki her rakam kaynaklı bir veriyle eşleşmeli, kaynağı sahnede yazmalı. Eşleşmeyen rakam kapıyı geçemez.",
     proof_t: "Kanıt kontrolü", proof_ok: "Her rakam kaynaklı", proof_bad: "{0} rakam kaynaksız", proof_none: "Bu adımda rakam yok", proof_block: "Kaynaksız rakamlar düzelmeden devam edilemez. Notla düzelttir.", proof_src: "kaynak",
@@ -81,7 +81,7 @@ const TX = {
     se_title: "Scene editor", se_open: "Edit scenes", se_hint: "Click a text on the frame; drag to move it, change its text and colour on the right. Edits go into the scene plan, and the designer agent keeps them if it runs again.",
     se_readonly: "The scene plan is not waiting at its gate; editing is off.", se_stale: "The frames do not show the latest edit yet.", se_redraw: "Redraw frames", se_drawing: "Drawing frames…", se_noframes: "No frames with boxes yet. Draw them, then click a text.",
     se_elements: "Texts", se_text: "Text", se_color: "Colour", se_nocolor: "Scene colour", se_move: "Position (px)", se_save: "Save", se_saved: "Edit saved", se_nested: "It holds other parts: edit its text through them; colour and position are here.",
-    se_pick: "Pick a text on the frame or in the list to edit it.", se_versions: "Versions", se_vname: "Version name", se_vsave: "Save version", se_vsaved: "Version saved", se_restore: "Restore", se_restored: "Version restored", se_count: "{n} hand edits", se_edits: "Hand edits", se_timeline: "Timeline", se_cut_hint: "Move the selected scene's start one line earlier or later; the scene before it gets shorter or longer.", se_starts: "Starts at line", se_earlier: "One line earlier", se_later: "One line later", se_w_cut: "cut", se_none: "No edits yet.",
+    se_pick: "Pick a text on the frame or in the list to edit it.", se_versions: "Versions", se_vname: "Version name", se_vsave: "Save version", se_vsaved: "Version saved", se_restore: "Restore", se_restored: "Version restored", se_count: "{n} hand edits", ex_title: "Export", ex_hint: "Take the video to other tools: subtitles, audio stems, frames, GIF, an edit timeline. Spends no credits.", ex_build: "Build the package", ex_building: "Building the package…", ex_queued: "Package queued", ex_alpha_note: "takes as long as a full render", ex_files: "files", ex_silent: "Silent video: no subtitles.", ex_relink: "The timeline reads its media from this folder; relink in your editor if you move it.", ex_pick: "Pick at least one.", se_edits: "Hand edits", se_timeline: "Timeline", se_cut_hint: "Move the selected scene's start one line earlier or later; the scene before it gets shorter or longer.", se_starts: "Starts at line", se_earlier: "One line earlier", se_later: "One line later", se_w_cut: "cut", se_none: "No edits yet.",
     se_w_text: "text", se_w_color: "colour", se_w_move: "position", se_w_restore: "version restored", se_back: "Back to project",
     proof_mode: "Proof mode", proof_hint: "For news and data videos: every number on screen and in the script must match a sourced figure, and its source is shown in the scene. An unmatched number cannot pass a gate.",
     proof_t: "Proof check", proof_ok: "Every number is sourced", proof_bad: "{0} number(s) without a source", proof_none: "No numbers at this step", proof_block: "You cannot continue until the unsourced numbers are fixed. Ask for a fix with a note.", proof_src: "source",
@@ -422,6 +422,10 @@ async function viewProject(pid) {
   }
   const p = f.project;
   crumb([t("nav_prods"), p.title]);
+  const nex = f.export ? f.export.exports.length : 0;
+  if (HS.exporting && HS.exporting.pid === pid && (nex > HS.exporting.had || HS.exporting.polls > 200)) HS.exporting = null;
+  const exporting = HS.exporting && HS.exporting.pid === pid;
+  if (exporting) HS.exporting.polls++;
   const sel = HS.sel[pid] && f.stages.some((x) => x.id === HS.sel[pid]) ? HS.sel[pid] : (f.current || f.stages[f.stages.length - 1].id);
   const s = f.stages.find((x) => x.id === sel);
   const html = `<div class="row"><a class="btn ghost sm" href="#/uretimler">${ICON.back}${esc(t("back_list"))}</a><span class="sp"></span>
@@ -431,12 +435,39 @@ async function viewProject(pid) {
     <div class="split mt16"><div class="col" style="gap:14px"><div class="card"><div class="row"><h2 style="margin:0">${esc(s.name)}</h2><span class="sp"></span>
         <span class="badge hl-sb st-${esc(s.status)}">${esc(t("st_" + s.status))}</span></div><div class="small muted mt8">${esc(s.says)}</div>
         ${s.note ? `<div class="note mt12 small"><b>${esc(t("feedback"))}:</b> ${esc(s.note)}</div>` : ""}<div class="mt16">${outputHtml(s, f)}</div></div></div>
-      <div class="col sticky" style="gap:14px">${decisionHtml(s, f)}${proofHtml(s.proof)}${reviewHtml(s.review)}${eventsHtml(f)}</div></div>`;
+      <div class="col sticky" style="gap:14px">${decisionHtml(s, f)}${proofHtml(s.proof)}${exportHtml(f)}${reviewHtml(s.review)}${eventsHtml(f)}</div></div>`;
   const busy = f.state === "busy" || f.stages.some((x) => x.status === "running");
-  paint(html, JSON.stringify([L(), sel, f.state, f.current, f.stages.map((x) => [x.status, x.revisions, x.proof ? x.proof.unmatched : null]), f.events.length]));
-  return { poll: busy ? 4000 : 0 };
+  paint(html, JSON.stringify([L(), sel, f.state, f.current, f.stages.map((x) => [x.status, x.revisions, x.proof ? x.proof.unmatched : null]), f.events.length, nex, !!exporting]));
+  return { poll: busy || exporting ? 4000 : 0 };
 }
 ROUTE_RX.push([/^#\/u\/([\w-]+)/, viewProject]);
+// the export package (factory/export.py): SRT, stems, frames, GIF, FCPXML/EDL, alpha; a free background job
+function exportHtml(f) {
+  const x = f.export;
+  if (!x || !x.ready) return "";
+  const busy = HS.exporting && HS.exporting.pid === HS.pid;
+  const size = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
+  return `<div class="card"><h3>${esc(t("ex_title"))}</h3><div class="tiny muted">${esc(t("ex_hint"))}</div>
+    <div class="mt12">${x.items.map((i) => `<label class="row small mt8" style="gap:8px;align-items:center"><input type="checkbox" class="exItem" value="${esc(i.id)}" ${(HS.exSel ? HS.exSel.includes(i.id) : i.default) ? "checked" : ""} ${busy || x.archived ? "disabled" : ""} style="width:auto">
+      <span>${esc(i.name)}${i.id === "alpha" ? ` <span class="tiny faint">· ${esc(t("ex_alpha_note"))}</span>` : ""}</span></label>`).join("")}</div>
+    ${x.archived ? "" : busy ? `<div class="row mt12" style="gap:10px;align-items:center"><span class="spin"></span><span class="small muted">${esc(t("ex_building"))}</span></div>`
+      : `<button class="btn block mt12" data-act="exBuild">${esc(t("ex_build"))}</button>`}
+    ${x.exports.map((e) => `<div class="row mt12" style="gap:8px;align-items:center"><span class="small">${esc(dt(e.at))} <span class="tiny faint">· ${e.files.length} ${esc(t("ex_files"))} · ${size(e.size)}</span>
+        ${e.notes.includes("silent") ? `<div class="tiny faint">${esc(t("ex_silent"))}</div>` : ""}</span><span class="sp"></span>
+      ${e.zip ? `<a class="btn ghost sm" href="${esc(e.zip)}" download="${esc(e.name)}">${ICON.download}${esc(t("download"))}</a>` : ""}</div>`).join("")}
+    ${x.exports.some((e) => e.items.includes("timeline")) ? `<div class="tiny faint mt8">${esc(t("ex_relink"))}</div>` : ""}</div>`;
+}
+ACT.exBuild = async (el) => {
+  const items = [...document.querySelectorAll(".exItem:checked")].map((x) => x.value);
+  if (!items.length) { toast(t("ex_pick"), 1); return; }
+  HS.exSel = items; el.disabled = true;
+  try {
+    const f = await api("/api/hat/project/" + encodeURIComponent(HS.pid));
+    await post("/api/hat/project/" + encodeURIComponent(HS.pid) + "/export", { items });
+    HS.exporting = { pid: HS.pid, had: f.export ? f.export.exports.length : 0, polls: 0 };
+    toast(t("ex_queued"));
+  } finally { el.disabled = false; S.sig = null; route({ poll: true }); }
+};
 // ---------------- the scene editor (factory/sceneedit.py): hand edits on the scene plan's frames ----------------
 HS.se = { scene: null, e: null, drawing: 0 };
 async function viewScenes(pid) {
