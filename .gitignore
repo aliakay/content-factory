@@ -16,6 +16,7 @@ data/auto/
 data/art/history.jsonl
 data/eleven_profile.json
 data/stock_cache.json
+data/footage_archive.json
 data/claude_calibration.json
 data/render_speed.json
 data/channels/
@@ -32,6 +33,7 @@ refs/
 referance videolar*/
 assets/eleven/
 assets/stock/
+assets/footage/
 assets/voice/
 shorts/cache/
 *.mp4

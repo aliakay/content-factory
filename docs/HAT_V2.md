@@ -207,7 +207,7 @@ ya da yalnız müzikli.
 **İyi olduğu:** Tarih, şehir, doğa, "bir duygu" videoları; üretim maliyeti olmadan gerçek görüntü.
 **İyi olmadığı:** Güncel haber (arşivde görüntü yoktur).
 **İster:** Tema + ton. **Kapılar:** 2 · 4 · 5 · 6 (kurgu da onaylanır).
-**Durum:** Yeni; stok video arşivi + anlamsal arama gerekir.
+**Durum:** Hazır (t401). `factory/archive.py` + `factory/hat/documentary.py`: model temayı bölümlere ayırır (her bölüm: anlatım cümlesi ya da ekran yazısı, görüntü tarifi, arşiv aramaları) (kapı) → her bölüm için Wikimedia Commons, NASA ve Internet Archive aranır, adaylar yerel arşive (data/footage_archive.json) eklenir ve tarife anlamca (factory.embed) sıralanır; aynı klip iki bölümde kullanılmaz; seçilen klip indirilir (en fazla 400 MB, yalnız arşiv sunucularından) ve giriş noktasından bir kare gösterilir (kapı; "3: 2", "3: başka", "3: ara ...", "3: başla 12") → anlatım + kelime zamanlaması, isteğe bağlı müzik, kesimler (kapı) → kurgu: giriş noktaları, "3: sığdır" (yatay görüntü bulanık zemin üstünde bütün), geçiş yumuşak/sert (kapı) → final → açıklamaya görüntü kaynakları (CC BY gereği). Lisans: Wikimedia dosya başına (NC/ND yok), IA yalnız PD/CC0/CC BY/BY-SA, NASA kamu malı (üçüncü taraf kredili öğeler atlanır). Statik ffmpeg https okuyamadığı için klipler Python ile indirilir. Pexels (API anahtarı ister) henüz yok; fastembed kurulu değil, anlamsal sıralama şimdilik hash yedeğiyle çalışır. Gerçek ücretli çalışma henüz yok.
 
 ### 6.12 Yerelleştirme & dublaj · `localize`
 **Ne üretir:** Bitmiş bir videonun başka dillerde altyazılı ve dublajlı sürümleri.

@@ -144,8 +144,20 @@ def test_failed_stage_takes_feedback_and_flow_view(d):
     assert any(e["kind"] == "stage_fail" for e in P.tail(pid, d=d))
 
 
-def test_planned_stages_cannot_run(d):
-    pid = P.create("documentary", "Şehir 4'te", d=d)["id"]
+def _planned_line(monkeypatch, tmp_path):
+    """Every real line is built now: a copy of the manifests plus one line that is still only planned."""
+    import shutil
+    pdir = tmp_path / "pipelines"
+    shutil.copytree(manifest.DIR, pdir)
+    m = yaml.safe_load(open(pdir / "documentary.yaml"))
+    m.update(id="later", order=99, status="planned", stages=[{"id": "idea", "gate": True, "run": "planned"}])
+    yaml.safe_dump(m, open(pdir / "later.yaml", "w"), allow_unicode=True)
+    monkeypatch.setattr(manifest, "DIR", str(pdir))
+
+
+def test_planned_stages_cannot_run(d, monkeypatch, tmp_path):
+    _planned_line(monkeypatch, tmp_path)
+    pid = P.create("later", "Şehir 4'te", d=d)["id"]
     with pytest.raises(P.GateError, match="not built"):
         P.start(pid, "idea", d=d)
 
@@ -658,10 +670,11 @@ def test_api_refuses_what_the_gate_rules_forbid(api):
         hat_api.post(None, "/api/hat/project/nope", {"action": "approve", "stage": "proposal"}, q)
 
 
-def test_api_create_checks_line_and_brief(api, monkeypatch):
+def test_api_create_checks_line_and_brief(api, monkeypatch, tmp_path):
     hat_api, _, q = api
+    _planned_line(monkeypatch, tmp_path)
     with pytest.raises(ValueError, match="not ready"):
-        hat_api.post(None, "/api/hat/projects", {"line": "documentary", "brief": "a long enough brief"}, q)
+        hat_api.post(None, "/api/hat/projects", {"line": "later", "brief": "a long enough brief"}, q)
     with pytest.raises(ValueError, match="few words"):
         hat_api.post(None, "/api/hat/projects", {"line": "explainer", "brief": "x"}, q)
     monkeypatch.setattr(hat_api.accounts, "default_eleven", lambda uid: None, raising=False)
@@ -1409,3 +1422,151 @@ def test_screen_demo_silent_costs_nothing(d, monkeypatch, tmp_path):
     log = P.read_artifact(pid, "capture", d)["log"]
     assert a["parts"][1][2] == round(log[1]["t1"] - log[1]["t0"], 3)         # silent: as long as it was recorded
     assert abs(talk.probe("/" + a["preview"])["duration"] - a["duration"]) < 0.15
+
+
+def _doc_fakes(monkeypatch, tmp_path, narrated=True):
+    """Archive clips are local test videos of 3, 12 and 40 s; the model plans five beats."""
+    import subprocess
+    from factory.config import FFMPEG
+    from factory import archive, qa, thumbs
+    from factory.hat import documentary as D
+    import factory.hat.explainer as E
+    clips = {}
+    for k, secs in (("a", 3), ("b", 12), ("c", 40)):
+        f = str(tmp_path / f"{k}.mp4")
+        subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", f"testsrc=s=320x180:d={secs}:r=25", "-pix_fmt",
+                        "yuv420p", f], check=True)
+        clips[k] = (f, secs)
+    pool = [{"key": f"wm:{k}", "source": "Wikimedia Commons", "title": f"clip {k}", "author": f"Ayşe {k.upper()}",
+             "license": "CC BY-SA 4.0", "page": f"https://commons.wikimedia.org/wiki/File:{k}", "url": f"https://upload.wikimedia.org/{k}.webm"}
+            for k in ("a", "b", "c")]
+    finds = []
+    def find(look, queries, con=None, k=5, exclude=()):
+        finds.append((look, list(queries), set(exclude)))
+        return [c for c in pool if c["key"] not in exclude][:k]
+    monkeypatch.setattr(archive, "find", find)
+    monkeypatch.setattr(archive, "resolve", lambda c: dict(c))
+    monkeypatch.setattr(archive, "fetch", lambda c: (clips[c["key"][3:]][0], {"w": 320, "h": 180, "duration": float(clips[c["key"][3:]][1])}))
+    beats = [{"say": f"Cümle {i} burada söyleniyor.", "text": f"Yazı {i}", "look": f"view {i}", "queries": [f"q{i}"],
+              "seconds": 3} for i in range(1, 4)]
+    beats.append({"say": "eksik", "look": "", "queries": ["x"]})                  # no look: dropped
+    monkeypatch.setattr(D, "_ask", lambda prompt: ({"title": "Boğaz", "narrated": narrated, "beats": beats,
+                                                   "music": {"use": True, "prompt": "soft strings"},
+                                                   "caption": "Boğaz'ın günü", "hashtags": ["istanbul"]}, 0.1))
+    monkeypatch.setattr(D, "BEATS", (3, 14))
+    monkeypatch.setattr(D, "_con", lambda: None)
+    monkeypatch.setattr(qa, "technical", lambda path, expected=None: {"problems": []})
+    monkeypatch.setattr(thumbs, "make", lambda *a, **k: [])
+    monkeypatch.setattr(D, "ROOT", "/")
+    monkeypatch.setattr(E, "ROOT", "/")
+    return finds
+
+
+def _tone(path, secs):
+    import subprocess
+    from factory.config import FFMPEG
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", f"sine=d={secs}", path], check=True)
+    return path
+
+
+def test_documentary_narrated_montage(d, monkeypatch, tmp_path):
+    from factory import credits, eleven, productions as PR, talk
+    from factory.hat import runner
+    finds = _doc_fakes(monkeypatch, tmp_path)
+    monkeypatch.setattr(credits, "rates", lambda: {"tts:eleven_v4": {"rate": 1}, "music:eleven_music_v2_5": {"rate": 10}})
+    voice = _tone(str(tmp_path / "v.wav"), 9)
+    music = _tone(str(tmp_path / "m.mp3"), 11)
+    paid = []
+    monkeypatch.setattr(eleven, "tts", lambda con, text, vid, model, approved=None, account=None: paid.append(("tts", approved)) or (voice, 60.0))
+    monkeypatch.setattr(eleven, "generate", lambda con, kind, model, prompt, params, units, unit, ext="mp3", approved=None,
+                        account=None: paid.append((kind, approved, params["duration_seconds"])) or (music, 100.0))
+    monkeypatch.setattr(PR, "align", lambda path, lines, lang="en": (
+        [{"start": 0.2, "end": 2.5}, {"start": 3.0, "end": 5.5}, {"start": 6.0, "end": 8.6}], 9.0,
+        [("Cümle", 0.2, 0.6), ("1", 0.6, 0.9), ("Cümle", 3.0, 3.4)]))
+    pid = P.create("documentary", "Boğaz", brief="Boğaz'da bir gün, sakin ve sıcak", d=d)["id"]
+    q = Q(runner, d)
+    assert runner.advance(pid, q, d=d) == ("gate", "idea")
+    prop = P.read_artifact(pid, "proposal", d)
+    beats = prop["concepts"][0]["beats"]
+    assert len(beats) == 3 and prop["voice"]["use"] and prop["music"]["use"]
+    secs = prop["seconds"]
+    assert prop["cost"]["credits"] == len(" ".join(b["say"] for b in beats)) + round(10 * secs)
+    assert runner.approve(pid, "idea", q, d=d) == ("gate", "scene_plan")
+    rows = P.read_artifact(pid, "plates", d)["beats"]
+    assert [r["clip"]["key"] for r in rows] == ["wm:a", "wm:b", "wm:c"]           # no clip is used twice
+    assert finds[1][2] == {"wm:a"} and finds[2][2] == {"wm:a", "wm:b"}
+    assert rows[2]["start"] == round(40 * 0.15, 2) and rows[0]["start"] == 0.0      # a long clip starts in, a short one at 0
+    runner.feedback(pid, "scene_plan", "3: başla 20", q, d=d)
+    rows = P.read_artifact(pid, "plates", d)["beats"]
+    assert rows[2]["start"] == 20.0 and len(finds) == 3                             # nothing searched again
+    assert runner.approve(pid, "scene_plan", q, d=d) == ("gate", "assets")
+    budget = P.load(pid, d)["budget"]["credits"]
+    assert paid[0] == ("tts", budget) and paid[1][:2] == ("music", budget - 60)
+    a = P.read_artifact(pid, "assets", d)
+    assert a["lengths"] == [3.0, 3.0, round(9.8 - 6.0, 3)] and a["duration"] == 9.8
+    info = talk.probe("/" + a["preview"])
+    assert abs(info["duration"] - 9.8) < 0.15 and (info["w"], info["h"]) == (1080, 1920)
+    assert runner.approve(pid, "assets", q, d=d) == ("gate", "edit")
+    ed = P.read_artifact(pid, "edit", d)
+    assert ed["transition"] == "soft" and [x["at"] for x in ed["timeline"]] == [0.0, 3.0, 6.0]
+    runner.feedback(pid, "edit", "geçiş: kesme, 2: başla 4; 3: sığdır", q, d=d)
+    ed = P.read_artifact(pid, "edit", d)
+    assert ed["transition"] == "cut" and ed["starts"]["2"] == 4.0 and ed["fits"] == {"3": True} and ed["preview"].endswith("preview.mp4")
+    assert runner.approve(pid, "edit", q, d=d) == ("gate", "publish")
+    fin = "/" + P.read_artifact(pid, "render", d)["final"]
+    assert abs(talk.probe(fin)["duration"] - 9.8) < 0.15
+    pub = P.read_artifact(pid, "publish", d)
+    assert "Ayşe A (Wikimedia Commons, CC BY-SA 4.0)" in pub["caption"] and len(pub["credits"]) == 3
+
+
+def test_documentary_music_only_has_beat_captions(d, monkeypatch, tmp_path):
+    from factory import credits, eleven, talk
+    from factory.hat import runner
+    _doc_fakes(monkeypatch, tmp_path, narrated=False)
+    monkeypatch.setattr(credits, "rates", lambda: {"music:eleven_music_v2_5": {"rate": 10}})
+    monkeypatch.setattr(eleven, "tts", lambda *a, **k: pytest.fail("no narration was asked for"))
+    music = _tone(str(tmp_path / "m.mp3"), 11)
+    monkeypatch.setattr(eleven, "generate", lambda *a, **k: (music, 100.0))
+    pid = P.create("documentary", "Boğaz", brief="Boğaz'da bir gün, yalnız müzik", d=d)["id"]
+    q = Q(runner, d)
+    runner.advance(pid, q, d=d)
+    prop = P.read_artifact(pid, "proposal", d)
+    assert not prop["voice"]["use"] and prop["music"]["use"] and all(not b["say"] for b in prop["concepts"][0]["beats"])
+    runner.approve(pid, "idea", q, d=d)
+    runner.feedback(pid, "scene_plan", "1: 2", q, d=d)                               # beat 1 takes its 2nd candidate
+    rows = P.read_artifact(pid, "plates", d)["beats"]
+    assert rows[0]["clip"]["key"] == "wm:b" and rows[0]["pick"] == 2
+    runner.approve(pid, "scene_plan", q, d=d)
+    a = P.read_artifact(pid, "assets", d)
+    assert a["voice"] is None and a["lengths"] == [3.0, 3.0, 3.0]
+    assert a["words"][0] == ["Yazı 1", 0.2, 2.8]
+    assert abs(talk.probe("/" + a["preview"])["duration"] - 9.0) < 0.15
+
+
+def test_archive_licences_hosts_and_meaning(monkeypatch, tmp_path):
+    from factory import archive as A
+    monkeypatch.setattr(A, "STORE", str(tmp_path / "store.json"))
+    def page(title, lic, desc, w=1920):
+        return {"title": f"File:{title}", "videoinfo": [{"width": w, "height": 1080, "duration": 20, "url": f"https://upload.wikimedia.org/{title}",
+                "descriptionurl": "https://commons.wikimedia.org/x", "derivatives": [
+                    {"type": "video/webm", "height": 720, "src": f"https://upload.wikimedia.org/{title}.720p.webm"},
+                    {"type": "video/webm", "height": 1080, "src": f"https://upload.wikimedia.org/{title}.1080p.webm"}],
+                "extmetadata": {"LicenseShortName": {"value": lic}, "ImageDescription": {"value": desc}}}]}
+    wm = {"query": {"pages": {"1": page("ferry.webm", "CC BY-SA 4.0", "A ferry crossing the Bosphorus strait"),
+                              "2": page("nc.webm", "CC BY-NC 4.0", "A ferry, non commercial"),
+                              "3": page("tiny.webm", "CC0", "A ferry", w=320),
+                              "4": page("rocket.webm", "Public domain", "Rocket launch from the pad at night")}}}
+    monkeypatch.setattr(A, "_json", lambda url: wm if "wikimedia" in url else {})
+    monkeypatch.setattr(A, "SOURCES", {"wikimedia": A.wikimedia, "nasa": lambda q: 1 / 0})   # a broken source is skipped
+    got = A.search(["bosphorus ferry"])
+    assert sorted(c["title"] for c in got) == ["ferry.webm", "rocket.webm"]                  # no NC, nothing tiny
+    assert next(c for c in got if c["title"] == "ferry.webm")["url"].endswith(".1080p.webm")
+    ranked = A.rank("a ferry crossing the strait", got)
+    assert ranked[0]["title"] == "ferry.webm" and ranked[0]["score"] > ranked[1]["score"]
+    assert set(A.load()) == {"wm:File:ferry.webm", "wm:File:rocket.webm"}                    # the local archive grows
+    assert A.allowed("https://upload.wikimedia.org/a.webm") and A.allowed("https://ia800.us.archive.org/x.mp4")
+    for bad in ("http://127.0.0.1/a.mp4", "https://evil.example/upload.wikimedia.org/a", "file:///etc/passwd"):
+        assert not A.allowed(bad)
+    with pytest.raises(ValueError):
+        A.fetch({"url": "http://localhost:8501/x.mp4"})
+    assert A._seconds("29:28") == 1768 and A._seconds("12.5") == 12.5 and A._seconds("n/a") is None
