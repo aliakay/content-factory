@@ -155,7 +155,7 @@ Three.js 3D dünyalar.
 **İyi olduğu:** Teaser, motivasyon, "bir dünya kur" videoları.
 **İyi olmadığı:** Bilgi yoğun anlatım.
 **İster:** Konsept + varsa görüntü. **Kapılar:** 2·3·4·5·8.
-**Durum:** Kısmen var (stylecut); üretilen video için EL video modelleri eklenecek.
+**Durum:** Hazır (t302). Fikir aşaması iki konsept ve çekim listesi yazar (kendi klipler + en fazla 3 üretilen çekim, maliyet kalem kalem; "ucuz" notu ucuz video modeline geçer). Çekim listesi kapısında ödeme yok; sahne planında her üretilen çekim için bir anahtar kare, varlıklarda o kareden başlayan klip (Seedance). Üretilen klipler yalnız o projenin albümünde (gen:<proje>), seyahat envanterine karışmaz; kurgu, final ve yayın klip motoruyla.
 
 ### 6.5 Hibrit · `hybrid`
 **Ne üretir:** Kaynak görüntü + üstüne tasarlanmış destek katmanları (diyagram, harita, veri kartı, etiket).

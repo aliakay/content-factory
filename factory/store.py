@@ -52,6 +52,11 @@ def now():
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+# the creator's own clips: generated clips (factory/hat/cinematic.py) live in albums "gen:<project>" and only the
+# production that made them uses them
+OWN_CLIPS = "COALESCE(c.album, '') NOT LIKE 'gen:%'"
+
+
 def connect(path=DB):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     con = sqlite3.connect(path, timeout=30)

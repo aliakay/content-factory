@@ -18,7 +18,7 @@ const TX = {
     create: "Başlat", cancel: "Vazgeç", started: "Başladı: ilk aşama çalışıyor",
     prods_title: "Üretimler", prods_lead: "Yeni hatlardaki videolar. Kartı açınca akışı ve senden beklenen kararı görürsün.",
     prods_empty: "Henüz yeni hatta bir üretim yok.", new_prod: "Yeni üretim",
-    state_busy: "Çalışıyor", state_gate: "Kararını bekliyor", state_failed: "Hata", state_done: "Bitti", state_run: "Sırada", state_archived: "Arşiv", series: "Seri", episode: "Bölüm", no_series: "Kitabı ve karakterleri hazır bir serin yok.", to_series: "Seriler sayfasına git",  video_file: "Videon (MP4/MOV, en fazla 600 MB)", need_video: "Önce videonu seç", uploading: "Yükleniyor", style: "Kurgu tarzı", cut_word: "kesildi", fmt_cinematic_calm: "Sakin sinematik", fmt_story_vo: "Hikâye (kendi sesin)", fmt_unreal_places: "Gerçek gibi durmayan yerler", fmt_travel_facts: "Gezi bilgileri (kaynaklı)", fmt_long_compilation: "Uzun derleme (1 dk+)",  shots: "plan", warnings: "Uyarılar", archived_note: "Eski sistemden arşivlendi; üzerinde iş yapılmaz.",
+    state_busy: "Çalışıyor", state_gate: "Kararını bekliyor", state_failed: "Hata", state_done: "Bitti", state_run: "Sırada", state_archived: "Arşiv", series: "Seri", episode: "Bölüm", no_series: "Kitabı ve karakterleri hazır bir serin yok.", to_series: "Seriler sayfasına git",  video_file: "Videon (MP4/MOV, en fazla 600 MB)", need_video: "Önce videonu seç", uploading: "Yükleniyor", style: "Kurgu tarzı", cut_word: "kesildi", fmt_cinematic_calm: "Sakin sinematik", fmt_story_vo: "Hikâye (kendi sesin)", fmt_unreal_places: "Gerçek gibi durmayan yerler", fmt_travel_facts: "Gezi bilgileri (kaynaklı)", fmt_long_compilation: "Uzun derleme (1 dk+)",  shots: "plan", warnings: "Uyarılar", gen_shot: "üretilecek", own_shot: "kendi görüntün", gen_clips: "Üretilen klipler", archived_note: "Eski sistemden arşivlendi; üzerinde iş yapılmaz.",
     state_planned: "Bu hatta sıradaki aşama henüz yok",
     st_pending: "Bekliyor", st_running: "Çalışıyor", st_awaiting_approval: "Kararını bekliyor", st_approved: "Onaylandı",
     st_done: "Bitti", st_failed: "Hata", st_stale: "Yeniden yapılacak",
@@ -56,7 +56,7 @@ const TX = {
     create: "Start", cancel: "Cancel", started: "Started: the first stage is running",
     prods_title: "Productions", prods_lead: "Videos on the new lines. Open one to see its flow and the decision waiting for you.",
     prods_empty: "No production on the new lines yet.", new_prod: "New production",
-    state_busy: "Working", state_gate: "Waiting for you", state_failed: "Error", state_done: "Done", state_run: "Up next", state_archived: "Archive", series: "Series", episode: "Episode", no_series: "You have no series with its book and characters ready.", to_series: "Go to Series",  video_file: "Your video (MP4/MOV, up to 600 MB)", need_video: "Pick your video first", uploading: "Uploading", style: "Edit style", cut_word: "cut", fmt_cinematic_calm: "Cinematic calm", fmt_story_vo: "Story (your own voice)", fmt_unreal_places: "Places that look unreal", fmt_travel_facts: "Travel facts (sourced)", fmt_long_compilation: "Long compilation (1 min+)",  shots: "shots", warnings: "Warnings", archived_note: "Archived from the old system; no work is done on it.",
+    state_busy: "Working", state_gate: "Waiting for you", state_failed: "Error", state_done: "Done", state_run: "Up next", state_archived: "Archive", series: "Series", episode: "Episode", no_series: "You have no series with its book and characters ready.", to_series: "Go to Series",  video_file: "Your video (MP4/MOV, up to 600 MB)", need_video: "Pick your video first", uploading: "Uploading", style: "Edit style", cut_word: "cut", fmt_cinematic_calm: "Cinematic calm", fmt_story_vo: "Story (your own voice)", fmt_unreal_places: "Places that look unreal", fmt_travel_facts: "Travel facts (sourced)", fmt_long_compilation: "Long compilation (1 min+)",  shots: "shots", warnings: "Warnings", gen_shot: "generated", own_shot: "your footage", gen_clips: "Generated clips", archived_note: "Archived from the old system; no work is done on it.",
     state_planned: "The next stage is not built on this line yet",
     st_pending: "Waiting", st_running: "Working", st_awaiting_approval: "Waiting for you", st_approved: "Approved",
     st_done: "Done", st_failed: "Error", st_stale: "To redo",
@@ -303,8 +303,18 @@ function outCutPlan(o, s, f) {
       ${x.text ? ` <b>“${esc(x.text)}”</b>` : ""} <span class="muted">${esc(x.shows || "")}</span></li>`).join("")}</ol>
     ${(o.warnings || []).length ? `<h3 class="mt16">${esc(t("warnings"))}</h3><ul class="hl-ul small">${o.warnings.map((w) => `<li class="warn">${esc(w)}</li>`).join("")}</ul>` : ""}`;
 }
+function outShotList(o) {
+  const c = o.cost || {};
+  return `<div class="tiny muted">${(o.shots || []).length} ${esc(t("shots"))} · ${esc(o.seconds ?? "")} ${esc(t("sec"))}</div>
+    <ol class="hl-ul small mt8">${(o.shots || []).map((x) => `<li>${x.kind === "gen"
+      ? `<span class="badge warn">${esc(t("gen_shot"))} · ${esc(x.seconds)} ${esc(t("sec"))}</span> ${esc(x.frame || "")} <span class="muted">→ ${esc(x.prompt || "")}</span>`
+      : `<span class="badge">${esc(t("own_shot"))}</span> <span class="mono tiny">${esc(x.clip_id || "")} ${esc(x.in ?? "")}–${esc(x.out ?? "")}</span> <span class="muted">${esc(x.shows || "")}</span>`}
+      ${x.text ? ` <b>“${esc(x.text)}”</b>` : ""}</li>`).join("")}</ol>
+    ${(c.lines || []).length ? `<div class="costs mt12">${c.lines.map((l) => `<div class="ln"><span class="muted">${esc(l.label)}</span><b>${l.credits == null ? "?" : "~" + num(l.credits)} ${esc(t("credits"))}</b></div>`).join("")}
+      <div class="ln"><span>${esc(t("total"))}</span><b>~${num(c.credits)} ${esc(t("credits"))}</b></div></div>` : ""}`;
+}
 const OUT = { research: outResearch, proposal: outProposal, script: outScript, scene_plan: outScenes, assets: outAssets,
-  render: outRender, publish: outPublish, cut_plan: outCutPlan, cut: outCut, plates: outPlates };
+  render: outRender, publish: outPublish, cut_plan: outCutPlan, cut: outCut, plates: outPlates, shot_list: outShotList };
 function outputHtml(s, f) {
   const o = s.output;
   if (!o) return `<div class="tiny faint">${esc(s.status === "pending" ? t("waiting_prev") : t("output_none"))}</div>`;

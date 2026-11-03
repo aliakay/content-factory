@@ -14,7 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 from factory import accounts, channels, claudeauth, credits, discover, eleven_api, explainer, illustrate, planner, series, styles, formats, jobs, productions as P, refs, signals, tracking, usage, llm  # noqa: E402
-from factory.store import connect  # noqa: E402
+from factory.store import OWN_CLIPS, connect  # noqa: E402
 sys.path.insert(0, HERE)
 import hat_api  # noqa: E402  (v2 production lines: /api/hat/*, /media/projects/*)
 
@@ -730,7 +730,7 @@ def clip_search(con, text, k=24):
     from factory import embed
     text = (text or "").strip()
     rows = [dict(r) for r in con.execute("""SELECT c.clip_id, c.kind, c.description, c.tags, c.mood, c.duration, p.name place
-                                             FROM clips c LEFT JOIN places p ON p.place_id=c.place_id WHERE c.usable=1""")]
+                                             FROM clips c LEFT JOIN places p ON p.place_id=c.place_id WHERE c.usable=1 AND """ + OWN_CLIPS)]
     if not text or not rows:
         return []
     docs = [" ".join(x for x in (r["description"], r["place"], r["mood"], " ".join(json.loads(r["tags"] or "[]"))) if x) for r in rows]

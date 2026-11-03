@@ -661,7 +661,7 @@ def test_api_refuses_what_the_gate_rules_forbid(api):
 def test_api_create_checks_line_and_brief(api, monkeypatch):
     hat_api, _, q = api
     with pytest.raises(ValueError, match="not ready"):
-        hat_api.post(None, "/api/hat/projects", {"line": "cinematic", "brief": "a long enough brief"}, q)
+        hat_api.post(None, "/api/hat/projects", {"line": "avatar", "brief": "a long enough brief"}, q)
     with pytest.raises(ValueError, match="few words"):
         hat_api.post(None, "/api/hat/projects", {"line": "explainer", "brief": "x"}, q)
     monkeypatch.setattr(hat_api.accounts, "default_eleven", lambda uid: None, raising=False)
@@ -949,7 +949,7 @@ def test_picker_filters_by_inputs_and_ranks_by_need():
     assert media.pick("avatar", have=["prompt"]) == []                  # an avatar needs an image and audio
     assert [m["id"] for m in media.pick("lipsync", have=["video", "audio"])][0] == "sync-lipsync-v3"
     v = media.pick("video", need=["cinematic", "sound"], seconds=6, aspect="9:16")
-    assert v[0]["id"] == "veo-3.1-generate-001"
+    assert v[0]["id"].startswith("veo-3.1")                               # Veo for a short cinematic shot with sound
 
 
 def test_video_gen_snaps_length_and_stays_in_budget(d, monkeypatch):
@@ -965,3 +965,80 @@ def test_video_gen_snaps_length_and_stays_in_budget(d, monkeypatch):
     assert out["seconds"] == 6 and seen["params"]["duration_secs"] == 6 and seen["approved"] == 5000 and seen["ext"] == "mp4"
     picked = T.call("media_models", T.Ctx(pid, "proposal", d), {"family": "video", "need": ["long"], "seconds": 20})
     assert picked["models"][0]["id"] == "bytedance-seedance-v2.5"
+
+
+# ---------------------------------------------------------------- cinematic: own clips + generated shots, paid in steps
+
+def test_cinematic_generates_shots_in_paid_steps_behind_gates(d, engine, monkeypatch):
+    from factory import credits, eleven, productions as PR
+    from factory.hat import runner, cinematic as C
+    rows, calls = engine
+    monkeypatch.setattr(C, "_con", lambda: None)
+    monkeypatch.setattr(credits, "rates", lambda: {"image:gpt-image-2": {"rate": 200}, "video:bytedance-seedance-v2.5": {"rate": 1000},
+                                                   "video:bytedance-seedance-v2-fast": {"rate": 300}, "music:eleven_music_v2_5": {"rate": 10}})
+    monkeypatch.setattr(PR, "inventory", lambda con: [{"clip_id": "IMG_1.MOV", "kind": "video", "duration": 6.0, "description": "lake"}])
+    gen = lambda i: {"kind": "gen", "frame": f"frame {i}", "prompt": f"move {i}", "seconds": 5, "shows": f"g{i}"}
+    asks = []
+    def ask(prompt):
+        asks.append(prompt)
+        if "Rewrite this shot list" in prompt:
+            return {"shots": [{"kind": "own", "clip_id": "IMG_1.MOV", "in": 0, "out": 3}, gen(1), gen(2)]}, 0.1
+        return {"concepts": [{"title": "Sis", "hook": "h", "logline": "l", "music": "low strings", "caption": "c", "hashtags": ["#a"],
+                              "shots": [{"kind": "own", "clip_id": "IMG_1.MOV", "in": 1, "out": 9}, {"kind": "own", "clip_id": "NOPE"},
+                                        gen(1), gen(2), gen(3), gen(4)]},
+                             {"title": "Göl", "hook": "h2", "shots": [{"kind": "own", "clip_id": "IMG_1.MOV"}, gen(1)]}]}, 0.3
+    monkeypatch.setattr(C, "_ask", ask)
+    def image(con, prompt, approved, account, aspect, flow, model=None):
+        calls.append(("image", prompt, approved, flow)); f = os.path.join(str(d), f"img{len(calls)}.png"); open(f, "wb").write(b"i")
+        return f, 200.0, "flow1", f"node-{prompt}"
+    def video(con, prompt, approved, seconds, account, aspect, flow, start, model):
+        calls.append(("video", prompt, approved, start, model)); f = os.path.join(str(d), f"v{len(calls)}.mp4"); open(f, "wb").write(b"v")
+        return f, 1000.0, flow, "vnode"
+    monkeypatch.setattr(eleven, "image", image)
+    monkeypatch.setattr(eleven, "video", video)
+    monkeypatch.setattr(C, "_register", lambda con, pid, n, path, shows: (f"gen-{n}", 5.0))
+    monkeypatch.setattr(PR, "create", lambda con, fmt, data, brief="", channel_id=None: rows.update({77: {"prod_id": 77, "title": data["title"],
+                        "format": fmt, "data": data, "qa": None}}) or 77)
+    monkeypatch.setattr(PR, "save", lambda con, row, *a: None)
+
+    pid = P.create("cinematic", "Sis", brief="sisli göl fragmanı", d=d)["id"]
+    q = Q(runner, d)
+    assert runner.advance(pid, q, d=d) == ("gate", "idea")
+    prop = P.read_artifact(pid, "proposal", d)
+    a = prop["concepts"][0]
+    assert [c["id"] for c in prop["concepts"]] == ["A", "B"]
+    assert [s["kind"] for s in a["shots"]] == ["own", "gen", "gen", "gen"]          # unknown clip dropped, at most 3 generated
+    assert a["shots"][0]["out"] == 6.0 and a["seconds"] == 20.0                     # own shot clipped to the clip
+    assert a["cost"]["credits"] == 3 * 200 + 15 * 1000 + round(21.5 * 10)
+    runner.feedback(pid, "idea", "B", q, d=d)
+    assert P.read_artifact(pid, "proposal", d)["chosen"] == "B" and len(asks) == 1
+    runner.feedback(pid, "idea", "daha ucuz olsun", q, d=d)
+    a = P.read_artifact(pid, "proposal", d)["concepts"][0]
+    assert {s["model"] for s in a["shots"] if s["kind"] == "gen"} == {"bytedance-seedance-v2-fast"} and len(asks) == 2
+    assert runner.approve(pid, "idea", q, d=d) == ("gate", "script")
+    budget = P.load(pid, d)["budget"]["credits"]
+    assert budget == a["cost"]["credits"]
+    runner.feedback(pid, "script", "iki üretilen çekim yeter", q, d=d)
+    sl = P.read_artifact(pid, "shot_list", d)
+    assert [s["kind"] for s in sl["shots"]] == ["own", "gen", "gen"] and not any(c[0] in ("image", "video") for c in calls)
+    assert runner.approve(pid, "script", q, d=d) == ("gate", "scene_plan")
+    assert [c[2] for c in calls if c[0] == "image"] == [budget, budget - 200]          # each keyframe inside what is left
+    runner.feedback(pid, "scene_plan", "3: daha karanlık", q, d=d)
+    imgs = [c for c in calls if c[0] == "image"]
+    assert len(imgs) == 3 and imgs[-1][1] == "frame 2. daha karanlık"                 # only shot 3 redone
+    frames = P.read_artifact(pid, "plates", d)["frames"]
+    assert [f["n"] for f in frames] == [2, 3] and frames[1]["node"] == "node-frame 2. daha karanlık"
+    assert runner.approve(pid, "scene_plan", q, d=d) == ("gate", "assets")
+    vids = [c for c in calls if c[0] == "video"]
+    assert [v[3] for v in vids] == ["node-frame 1", "node-frame 2. daha karanlık"]   # each clip starts from its keyframe
+    assert vids[0][2] == budget - 600 and vids[1][2] == budget - 1600
+    assert ("music", budget - 2600) in calls
+    row = rows[77]
+    assert [s["clip_id"] for s in row["data"]["shots"]] == ["IMG_1.MOV", "gen-2", "gen-3"] and P.load(pid, d)["current_prod"] == 77
+    runner.feedback(pid, "assets", "2: daha yavaş", q, d=d)
+    vids = [c for c in calls if c[0] == "video"]
+    assert len(vids) == 3 and vids[-1][1] == "move 1. daha yavaş"                     # only clip 2 regenerated
+    runner.feedback(pid, "assets", "geçişler daha yumuşak", q, d=d)
+    assert len([c for c in calls if c[0] == "video"]) == 3 and ("direct", 77, "geçişler daha yumuşak") in calls
+    assert runner.approve(pid, "assets", q, d=d) == ("gate", "publish")
+    assert P.read_artifact(pid, "publish", d)["caption"] == "c"

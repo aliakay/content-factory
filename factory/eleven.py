@@ -241,6 +241,52 @@ generated image node id>"}}
     return path, cost, data.get("flow_id") or flow_id, data.get("node_id")
 
 
+VIDEO_MODEL = "bytedance-seedance-v2.5"
+
+
+def video(con, prompt_text, approved, seconds, account=None, aspect="9:16", flow_id=None, start=None, model=None,
+          audio=False, idea_id=None):
+    """One generated clip (mp4) through the connector. `start` = the node id of an image on flow `flow_id` that
+    becomes the clip's first frame (a keyframe the creator approved). Returns (path, cost, flow_id, node_id).
+    Cached by (model, prompt, start, seconds, aspect, audio)."""
+    model = model or VIDEO_MODEL
+    key = "vid_" + hashlib.sha1(f"{model}|{aspect}|{start}|{seconds}|{audio}|{prompt_text}".encode()).hexdigest()[:16]
+    cached = os.path.join(OUT, f"{key}.mp4")
+    meta_path = cached + ".json"
+    if os.path.exists(cached) and os.path.exists(meta_path):
+        m = json.load(open(meta_path))
+        return cached, 0.0, m.get("flow_id"), m.get("node_id")
+    account, acc = _account(account)
+    if acc["type"] == "apikey":
+        raise ElevenError("video üretimi yalnızca connector hesabıyla yapılabiliyor")
+    credits.guard(con, "video", model, seconds, approved, account)
+    where = f' on flow_id "{flow_id}"' if flow_id else " (it creates a flow)"
+    wire = f", connect_from [\"{start}\"] (that image node is the clip's start frame)" if start else ""
+    prompt = f"""Use the ElevenLabs tools, in this order, exactly once each:
+1. Call creative_generate_video{where} with model_id "{model}"{wire}, generations_count 1, estimate_only true and
+   this prompt: <<<{prompt_text}>>>
+   This only creates the node (nothing is generated or charged); note its flow_id and node_id.
+2. Call creative_get_model_schema(node_type="video-generation", model_id="{model}") and creative_get_flow_node on
+   that node, then creative_update_node with only plain settings the schema lists: duration {seconds} s (the nearest
+   value the schema allows), "aspect_ratio": "{aspect}", the lowest resolution of 720p or above, and audio generation
+   {"on" if audio else "off"}. Leave out every field that holds node references (input ports, already wired by step 1).
+3. creative_run_flow_nodes on that one node with generations_count 1.
+4. Poll creative_get_flow_run_status until finished, then read the signed video URL.
+Reply ONLY JSON: {{"url": "<signed video url>", "credit_cost": <number>, "flow_id": "<flow id>", "node_id": "<the
+video node id>"}}
+{ERROR_REPLY}"""
+    tools = (T + "creative_generate_video", T + "creative_get_flow_node", T + "creative_update_node",
+             T + "creative_run_flow_nodes", T + "creative_get_model_schema") + POLL_TOOLS
+    with _connector_context(account):
+        data, _ = _run(prompt, tools, timeout=1800, model=model, flow_id=flow_id)
+    path = _download(data["url"], "mp4", key)
+    cost = float(data.get("credit_cost") or 0)
+    json.dump({"flow_id": data.get("flow_id") or flow_id, "node_id": data.get("node_id"), "prompt": prompt_text,
+               "start": start}, open(meta_path, "w"))
+    credits.record(con, "video", model, seconds, "s", cost, idea_id, prompt_text[:60], account)
+    return path, cost, data.get("flow_id") or flow_id, data.get("node_id")
+
+
 def media_duration(path):
     out = subprocess.run([FFPROBE, "-v", "error", "-show_entries",
                           "format=duration", "-of", "csv=p=0", path], capture_output=True, text=True).stdout

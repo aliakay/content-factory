@@ -1,6 +1,6 @@
 id: cinematic
 order: 4
-status: partial
+status: ready
 category: mixed
 inputs: [concept, footage]
 duration: [15, 90]
@@ -24,11 +24,41 @@ cost:
   tr: "Üretilen her video klip ElevenLabs kredisi harcar (modele göre); öneri aşamasında kalem kalem gösterilir."
   en: "Every generated clip spends ElevenLabs credits (per model); itemised at the proposal."
 stages:
-  - {id: research, run: planned}
-  - {id: proposal, gate: true, run: planned}
-  - {id: script, gate: true, run: planned}
-  - {id: scene_plan, gate: true, run: planned}
-  - {id: assets, gate: true, run: planned}
-  - {id: edit, run: planned}
-  - {id: compose, run: planned}
-  - {id: publish, gate: true, run: planned}
+  - id: idea
+    gate: true
+    run: code
+    call: factory.hat.cinematic:idea
+    tools: [catalog, media_models, estimate_cost]
+
+  - id: script
+    gate: true
+    artifact: shot_list
+    run: code
+    call: factory.hat.cinematic:script
+
+  - id: scene_plan
+    gate: true
+    artifact: plates
+    run: code
+    call: factory.hat.cinematic:scene_plan
+    tools: [image_gen]
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.cinematic:assets
+    tools: [video_gen, music, preview_render]
+
+  - id: edit
+    run: code
+    call: factory.hat.cinematic:edit
+
+  - id: compose
+    run: code
+    call: factory.hat.cinematic:compose
+    tools: [final_render, qa_technical, qa_sound, thumbnails]
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.cinematic:publish
