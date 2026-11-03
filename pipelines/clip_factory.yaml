@@ -1,8 +1,8 @@
 id: clip_factory
 order: 7
-status: planned
+status: ready
 category: footage
-inputs: [video, audio]
+inputs: [video]
 duration: [15, 60]
 name: {tr: Klip fabrikası, en: Clip factory}
 tagline:
@@ -18,15 +18,42 @@ not_for:
   tr: ["Zaten kısa olan kaynaklar"]
   en: ["Sources that are already short"]
 needs:
-  tr: "Uzun bir video ya da ses dosyası ve kaç klip istediğin."
-  en: "A long video or audio file and how many clips you want."
+  tr: "Uzun bir video; kaç klip istediğini açıklamaya yaz (ör. \"8 klip\", yoksa 5)."
+  en: "A long video; say how many clips in the brief (e.g. \"8 clips\", 5 otherwise)."
 cost:
   tr: "Kredi gerekmez; transkript yerelde yapılır."
   en: "No credits; transcription runs locally."
 stages:
-  - {id: idea, gate: true, run: planned, name: {tr: Klip seçimi, en: Clip selection}}
-  - {id: scene_plan, gate: true, run: planned}
-  - {id: assets, gate: true, run: planned}
-  - {id: edit, run: planned}
-  - {id: compose, run: planned}
-  - {id: publish, gate: true, run: planned}
+  - id: idea
+    gate: true
+    name: {tr: Klip seçimi, en: Clip selection}
+    run: code
+    call: factory.hat.clips:idea
+    tools: [align_words]
+
+  - id: scene_plan
+    gate: true
+    name: {tr: Kadraj, en: Framing}
+    artifact: plates
+    run: code
+    call: factory.hat.clips:scene_plan
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.clips:assets
+    tools: [preview_render]
+
+  - id: edit
+    run: code
+    call: factory.hat.clips:edit
+
+  - id: compose
+    run: code
+    call: factory.hat.clips:compose
+    tools: [final_render, qa_technical, thumbnails]
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.clips:publish

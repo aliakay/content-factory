@@ -1196,3 +1196,68 @@ def test_localize_refuses_the_same_language(d, monkeypatch):
     pid = P.create("localize", "Aynı", brief="aynı dil", video_lang="tr", d=d, extra={"source": "raw/talk/x.mp4", "source_lang": "tr"})["id"]
     with pytest.raises(P.GateError):
         L.idea(pid, None, d=d)
+
+
+def _clip_segs():
+    return [{"n": i + 1, "start": i * 5.0, "end": i * 5.0 + 4.5, "slot": 5.0, "text": f"cümle {i + 1}."} for i in range(20)]
+
+
+def test_clip_picks_are_snapped_sized_and_never_overlap():
+    from factory.hat import clips as C
+    raw = [{"from": 2, "to": 3, "hook": "kısa", "score": 6},             # 9.5 s -> grows to >= 15 s
+           {"from": 3, "to": 6, "hook": "çakışan", "score": 5},          # overlaps the first -> dropped
+           {"from": 8, "to": 20, "hook": "uzun", "score": 9},            # 64.5 s -> shrinks to <= 60 s
+           {"from": 99, "to": 100, "score": 10}, {"from": "x", "to": 2}]
+    out = C.pick(_clip_segs(), raw, 5)
+    assert [c["hook"] for c in out] == ["uzun", "kısa"] and [c["n"] for c in out] == [1, 2]
+    assert out[0]["seconds"] <= 60 and out[1]["seconds"] >= 15 and out[1]["start"] == 5.0
+    assert C._count("bundan 8 klip çıkar") == 8 and C._count("12 shorts") == 10 and C._count("en iyileri") == 5
+    assert C.crop_x([(1, 0.2, 0.4, 0.1), (3, 0.3, 0.4, 0.1), (50, 0.9, 0.4, 0.1)], 0, 10) == 0.3
+    assert C.crop_x([], 0, 10, -0.2) == 0.3
+
+
+def test_clip_factory_cuts_ranked_shorts_without_credits(d, monkeypatch, tmp_path):
+    import subprocess
+    from factory.config import FFMPEG
+    from factory import qa, thumbs, talk
+    from factory.hat import runner, clips as C
+    src = str(tmp_path / "long.mp4")
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc=s=320x180:d=40", "-f", "lavfi", "-i",
+                    "sine=d=40", "-shortest", "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", src], check=True)
+    monkeypatch.setattr(C, "_source", lambda p: src)
+    words = [[f"söz{i}", i * 1.0, i * 1.0 + 0.6, 1] for i in range(40)]
+    words = [[w[0] + ("." if i % 5 == 4 else ""), *w[1:]] for i, w in enumerate(words)]
+    monkeypatch.setattr(C, "_transcribe", lambda path, lang: words)
+    monkeypatch.setattr(C, "_faces", lambda path, dur: [(12.0, 0.8, 0.5, 0.1)])
+    asks = []
+    def ask(prompt):
+        asks.append(prompt)
+        picks = [{"from": 1, "to": 3, "hook": "İlk an", "score": 7, "caption": "c1", "hashtags": ["a"]},
+                 {"from": 4, "to": 6, "hook": "En iyi an", "score": 9, "caption": "c2", "hashtags": "#b #c"}]
+        return {"clips": picks[1:] if "note" in prompt else picks}, 0.05
+    monkeypatch.setattr(C, "_ask", ask)
+    monkeypatch.setattr(qa, "technical", lambda path, expected=None: {"problems": []})
+    monkeypatch.setattr(thumbs, "make", lambda *a, **k: [])
+    monkeypatch.setattr(C, "ROOT", "/")
+    import factory.hat.explainer as E
+    monkeypatch.setattr(E, "ROOT", "/")
+
+    pid = P.create("clip_factory", "Uzun yayın", brief="bundan 2 klip çıkar", d=d, extra={"source": "raw/talk/long.mp4"})["id"]
+    q = Q(runner, d)
+    assert runner.advance(pid, q, d=d) == ("gate", "idea")
+    prop = P.read_artifact(pid, "proposal", d)
+    assert [c["hook"] for c in prop["clips"]] == ["En iyi an", "İlk an"] and prop["cost"]["credits"] == 0
+    assert "Pick the 2 strongest" in asks[0]
+    assert runner.approve(pid, "idea", q, d=d) == ("gate", "scene_plan")
+    fr = P.read_artifact(pid, "plates", d)["frames"]
+    assert fr[0]["cx"] == 0.5 and fr[1]["cx"] == 0.8                          # the face at 12 s is in "İlk an" (grown back to 0 s)
+    runner.feedback(pid, "scene_plan", "2: sol", q, d=d)
+    assert P.read_artifact(pid, "plates", d)["frames"][1]["cx"] == 0.6
+    assert runner.approve(pid, "scene_plan", q, d=d) == ("gate", "assets")
+    a = P.read_artifact(pid, "assets", d)
+    assert len(a["clips"]) == 2 and all(os.path.isfile("/" + c["file"]) for c in a["clips"])
+    info = talk.probe("/" + a["clips"][0]["file"])
+    assert (info["w"], info["h"]) == (1080, 1920) and 19 < info["duration"] < 20.5   # 15-34.6 s grew to 4 lines
+    assert runner.approve(pid, "assets", q, d=d) == ("gate", "publish")
+    pub = P.read_artifact(pid, "publish", d)
+    assert [x["hashtags"] for x in pub["posts"]] == [["#b", "#c"], ["#a"]] and pub["posts"][0]["file"].endswith("clip_1.mp4")

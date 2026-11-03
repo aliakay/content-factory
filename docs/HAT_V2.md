@@ -177,7 +177,7 @@ yüz takibiyle kadraj, B-roll, ses zinciri.
 **İyi olduğu:** Bir uzun içerikten haftalık kısa video stoku.
 **İyi olmadığı:** Zaten kısa olan kaynaklar.
 **İster:** Uzun video/ses. **Kapılar:** 2 (klip listesi) · 5 · 8.
-**Durum:** Yeni; talk.py'nin transkript ve kesim altyapısı kullanılır.
+**Durum:** Hazır (t305). `factory/hat/clips.py`: whisper transkript (bir kez, `assets/transcript.json`) → model en güçlü N anı seçip puanlar (açıklamada "8 klip", yoksa 5; en çok 10) → 15–60 sn, çakışmasız → yüz takipli 9:16 kadraj kapısı ("2: sol/sağ") → her klip altyazı + 3 sn kanca başlığıyla kesilir → klip başına açıklama/etiket. Kredi harcamaz. Yalnız video (ses dosyası henüz yok).
 
 ### 6.8 Podcast dönüştürme · `podcast`
 **Ne üretir:** Podcast sesinden altyazılı/dalga formlu klipler, alıntı kartları; istenirse bölüm eşlik videosu.
