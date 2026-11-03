@@ -1,6 +1,6 @@
 id: podcast
 order: 8
-status: planned
+status: ready
 category: footage
 inputs: [audio, video]
 duration: [15, 90]
@@ -21,12 +21,39 @@ needs:
   tr: "Podcast ses ya da video dosyası."
   en: "A podcast audio or video file."
 cost:
-  tr: "Ses izolasyonu istenirse ElevenLabs kredisi."
-  en: "ElevenLabs credits if voice isolation is needed."
+  tr: "Kredi gerekmez; transkript yerelde yapılır. (Ses izolasyonu henüz yok.)"
+  en: "No credits; transcription runs locally. (Voice isolation not yet.)"
 stages:
-  - {id: idea, gate: true, run: planned}
-  - {id: scene_plan, gate: true, run: planned}
-  - {id: assets, gate: true, run: planned}
-  - {id: edit, run: planned}
-  - {id: compose, run: planned}
-  - {id: publish, gate: true, run: planned}
+  - id: idea
+    gate: true
+    name: {tr: Klip ve alıntı seçimi, en: Clips and quotes}
+    run: code
+    call: factory.hat.podcast:idea
+    tools: [align_words]
+
+  - id: scene_plan
+    gate: true
+    name: {tr: Görünüm ve kartlar, en: Look and cards}
+    artifact: plates
+    run: code
+    call: factory.hat.podcast:scene_plan
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.podcast:assets
+    tools: [preview_render]
+
+  - id: edit
+    run: code
+    call: factory.hat.podcast:edit
+
+  - id: compose
+    run: code
+    call: factory.hat.podcast:compose
+    tools: [final_render, qa_technical, thumbnails]
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.podcast:publish

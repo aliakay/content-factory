@@ -1110,7 +1110,7 @@ class Handler(shorts.Handler):
     def talk_upload(self, n, name):
         """The creator's raw talking video -> raw/talk/ (never modified); the composer attaches it to the next plan."""
         from factory import talk
-        if not name.lower().endswith(talk.VIDEO_EXT) or not 0 < n <= MAX_UPLOAD:
+        if not name.lower().endswith(talk.VIDEO_EXT + (".mp3", ".m4a", ".wav", ".aac")) or not 0 < n <= MAX_UPLOAD:
             self.rfile.read(min(n, 1 << 20))
             return self.json(400, {"error": "MP4/MOV video, en fazla 600 MB"})
         os.makedirs(talk.RAW, exist_ok=True)

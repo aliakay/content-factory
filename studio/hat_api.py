@@ -168,7 +168,9 @@ def _post(con, path, b, queue):
         extra = {"ui_lang": lang(), "eleven_account": accounts.default_eleven(uid)}
         if "video" in (line.get("inputs") or []):          # the creator's own video, uploaded to raw/talk/ first
             src = str(b.get("source") or "")
-            if not re.fullmatch(r"raw/talk/[\w.-]+", src) or not os.path.isfile(os.path.join(ROOT, src)):
+            ok_ext = (".mp4", ".mov", ".m4v") + ((".mp3", ".m4a", ".wav", ".aac") if "audio" in line["inputs"] else ())
+            if not re.fullmatch(r"raw/talk/[\w.-]+", src) or not src.lower().endswith(ok_ext) \
+                    or not os.path.isfile(os.path.join(ROOT, src)):
                 raise ValueError({"tr": "Önce videonu yükle.", "en": "Upload your video first."}[lang()])
             extra["source"] = src
         if "portrait" in (line.get("inputs") or []) and b.get("portrait"):   # optional: no portrait = a generated one

@@ -20,6 +20,7 @@ from .localize import segments
 
 MIN_S, MAX_S = 15.0, 60.0
 DEFAULT_N, MAX_N = 5, 10
+AUDIO_EXT = (".mp3", ".m4a", ".wav", ".aac")
 SHIFT = {"sol": -0.2, "left": -0.2, "sağ": 0.2, "sag": 0.2, "right": 0.2, "orta": 0.0, "center": 0.0, "centre": 0.0}
 
 
@@ -91,7 +92,7 @@ def pick(segs, raw, n):
     return out
 
 
-def _pick_prompt(p, segs, n, note=None, cur=None):
+def _pick_prompt(p, segs, n, note=None, cur=None, quotes=0):
     rows = "\n".join(f'{s["n"]}. [{s["start"]:.0f}-{s["end"]:.0f} s] {s["text"]}' for s in segs)
     return f"""You cut a long video into standalone vertical shorts. Pick the {n} strongest moments: each must make
 sense without the rest (a clear point, story, answer or reveal), start strong and end on a finished thought,
@@ -101,13 +102,18 @@ Transcript lines (number, time, text):
 {rows}
 {f"Current picks: {json.dumps(cur, ensure_ascii=False)}" if cur else ""}
 {f"The creator's note on the picks: <<<{note}>>>" if note else ""}
+{f"Also pick the {quotes} most quotable sentences (short, striking, true to what was said; fix only filler words) for quote cards." if quotes else ""}
 Write hook, caption and hashtags in the video's language ({p.get('video_lang') or 'tr'}).
 Reply ONLY JSON: {{"clips": [{{"from": <first line number>, "to": <last line number>, "hook": "an on-screen title,
-max 6 words", "why": "one sentence", "score": <1-10>, "caption": "post caption", "hashtags": ["#..."]}}]}}"""
+max 6 words", "why": "one sentence", "score": <1-10>, "caption": "post caption", "hashtags": ["#..."]}}]{', "quotes": [{"line": <line number>, "text": "the quote, at most 160 characters"}]' if quotes else ''}}}"""
 
 
 def idea(pid, s, note=None, d=None):
     """The ranked list of clips. A note re-picks them. No credits."""
+    return _idea(pid, note, d)
+
+
+def _idea(pid, note, d, quotes=0):
     p = P.load(pid, d)
     src = _source(p)
     tpath = P.path(pid, "assets", "transcript.json", d=d)
@@ -116,7 +122,8 @@ def idea(pid, s, note=None, d=None):
     else:
         info = _probe(src)
         words = _transcribe(src, p.get("video_lang", "tr"))
-        tr = {"words": words, "duration": info["duration"], "w": info["w"], "h": info["h"]}
+        tr = {"words": words, "duration": info["duration"], "w": info["w"], "h": info["h"],
+              "audio": src.lower().endswith(AUDIO_EXT)}
         os.makedirs(os.path.dirname(tpath), exist_ok=True)
         json.dump(tr, open(tpath, "w"), ensure_ascii=False)
     segs = segments(tr["words"], tr["duration"])
@@ -127,7 +134,7 @@ def idea(pid, s, note=None, d=None):
     if note:
         cur = [{k: c[k] for k in ("n", "from", "to", "hook", "score")}
                for c in (P.read_artifact(pid, "proposal", d) or {}).get("clips") or []]
-    data, usd = _ask(_pick_prompt(p, segs, n, note, cur))
+    data, usd = _ask(_pick_prompt(p, segs, n, note, cur, quotes))
     clips = pick(segs, data.get("clips") or [], n)[:n]
     if not clips:
         raise P.GateError("no usable clip came back; give a note and redo")
@@ -141,6 +148,11 @@ def idea(pid, s, note=None, d=None):
                  "look": c["why"]} for c in clips]
     art = {"concepts": concepts, "chosen": "1", "clips": clips, "segments": segs, "seconds": sum(c["seconds"] for c in clips),
            "voice": {"use": False}, "music": {"use": False}, "cost": {"credits": 0, "lines": []}, "summary": summary}
+    if quotes:
+        lines = {x["n"] for x in segs}
+        art["quotes"] = [{"n": i + 1, "line": q.get("line"), "text": str(q.get("text")).strip()[:160]}
+                         for i, q in enumerate(x for x in data.get("quotes") or []
+                                               if x.get("line") in lines and str(x.get("text") or "").strip())][:quotes]
     return {"artifact": art, "summary": summary, "cost": {"usd": usd}}
 
 
@@ -160,6 +172,17 @@ def _vf(info, cx, aspect, size):
     return f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1"
 
 
+def _graph(info, cx, aspect, size, dur, ass=None):
+    """The filter graph that makes the clip's picture -> [v]: the cropped video, or for an audio source a waveform
+    on a dark ground; captions on top when `ass` is given."""
+    w, h = size
+    subs = f",subtitles='{ass.replace(chr(39), '')}'" if ass else ""
+    if info.get("audio"):
+        return (f"color=c=0x101418:s={w}x{h}:d={dur}[bg];[0:a]showwaves=s={w}x{h // 4}:mode=cline:scale=sqrt:colors=0xFFD93D,"
+                f"format=rgba[wv];[bg][wv]overlay=0:(H-h)/2:shortest=1{subs}[v]")
+    return f"[0:v]{_vf(info, cx, aspect, size)}{subs}[v]"
+
+
 def scene_plan(pid, s, note=None, d=None):
     """One crop per clip, a still of each so the creator sees who stays in frame."""
     from ..formats import ASPECTS
@@ -170,7 +193,7 @@ def scene_plan(pid, s, note=None, d=None):
     old = {f["n"]: f for f in (P.read_artifact(pid, "plates", d) or {}).get("frames") or []}
     fpath = P.path(pid, "assets", "faces.json", d=d)
     if not os.path.isfile(fpath):
-        json.dump(_faces(src, tr["duration"]), open(fpath, "w"))
+        json.dump([] if tr.get("audio") else _faces(src, tr["duration"]), open(fpath, "w"))
     faces = json.load(open(fpath))
     moves = {}
     for m in re.finditer(r"(\d+)\s*[:.)-]\s*(\w+)", note or ""):
@@ -184,9 +207,9 @@ def scene_plan(pid, s, note=None, d=None):
         shift = max(-0.5, min(0.5, prev.get("shift", 0.0) + moves.get(c["n"], 0.0)))
         cx = crop_x(faces, c["start"], c["end"], shift)
         out = P.path(pid, "plates", f"clip_{c['n']}.jpg", d=d)
-        vf = _vf(tr, cx, aspect, tuple(v // 3 for v in ASPECTS.get(aspect, (1080, 1920))))
-        subprocess.run([FFMPEG, "-y", "-v", "error", "-ss", str(round((c["start"] + c["end"]) / 2, 2)), "-i", src,
-                        "-frames:v", "1", "-vf", vf, out], check=True)
+        fc = _graph(tr, cx, aspect, tuple(v // 3 for v in ASPECTS.get(aspect, (1080, 1920))), 2)
+        subprocess.run([FFMPEG, "-y", "-v", "error", "-ss", str(round((c["start"] + c["end"]) / 2, 2)), "-t", "2", "-i", src,
+                        "-filter_complex", fc, "-map", "[v]", "-frames:v", "1", out], check=True)
         frames.append({"n": c["n"], "file": _rel(out), "cx": cx, "shift": round(shift, 2)})
         files.append(_rel(out))
     summary = {"tr": "Her klibin kadrajı. Konuşan kişi kadrajda mı? Değilse \"2: sol\" ya da \"2: sağ\" yaz.",
@@ -213,9 +236,10 @@ def cut(src, info, clip, words, cx, out, aspect="9:16", final=False):
              if x[1] >= clip["start"] - 0.05 and x[2] <= clip["end"] + 0.3]
     ass = os.path.splitext(out)[0] + ".ass"
     open(ass, "w").write(_ass(local, clip["hook"], size))
-    vf = _vf(info, cx, aspect, size) + f",subtitles='{ass.replace(chr(39), '')}'"
-    subprocess.run([FFMPEG, "-y", "-v", "error", "-ss", str(clip["start"]), "-t", str(round(clip["end"] - clip["start"] + 0.3, 2)),
-                    "-i", src, "-vf", vf, "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-c:v", "libx264",
+    dur = round(clip["end"] - clip["start"] + 0.3, 2)
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-ss", str(clip["start"]), "-t", str(dur), "-i", src,
+                    "-filter_complex", _graph(info, cx, aspect, size, dur, ass), "-map", "[v]", "-map", "0:a",
+                    "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-c:v", "libx264",
                     "-preset", "medium" if final else "veryfast", "-crf", "18" if final else "26", "-pix_fmt", "yuv420p",
                     "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", out], check=True)
     return out

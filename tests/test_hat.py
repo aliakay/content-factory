@@ -661,7 +661,7 @@ def test_api_refuses_what_the_gate_rules_forbid(api):
 def test_api_create_checks_line_and_brief(api, monkeypatch):
     hat_api, _, q = api
     with pytest.raises(ValueError, match="not ready"):
-        hat_api.post(None, "/api/hat/projects", {"line": "podcast", "brief": "a long enough brief"}, q)
+        hat_api.post(None, "/api/hat/projects", {"line": "screen_demo", "brief": "a long enough brief"}, q)
     with pytest.raises(ValueError, match="few words"):
         hat_api.post(None, "/api/hat/projects", {"line": "explainer", "brief": "x"}, q)
     monkeypatch.setattr(hat_api.accounts, "default_eleven", lambda uid: None, raising=False)
@@ -1261,3 +1261,39 @@ def test_clip_factory_cuts_ranked_shorts_without_credits(d, monkeypatch, tmp_pat
     assert runner.approve(pid, "assets", q, d=d) == ("gate", "publish")
     pub = P.read_artifact(pid, "publish", d)
     assert [x["hashtags"] for x in pub["posts"]] == [["#b", "#c"], ["#a"]] and pub["posts"][0]["file"].endswith("clip_1.mp4")
+
+
+def test_podcast_audio_becomes_waveform_clips_and_quote_cards(d, monkeypatch, tmp_path):
+    import subprocess
+    from PIL import Image
+    from factory.config import FFMPEG
+    from factory import qa, thumbs, talk
+    from factory.hat import runner, clips as C, explainer as E
+    src = str(tmp_path / "ep.mp3")
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", "sine=d=40", src], check=True)
+    monkeypatch.setattr(C, "_source", lambda p: src)
+    words = [[f"söz{i}" + ("." if i % 5 == 4 else ""), i * 1.0, i * 1.0 + 0.6, 1] for i in range(40)]
+    monkeypatch.setattr(C, "_transcribe", lambda path, lang: words)
+    monkeypatch.setattr(C, "_faces", lambda path, dur: pytest.fail("no face search on audio"))
+    monkeypatch.setattr(C, "_ask", lambda prompt: ({"clips": [{"from": 1, "to": 4, "hook": "Bölümün özü", "score": 8}],
+                                                    "quotes": [{"line": 2, "text": "Az ama öz konuş."}, {"line": 99, "text": "yok"},
+                                                               {"line": 3, "text": ""}]}, 0.05))
+    monkeypatch.setattr(qa, "technical", lambda path, expected=None: {"problems": []})
+    monkeypatch.setattr(thumbs, "make", lambda *a, **k: [])
+    monkeypatch.setattr(C, "ROOT", "/")
+    monkeypatch.setattr(E, "ROOT", "/")
+
+    pid = P.create("podcast", "Bölüm 12", brief="bu bölümden 1 klip", d=d, extra={"source": "raw/talk/ep.mp3"})["id"]
+    q = Q(runner, d)
+    assert runner.advance(pid, q, d=d) == ("gate", "idea")
+    prop = P.read_artifact(pid, "proposal", d)
+    assert prop["quotes"] == [{"n": 1, "line": 2, "text": "Az ama öz konuş."}]          # unknown line and empty text dropped
+    assert runner.approve(pid, "idea", q, d=d) == ("gate", "scene_plan")
+    pl = P.read_artifact(pid, "plates", d)
+    assert len(pl["cards"]) == 1 and Image.open("/" + pl["cards"][0]).size == (1080, 1920)
+    assert runner.approve(pid, "scene_plan", q, d=d) == ("gate", "assets")
+    clip = "/" + P.read_artifact(pid, "assets", d)["clips"][0]["file"]
+    info = talk.probe(clip)
+    assert (info["w"], info["h"]) == (1080, 1920) and 19 < info["duration"] < 20.5
+    assert runner.approve(pid, "assets", q, d=d) == ("gate", "publish")
+    assert P.read_artifact(pid, "publish", d)["cards"] == pl["cards"]

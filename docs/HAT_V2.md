@@ -184,7 +184,7 @@ yüz takibiyle kadraj, B-roll, ses zinciri.
 **İyi olduğu:** Sesli içeriği sosyal medyaya taşımak.
 **İyi olmadığı:** Kötü kayıtlı ses (önce ses izolasyonu gerekir).
 **İster:** Ses ya da video podcast. **Kapılar:** 2 · 4 · 8.
-**Durum:** Yeni; transkript + htmlmotion + EL ses izolasyonu.
+**Durum:** Hazır (t306). `factory/hat/podcast.py`: klip fabrikasının altyapısı + 3 alıntı kartı (PIL). Ses dosyası (MP3/M4A/WAV) koyu zeminde dalga formu olur; video podcast yüz takipli kırpılır. Kredi harcamaz. Ses izolasyonu (EL) henüz yok.
 
 ### 6.9 Avatar sunucu · `avatar`
 **Ne üretir:** Dijital bir sunucunun konuştuğu duyuru, eğitim, tanıtım videoları; sade destek grafikleriyle.
