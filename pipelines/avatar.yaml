@@ -1,6 +1,6 @@
 id: avatar
 order: 9
-status: planned
+status: ready
 category: generated
 inputs: [script, portrait]
 duration: [15, 120]
@@ -24,10 +24,40 @@ cost:
   tr: "Avatar videosu saniye başına ElevenLabs kredisi; öneride kalem kalem."
   en: "Avatar video costs ElevenLabs credits per second; itemised at the proposal."
 stages:
-  - {id: idea, gate: true, run: planned}
-  - {id: script, gate: true, run: planned}
-  - {id: scene_plan, gate: true, run: planned}
-  - {id: assets, gate: true, run: planned}
-  - {id: edit, run: planned}
-  - {id: compose, run: planned}
-  - {id: publish, gate: true, run: planned}
+  - id: idea
+    gate: true
+    run: code
+    call: factory.hat.avatar:idea
+    tools: [media_models, estimate_cost]
+
+  - id: script
+    gate: true
+    run: code
+    call: factory.hat.avatar:script
+
+  - id: scene_plan
+    gate: true
+    artifact: plates
+    run: code
+    call: factory.hat.avatar:scene_plan
+    tools: [image_gen]
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.avatar:assets
+    tools: [tts, align_words, video_gen]
+
+  - id: edit
+    run: code
+    call: factory.hat.avatar:edit
+
+  - id: compose
+    run: code
+    call: factory.hat.avatar:compose
+    tools: [final_render, qa_technical, thumbnails]
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.avatar:publish

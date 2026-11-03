@@ -191,7 +191,7 @@ yüz takibiyle kadraj, B-roll, ses zinciri.
 **İyi olduğu:** Yüzünü göstermeden "biri anlatıyor" hissi.
 **İyi olmadığı:** Duygusal/doğal oyunculuk isteyen sahneler.
 **İster:** Metin + sunucu görseli/avatarı. **Kapılar:** 2·3·4·5·8.
-**Durum:** Yeni; EL omnihuman / heygen-avatar4 / creatify.
+**Durum:** Hazır (t303). `factory/hat/avatar.py`: senaryo + sunucu (yüklenen portre `raw/avatar/`, kayıtlı fotoğraf ya da üretilen) → ses (TTS) → kelime zamanlaması → ses sunucunun flow'una yüklenir → creatify-aurora konuşan video → 4 kelimelik yakılmış altyazı, -14 LUFS. Avatar fiyatı öğrenilene kadar öneride saniye başına tavan (1500 kredi) ayrılır; guard onaydan fazlasını harcatmaz. Gerçek ücretli uçtan uca çalışma henüz yok.
 
 ### 6.10 Karakter animasyonu · `character`
 **Ne üretir:** Tekrar kullanılabilir çizgi karakterlerle bölümlü hikâyeler: karakter tasarımı, poz kütüphanesi,

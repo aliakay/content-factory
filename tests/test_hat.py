@@ -661,7 +661,7 @@ def test_api_refuses_what_the_gate_rules_forbid(api):
 def test_api_create_checks_line_and_brief(api, monkeypatch):
     hat_api, _, q = api
     with pytest.raises(ValueError, match="not ready"):
-        hat_api.post(None, "/api/hat/projects", {"line": "avatar", "brief": "a long enough brief"}, q)
+        hat_api.post(None, "/api/hat/projects", {"line": "podcast", "brief": "a long enough brief"}, q)
     with pytest.raises(ValueError, match="few words"):
         hat_api.post(None, "/api/hat/projects", {"line": "explainer", "brief": "x"}, q)
     monkeypatch.setattr(hat_api.accounts, "default_eleven", lambda uid: None, raising=False)
@@ -1042,3 +1042,72 @@ def test_cinematic_generates_shots_in_paid_steps_behind_gates(d, engine, monkeyp
     assert len([c for c in calls if c[0] == "video"]) == 3 and ("direct", 77, "geçişler daha yumuşak") in calls
     assert runner.approve(pid, "assets", q, d=d) == ("gate", "publish")
     assert P.read_artifact(pid, "publish", d)["caption"] == "c"
+
+
+def test_avatar_line_speaks_inside_the_approved_budget(d, monkeypatch):
+    from factory import credits, eleven, productions as PR, qa, thumbs
+    from factory.hat import runner, avatar as A
+    monkeypatch.setattr(A, "_con", lambda: None)
+    monkeypatch.setattr(credits, "rates", lambda: {"tts:eleven_v4": {"rate": 1}, "image:gpt-image-2": {"rate": 200}})
+    asks, calls = [], []
+    def ask(prompt):
+        asks.append(prompt)
+        lines = ["Merhaba, bugün yeni özelliği anlatıyorum.", "Üç adımda kurulum yapılıyor ve hepsi bu kadar."]
+        if "creator's note" in prompt:
+            lines = lines + ["Sorularını yorumlara yaz."]
+        return {"title": "Yeni özellik", "lines": lines, "presenter": "a woman in her thirties, studio",
+                "caption": "c", "hashtags": ["duyuru"]}, 0.2
+    monkeypatch.setattr(A, "_ask", ask)
+    def fake(name, ret):
+        def f(*a, **k):
+            calls.append((name, a, k))
+            return ret(a, k) if callable(ret) else ret
+        return f
+    def touch(n):
+        f = os.path.join(str(d), n); open(f, "wb").write(b"x"); return f
+    monkeypatch.setattr(eleven, "image", fake("image", lambda a, k: (touch("p.png"), 200.0, "flowP", "imgnode")))
+    monkeypatch.setattr(eleven, "tts", fake("tts", lambda a, k: (touch("v.mp3"), 90.0)))
+    monkeypatch.setattr(eleven, "upload", fake("upload", "audnode"))
+    monkeypatch.setattr(eleven, "avatar", fake("avatar", lambda a, k: (touch("av.mp4"), 3000.0)))
+    monkeypatch.setattr(PR, "align", lambda path, lines, lang="en": ([[0, 2], [2, 6]], 6.0, [("Merhaba", 0.0, 0.5), ("bugün", 0.5, 0.9)]))
+    monkeypatch.setattr(A, "_burn", lambda src, words, out, aspect="9:16", final=False: open(out, "wb").write(b"m") and out)
+    monkeypatch.setattr(qa, "technical", lambda path, expected=None: {"problems": []})
+    monkeypatch.setattr(thumbs, "make", lambda *a, **k: [])
+
+    pid = P.create("avatar", "Yeni özellik", brief="yeni özelliği anlatan sunucu", d=d)["id"]
+    q = Q(runner, d)
+    assert runner.advance(pid, q, d=d) == ("gate", "idea")
+    prop = P.read_artifact(pid, "proposal", d)
+    secs = prop["seconds"]
+    assert secs == round(13 / 2.3 + 1, 1)                                      # 13 Turkish words at 2.3 a second
+    assert prop["cost"]["unknown"] and prop["cost"]["credits"] == len(" ".join(prop["concepts"][0]["lines"])) + 200 + round(A.AVATAR_CEILING * secs)
+    assert any("(ceiling)" in x["label"] for x in prop["cost"]["lines"])
+    assert runner.approve(pid, "idea", q, d=d) == ("gate", "script")
+    budget = P.load(pid, d)["budget"]["credits"]
+    runner.feedback(pid, "script", "bir kapanış cümlesi ekle", q, d=d)
+    assert len(P.read_artifact(pid, "script", d)["lines"]) == 3 and not calls    # rewriting pays nothing
+    assert runner.approve(pid, "script", q, d=d) == ("gate", "scene_plan")
+    img = [c for c in calls if c[0] == "image"]
+    assert len(img) == 1 and img[0][1][2] == budget                             # the portrait inside the approval
+    assert P.read_artifact(pid, "plates", d)["presenter"] == {"flow": "flowP", "node": "imgnode", "source": "generate"}
+    assert runner.approve(pid, "scene_plan", q, d=d) == ("gate", "assets")
+    tts = next(c for c in calls if c[0] == "tts")
+    av = next(c for c in calls if c[0] == "avatar")
+    assert tts[2]["approved"] == budget - 200
+    assert av[1][1:4] == ("imgnode", "audnode", "flowP") and av[1][5] == budget - 200 - 90   # what is left after voice
+    assert next(c for c in calls if c[0] == "upload")[1][1] == "flowP"          # the voice joins the presenter's flow
+    a = P.read_artifact(pid, "assets", d)
+    assert a["avatar"]["credits"] == 3000 and a["preview"].endswith("renders/preview.mp4")
+    assert runner.approve(pid, "assets", q, d=d) == ("gate", "publish")
+    pub = P.read_artifact(pid, "publish", d)
+    assert pub["hashtags"] == ["#duyuru"] and "Yapay zekâ" in pub["notes"]
+    assert P.read_artifact(pid, "render", d)["qa"]["pass"]
+
+
+def test_avatar_portrait_must_be_an_upload(d, monkeypatch):
+    from factory.hat import avatar as A
+    pid = P.create("avatar", "Portre", brief="portreli sunucu", d=d, extra={"portrait": "data/users.json"})["id"]
+    with pytest.raises(P.GateError):
+        A._portrait(P.load(pid, d))
+    assert A._source(P.load(pid, d)) == "upload"
+    assert A._source({"presenter_asset": "x"}) == "saved" and A._source({}) == "generate"

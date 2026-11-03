@@ -1132,6 +1132,22 @@ class Handler(shorts.Handler):
         os.replace(part, dst)
         return self.json(200, {"ok": True, "file": os.path.relpath(dst, ROOT), "name": name})
 
+    def avatar_upload(self, n, name):
+        """The presenter portrait for the avatar line -> raw/avatar/ (kept as is)."""
+        ext = os.path.splitext(name)[1].lower()
+        if ext not in (".jpg", ".jpeg", ".png", ".webp") or not 0 < n <= 30 << 20:
+            self.rfile.read(min(n, 1 << 20))
+            return self.json(400, {"error": "JPG/PNG/WEBP, en fazla 30 MB"})
+        d = os.path.join(ROOT, "raw", "avatar")
+        os.makedirs(d, exist_ok=True)
+        safe = re.sub(r"[^\w-]", "_", os.path.splitext(name)[0])[:60]
+        dst = os.path.join(d, f"{safe}_{int(time.time())}{ext}")
+        data = self.rfile.read(n)
+        if len(data) != n:
+            return self.json(400, {"error": "yükleme yarıda kaldı"})
+        open(dst, "wb").write(data)
+        return self.json(200, {"ok": True, "file": os.path.relpath(dst, ROOT), "name": name})
+
     def upload(self):
         """A reference video sent as the raw request body (phone browser fetch with the File as body)."""
         n = int(self.headers.get("Content-Length") or 0)
@@ -1141,6 +1157,8 @@ class Handler(shorts.Handler):
             return self.style_upload(n, name)
         if self.headers.get("X-Talk") == "1":
             return self.talk_upload(n, name)
+        if self.headers.get("X-Avatar") == "1":
+            return self.avatar_upload(n, name)
         if not name.lower().endswith((".mp4", ".mov", ".m4v") + refs.REF_PHOTO_EXT) or not 0 < n <= MAX_UPLOAD:
             self.rfile.read(min(n, 1 << 20))
             return self.json(400, {"error": "MP4/MOV ya da JPG/PNG/WEBP fotoğraf, en fazla 600 MB"})
