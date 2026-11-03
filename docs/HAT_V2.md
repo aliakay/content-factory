@@ -214,7 +214,7 @@ ya da yalnız müzikli.
 **İyi olduğu:** TR videoyu EN/DE kanallarına taşımak (ve tersi).
 **İyi olmadığı:** Dudak senkronu kritik, yüzü yakın planlı videolar (ek lip-sync adımı gerekir).
 **İster:** Bitmiş video + hedef diller. **Kapılar:** 3 (çeviri) · 5 · 8.
-**Durum:** Yeni; EL dubbing_v2 + whisper.
+**Durum:** Hazır (t304). `factory/hat/localize.py`: whisper transkript → zamanlı satırlar → zaman dilimine sığan çeviri (kapı) → tek TTS + kelime zamanlaması → her satır kaynaktaki yerine (en fazla 1.25× hızlandırma) → isteğe bağlı sync-lipsync-v3 (açıklamada "dudak senkronu") → hedef dilde yakılmış altyazı. Orijinal ses tamamen değişir (müzik ayrıştırma yok). Dudak senkronu fiyatı öğrenilene kadar saniye başına tavan. Bir seferde tek hedef dil. Gerçek ücretli çalışma henüz yok.
 
 ### 6.13 Ekran demosu · `screen_demo`
 **Ne üretir:** Uygulama/web gezintisi ya da kod anlatımından cilalı demo: yakınlaştırmalar, işaretler, altyazı.

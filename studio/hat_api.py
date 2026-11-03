@@ -176,6 +176,8 @@ def _post(con, path, b, queue):
             if not re.fullmatch(r"raw/avatar/[\w.-]+", src) or not os.path.isfile(os.path.join(ROOT, src)):
                 raise ValueError({"tr": "Portre yüklenemedi; tekrar dene.", "en": "The portrait did not upload; try again."}[lang()])
             extra["portrait"] = src
+        if "source_lang" in (line.get("inputs") or []):
+            extra["source_lang"] = b.get("source_lang") if b.get("source_lang") in VIDEO_LANGS else ("en" if vl == "tr" else "tr")
         if "series" in (line.get("inputs") or []):
             try:
                 extra["series"] = {"id": int(b.get("series")), "episode": int(b.get("episode"))}

@@ -1111,3 +1111,88 @@ def test_avatar_portrait_must_be_an_upload(d, monkeypatch):
         A._portrait(P.load(pid, d))
     assert A._source(P.load(pid, d)) == "upload"
     assert A._source({"presenter_asset": "x"}) == "saved" and A._source({}) == "generate"
+
+
+def test_localize_segments_place_and_retime():
+    from factory.hat import localize as L
+    words = [["Merhaba", 0.0, 0.4, 1], ["dostlar.", 0.5, 0.9, 1], ["Bugün", 2.0, 2.3, 1], ["göl", 2.4, 2.6, 1], ["var", 2.7, 3.0, 1]]
+    segs = L.segments(words, 5.0)
+    assert [(x["n"], x["start"], x["slot"], x["text"]) for x in segs] == [(1, 0.0, 2.0, "Merhaba dostlar."), (2, 2.0, 3.0, "Bugün göl var")]
+    places = L.placements(segs, [[0.0, 2.5], [2.6, 4.0]], 4.0)
+    assert places[0]["tempo"] == 1.25 and places[1]["tempo"] == 1.0         # too long -> sped up, never above 1.25
+    timed = L.retime([("Hello", 0.0, 1.0), ("lake", 2.6, 3.0)], places)
+    assert timed == [("Hello", 0.0, 0.8), ("lake", 2.0, 2.4)]
+
+
+def test_localize_dub_track_is_as_long_as_the_video(tmp_path):
+    import subprocess
+    from factory.config import FFMPEG
+    from factory.audiofx import decode
+    from factory.hat import localize as L
+    voice = str(tmp_path / "v.wav")
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", "sine=d=3", voice], check=True)
+    out = L.dub_track(voice, [{"n": 1, "at": 0.5, "from": 0, "to": 1.5, "tempo": 1.0},
+                              {"n": 2, "at": 3.0, "from": 1.5, "to": 3.0, "tempo": 1.2}], 6.0, str(tmp_path / "d.wav"))
+    import numpy as np
+    a = decode(out)
+    on = np.nonzero(np.abs(a) > 1e-3)[0]
+    assert abs(len(a) / 16000 - 6.0) < 0.05 and abs(on[0] / 16000 - 0.5) < 0.02    # full length, line 1 at 0.5 s
+
+
+def test_localize_dubs_inside_the_approved_budget(d, monkeypatch, tmp_path):
+    from factory import credits, eleven, productions as PR, qa, thumbs
+    from factory.hat import runner, localize as L
+    monkeypatch.setattr(L, "_con", lambda: None)
+    monkeypatch.setattr(L, "_source", lambda p: "/src.mp4")
+    monkeypatch.setattr(L, "_duration", lambda path: 5.0)
+    monkeypatch.setattr(L, "_transcribe", lambda path, lang: [["Merhaba", 0.0, 0.4, 1], ["dostlar.", 0.5, 0.9, 1],
+                                                               ["Bugün", 2.0, 2.3, 1], ["göl", 2.4, 2.6, 1], ["var", 2.7, 3.0, 1]])
+    monkeypatch.setattr(credits, "rates", lambda: {"tts:eleven_v4": {"rate": 1}})
+    asks, calls = [], []
+    def ask(prompt):
+        asks.append(prompt)
+        return {"lines": ["Hello friends.", "Today there is a lake" + (" here" if "note" in prompt else "")],
+                "title": "Lake", "caption": "c", "hashtags": ["lake"]}, 0.1
+    monkeypatch.setattr(L, "_ask", ask)
+    def touch(n):
+        f = str(tmp_path / n); open(f, "wb").write(b"x"); return f
+    monkeypatch.setattr(eleven, "tts", lambda con, text, voice, model, approved=None, account=None: calls.append(("tts", text, approved)) or (touch("v.mp3"), 40.0))
+    monkeypatch.setattr(eleven, "video", lambda *a, **k: calls.append(("video", a, k)) or (touch("l.mp4"), 900.0, "f", "n"))
+    monkeypatch.setattr(eleven, "new_flow", lambda acc, name="": "flowD")
+    monkeypatch.setattr(eleven, "upload", lambda path, flow, acc=None: calls.append(("upload", path, flow)) or f"node-{os.path.basename(path)}")
+    monkeypatch.setattr(PR, "align", lambda path, lines, lang="en": ([[0.0, 1.0], [1.1, 2.5]], 2.5, [("Hello", 0.0, 0.5), ("lake", 2.0, 2.4)]))
+    monkeypatch.setattr(L, "dub_track", lambda voice, places, dur, out: open(out, "wb").write(b"a") and out)
+    monkeypatch.setattr(L, "_mux", lambda video, audio, words, out, aspect="9:16", final=False: open(out, "wb").write(b"m") and out)
+    monkeypatch.setattr(qa, "technical", lambda path, expected=None: {"problems": []})
+    monkeypatch.setattr(thumbs, "make", lambda *a, **k: [])
+
+    pid = P.create("localize", "Göl", brief="İngilizce dublaj, dudak senkronu da olsun", video_lang="en", d=d,
+                   extra={"source": "raw/talk/x.mp4", "source_lang": "tr"})["id"]
+    q = Q(runner, d)
+    assert runner.advance(pid, q, d=d) == ("gate", "idea")
+    prop = P.read_artifact(pid, "proposal", d)
+    assert prop["from"] == "tr" and prop["to"] == "en" and prop["lipsync"] and len(prop["segments"]) == 2
+    assert prop["cost"]["credits"] == round(len("Merhaba dostlar.Bugün göl var") * 1.15) + L.LIPSYNC_CEILING * 5
+    assert runner.approve(pid, "idea", q, d=d) == ("gate", "script")
+    budget = P.load(pid, d)["budget"]["credits"]
+    assert "at most 30 characters" in asks[0] and not calls                  # 2 s slot at 15 English chars a second; nothing paid
+    runner.feedback(pid, "script", "add a note", q, d=d)
+    assert P.read_artifact(pid, "script", d)["lines"][1].endswith("here")
+    assert runner.approve(pid, "script", q, d=d) == ("gate", "assets")
+    assert calls[0] == ("tts", "Hello friends. Today there is a lake here", budget)
+    assert [c[2] for c in calls if c[0] == "upload"] == ["flowD", "flowD"]      # video and dub on one flow
+    v = next(c for c in calls if c[0] == "video")
+    assert v[1][1].startswith("Re-lip-sync") and v[1][2] == budget - 40 and v[2]["model"] == L.LIPSYNC_MODEL
+    assert set(v[2]["inputs"]) == {"node-src.mp4", "node-dub.wav"}
+    a = P.read_artifact(pid, "assets", d)
+    assert a["lipsync"]["credits"] == 900 and a["picture"].endswith("renders/lipsync.mp4")
+    assert runner.approve(pid, "assets", q, d=d) == ("gate", "publish")
+    assert P.read_artifact(pid, "publish", d)["hashtags"] == ["#lake"]
+
+
+def test_localize_refuses_the_same_language(d, monkeypatch):
+    from factory.hat import localize as L
+    monkeypatch.setattr(L, "_source", lambda p: "/src.mp4")
+    pid = P.create("localize", "Aynı", brief="aynı dil", video_lang="tr", d=d, extra={"source": "raw/talk/x.mp4", "source_lang": "tr"})["id"]
+    with pytest.raises(P.GateError):
+        L.idea(pid, None, d=d)

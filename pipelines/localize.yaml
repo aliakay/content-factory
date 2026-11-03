@@ -1,8 +1,8 @@
 id: localize
 order: 12
-status: planned
+status: ready
 category: transform
-inputs: [video]
+inputs: [video, source_lang]
 duration: [10, 600]
 name: {tr: Yerelleştirme & dublaj, en: Localization & dub}
 tagline:
@@ -18,14 +18,36 @@ not_for:
   tr: ["Yakın planda dudak senkronu kritik videolar (ek adım gerekir)"]
   en: ["Close-up videos where lip-sync is critical (needs an extra step)"]
 needs:
-  tr: "Bitmiş video + hedef diller."
-  en: "A finished video plus target languages."
+  tr: "Bitmiş video + kaynak dil; video dili hedef dildir. Dudak senkronu için açıklamaya \"dudak senkronu\" yaz."
+  en: "A finished video plus its language; the video language is the target. For lip-sync, write \"lip-sync\" in the brief."
 cost:
   tr: "Dublaj dakika başına ElevenLabs kredisi."
   en: "Dubbing costs ElevenLabs credits per minute."
 stages:
-  - {id: idea, gate: true, run: planned}
-  - {id: script, gate: true, run: planned, name: {tr: Çeviri, en: Translation}}
-  - {id: assets, gate: true, run: planned}
-  - {id: compose, run: planned}
-  - {id: publish, gate: true, run: planned}
+  - id: idea
+    gate: true
+    run: code
+    call: factory.hat.localize:idea
+    tools: [estimate_cost]
+
+  - id: script
+    gate: true
+    name: {tr: Çeviri, en: Translation}
+    run: code
+    call: factory.hat.localize:script
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.localize:assets
+    tools: [tts, align_words, video_gen]
+
+  - id: compose
+    run: code
+    call: factory.hat.localize:compose
+    tools: [final_render, qa_technical, thumbnails]
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.localize:publish
