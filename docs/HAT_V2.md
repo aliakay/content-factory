@@ -257,6 +257,17 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
   öneri kapıları sunar, düzenleme aşaması post'unu alır, tasarımcı onu marka renkleri ve karakterlerle birlikte stil
   kitabı olarak görür. Yanıtlar senin kelimelerin, model yeniden yazmaz. Örnekten sonra bir değişiklik stili taslağa
   döndürür; yeni kare ve onay gerekir. Dosyalar `data/own_styles/<ad>/` (git dışı).
+- **Kanıt filmleri modu (t503):** araştıran hatlarda (konu anlatımı, hareketli grafik) üretim formunda "Kanıt modu"
+  kutusu; proje `proof: true` taşır (`factory/proof.py`). Kaynaklı rakam defteri = araştırmanın kaynak gösteren
+  `data_points`'i + senaryoda `verified` ve http kaynaklı `claims`. Her kapıda çıktıdaki rakamlar rakamla ("1.250",
+  "%42", "3,4 milyar", "2.5bn") ya da yazıyla ("kırk iki", "yüzde on beş", "bir buçuk milyon", "three point four
+  billion") okunur. **Senaryo:** her rakam defterde bir rakamla eşleşir (gösterilen yuvarlama serbest: "1,2 milyon"
+  1 234 000 ile eşleşir). **Sahne planı:** ekrandaki her rakam kaynaklıdır, senaryoda da söylenir; sahne
+  `sources: [{url, label}]` ile kaynağını adlandırır ve etiket sahnede görünür ("Kaynak: TÜİK, 2024"; bu satırdaki
+  yıl rakam sayılmaz). **Yayın:** açıklamadaki rakamlar kaynaklı. Yalın bir yıl araştırmada geçiyorsa geçer;
+  "bir", "on", "altı", "yüz", "bin" gibi gündelik kelimeler tek başına rakam sayılmaz. Kapı kartında rakam rakam
+  kanıt raporu; eşleşmeyen varken "Devam" kapalıdır ve onay sunucuda da reddedilir (`runner.approve` →
+  `proof.guard`). Ajan görevine bağlayıcı kanıt bölümü eklenir; `proof_check` aracıyla teslimden önce kendini denetler.
 - Menü sadeleşir: Stüdyo · Üretimler · Keşif · Takip · Ayarlar (kanallar, sesler, hesaplar, bütçe, stiller tek yerde).
 
 ## 8. Fazlar

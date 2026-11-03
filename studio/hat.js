@@ -32,6 +32,8 @@ const TX = {
     sev_critical: "Kritik", sev_suggestion: "Öneri", sev_nitpick: "Ayrıntı", rounds: "{0} tur",
     insight: "Ana fikir", misconception: "Yaygın yanlış", data: "Veriler", sources: "Kaynaklar", angles: "Açılar",
     concepts: "Üç yaklaşım", chosen: "Seçilen", look: "Görünüm", music: "Müzik", yes: "Var", no: "Yok", total: "Toplam",
+    proof_mode: "Kanıt modu", proof_hint: "Haber ve veri videoları için: ekrandaki ve senaryodaki her rakam kaynaklı bir veriyle eşleşmeli, kaynağı sahnede yazmalı. Eşleşmeyen rakam kapıyı geçemez.",
+    proof_t: "Kanıt kontrolü", proof_ok: "Her rakam kaynaklı", proof_bad: "{0} rakam kaynaksız", proof_none: "Bu adımda rakam yok", proof_block: "Kaynaksız rakamlar düzelmeden devam edilemez. Notla düzelttir.", proof_src: "kaynak",
     style_lib: "Film stili", style_pick: "Bu stili kullan", style_now: "Seçili stil", style_avoid: "Kaçın",
     style_type: "Yazı", style_motion: "Hareket", style_sound: "Ses", style_set: "Stil seçildi", render_time: "Render süresi", preview_t: "önizleme", final_t: "final", structure: "Yapı", key_frame: "Ana kare",
     script: "Senaryo", claims: "İddialar", verified: "doğrulandı", unverified: "doğrulanmadı", caption: "Paylaşım metni",
@@ -71,6 +73,8 @@ const TX = {
     sev_critical: "Critical", sev_suggestion: "Suggestion", sev_nitpick: "Nitpick", rounds: "{0} rounds",
     insight: "Insight", misconception: "Common misconception", data: "Data points", sources: "Sources", angles: "Angles",
     concepts: "Three approaches", chosen: "Chosen", look: "Look", music: "Music", yes: "Yes", no: "No", total: "Total",
+    proof_mode: "Proof mode", proof_hint: "For news and data videos: every number on screen and in the script must match a sourced figure, and its source is shown in the scene. An unmatched number cannot pass a gate.",
+    proof_t: "Proof check", proof_ok: "Every number is sourced", proof_bad: "{0} number(s) without a source", proof_none: "No numbers at this step", proof_block: "You cannot continue until the unsourced numbers are fixed. Ask for a fix with a note.", proof_src: "source",
     style_lib: "Film style", style_pick: "Use this style", style_now: "Chosen style", style_avoid: "Avoid",
     style_type: "Type", style_motion: "Motion", style_sound: "Sound", style_set: "Style chosen", render_time: "Render time", preview_t: "preview", final_t: "final", structure: "Structure", key_frame: "Key frame",
     script: "Script", claims: "Claims", verified: "verified", unverified: "not verified", caption: "Post caption",
@@ -175,6 +179,7 @@ function startForm(l) {
       <label class="field"><span>${esc(t("series"))}</span><select id="hlSeries">${HS.series.map((x) => `<option value="${x.id}" data-next="${Math.min(x.made + 1, x.episodes)}">${esc(x.title)} (${x.made}/${x.episodes})</option>`).join("")}</select></label>
       <label class="field"><span>${esc(t("episode"))}</span><input id="hlEp" type="number" min="1" value="${Math.min(HS.series[0].made + 1, HS.series[0].episodes)}" style="width:90px"></label></div>`
       : `<div class="note mt8 small">${esc(t("no_series"))} <a href="#/seriler">${esc(t("to_series"))}</a></div>`) : ""}
+    ${l.proof ? `<label class="mt12" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="hlProof" style="width:auto;margin-top:3px"><span><b>${esc(t("proof_mode"))}</b><div class="tiny faint">${esc(t("proof_hint"))}</div></span></label>` : ""}
     ${l.id === "travel_vlog" ? `<label class="field mt8"><span>${esc(t("style"))}</span><select id="hlFormat">${["cinematic_calm", "story_vo", "unreal_places", "travel_facts", "long_compilation"].map((f) => `<option value="${f}">${esc(t("fmt_" + f))}</option>`).join("")}</select></label>` : ""}
     <div class="row mt12"><button class="btn accent" data-act="hatCreate" data-id="${esc(l.id)}">${esc(t("create"))}</button>
       <button class="btn ghost" data-act="hatClose">${esc(t("cancel"))}</button></div>
@@ -205,7 +210,7 @@ ACT.hatCreate = async (el) => {
     }
     const r = await post("/api/hat/projects", { portrait, url: $("#hlUrl") ? $("#hlUrl").value.trim() : null, source_lang: $("#hlSrcLang") ? $("#hlSrcLang").value : null, line: el.dataset.id, brief: $("#hlBrief").value, title: $("#hlTitle").value,
       video_lang: $("#hlVlang").value, aspect: $("#hlAspect").value, channel: $("#hlChan").value || null, source,
-      format: $("#hlFormat") ? $("#hlFormat").value : null,
+      format: $("#hlFormat") ? $("#hlFormat").value : null, proof: $("#hlProof") ? $("#hlProof").checked : false,
       series: $("#hlSeries") ? $("#hlSeries").value : null, episode: $("#hlEp") ? $("#hlEp").value : null });
     HS.open = null; S.drafts = {}; toast(t("started"));
     location.hash = "#/u/" + r.id;
@@ -345,6 +350,13 @@ function outputHtml(s, f) {
   if (fn && s.style_pick) return fn(o, s, f) + styleLib(s);
   return fn ? fn(o, s, f) : `<pre class="log">${esc(JSON.stringify(o, null, 1).slice(0, 4000))}</pre>`;
 }
+function proofHtml(r) {
+  if (!r) return "";
+  const head = !r.checked ? t("proof_none") : r.ok ? t("proof_ok") : t("proof_bad", r.unmatched);
+  return `<div class="card hl-proof"><h3>${esc(t("proof_t"))} <span class="badge ${r.ok ? "ok" : "bad"}">${esc(head)}</span></h3>
+    ${(r.problems || []).map((x) => `<div class="hl-find sev-critical mt8"><div class="small">${esc(x)}</div></div>`).join("")}
+    ${(r.items || []).filter((x) => x.ok).slice(0, 30).map((x) => `<div class="tiny muted mt8">✓ ${esc(x.where)}: <b>${esc(x.text)}</b> · ${esc(t("proof_src"))} ${esc(x.source || "")}</div>`).join("")}</div>`;
+}
 function reviewHtml(r) {
   if (!r) return "";
   const v = r.verdict === "pass" ? "ok" : r.verdict === "fix" ? "bad" : "";
@@ -361,7 +373,8 @@ function decisionHtml(s, f) {
   if (s.status === "running") return `<div class="card hl-dec"><h3><span class="spin"></span> ${esc(t("working"))}</h3><div class="small muted">${esc(s.says)}</div></div>`;
   if (s.status === "awaiting_approval") return `<div class="card hl-dec gate"><h3>🔒 ${esc(t("decision"))}</h3>
       ${s.summary ? `<div class="small">${esc(s.summary)}</div>` : ""}${s.gate_says ? `<div class="tiny muted mt8">${esc(s.gate_says)}</div>` : ""}
-      <button class="btn accent block mt12" data-act="hatAct" data-a="approve" data-stage="${id}">${ICON.check}${esc(t("continue"))}</button>
+      ${s.proof && !s.proof.ok ? `<div class="note bad mt12 small">${esc(t("proof_block"))}</div>` : ""}
+      <button class="btn accent block mt12" data-act="hatAct" data-a="approve" data-stage="${id}" ${s.proof && !s.proof.ok ? "disabled" : ""}>${ICON.check}${esc(t("continue"))}</button>
       <label class="field mt16"><span>${esc(t("feedback"))} · <span class="faint">${esc(t("revisions", s.revisions || 0))}</span></span>
         <textarea id="hlNote" data-keep="hl-note-${id}" placeholder="${esc(t("fb_ph"))}"></textarea></label>
       <button class="btn block mt8" data-act="hatAct" data-a="feedback" data-stage="${id}" ${(s.revisions || 0) >= 3 ? "disabled" : ""}>${esc(t("redo"))}</button></div>`;
@@ -400,15 +413,15 @@ async function viewProject(pid) {
   const sel = HS.sel[pid] && f.stages.some((x) => x.id === HS.sel[pid]) ? HS.sel[pid] : (f.current || f.stages[f.stages.length - 1].id);
   const s = f.stages.find((x) => x.id === sel);
   const html = `<div class="row"><a class="btn ghost sm" href="#/uretimler">${ICON.back}${esc(t("back_list"))}</a><span class="sp"></span>
-      <span class="badge">${esc(f.line.name)}</span><span class="badge">${esc((p.video_lang || "").toUpperCase())}</span><span class="badge">${esc(p.aspect || "")}</span>${stateBadge(f.state)}</div>
+      <span class="badge">${esc(f.line.name)}</span><span class="badge">${esc((p.video_lang || "").toUpperCase())}</span><span class="badge">${esc(p.aspect || "")}</span>${p.proof ? `<span class="badge ok">${esc(t("proof_mode"))}</span>` : ""}${stateBadge(f.state)}</div>
     <h1 class="mt12">${esc(p.title)}</h1>${p.brief ? `<div class="lead hl-brief">${esc(p.brief)}</div>` : ""}
     ${flowRail(f, sel)}
     <div class="split mt16"><div class="col" style="gap:14px"><div class="card"><div class="row"><h2 style="margin:0">${esc(s.name)}</h2><span class="sp"></span>
         <span class="badge hl-sb st-${esc(s.status)}">${esc(t("st_" + s.status))}</span></div><div class="small muted mt8">${esc(s.says)}</div>
         ${s.note ? `<div class="note mt12 small"><b>${esc(t("feedback"))}:</b> ${esc(s.note)}</div>` : ""}<div class="mt16">${outputHtml(s, f)}</div></div></div>
-      <div class="col sticky" style="gap:14px">${decisionHtml(s, f)}${reviewHtml(s.review)}${eventsHtml(f)}</div></div>`;
+      <div class="col sticky" style="gap:14px">${decisionHtml(s, f)}${proofHtml(s.proof)}${reviewHtml(s.review)}${eventsHtml(f)}</div></div>`;
   const busy = f.state === "busy" || f.stages.some((x) => x.status === "running");
-  paint(html, JSON.stringify([L(), sel, f.state, f.current, f.stages.map((x) => [x.status, x.revisions]), f.events.length]));
+  paint(html, JSON.stringify([L(), sel, f.state, f.current, f.stages.map((x) => [x.status, x.revisions, x.proof ? x.proof.unmatched : null]), f.events.length]));
   return { poll: busy ? 4000 : 0 };
 }
 ROUTE_RX.push([/^#\/u\/([\w-]+)/, viewProject]);

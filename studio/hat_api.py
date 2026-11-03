@@ -8,7 +8,7 @@ POST /api/hat/ownstyles     {name, base}                      step 1: a draft fr
 POST /api/hat/ownstyle/<id> {action: answer|sample|approve|delete, q?, value?}   steps 2-5
 GET  /api/hat/project/<id>             the flow view of one project: stages, their outputs, stills, live events
 POST /api/hat/lang          {lang}     the user's interface language (tr | en)
-POST /api/hat/projects      {line, brief, title?, video_lang, aspect, channel?}   create and start
+POST /api/hat/projects      {line, brief, title?, video_lang, aspect, channel?, proof?}   create and start
 POST /api/hat/project/<id>  {action: approve|feedback|back|retry|advance, stage, note?}  a gate action
 """
 import glob, os, re
@@ -36,12 +36,14 @@ def _media(path):
 
 
 def lines():
+    from factory import proof
     out = []
     for m in manifest.all_lines().values():
         v = manifest.localize(m, lang())
         out.append({k: v[k] for k in ("id", "order", "status", "category", "inputs", "duration", "name", "tagline",
                                       "makes", "good_for", "not_for", "needs", "cost")} |
-                   {"stages": [{k: s[k] for k in ("id", "name", "says", "gate", "run")} for s in v["stages"]]})
+                   {"stages": [{k: s[k] for k in ("id", "name", "says", "gate", "run")} for s in v["stages"]],
+                    "proof": proof.supports(m)})
     return out
 
 
@@ -134,6 +136,13 @@ def project(pid):
             st = styles.get(look[6:]) if look.startswith("style.") else None
             if st:
                 s["style"] = styles.card(st, lang())
+    from factory import proof
+    if proof.on(pid):                 # proof mode: each checked gate carries its number-by-number report
+        for s in f["stages"]:
+            if s["status"] not in ("pending", "running") and s.get("output") is not None:
+                r = proof.check(pid, s["id"])
+                if r:
+                    s["proof"] = r | {"problems": proof.problems(r, lang())}
     f["events"] = P.tail(pid, n=40)
     f["ui_lang"] = lang()
     if _archived(pid):
@@ -217,6 +226,9 @@ def _post(con, path, b, queue):
                 extra["series"] = {"id": int(b.get("series")), "episode": int(b.get("episode"))}
             except (TypeError, ValueError):
                 raise ValueError({"tr": "Bir seri ve bölüm seç.", "en": "Pick a series and an episode."}[lang()]) from None
+        from factory import proof
+        if b.get("proof") and proof.supports(line):      # proof film: every number must match a source
+            extra["proof"] = True
         from factory.hat import footage
         if b.get("format") in footage.FORMATS:
             extra["format"] = b["format"]

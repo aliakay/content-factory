@@ -245,6 +245,17 @@ def layout_lint(ctx, times=None, plan=None):
     return {"findings": found, "text": layoutlint.as_text(found), "js_errors": errs, "stills": paths}
 
 
+@tool("proof_check", "qa", "Proof mode: find every number in this stage's output (or in a draft `data`) and say which "
+      "match a sourced figure, and for scenes whether the script says it and the scene names and shows its source.",
+      schema={"type": "object", "properties": {"data": {"type": "object"}}})
+def proof_check(ctx, data=None):
+    from .. import proof
+    r = proof.check(ctx.pid, ctx.stage, ctx.d, data=data)
+    if r is None:
+        return {"proof_mode": False, "note": "proof mode is off for this project; nothing to check"}
+    return r | {"problems": proof.problems(r, "en")}
+
+
 @tool("contact_sheet", "qa", "Tile several stills into one labelled picture, to see the whole piece at a glance.",
       schema={"type": "object", "required": ["stills"], "properties": {
           "stills": {"type": "array", "minItems": 1, "items": {"type": "string"}},

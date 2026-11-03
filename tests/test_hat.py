@@ -1809,3 +1809,83 @@ def test_own_style_from_a_blank_page_through_the_api(own, monkeypatch):
     assert any(c["id"] == sid for c in hat_api.get(None, "/api/hat/styles", {}))
     assert post(f"/api/hat/ownstyle/{sid}", action="delete") == {"deleted": sid}
     assert hat_api.get(None, "/api/hat/ownstyles", {}) == []
+
+
+# ---------------------------------------------------------------- proof films (t503)
+
+def test_proof_numbers_are_read_in_digits_and_words():
+    from factory import proof as X
+    vals = lambda t, l="tr": [(n["value"], n["percent"]) for n in X.numbers(t, l)]
+    assert vals("1.250 kişi, %42'si kadın; 3,4 milyar lira") == [(1250, False), (42, True), (3.4e9, False)]
+    assert vals("kırk iki bin beş yüz kişi, yüzde on beşi") == [(42500, False), (15, True)]
+    assert vals("bir gün on dakika altında kaldı, yüz yüze, otobüse bin") == []    # everyday words are not figures
+    assert vals("forty-two percent of 2.5bn, three point four billion", "en") == [(2.5e9, False), (42, True), (3.4e9, False)]
+    assert vals("1,234,567 users", "en") == [(1234567, False)] and vals("1,5 milyon") == [(1.5e6, False)]
+    assert X.visible_text("<style>.a{top:40px}</style><div data-x='9'>Kaynak: <b>TÜİK</b></div><script>x=3</script>") \
+        == "Kaynak: TÜİK"
+
+
+def _proof_project(d, proof=True):
+    pid = P.create("explainer", "Konut", d=d, extra={"proof": proof, "ui_lang": "en"})["id"]
+    run(pid, "research", d, {"insight": "Housing", "sources": [{"url": "https://data.tuik.gov.tr/x", "title": "TÜİK"}],
+                             "data_points": [{"claim": "Sales in 2024", "value": "1.478.025 houses",
+                                              "source": "https://data.tuik.gov.tr/x"},
+                                             {"claim": "Foreign buyers share", "value": "1.6%", "source": ""}]})
+    run(pid, "proposal", d, {"concepts": [], "chosen": "a", "look": "x", "cost": {"credits": 0, "lines": []}})
+    P.approve(pid, "research", d=d) if P.checkpoint(pid, "research", d)["status"] == "awaiting_approval" else None
+    P.approve(pid, "proposal", d=d)
+    return pid
+
+
+def test_proof_mode_blocks_a_gate_until_every_number_has_a_source(d):
+    from factory import proof as X
+    from factory.hat import runner
+    pid = _proof_project(d)
+    run(pid, "script", d, {"title": "t", "hook": "h", "claims": [], "lines": [
+        "2024'te bir buçuk milyon değil, tam 1,48 milyon konut satıldı.", "Yabancıların payı yüzde 1,6."]})
+    r = X.check(pid, "script", d)
+    assert [x["text"] for x in r["items"]] == ["2024", "1,48 milyon", "bir buçuk milyon", "yüzde 1,6"]
+    assert r["unmatched"] == 1 and r["items"][3]["problem"] == "no_source"      # the 1.6% figure names no source
+    with pytest.raises(P.GateError, match="1 number"):
+        runner.approve(pid, "script", lambda *a: None, d=d)
+    assert P.checkpoint(pid, "script", d)["status"] == "awaiting_approval"
+    # a verified claim with its source makes the number pass; the creator approves it themselves
+    art = P.read_artifact(pid, "script", d)
+    art["claims"] = [{"text": "Yabancı payı %1,6", "verified": True, "source": "https://data.tuik.gov.tr/y"}]
+    P.write_artifact(pid, "script", art, d)
+    assert X.check(pid, "script", d)["ok"]
+    runner.approve(pid, "script", lambda *a: None, by="ali", d=d)
+    assert P.checkpoint(pid, "script", d)["status"] == "approved"
+
+    # scenes: the number must be said in the script, and the scene must name and show its source
+    scene = {"id": "s1", "lines": [0, 1], "html": "<div class='big'>1,48 milyon</div><div>%1,6</div><div>%9</div>"}
+    P.finish(pid, "scene_plan", {"concept": "c", "palette": {}, "scenes": [scene]}, d=d)   # approve queued it
+    probs = {x["text"]: x["problem"] for x in X.check(pid, "scene_plan", d)["items"] if not x["ok"]}
+    assert probs == {"1,48 milyon": "source_not_named", "%1,6": "source_not_named", "%9": "no_source"}
+    scene["sources"] = [{"url": "https://data.tuik.gov.tr/x", "label": "TÜİK, 2024"},
+                        {"url": "https://data.tuik.gov.tr/y", "label": "TÜİK"}]
+    scene["html"] = "<div>1,48 milyon</div><div>%1,6</div><small>Kaynak: TÜİK, 2024</small>"
+    P.write_artifact(pid, "scene_plan", {"concept": "c", "palette": {}, "scenes": [scene]}, d)
+    assert X.check(pid, "scene_plan", d)["ok"]                 # the year in the source line is not a figure
+    scene["html"] = "<div>1,48 milyon</div><div>%1,6</div>"     # named but not shown
+    assert X.check(pid, "scene_plan", d, data={"scenes": [scene]})["items"][0]["problem"] == "source_not_shown"
+
+
+def test_proof_mode_is_off_by_default_and_reaches_agent_and_board(d, monkeypatch):
+    from factory import proof as X
+    from factory.hat import agent, manifest, tools as T
+    off = _proof_project(d, proof=False)
+    run(off, "script", d, {"title": "t", "hook": "h", "claims": [], "lines": ["%99 diyorum", "kaynaksız"]})
+    assert X.check(off, "script", d) is None and X.guard(off, "script", d) is None
+    assert not X.supports(manifest.get("talking_head")) and X.supports(manifest.get("animation"))
+    pid = _proof_project(d)
+    s = manifest.stage(manifest.get("explainer"), "scene_plan")
+    assert "Proof mode (binding)" in agent.task(pid, s, d=d) and "Proof mode" not in agent.task(off, s, d=d)
+    assert "proof_check" in s["tools"] and "proof_check" in T.TOOLS
+    from studio import hat_api
+    monkeypatch.setattr(P, "DIR", d)
+    monkeypatch.setattr(hat_api, "lang", lambda: "tr")
+    run(pid, "script", d, {"title": "t", "hook": "h", "claims": [], "lines": ["%99 diyorum", "1.478.025 konut"]})
+    st = next(x for x in hat_api.project(pid)["stages"] if x["id"] == "script")
+    assert st["proof"]["unmatched"] == 1 and "kaynaklı bir rakamla eşleşmiyor" in st["proof"]["problems"][0]
+    assert next(l for l in hat_api.lines() if l["id"] == "explainer")["proof"]

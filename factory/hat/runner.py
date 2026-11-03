@@ -33,6 +33,8 @@ def advance(pid, queue, by=None, d=None):
 
 
 def approve(pid, sid, queue, by=None, note=None, d=None):
+    from .. import proof
+    proof.guard(pid, sid, d)          # proof mode: a number without its source cannot pass the gate
     P.approve(pid, sid, by=by, note=note, d=d)
     p = P.load(pid, d)       # the approved proposal (whatever the stage is called) fixes the budget every
     if manifest.stage(manifest.get(p["line"]), sid)["artifact"] == "proposal":   # credit-spending step stays inside
