@@ -112,3 +112,11 @@ a.hl-style-t{color:inherit;text-decoration:none;display:block}
 .hl-se-seg{display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0;padding:0 8px;border-radius:8px;
   background:var(--bg2,rgba(255,255,255,.04));border:1px solid var(--line2);cursor:pointer;overflow:hidden;white-space:nowrap;font-size:12px}
 .hl-se-seg.on{border-color:var(--ch);background:color-mix(in srgb,var(--ch) 14%,transparent)}
+
+/* platform delivery (t506) */
+.hl-dv { border-top: 1px solid var(--line); padding-top: 10px; }
+.hl-dv-prev { width: 100%; border-radius: 8px; display: block; }
+.hl-dv .badge.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+.hl-dv .badge.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
+.hl-dv .badge.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
+.mt4{margin-top:4px}

@@ -413,3 +413,71 @@ def video_gen_tool(ctx, prompt, seconds, model=None, audio=False):
     path, cost = eleven.generate(E._con(), "video", m["id"], prompt, params, secs, "s", ext="mp4",
                                  approved=E.remaining_budget(ctx.pid, ctx.d), account=p.get("eleven_account"))
     return {"file": E._rel(path), "credits": cost, "seconds": secs, "model": m["id"]}
+
+
+# ---------------------------------------------------------------- the FFmpeg tool family + platform delivery (t506)
+
+def _project_file(ctx, rel):
+    """A project-relative path, refused outside the project folder."""
+    base = os.path.realpath(ctx.path())
+    p = os.path.realpath(os.path.join(base, rel))
+    if not p.startswith(base + os.sep):
+        raise ToolError(f"{rel}: only files inside the project folder")
+    return p
+
+
+@tool("ffmpeg_ops", "edit", "The FFmpeg operations (cut, join, fit, crop, stabilize, colour, denoise, silence cut, speed "
+      "ramp, loop, reverse, freeze, watermark, censor, multicam, sync, loudness ...) with their argument schemas.")
+def ffmpeg_ops(ctx):
+    from .. import fftools
+    return {"ops": [{k: o[k] for k in ("name", "group", "summary", "schema", "inputs")} for o in fftools.describe()]}
+
+
+@tool("ffmpeg", "edit", "Run one FFmpeg operation on project files: it measures the inputs, processes, then checks the "
+      "output (duration, size, frame rate, streams, loudness) and reports every check. Paths are relative to the "
+      "project folder; the output goes to work/ff/. Free, local.", needs=("ffmpeg",),
+      schema={"type": "object", "required": ["op", "inputs"], "properties": {
+          "op": {"type": "string"}, "inputs": {"type": "array", "minItems": 1, "maxItems": 20, "items": {"type": "string"}},
+          "args": {"type": "object"}}})
+def ffmpeg_tool(ctx, op, inputs, args=None):
+    from .. import fftools
+    ins = [_project_file(ctx, i) for i in inputs]
+    for k in ("file",):         # lut / subtitles name a file argument: keep it inside the project too
+        if args and isinstance(args.get(k), str):
+            args = dict(args, **{k: _project_file(ctx, args[k])})
+    try:
+        r = fftools.run(op, ins, args=args or {}, outdir=ctx.path("work", "ff"))
+    except fftools.FFError as e:
+        raise ToolError(str(e)) from None
+    base = ctx.path()
+    rel = lambda m: dict(m, path=os.path.relpath(m["path"], base))
+    r["inputs"] = [rel(m) for m in r["inputs"]]
+    if "output" in r:
+        r["output"] = rel(r["output"])
+        r["problems"] = fftools.failed(r)
+    return r
+
+
+@tool("safe_area", "qa", "What sits under a platform's own interface (tabs, buttons, caption, player controls) in a "
+      "project video: measured scene texts for HTML scenes, otherwise an estimate from picture detail; plus a preview "
+      "picture with the zones drawn on.", needs=("ffmpeg",),
+      schema={"type": "object", "required": ["file", "platform"], "properties": {
+          "file": {"type": "string"}, "platform": {"type": "string", "enum": ["tiktok", "reels", "shorts", "youtube", "x", "linkedin"]}}})
+def safe_area_tool(ctx, file, platform):
+    from .. import delivery, export
+    path = _project_file(ctx, file)
+    lint = size = None
+    if export.html_engine(ctx.pid, ctx.d):
+        lint, size = delivery._lint_boxes(ctx.pid, ctx.d)
+    found = delivery.text_findings(lint, platform, size) if lint else delivery.busy_findings(path, platform)
+    prev = delivery.preview(path, platform, ctx.path("work", "ff", f"safe-{platform}.png"), lang="en")
+    return {"findings": found, "measured": "text" if lint else "estimate", "preview": os.path.relpath(prev, ctx.path()),
+            "zones": delivery.PLATFORMS[platform]["zones"]}
+
+
+@tool("deliver", "publish", "One file per platform (TikTok, Reels, Shorts, YouTube, X, LinkedIn) from the final: fitted, "
+      "loudness-normalised, verified, with the safe-area check.", needs=("ffmpeg",), agent=False,
+      schema={"type": "object", "required": ["platforms"], "properties": {"platforms": {"type": "array", "items": {"type": "string"}}}})
+def deliver_tool(ctx, platforms):
+    from .. import delivery
+    return delivery.build(ctx.pid, platforms, ctx.d, log=lambda *_: None)

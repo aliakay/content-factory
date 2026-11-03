@@ -287,6 +287,16 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
   bağlı ses olarak) ve `timeline.edl` (CMX 3600, sahne başına bir olay), isteğe bağlı `alpha.mov` (ProRes 4444,
   sahne zemini şeffaf; tam bir render sürer, yalnız HTML hatları). Kurgu dosyaları medyayı klasördeki mutlak yoldan
   okur; klasör taşınırsa programda yeniden bağlanır. Arşiv kayıtlarında kapalı.
+- **FFmpeg araç ailesi ve platform teslimi (t506):** `factory/fftools.py` 54 tipli işlem (zaman, kare, onarım,
+  bindirme, ses, çıktı, ölçüm): her biri JSON şemalı; `run()` önce girdiyi ölçer, işler, sonra çıktıyı doğrular
+  (süre, görüntü süresi, boyut, fps, kanal, kodek, LUFS ±1, dosya boyutu). Ölçümler: sahne kesmeleri, sessizlikler,
+  siyah/donuk kareler, kırpma tespiti, ses-görüntü kayması (FFT korelasyonu, güven puanıyla). Ajan araçları
+  `ffmpeg_ops` / `ffmpeg` proje klasörü içinde `work/ff/`'e yazar. `factory/delivery.py` platform şablonları
+  (TikTok, Reels, Shorts, YouTube, X, LinkedIn: boyut, ≤60 fps, süre/boyut sınırı, −14 LUFS); süre sınırını aşan
+  video kesilmez, reddedilir. Güvenli alan kontrolü HTML hatlarında sahnelerin gerçek yazı kutularını platformun
+  düğme/açıklama bölgeleriyle karşılaştırır, diğerlerinde kenar yoğunluğuyla tahmin eder; her platform için
+  bölgeleri işaretleyen önizleme. Studio'da "Platforma teslim" kartı (`deliver` işi, kredisiz); inceleme
+  aşamalarında `safe_area` aracı.
 - Menü sadeleşir: Stüdyo · Üretimler · Keşif · Takip · Ayarlar (kanallar, sesler, hesaplar, bütçe, stiller tek yerde).
 
 ## 8. Fazlar

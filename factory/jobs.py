@@ -395,6 +395,12 @@ def run(job_id):
             o = jload(arg, {})
             r = export.build(o["project"], o.get("items") or export.DEFAULT)
             result = f"{len(r['files'])} dosya: {os.path.basename(r['zip'])}"
+        elif kind == "deliver":            # t506: one file per platform, verified, with the safe-area check (no credits)
+            from . import delivery
+            o = jload(arg, {})
+            r = delivery.build(o["project"], o.get("platforms") or [])
+            result = ", ".join(f"{x['platform']}: " + ("refused" if x.get("refused") else "ok" if x["ok"] else "check")
+                               for x in r["results"])
         elif kind == "style_extract":
             o = jload(arg, {})
             result = "stil: " + styles.extract(o["files"], o.get("note", ""))

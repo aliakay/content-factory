@@ -50,7 +50,7 @@ stages:
   - id: compose
     run: code
     call: factory.hat.documentary:compose
-    tools: [final_render, qa_technical, thumbnails]
+    tools: [final_render, qa_technical, thumbnails, deliver]
 
   - id: publish
     gate: true

@@ -86,13 +86,13 @@ stages:
   - id: compose
     run: code
     call: factory.hat.explainer:compose
-    tools: [final_render, qa_technical, qa_sound, thumbnails]
+    tools: [final_render, qa_technical, qa_sound, thumbnails, deliver]
 
   - id: publish
     gate: true
     run: agent
     model: sonnet
-    tools: [read_artifact, proof_check]
+    tools: [read_artifact, proof_check, safe_area]
     review:
       - "Caption in the video's language, under 150 characters, ends with a question"
       - "3–5 hashtags that match the topic"

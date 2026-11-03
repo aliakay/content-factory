@@ -11,6 +11,8 @@ GET  /api/hat/project/<id>/scenes      the scene editor: scenes, their text elem
 POST /api/hat/project/<id>/scenes {action: edit|frames|save_version|restore|cut, ...}   hand edits at the scene plan gate
 GET  /api/hat/project/<id>/export      the export package card: exportable items and the packages made so far
 POST /api/hat/project/<id>/export {items: [...]}   queue the export_pack job (no credits)
+GET  /api/hat/project/<id>/deliver     the platform delivery card: platforms and the deliveries made so far
+POST /api/hat/project/<id>/deliver {platforms: [...]}   queue the deliver job (no credits)
 POST /api/hat/lang          {lang}     the user's interface language (tr | en)
 POST /api/hat/projects      {line, brief, title?, video_lang, aspect, channel?, proof?}   create and start
 POST /api/hat/project/<id>  {action: approve|feedback|back|retry|advance, stage, note?}  a gate action
@@ -154,6 +156,7 @@ def project(pid):
     from factory import export
     if export.final(pid):             # the export package card (t505)
         f["export"] = exports(pid)
+        f["deliver"] = deliveries(pid)          # platform delivery (t506)
     f["events"] = P.tail(pid, n=40)
     f["ui_lang"] = lang()
     if _archived(pid):
@@ -219,6 +222,40 @@ def _export_post(pid, b, queue):
     return {"job_id": queue("export_pack", json.dumps({"project": pid, "items": items}))}
 
 
+def deliveries(pid):
+    """The platform delivery card (t506): the platform templates and the deliveries made so far."""
+    from factory import delivery, export
+    asp = P.load(pid).get("aspect") or "9:16"
+    pls = [{"id": k, "name": v["name"], "size": f"{v['size'][0]}x{v['size'][1]}", "max_s": v["max_s"],
+            "fits": (v["size"][0] < v["size"][1]) == (asp != "16:9")} for k, v in delivery.PLATFORMS.items()]
+    out = []
+    for x in delivery.deliveries(pid)[:3]:
+        res = []
+        for r in x["results"]:
+            folder = x["folder"]
+            res.append({"platform": r["platform"], "name": delivery.PLATFORMS[r["platform"]]["name"], "ok": r["ok"],
+                        "refused": r.get("refused"), "size": r.get("size"), "measured": r.get("measured"),
+                        "file": _media(os.path.join(folder, r["file"])) if r.get("file") else None,
+                        "preview": _media(os.path.join(folder, r["preview"])) if r.get("preview") else None,
+                        "failed": [c["what"] for c in r.get("checks", []) if not c["ok"]],
+                        "findings": [f | {"zone_name": delivery.ZONE_NAMES[f["zone"]][lang()]} for f in r.get("findings", [])]})
+        out.append({"at": x["at"], "results": res})
+    return {"ready": bool(export.final(pid)), "archived": _archived(pid), "platforms": pls, "deliveries": out}
+
+
+def _deliver_post(pid, b, queue):
+    from factory import delivery, export
+    if _archived(pid):
+        raise ValueError({"tr": "Bu bir arşiv kaydı; üzerinde iş yapılmaz.",
+                          "en": "This is an archive record; no work is done on it."}[lang()])
+    if not export.final(pid):
+        raise ValueError({"tr": "Henüz final video yok.", "en": "No final video yet."}[lang()])
+    pls = [x for x in b.get("platforms") or [] if x in delivery.PLATFORMS]
+    if not pls:
+        raise ValueError({"tr": "En az bir platform seç.", "en": "Pick at least one platform."}[lang()])
+    return {"job_id": queue("deliver", json.dumps({"project": pid, "platforms": pls}))}
+
+
 def get(con, path, q):
     if path == "/api/hat/lines":
         return lines()
@@ -244,6 +281,9 @@ def get(con, path, q):
     m = re.fullmatch(r"/api/hat/project/([\w-]+)/export", path)
     if m:
         return exports(_check(m.group(1)))
+    m = re.fullmatch(r"/api/hat/project/([\w-]+)/deliver", path)
+    if m:
+        return deliveries(_check(m.group(1)))
     m = re.fullmatch(r"/api/hat/project/([\w-]+)", path)
     if m:
         return project(m.group(1))
@@ -317,6 +357,9 @@ def _post(con, path, b, queue):
     m = re.fullmatch(r"/api/hat/project/([\w-]+)/export", path)
     if m:
         return _export_post(_check(m.group(1)), b, queue)
+    m = re.fullmatch(r"/api/hat/project/([\w-]+)/deliver", path)
+    if m:
+        return _deliver_post(_check(m.group(1)), b, queue)
     m = re.fullmatch(r"/api/hat/project/([\w-]+)", path)
     if m:
         pid, a, sid = _check(m.group(1)), b.get("action"), b.get("stage")

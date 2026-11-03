@@ -2086,3 +2086,137 @@ def test_export_package_from_a_final(d, monkeypatch):
         post(items=[])
     from factory import jobs
     assert '"export_pack"' in open(jobs.__file__).read()
+
+
+def _clip(path, size="160x90", d=3, audio=True, rate=30):
+    import subprocess
+    from factory.config import FFMPEG
+    a = ["-f", "lavfi", "-i", f"sine=f=440:d={d}:sample_rate=48000", "-af", "volume=0.3"] if audio else []
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", f"testsrc2=s={size}:r={rate}:d={d}"] + a +
+                   ["-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", path], check=True)
+    return path
+
+
+def test_fftools_measure_process_verify(tmp_path):
+    from factory import fftools as F
+    a = _clip(str(tmp_path / "a.mp4"))
+    b = _clip(str(tmp_path / "b.mp4"), "90x160", 2, audio=False, rate=25)
+    assert len(F.OPS) >= 40 and {o["group"] for o in F.describe()} == set(F.GROUPS)
+    m = F.measure(a)
+    assert (m["width"], m["height"], m["fps"], m["audio"]) == (160, 90, 30, True) and abs(m["duration"] - 3) < 0.05
+    r = F.run("trim", [a], args={"start": 0.5, "end": 2})
+    assert r["ok"] and abs(r["output"]["duration"] - 1.5) < 0.1 and r["output"]["path"].endswith("a-trim.mp4")
+    r = F.run("concat", [a, b], str(tmp_path / "c.mp4"))       # different size, rate, one silent: normalised
+    assert r["ok"] and (r["output"]["width"], r["output"]["height"], r["output"]["audio"]) == (160, 90, True)
+    assert abs(r["output"]["duration"] - 5) < 0.2
+    r = F.run("freeze", [b], str(tmp_path / "f.mp4"), {"at": 1, "seconds": 1})     # the picture itself is longer
+    assert r["ok"] and abs(r["output"]["vduration"] - 3) < 0.15
+    r = F.run("speed_ramp", [a], str(tmp_path / "r.mp4"), {"segments": [{"start": 1, "end": 2, "speed": 2}]})
+    assert r["ok"] and abs(r["output"]["duration"] - 2.5) < 0.2
+    r = F.run("cut", [a], str(tmp_path / "x.mp4"), {"ranges": [[0.5, 1.5]]})
+    assert r["ok"] and abs(r["output"]["duration"] - 2) < 0.15
+    r = F.run("loudnorm", [a], str(tmp_path / "l.mp4"))
+    assert r["ok"] and any(c["what"] == "loudness" and c["ok"] for c in r["checks"])
+    assert F.run("probe", [a])["data"]["width"] == 160
+    # a check that does not hold is reported, not hidden
+    bad = F.verify(F.measure(a), {"duration": 9.0, "width": 320})
+    assert [c["what"] for c in bad if not c["ok"]] == ["duration", "picture", "width"]
+    with pytest.raises(F.FFError, match="bad arguments"):
+        F.run("speed", [a], args={"factor": 9})
+    with pytest.raises(F.FFError, match="takes 2 input"):
+        F.run("crossfade", [a])
+    with pytest.raises(F.FFError, match="must not overwrite"):
+        F.run("flip", [a], a)
+
+
+def test_fftools_sync_offset_finds_the_delay(tmp_path):
+    import subprocess
+    from factory import fftools as F
+    from factory.config import FFMPEG
+    a = str(tmp_path / "a.wav")
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", "anoisesrc=d=4:c=pink:seed=3", a], check=True)
+    late = str(tmp_path / "late.wav")
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-i", a, "-af", "adelay=350:all=1", late], check=True)
+    r = F.run("sync_offset", [a, late])["data"]
+    assert abs(r["offset"] - 0.35) < 0.01 and r["sure"] and r["fix"]["offset"] == -r["offset"]
+
+
+def test_delivery_per_platform_and_safe_area(d, tmp_path, monkeypatch):
+    from factory import delivery as D, fftools as F
+    from studio import hat_api
+    src = _clip(str(tmp_path / "wide.mp4"), "320x180", 2)
+    r = D.deliver_one(src, "tiktok", str(tmp_path / "tt.mp4"))
+    assert r["ok"] and not r["refused"], F.failed(r)
+    assert (r["output"]["width"], r["output"]["height"], r["output"]["vcodec"]) == (1080, 1920, "h264")
+    assert {c["what"] for c in r["checks"]} >= {"duration", "width", "fps", "loudness", "size", "pix_fmt"}
+    monkeypatch.setitem(D.PLATFORMS["x"], "max_s", 1)
+    r = D.deliver_one(src, "x", str(tmp_path / "x.mp4"))
+    assert r["refused"] and r["file"] is None and not os.path.exists(tmp_path / "x.mp4")
+    # scene texts measured on the page, mapped into the delivered frame
+    lint = {"1.0": {"boxes": [{"x": 100, "y": 1700, "w": 500, "h": 80, "text": "Kaynak: TÜİK", "scene": "s1"},
+                              {"x": 100, "y": 600, "w": 500, "h": 80, "text": "Ortada", "scene": "s1"},
+                              {"x": 960, "y": 900, "w": 110, "h": 60, "text": "%12", "scene": "s2"}]}}
+    f = D.text_findings(lint, "tiktok", (1080, 1920))
+    assert {(x["text"], x["zone"]) for x in f} == {("Kaynak: TÜİK", "bottom"), ("%12", "right")}
+    # fitted into 16:9 the tall frame keeps its full height: the low source line is still under the player controls
+    assert [(x["text"], x["zone"]) for x in D.text_findings(lint, "youtube", (1080, 1920))] == [("Kaynak: TÜİK", "controls")]
+    # the estimate: a picture full of detail under the bottom zone
+    busy = str(tmp_path / "busy.mp4")
+    import subprocess
+    from factory.config import FFMPEG
+    from PIL import Image, ImageDraw, ImageFont
+    im = Image.new("RGB", (1080, 1920), (40, 40, 60))
+    dr = ImageDraw.Draw(im)
+    for i in range(3):          # three caption lines where TikTok writes the description
+        dr.text((60, 1560 + i * 80), "Kaynak: TÜİK, Ekim 2026 verisi", font=ImageFont.truetype(F.FONT, 54), fill="white")
+    im.save(tmp_path / "busy.png")
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-loop", "1", "-i", str(tmp_path / "busy.png"), "-t", "2", "-r", "30",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", busy], check=True)
+    assert [x["zone"] for x in D.busy_findings(busy, "tiktok")] == ["bottom"]
+    prev = D.preview(busy, "tiktok", str(tmp_path / "p.png"), lang="en")
+    assert Image.open(prev).size[1] > 600
+
+    pid = P.create("talking_head", "Teslim", d=d)["id"]
+    video = P.path(pid, "renders", "final.mp4", d=d)
+    os.makedirs(os.path.dirname(video), exist_ok=True)
+    _clip(video, "90x160", 2)
+    P.write_artifact(pid, "render", {"final": video}, d)
+    meta = D.build(pid, ["shorts", "bogus"], d=d, log=lambda *a: None, lang="tr")
+    (res,) = meta["results"]
+    assert res["platform"] == "shorts" and res["ok"] and res["measured"] == "estimate" and res["file"] == "shorts.mp4"
+    assert os.path.exists(os.path.join(meta["folder"], "shorts-safe.png")) and D.deliveries(pid, d)[0]["platforms"] == ["shorts"]
+
+    monkeypatch.setattr(P, "DIR", d)
+    monkeypatch.setattr(hat_api, "_check", lambda pid: pid)
+    monkeypatch.setattr(hat_api.accounts, "current", lambda: "ali")
+    monkeypatch.setattr(hat_api, "lang", lambda: "en")
+    g = hat_api.get(None, f"/api/hat/project/{pid}/deliver", {})
+    tt = next(p for p in g["platforms"] if p["id"] == "tiktok")
+    yt = next(p for p in g["platforms"] if p["id"] == "youtube")
+    assert g["ready"] and tt["fits"] and not yt["fits"]
+    r0 = g["deliveries"][0]["results"][0]
+    assert r0["file"].startswith("/media/projects/") and r0["preview"].endswith("shorts-safe.png")
+    assert "deliver" in hat_api.project(pid)
+    queued = []
+    post = lambda **b: hat_api.post(None, f"/api/hat/project/{pid}/deliver", b, lambda k, a: queued.append((k, a)) or 4)
+    assert post(platforms=["reels", "nope"]) == {"job_id": 4}
+    assert queued[0][0] == "deliver" and json.loads(queued[0][1]) == {"project": pid, "platforms": ["reels"]}
+    with pytest.raises(ValueError, match="at least one platform"):
+        post(platforms=[])
+    from factory import jobs
+    assert '"deliver"' in open(jobs.__file__).read()
+
+
+def test_ffmpeg_agent_tool_stays_in_the_project(d, tmp_path):
+    from factory.hat import tools as T
+    pid = P.create("talking_head", "Araç", d=d)["id"]
+    clip = _clip(P.path(pid, "in.mp4", d=d) if os.makedirs(P.path(pid, d=d), exist_ok=True) is None else "", "160x90", 2)
+    ctx = T.Ctx(pid, "edit", d)
+    assert any(o["name"] == "stabilize" for o in T.call("ffmpeg_ops", ctx)["ops"])
+    r = T.call("ffmpeg", ctx, {"op": "trim", "inputs": ["in.mp4"], "args": {"start": 0.5}})
+    assert r["ok"] and r["output"]["path"] == "work/ff/in-trim.mp4" and r["problems"] == []
+    with pytest.raises(T.ToolError, match="inside the project"):
+        T.call("ffmpeg", ctx, {"op": "flip", "inputs": [str(tmp_path / "x.mp4")]})
+    with pytest.raises(T.ToolError, match="unknown operation"):
+        T.call("ffmpeg", ctx, {"op": "explode", "inputs": ["in.mp4"]})
+    assert "deliver" in [s for st in manifest.get("talking_head")["stages"] for s in st.get("tools", [])]
