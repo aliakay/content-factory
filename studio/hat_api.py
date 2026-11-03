@@ -178,6 +178,13 @@ def _post(con, path, b, queue):
             if not re.fullmatch(r"raw/avatar/[\w.-]+", src) or not os.path.isfile(os.path.join(ROOT, src)):
                 raise ValueError({"tr": "Portre yüklenemedi; tekrar dene.", "en": "The portrait did not upload; try again."}[lang()])
             extra["portrait"] = src
+        if "url" in (line.get("inputs") or []):           # a public page only: the browser runs next to the Studio
+            from factory.hat import screendemo
+            try:
+                extra["url"] = screendemo.safe_url(b.get("url"))
+            except P.GateError:
+                raise ValueError({"tr": "Herkese açık bir http(s) adresi yaz (yerel ağ adresleri olmaz).",
+                                  "en": "Give a public http(s) address (no local network addresses)."}[lang()]) from None
         if "source_lang" in (line.get("inputs") or []):
             extra["source_lang"] = b.get("source_lang") if b.get("source_lang") in VIDEO_LANGS else ("en" if vl == "tr" else "tr")
         if "series" in (line.get("inputs") or []):

@@ -221,7 +221,7 @@ ya da yalnız müzikli.
 **İyi olduğu:** Ürün tanıtımı, "nasıl yapılır".
 **İyi olmadığı:** Gerçek dünya görüntüsü.
 **İster:** URL/uygulama ya da ekran kaydı. **Kapılar:** 3·4·5·8.
-**Durum:** Yeni; Playwright kaydı (Chromium hazır).
+**Durum:** Hazır (t402). `factory/hat/screendemo.py` + `motion/screencap.mjs`: sayfaya bakış (başlık, metin, tıklanabilirler) → model adımları ve adım başına bir anlatım cümlesini planlar (kapı) → tarayıcı adımları görünür imleçle oynatır, CDP ekran yayınıyla 2× kaydeder (her adımın zamanı ve hedef kutusu) → adım görüntüleri + yakınlaştırma planı (kapı; "3: zoom yok") → tek TTS + kelime zamanlaması, her adımın kaydı kendi cümlesine sığdırılır (en fazla 1.5× hızlanır, sonra son karede bekler), tıklanana 1.6× yakınlaşır → yakılmış altyazı. Brifte "sessiz" / "no voice" → anlatımsız, kredisiz. Yalnız herkese açık http(s) adresler: hem başta hem tarayıcının her isteğinde yerel/özel ağ adresleri engellenir. Giriş isteyen sayfalar ve kendi ekran kaydını yükleme henüz yok. Gerçek ücretli çalışma henüz yok.
 
 ### 6.14 Seri bölümü · `series_episode` *(bize özel)*
 Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim dili sabit. Karakter animasyonu hattının

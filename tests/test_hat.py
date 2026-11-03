@@ -661,7 +661,7 @@ def test_api_refuses_what_the_gate_rules_forbid(api):
 def test_api_create_checks_line_and_brief(api, monkeypatch):
     hat_api, _, q = api
     with pytest.raises(ValueError, match="not ready"):
-        hat_api.post(None, "/api/hat/projects", {"line": "screen_demo", "brief": "a long enough brief"}, q)
+        hat_api.post(None, "/api/hat/projects", {"line": "documentary", "brief": "a long enough brief"}, q)
     with pytest.raises(ValueError, match="few words"):
         hat_api.post(None, "/api/hat/projects", {"line": "explainer", "brief": "x"}, q)
     monkeypatch.setattr(hat_api.accounts, "default_eleven", lambda uid: None, raising=False)
@@ -1297,3 +1297,115 @@ def test_podcast_audio_becomes_waveform_clips_and_quote_cards(d, monkeypatch, tm
     assert (info["w"], info["h"]) == (1080, 1920) and 19 < info["duration"] < 20.5
     assert runner.approve(pid, "assets", q, d=d) == ("gate", "publish")
     assert P.read_artifact(pid, "publish", d)["cards"] == pl["cards"]
+
+
+def test_screen_demo_only_records_public_addresses(monkeypatch):
+    import socket
+    from factory.hat import screendemo as S
+    ips = {"example.com": "93.184.215.14", "intranet.test": "10.0.0.5", "localhost": "127.0.0.1"}
+    monkeypatch.setattr(socket, "getaddrinfo", lambda host, port: [(2, 1, 6, "", (ips[host], port))])
+    assert S.safe_url("https://example.com/app") == "https://example.com/app"
+    for bad in ("http://localhost:8501/", "http://intranet.test/", "file:///etc/passwd", "ftp://example.com/", ""):
+        with pytest.raises(P.GateError):
+            S.safe_url(bad)
+    with pytest.raises(P.GateError):                                          # a planned goto is checked too
+        S._steps([{"action": "goto", "text": "http://localhost/admin"}])
+
+
+def _demo_fakes(monkeypatch, d, tmp_path, calls):
+    import subprocess
+    from factory.config import FFMPEG
+    from factory import qa, thumbs
+    from factory.hat import screendemo as S
+    import factory.hat.explainer as E
+    monkeypatch.setattr(S, "safe_url", lambda u: u)
+    def node(mode, *a, timeout=600):
+        calls.append((mode, a))
+        if mode == "survey":
+            json.dump({"title": "Notlar", "text": "Hızlı not al", "items": [{"tag": "button", "label": "Ekle"}]}, open(a[1], "w"))
+            open(a[2], "wb").write(b"png")
+            return
+        spec, out = json.load(open(a[0])), a[1]
+        subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc=s=270x480:d=7:r=30", "-pix_fmt", "yuv420p",
+                        os.path.join(out, "raw.mp4")], check=True)
+        log, t = [], 1.0
+        for n, st in enumerate(spec["steps"], 1):
+            log.append({"n": n, "t0": t, "t1": t + 1.0 + st["hold"], "box": [0.4, 0.2, 0.2, 0.05] if st["action"] == "click" else None,
+                        "ok": True, "error": None})
+            t += 1.0 + st["hold"]
+            open(os.path.join(out, f"step_{n}.png"), "wb").write(b"png")
+            open(os.path.join(out, f"f_00000{n}.jpg"), "wb").write(b"j")
+        json.dump(log, open(os.path.join(out, "log.json"), "w"))
+    monkeypatch.setattr(S, "_node", node)
+    monkeypatch.setattr(S, "_ask", lambda prompt: ({"title": "Not uygulaması", "steps": [
+        {"action": "type", "target": "Yeni not", "text": "Süt al", "say": "Önce bir not yazıyoruz.", "zoom": True},
+        {"action": "click", "target": "Ekle", "say": "Sonra ekle düğmesine basıyoruz ve not listede hemen görünüyor.", "zoom": True},
+        {"action": "explode", "target": "x", "say": "yok"}], "caption": "c", "hashtags": ["demo"]}, 0.1))
+    monkeypatch.setattr(qa, "technical", lambda path, expected=None: {"problems": []})
+    monkeypatch.setattr(thumbs, "make", lambda *a, **k: [])
+    monkeypatch.setattr(S, "ROOT", "/")
+    monkeypatch.setattr(E, "ROOT", "/")
+
+
+def test_screen_demo_narrated_walkthrough(d, monkeypatch, tmp_path):
+    from factory import credits, eleven, productions as PR, talk
+    from factory.hat import runner, screendemo as S
+    calls = []
+    _demo_fakes(monkeypatch, d, tmp_path, calls)
+    monkeypatch.setattr(S, "_con", lambda: None)
+    monkeypatch.setattr(credits, "rates", lambda: {"tts:eleven_v4": {"rate": 1}})
+    voice = str(tmp_path / "v.wav")
+    import subprocess
+    from factory.config import FFMPEG
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", "sine=d=4", voice], check=True)
+    tts = []
+    monkeypatch.setattr(eleven, "tts", lambda con, text, vid, model, approved=None, account=None: tts.append((text, approved)) or (voice, 50.0))
+    monkeypatch.setattr(PR, "align", lambda path, lines, lang="en": ([{"start": 0.1, "end": 1.6}, {"start": 1.9, "end": 3.8}], 4.0,
+                                                                     [("Önce", 0.1, 0.4), ("bir", 0.4, 0.6), ("Sonra", 1.9, 2.3)]))
+    pid = P.create("screen_demo", "Not demosu", brief="not uygulamasını gezdir", d=d,
+                   extra={"url": "https://example.com/"})["id"]
+    q = Q(runner, d)
+    assert runner.advance(pid, q, d=d) == ("gate", "idea")
+    prop = P.read_artifact(pid, "proposal", d)
+    assert len(prop["concepts"][0]["steps"]) == 2                               # the unknown action is dropped
+    assert prop["cost"]["credits"] == len(" ".join(prop["concepts"][0]["lines"])) and prop["voice"]["use"]
+    assert runner.approve(pid, "idea", q, d=d) == ("gate", "script")
+    assert runner.approve(pid, "script", q, d=d) == ("gate", "scene_plan")      # capture runs without a gate
+    run = next(c for c in calls if c[0] == "run")
+    assert [s["hold"] for s in json.load(open(run[1][0]))["steps"]] == [1.0, round(9 / 2.3 - 0.7, 1)]
+    cap = P.read_artifact(pid, "capture", d)
+    assert not any(f.startswith("f_") for f in os.listdir(os.path.dirname("/" + cap["video"])))   # frames cleaned up
+    plan = P.read_artifact(pid, "plates", d)["steps"]
+    assert [x["zoom"] for x in plan] == [False, True]                           # the type step has no box to zoom to
+    runner.feedback(pid, "scene_plan", "2: zoom yok", q, d=d)
+    assert [x["zoom"] for x in P.read_artifact(pid, "plates", d)["steps"]] == [False, False]
+    runner.feedback(pid, "scene_plan", "2: zoom", q, d=d)
+    assert runner.approve(pid, "scene_plan", q, d=d) == ("gate", "assets")
+    budget = P.load(pid, d)["budget"]["credits"]
+    assert tts == [("Önce bir not yazıyoruz. Sonra ekle düğmesine basıyoruz ve not listede hemen görünüyor.", budget)]
+    a = P.read_artifact(pid, "assets", d)
+    assert a["parts"][0][2] == 1.9 and a["parts"][1][2] == round(4.6 - 1.9, 3)  # each step lasts until the next line
+    info = talk.probe("/" + a["preview"])
+    assert abs(info["duration"] - 4.6) < 0.15 and (info["w"], info["h"]) == (1080, 1920)
+    assert runner.approve(pid, "assets", q, d=d) == ("gate", "publish")
+    assert os.path.isfile("/" + P.read_artifact(pid, "render", d)["final"])
+    assert P.read_artifact(pid, "publish", d)["hashtags"] == ["#demo"]
+
+
+def test_screen_demo_silent_costs_nothing(d, monkeypatch, tmp_path):
+    from factory import eleven, talk
+    from factory.hat import runner, screendemo as S
+    calls = []
+    _demo_fakes(monkeypatch, d, tmp_path, calls)
+    monkeypatch.setattr(eleven, "tts", lambda *a, **k: pytest.fail("a silent demo must not pay for a voice"))
+    pid = P.create("screen_demo", "Sessiz", brief="sessiz demo, sadece altyazı", d=d, extra={"url": "https://example.com/"})["id"]
+    q = Q(runner, d)
+    runner.advance(pid, q, d=d)
+    assert P.read_artifact(pid, "proposal", d)["cost"]["credits"] == 0
+    for st in ("idea", "script", "scene_plan"):
+        runner.approve(pid, st, q, d=d)
+    a = P.read_artifact(pid, "assets", d)
+    assert a["voice"] is None and a["words"][0][0] == "Önce"
+    log = P.read_artifact(pid, "capture", d)["log"]
+    assert a["parts"][1][2] == round(log[1]["t1"] - log[1]["t0"], 3)         # silent: as long as it was recorded
+    assert abs(talk.probe("/" + a["preview"])["duration"] - a["duration"]) < 0.15
