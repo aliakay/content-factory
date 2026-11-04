@@ -310,6 +310,15 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
   çok 240 sn üretilir, çapraz geçişle döngülenir. 75 sn'den uzun videolar 3 kare aralığında paralel yakalanıp yeniden
   kodlamadan birleştirilir (render süresi tahmini bunu hesaba katar). Son aşama YouTube bölüm zamanlarını
   (`chapter_marks`, 0:00'dan başlar) açıklamaya koyar.
+- **MiniMax H3 klipleri (t508):** sunucuda GPU yok, üretilen klipler ElevenLabs bağlantısıyla yapılır
+  (`factory/hat/minimax.py`). Her klip önce 480p taslak olarak H3 Max ile üretilir (~349 kredi/sn); yaratıcı taslağı
+  izleyip kendisi onaylar, final yalnız ondan sonra seçilen kalitede yapılır (768p H3 Max, 2K/4K ya da referans
+  görselli klipler H3). Final taslağın büyütülmüşü değil, aynı istem ve başlangıç karesiyle yeni bir çekimdir.
+  Başlangıç karesi ile referans görseller birlikte kullanılamaz; başlangıç karesi varken kadraj karenin kendisinden
+  gelir. Her üretim onaylı bütçeden düşer (`credits.guard`), projenin harcamasında sayılır; klipler
+  `work/minimax/clips.json` ve aynı klasördeki mp4'lerde durur. Studio'da üretilen video kullanan hatlarda "Üretilen
+  klipler" kartı: istem, süre (5–15 sn), kalite, isteğe bağlı başlangıç karesi, her düğmede kredi tahmini; finalin
+  onayı ayrıca kredi tutarıyla sorulur.
 - Menü sadeleşir: Stüdyo · Üretimler · Keşif · Takip · Ayarlar (kanallar, sesler, hesaplar, bütçe, stiller tek yerde).
 
 ## 8. Fazlar

@@ -401,6 +401,12 @@ def run(job_id):
             r = delivery.build(o["project"], o.get("platforms") or [])
             result = ", ".join(f"{x['platform']}: " + ("refused" if x.get("refused") else "ok" if x["ok"] else "check")
                                for x in r["results"])
+        elif kind in ("minimax_draft", "minimax_final"):    # t508: a clip's 480p draft / its approved final (credits)
+            from .hat import minimax
+            o = jload(arg, {})
+            c = (minimax.draft if kind == "minimax_draft" else minimax.final)(o["project"], o["clip"])
+            x = c["draft" if kind == "minimax_draft" else "final"]
+            result = f"{c['id']}: {x['resolution']} {x['credits']} kredi"
         elif kind == "style_extract":
             o = jload(arg, {})
             result = "stil: " + styles.extract(o["files"], o.get("note", ""))

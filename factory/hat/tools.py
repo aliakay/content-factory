@@ -459,6 +459,32 @@ def video_gen_tool(ctx, prompt, seconds, model=None, audio=False):
     return {"file": E._rel(path), "credits": cost, "seconds": secs, "model": m["id"]}
 
 
+@tool("minimax_draft", "video", "A MiniMax H3 clip (5-15 s, prompt with an optional start frame or up to 4 reference "
+      "images from the project folder) as a cheap 480p draft through the ElevenLabs connector. The final is made only "
+      "after the creator approves the draft (minimax_final).", provider="elevenlabs", runtime="cloud",
+      spends="credits per second (480p)", needs=("network",), agent=False,
+      best_for=["illustrations and characters that move", "a shot from a still", "trying an idea cheaply"],
+      schema={"type": "object", "required": ["prompt", "seconds"], "properties": {
+          "prompt": {"type": "string"}, "seconds": {"type": "number", "minimum": 5, "maximum": 15},
+          "quality": {"type": "string", "enum": ["768p", "2K", "4K"]}, "start": {"type": "string"},
+          "refs": {"type": "array", "items": {"type": "string"}, "maxItems": 4}}})
+def minimax_draft_tool(ctx, prompt, seconds, quality="768p", start=None, refs=()):
+    from . import minimax
+    c = minimax.new(ctx.pid, prompt, seconds, quality, start, tuple(refs or ()), ctx.d, ctx.user)
+    c = minimax.draft(ctx.pid, c["id"], ctx.d)
+    return {"clip": c["id"], "file": c["draft"]["file"], "credits": c["draft"]["credits"], "status": c["status"]}
+
+
+@tool("minimax_final", "video", "The final of a MiniMax clip whose draft the creator approved, at the clip's quality "
+      "(768p, 2K or 4K). Refused for a draft nobody approved.", provider="elevenlabs", runtime="cloud",
+      spends="credits per second", needs=("network",), agent=False,
+      schema={"type": "object", "required": ["clip"], "properties": {"clip": {"type": "string"}}})
+def minimax_final_tool(ctx, clip):
+    from . import minimax
+    c = minimax.final(ctx.pid, clip, ctx.d)
+    return {"clip": c["id"], "file": c["final"]["file"], "credits": c["final"]["credits"], "status": c["status"]}
+
+
 # ---------------------------------------------------------------- the FFmpeg tool family + platform delivery (t506)
 
 def _project_file(ctx, rel):

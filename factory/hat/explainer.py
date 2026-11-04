@@ -168,7 +168,8 @@ def _rel(path):
 
 def spent_credits(pid, d=None):
     """Credits every stage of the project has spent so far (a line may spend before its assets stage)."""
-    return sum((cp.get("cost") or {}).get("credits", 0) for _, cp in P.stages(pid, d))
+    from . import minimax
+    return sum((cp.get("cost") or {}).get("credits", 0) for _, cp in P.stages(pid, d)) + minimax.spent(pid, d)
 
 
 def remaining_budget(pid, d=None):

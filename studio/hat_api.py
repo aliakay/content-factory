@@ -13,6 +13,9 @@ GET  /api/hat/project/<id>/export      the export package card: exportable items
 POST /api/hat/project/<id>/export {items: [...]}   queue the export_pack job (no credits)
 GET  /api/hat/project/<id>/deliver     the platform delivery card: platforms and the deliveries made so far
 POST /api/hat/project/<id>/deliver {platforms: [...]}   queue the deliver job (no credits)
+GET  /api/hat/project/<id>/clips       the MiniMax clip card (t508): clips, their drafts/finals, estimates, budget left
+POST /api/hat/project/<id>/clips {action: draft|redraft|approve|discard, ...}   draft = new clip + its 480p draft job;
+                                       approve = the creator approves a draft and its final job is queued (credits)
 POST /api/hat/lang          {lang}     the user's interface language (tr | en)
 POST /api/hat/projects      {line, brief, title?, video_lang, aspect, channel?, proof?}   create and start
 POST /api/hat/project/<id>  {action: approve|feedback|back|retry|advance, stage, note?}  a gate action
@@ -157,6 +160,9 @@ def project(pid):
     if export.final(pid):             # the export package card (t505)
         f["export"] = exports(pid)
         f["deliver"] = deliveries(pid)          # platform delivery (t506)
+    from factory.hat import minimax
+    if minimax.offered(manifest.get(P.load(pid)["line"])) and not _archived(pid):
+        f["clips"] = clips_view(pid)            # MiniMax draft -> approved final (t508)
     f["events"] = P.tail(pid, n=40)
     f["ui_lang"] = lang()
     if _archived(pid):
@@ -256,6 +262,48 @@ def _deliver_post(pid, b, queue):
     return {"job_id": queue("deliver", json.dumps({"project": pid, "platforms": pls}))}
 
 
+def clips_view(pid):
+    from factory.hat import minimax
+    c = minimax.card(pid)
+    for x in c["clips"]:
+        for k in ("draft", "final"):
+            if x.get(k):
+                x[k] = {**x[k], "url": _media(x[k]["file"])}
+        x["start_url"] = _media(P.path(pid, x["start"])) if x.get("start") else None
+    c["archived"] = _archived(pid)
+    return c
+
+
+def _clips_post(pid, b, queue, uid):
+    """MiniMax clips (t508). Each click that spends is the creator's own: a draft, or the final of a draft they approve."""
+    from factory.hat import minimax
+    if _archived(pid):
+        raise ValueError({"tr": "Bu bir arşiv kaydı; üzerinde iş yapılmaz.",
+                          "en": "This is an archive record; no work is done on it."}[lang()])
+    a = b.get("action")
+    if a == "draft":
+        from factory.hat import explainer as X
+        X.remaining_budget(pid)                         # no approved budget: refused before anything is queued
+        c = minimax.new(pid, b.get("prompt"), b.get("seconds") or 5, b.get("quality") or "768p",
+                        b.get("start") or None, tuple(b.get("refs") or ()), user=uid)
+    elif a in ("redraft", "approve", "retry_final"):
+        c = minimax.get(pid, str(b.get("clip")))
+        if c.get("busy"):
+            raise ValueError({"tr": "Bu klip zaten yapılıyor.", "en": "This clip is already being made."}[lang()])
+        if a == "approve":
+            minimax.approve(pid, c["id"], uid)
+        elif a == "retry_final" and c["status"] != "approved":
+            raise ValueError("only an approved clip's final can be retried")
+    elif a == "discard":
+        return minimax.discard(pid, str(b.get("clip")))
+    else:
+        raise ValueError("unknown clip action")
+    fin = a in ("approve", "retry_final")
+    kind = "minimax_final" if fin else "minimax_draft"
+    minimax.mark(pid, c["id"], "final" if fin else "draft")
+    return {"clip": c["id"], "job_id": queue(kind, json.dumps({"project": pid, "clip": c["id"]}))}
+
+
 def get(con, path, q):
     if path == "/api/hat/lines":
         return lines()
@@ -284,6 +332,9 @@ def get(con, path, q):
     m = re.fullmatch(r"/api/hat/project/([\w-]+)/deliver", path)
     if m:
         return deliveries(_check(m.group(1)))
+    m = re.fullmatch(r"/api/hat/project/([\w-]+)/clips", path)
+    if m:
+        return clips_view(_check(m.group(1)))
     m = re.fullmatch(r"/api/hat/project/([\w-]+)", path)
     if m:
         return project(m.group(1))
@@ -362,6 +413,9 @@ def _post(con, path, b, queue):
     m = re.fullmatch(r"/api/hat/project/([\w-]+)/deliver", path)
     if m:
         return _deliver_post(_check(m.group(1)), b, queue)
+    m = re.fullmatch(r"/api/hat/project/([\w-]+)/clips", path)
+    if m:
+        return _clips_post(_check(m.group(1)), b, queue, uid)
     m = re.fullmatch(r"/api/hat/project/([\w-]+)", path)
     if m:
         pid, a, sid = _check(m.group(1)), b.get("action"), b.get("stage")

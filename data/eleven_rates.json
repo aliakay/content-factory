@@ -36,5 +36,35 @@
   "rate": 498.2280915475524,
   "samples": 4,
   "note": "connector estimate_only for one 1K high-quality edit from a reference (2026-10-29); replaced by the first real run"
+ },
+ "video:minimax-h3-max@480p": {
+  "unit": "s",
+  "rate": 348.78772370486655,
+  "samples": 0,
+  "note": "connector estimate_only, 5 s 9:16 (2026-11-04); replaced by the first real run"
+ },
+ "video:minimax-h3-max@768p": {
+  "unit": "s",
+  "rate": 558.0603579277865,
+  "samples": 0,
+  "note": "connector estimate_only, 5 s 9:16 (2026-11-04); replaced by the first real run"
+ },
+ "video:minimax-h3@480p": {
+  "unit": "s",
+  "rate": 348.78772370486655,
+  "samples": 0,
+  "note": "connector estimate_only, 5 s 9:16 (2026-11-04); replaced by the first real run"
+ },
+ "video:minimax-h3@768p": {
+  "unit": "s",
+  "rate": 418.5452684458399,
+  "samples": 0,
+  "note": "connector estimate_only, 5 s 9:16 (2026-11-04); replaced by the first real run"
+ },
+ "video:minimax-h3@2K": {
+  "unit": "s",
+  "rate": 906.8480816326531,
+  "samples": 0,
+  "note": "connector estimate_only, 5 s 9:16 (2026-11-04); replaced by the first real run"
  }
 }

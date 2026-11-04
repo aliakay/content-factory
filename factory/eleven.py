@@ -245,14 +245,19 @@ VIDEO_MODEL = "bytedance-seedance-v2.5"
 
 
 def video(con, prompt_text, approved, seconds, account=None, aspect="9:16", flow_id=None, start=None, model=None,
-          audio=False, idea_id=None, inputs=None):
+          audio=False, idea_id=None, inputs=None, resolution=None, rate_model=None, frame_aspect=False):
     """One generated clip (mp4) through the connector. `start` = the node id of an image on flow `flow_id` that
     becomes the clip's first frame (a keyframe the creator approved); `inputs` = {node_id: what it is} for models fed
     by several nodes (an avatar: the presenter image and the voice). Returns (path, cost, flow_id, node_id).
-    Cached by (model, prompt, inputs, seconds, aspect, audio)."""
+    `resolution` names the exact resolution (else the lowest of 720p or above); `rate_model` is the price key when
+    the price depends on more than the model (e.g. "minimax-h3-max@480p"); `frame_aspect` leaves the aspect to the
+    start frame (models that reject aspect_ratio with one). Cached by (model, prompt, inputs, seconds, aspect, audio,
+    resolution)."""
     model = model or VIDEO_MODEL
+    rate_model = rate_model or model
     inputs = dict(inputs or ({start: "the clip's start frame"} if start else {}))
-    key = "vid_" + hashlib.sha1(f"{model}|{aspect}|{sorted(inputs)}|{seconds}|{audio}|{prompt_text}".encode()).hexdigest()[:16]
+    key = "vid_" + hashlib.sha1((f"{model}|{aspect}|{sorted(inputs)}|{seconds}|{audio}|{prompt_text}"
+                                 + (f"|{resolution}" if resolution else "")).encode()).hexdigest()[:16]
     cached = os.path.join(OUT, f"{key}.mp4")
     meta_path = cached + ".json"
     if os.path.exists(cached) and os.path.exists(meta_path):
@@ -261,7 +266,7 @@ def video(con, prompt_text, approved, seconds, account=None, aspect="9:16", flow
     account, acc = _account(account)
     if acc["type"] == "apikey":
         raise ElevenError("video üretimi yalnızca connector hesabıyla yapılabiliyor")
-    credits.guard(con, "video", model, seconds, approved, account)
+    credits.guard(con, "video", rate_model, seconds, approved, account)
     where = f' on flow_id "{flow_id}"' if flow_id else " (it creates a flow)"
     wire = (f", connect_from {json.dumps(list(inputs))} ("
             + "; ".join(f"{n} is {what}" for n, what in inputs.items()) + ")") if inputs else ""
@@ -271,8 +276,9 @@ def video(con, prompt_text, approved, seconds, account=None, aspect="9:16", flow
    This only creates the node (nothing is generated or charged); note its flow_id and node_id.
 2. Call creative_get_model_schema(node_type="video-generation", model_id="{model}") and creative_get_flow_node on
    that node, then creative_update_node with only plain settings the schema lists: duration {seconds} s (the nearest
-   value the schema allows), "aspect_ratio": "{aspect}", the lowest resolution of 720p or above, and audio generation
-   {"on" if audio else "off"}. Leave out every field that holds node references (input ports, already wired by step 1).
+   value the schema allows), {"no aspect_ratio (the start frame sets it)" if frame_aspect else f'"aspect_ratio": "{aspect}"'},
+   {f'"resolution": "{resolution}"' if resolution else "the lowest resolution of 720p or above"}, and audio generation
+   {"on" if audio else "off"} (when the schema has such a setting). Leave out every field that holds node references (input ports, already wired by step 1).
 3. creative_run_flow_nodes on that one node with generations_count 1.
 4. Poll creative_get_flow_run_status until finished, then read the signed video URL.
 Reply ONLY JSON: {{"url": "<signed video url>", "credit_cost": <number>, "flow_id": "<flow id>", "node_id": "<the
@@ -286,7 +292,7 @@ video node id>"}}
     cost = float(data.get("credit_cost") or 0)
     json.dump({"flow_id": data.get("flow_id") or flow_id, "node_id": data.get("node_id"), "prompt": prompt_text,
                "inputs": inputs}, open(meta_path, "w"))
-    credits.record(con, "video", model, seconds, "s", cost, idea_id, prompt_text[:60], account)
+    credits.record(con, "video", rate_model, seconds, "s", cost, idea_id, prompt_text[:60], account)
     return path, cost, data.get("flow_id") or flow_id, data.get("node_id")
 
 
