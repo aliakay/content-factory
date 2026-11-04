@@ -337,6 +337,13 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
   (`#/receteler`): aile süzgeci, arama, örnek klipler; eksik klipler `recipe_demos` işiyle ücretsiz üretilir.
   Bu sırada düzeltilen iki FX hatası: `FX.shine` yazıyı görünmez yapıyordu, `FX.brushWipe` kareyi hiç açmıyordu
   (artık fırçalar çekilir; `hold: true` örtüyü tutar).
+- **Parçalı render (t511):** HTML hareket hatlarının çekimi sahne başlangıçlarından parçalara bölünür
+  (`htmlmotion.capture_parts`). Her parçanın parmak izi ortak her şeyi (renkler, CSS, kelimeler, altyazı, bölümler),
+  kendi sahnesini ve iki komşusunu kapsar; önceki render'ın parçaları projenin `work/<preview|final>/parts/`
+  klasöründe durur. Bir sahne düzeltilince yalnız o sahnenin ve komşularının parçası yeniden çizilir (eksikler yan
+  yana), parçalar yeniden kodlanmadan birleşir ve kare sayısı kontrol edilir; tutmazsa önbellek silinip tüm video
+  baştan çekilir. Ortak bir değişiklik (yeni ses, renk, global CSS) her parçayı yeniler. Parça kullanan render'lar
+  render hızı ölçümüne yazılmaz. Final kartı kaç parçanın yeniden çizildiğini gösterir.
 - Menü sadeleşir: Stüdyo · Üretimler · Keşif · Takip · Ayarlar (kanallar, sesler, hesaplar, bütçe, stiller tek yerde).
 
 ## 8. Fazlar

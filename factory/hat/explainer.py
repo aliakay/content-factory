@@ -372,6 +372,6 @@ def compose(pid, s, note=None, d=None):
                {"tr": f"Final hazır; {len(problems)} teknik bulgu var.", "en": f"Final ready; {len(problems)} technical findings."}
                )[ui if ui in ("tr", "en") else "tr"]
     art = {"final": _rel(res["file"]), "duration": sp["duration"], "qa": {"technical": tech, "sound": sound},
-           "covers": [_rel(c) for c in covers], "render": {k: res[k] for k in ("cues", "music_cuts", "capture_s")},
+           "covers": [_rel(c) for c in covers], "render": {k: res[k] for k in ("cues", "music_cuts", "capture_s", "parts") if k in res},
            "summary": summary}
     return {"artifact": art, "summary": summary}
