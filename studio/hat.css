@@ -120,3 +120,14 @@ a.hl-style-t{color:inherit;text-decoration:none;display:block}
 .hl-dv .badge.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
 .hl-dv .badge.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
 .mt4{margin-top:4px}
+/* frame comments (t514) */
+.hl-se-frame.hl-cm-on{cursor:crosshair}
+.hl-cm-pin{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;border:2px solid #fff;background:var(--accent);box-shadow:0 0 0 2px rgba(0,0,0,.45);pointer-events:none}
+.hl-cm-pin.sent{background:#7aa7ff}.hl-cm-pin.new{background:#ff5470;animation:hlcm 1s ease-in-out infinite alternate}
+@keyframes hlcm{to{transform:scale(1.25)}}
+.hl-cm-vid{position:relative}.hl-cm-vid video{width:100%;display:block;border-radius:8px;background:#000}
+.hl-cm-ov{position:absolute;left:0;right:0;top:0;height:85%;cursor:crosshair}
+.hl-cm-row{border-top:1px solid var(--line,rgba(255,255,255,.08));padding-top:8px}
+/* rubric score (t515) */
+.hl-rb{display:grid;gap:4px}.hl-rb-bar{display:inline-block;width:60px;height:6px;border-radius:3px;background:rgba(255,255,255,.1);vertical-align:middle;overflow:hidden}
+.hl-rb-bar i{display:block;height:100%;background:var(--accent)}

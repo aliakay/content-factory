@@ -9,7 +9,7 @@ import importlib, json, os, re, time
 
 from .. import llm
 from ..config import ROOT
-from . import manifest, mcp_server, project as P, tools as T
+from . import gauntlet, manifest, mcp_server, project as P, tools as T
 
 SKILLS = os.path.join(ROOT, "skills")
 SERVER = "factory"
@@ -72,6 +72,7 @@ Aspect: {p.get('aspect')} · Earlier artifacts you can read: {', '.join(earlier)
 
 
 REVIEW_ROUNDS = 2
+PASS_SCORE = 90                                  # rubric points (of 100) a stage output needs from the reviewer (t515)
 OTHER_MODEL = {"opus": "sonnet", "sonnet": "opus", "haiku": "sonnet"}
 SEVERITIES = ("critical", "suggestion", "nitpick")
 
@@ -92,45 +93,85 @@ def run_stage(pid, s, note=None, d=None, user=None):
         cost += out["cost"]["usd"]
         if not s["review"]:
             break
-        review = review_stage(pid, s, d, user)
+        review = review_stage(pid, s, d, user, rnd)
         cost += review.pop("cost_usd", 0) or 0
         rounds.append({k: review[k] for k in ("verdict", "findings")})
+        if review["verdict"] != "unknown":
+            review["ledger"] = gauntlet.record(pid, s, review, rnd, d)
         critical = [f for f in review["findings"] if f["severity"] == "critical"]
-        if not critical or rnd == REVIEW_ROUNDS:
+        held = gauntlet.open_critical(pid, s, d) if "ledger" in review else 0
+        if held and review["verdict"] == "pass":
+            review["verdict"] = "fix"                   # an earlier critical the reviewer did not close blocks a pass
+        low = review.get("score") is not None and review["score"] < review["pass_score"]
+        if not (critical or held or low) or rnd == REVIEW_ROUNDS:
             break
-        P.event(pid, "review_fix", d=d, stage=s["id"], round=rnd + 1, critical=len(critical))
-        author_note = ((note + "\n\n") if note else "") + "A reviewer found these critical problems in your submission; " \
-            "fix every one and submit again:\n" + "\n".join(f"- [{f['item']}] {f['problem']} -> {f['fix']}" for f in critical)
+        P.event(pid, "review_fix", d=d, stage=s["id"], round=rnd + 1, critical=len(critical), score=review.get("score"))
+        author_note = ((note + "\n\n") if note else "") + _fix_note(review, critical, gauntlet.fix_lines(pid, s, d))
     if review is not None:
         review["rounds"] = len(rounds)
-        review["open_critical"] = sum(1 for f in review["findings"] if f["severity"] == "critical")
+        review["open_critical"] = max(sum(1 for f in review["findings"] if f["severity"] == "critical"),
+                                      gauntlet.open_critical(pid, s, d) if "ledger" in review else 0)
     return {"artifact": None, "summary": out["summary"], "review": review, "cost": {"usd": round(cost, 4)}}
 
 
-def review_task(pid, s, d=None):
+def _fix_note(review, critical, ledger=()):
+    """What the author is told after a review that did not pass: the critical findings, the rubric items that
+    scored below full marks with the findings on them, and every ledger entry still open."""
+    out = []
+    if critical:
+        out.append("A reviewer found these critical problems in your submission; fix every one and submit again:\n"
+                   + "\n".join(f"- [{f['item']}] {f['problem']} -> {f['fix']}" for f in critical))
+    if review.get("score") is not None and review["score"] < review["pass_score"]:
+        weak = [r for r in review["rubric"] if r["score"] < 10]
+        rest = [f for f in review["findings"] if f["severity"] != "critical"]
+        out.append(f"The reviewer's rubric score is {review['score']}/100; {review['pass_score']} is needed. Raise these "
+                   "items (score of 10 each):\n" + "\n".join(f"- {r['item']}: {r['score']}/10" for r in weak)
+                   + ("\nTheir other findings:\n" + "\n".join(f"- [{f['item']}] {f['problem']} -> {f['fix']}"
+                                                              for f in rest) if rest else ""))
+    if ledger:
+        out.append("Still open in the review ledger (earlier rounds included); each must be fixed:\n" + "\n".join(ledger))
+    return "\n\n".join(out)
+
+
+def rubric(focus, raw):
+    """The reviewer's per-item marks (one 0-10 integer per review-focus item, in order) -> ([{item, score}], 0-100).
+    The total is computed here, never taken from the reviewer; a list that does not match the focus gives (None, None)."""
+    if not focus or not isinstance(raw, list) or len(raw) != len(focus):
+        return None, None
+    try:
+        marks = [max(0, min(10, int(round(float(x))))) for x in raw]
+    except (TypeError, ValueError):
+        return None, None
+    return [{"item": i, "score": m} for i, m in zip(focus, marks)], round(10 * sum(marks) / len(marks))
+
+
+def review_task(pid, s, d=None, render=None):
     p = P.load(pid, d)
     ui = p.get("ui_lang", "tr")
-    focus = "\n".join(f"- {r}" for r in s["review"])
+    focus = "\n".join(f"{k}. {r}" for k, r in enumerate(s["review"], 1))
     return f"""{open(os.path.join(SKILLS, "meta", "reviewer.md"), encoding="utf-8").read()}
 
 # This review
 Stage: {s['name']['en']} ({s['id']}) · Artifact to review: `{s['artifact']}`
 Video language: {LANG_NAME.get(p.get('video_lang'), p.get('video_lang'))} · Interface language for `summary`: {LANG_NAME.get(ui, ui)}
 
-## Review focus
+## Review focus (the rubric: give one mark per item, in this order, {len(s['review'])} marks in `scores`)
 {focus}
-"""
+Pass mark: {s.get('pass_score') or PASS_SCORE}/100 (the mean of your marks x 10).
+{gauntlet.render_brief(render)}{gauntlet.brief(pid, s, d)}"""
 
 
-def review_stage(pid, s, d=None, user=None):
-    """A fresh reviewer (another model, read-only tools) judges the submitted artifact."""
+def review_stage(pid, s, d=None, user=None, rnd=0):
+    """A fresh reviewer (another model, read-only tools, a new session) judges the submitted artifact, on a render
+    the studio just made of it when the stage can be drawn."""
     p = P.load(pid, d)
+    render = gauntlet.fresh_render(pid, s, rnd, d)
     ours, builtins = T.agent_tools([t for t in s["tools"] if t != "submit_artifact"])
     ours = [t for t in ours if t != "submit_artifact"]
     servers = {SERVER: mcp_server.config(pid, s["id"], ours, d=d, user=user or p.get("created_by"))}
     model = OTHER_MODEL.get(s.get("model") or "sonnet", "sonnet")
     try:
-        text, meta = llm.ask_text(review_task(pid, s, d), tools=tuple([f"mcp__{SERVER}__{n}" for n in ours] + builtins
+        text, meta = llm.ask_text(review_task(pid, s, d, render), tools=tuple([f"mcp__{SERVER}__{n}" for n in ours] + builtins
                                                                          + ["Read"]),
                                   timeout=1200, model=model, retries=1, servers=servers, budget_usd=BUDGET.get(model, 2.0))
         r = llm.extract_json(text)
@@ -140,10 +181,17 @@ def review_stage(pid, s, d=None, user=None):
     findings = [{"severity": f.get("severity") if f.get("severity") in SEVERITIES else "suggestion",
                  **{k: str(f.get(k, ""))[:600] for k in ("item", "problem", "fix")}}
                 for f in (r.get("findings") or []) if isinstance(f, dict)]
-    verdict = "fix" if any(f["severity"] == "critical" for f in findings) else "pass"
-    P.event(pid, "review", d=d, stage=s["id"], model=model, verdict=verdict, findings=len(findings))
+    marks, score = rubric(s["review"], r.get("scores"))
+    need = s.get("pass_score") or PASS_SCORE
+    if marks is None and s["review"]:
+        P.event(pid, "review_unscored", d=d, stage=s["id"], got=str(r.get("scores"))[:200])
+    verdict = "fix" if any(f["severity"] == "critical" for f in findings) or (score is not None and score < need) \
+        else "pass"
+    P.event(pid, "review", d=d, stage=s["id"], model=model, verdict=verdict, findings=len(findings), score=score)
     return {"verdict": verdict, "findings": findings, "summary": str(r.get("summary", ""))[:800], "model": model,
-            "cost_usd": meta.get("cost_usd") or 0}
+            "rubric": marks, "score": score, "pass_score": need, "cost_usd": meta.get("cost_usd") or 0,
+            "ledger_marks": [x for x in (r.get("ledger") or []) if isinstance(x, dict)],
+            "render": {"sheet": render["sheet"], "stills": len(render["stills"])} if render else None}
 
 
 def _author(pid, s, note=None, d=None, user=None):

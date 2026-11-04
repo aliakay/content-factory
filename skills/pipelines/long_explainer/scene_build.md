@@ -8,7 +8,8 @@ is a draft from the script.
 1. Read `script` and `research` if you need more than the briefs (figures, sources). Keep the outline's design
    system exactly: its palette tokens, its global CSS classes and its kit. Do not restyle shared classes in a
    scene's css.
-2. Draw each scene: `html`, `css`, `js` (tweens on `tl` at absolute times from `T`, e.g. `T.at("word")`). Every
+2. Give each scene ONE `mechanism` from the catalogue below (how its picture explains its line; its beats are the
+   scene's setup -> action -> resolution). Draw each scene: `html`, `css`, `js` (tweens on `tl` at absolute times from `T`, e.g. `T.at("word")`). Every
    on-screen number comes from the script or the research, exactly. Where the outline names recipe cards (above),
    build on their example and keep their timing; the `recipes` tool has the other cards.
 3. Look at it: `render_stills` (no times = one settled frame of each of YOUR scenes) and open every PNG with Read.
@@ -16,10 +17,12 @@ is a draft from the script.
    band? Does it look like the same film as the kit describes?
 4. Check it: `layout_lint` (your scenes only); fix every error, then look again. Two rounds are usually enough.
    Pass your draft as `plan` = {"scenes": [...]} to check before you submit.
-5. `submit_artifact` with `scenes[{id, lines, trigger, html, css, js, notes}]` (exactly your ids and lines) and
+5. `submit_artifact` with `scenes[{id, lines, trigger, mechanism, html, css, js, notes}]` (exactly your ids and lines) and
    `summary` (interface language, one line: what you drew and anything the creator should look at).
 
 ## The rules of the renderer and of good motion (binding)
 {{include:factory.hat.explainer:design_rules}}
 
 {{include:factory.hat.explainer:design_kit}}
+
+{{include:factory.motiongrammar:brief}}

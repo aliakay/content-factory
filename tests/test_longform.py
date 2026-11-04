@@ -38,7 +38,7 @@ OUTLINE = {"concept": "c", "palette": {"bg": "#0b0d12", "ink": "#ffffff", "accen
 
 
 def _scene(sc, text=None):
-    return {"id": sc["id"], "lines": list(sc["lines"]), "trigger": "",
+    return {"id": sc["id"], "lines": list(sc["lines"]), "trigger": "", "mechanism": "build_up",
             "html": f'<h1 style="position:absolute;left:200px;top:300px;color:#fff;font-size:80px">{text or sc["id"]}</h1>',
             "css": "", "js": ""}
 

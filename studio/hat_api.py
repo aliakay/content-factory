@@ -11,6 +11,7 @@ POST /api/hat/recipes {ids?, force?} queue the recipe_demos job that renders the
 GET  /api/hat/project/<id>             the flow view of one project: stages, their outputs, stills, live events
 GET  /api/hat/project/<id>/scenes      the scene editor: scenes, their text elements, frames with boxes, versions
 POST /api/hat/project/<id>/scenes {action: edit|frames|save_version|restore|cut, ...}   hand edits at the scene plan gate
+     {action: note {text, t|scene, x, y, origin} | unnote {id} | send_notes}   frame comments -> targeted revision
 GET  /api/hat/project/<id>/export      the export package card: exportable items and the packages made so far
 POST /api/hat/project/<id>/export {items: [...]}   queue the export_pack job (no credits)
 GET  /api/hat/project/<id>/deliver     the platform delivery card: platforms and the deliveries made so far
@@ -116,7 +117,7 @@ def _public(name, data):
         return data
     data = dict(data)
     if name == "scene_plan":
-        data["scenes"] = [{k: sc.get(k) for k in ("id", "lines", "trigger", "notes")} for sc in data.get("scenes") or []]
+        data["scenes"] = [{k: sc.get(k) for k in ("id", "lines", "trigger", "mechanism", "notes")} for sc in data.get("scenes") or []]
         data.pop("global_css", None)
     for k in ("preview", "final"):
         if isinstance(data.get(k), str):
@@ -138,6 +139,9 @@ def project(pid):
         s["output"] = _public(s["artifact"], art) if art is not None else None
         if s["id"] == "scene_plan":
             s["stills"] = _stills(pid, "scene_plan")
+        rv = s.get("review") or {}
+        if (rv.get("render") or {}).get("sheet"):         # the reviewer's fresh render (t516)
+            rv["render"] = {**rv["render"], "sheet_url": _media(rv["render"]["sheet"])}
     from factory import filmstyles as styles
     line = manifest.get(P.load(pid)["line"])
     for s in f["stages"]:
@@ -181,6 +185,11 @@ def scenes(pid):
     for sc in v["scenes"]:
         sc["frame"] = _media(sc["frame"])
     v["archived"] = _archived(pid)
+    from factory import framenotes                   # frame comments (t514)
+    v["comments"] = framenotes.view(pid)
+    prev = (P.read_artifact(pid, "assets") or {}).get("preview")
+    v["preview"] = _media(os.path.join(ROOT, prev)) if prev and os.path.exists(os.path.join(ROOT, prev)) else None
+    v["busy"] = any(cp["status"] == "running" for _, cp in P.stages(pid))
     return v
 
 
@@ -190,7 +199,16 @@ def _scenes_post(pid, b, queue, uid):
         raise ValueError({"tr": "Bu bir arşiv kaydı; üzerinde iş yapılmaz.",
                           "en": "This is an archive record; no work is done on it."}[lang()])
     a = b.get("action")
+    from factory import framenotes
     try:
+        if a == "note":
+            return framenotes.add(pid, b.get("text"), t=b.get("t"), scene=b.get("scene"), x=b.get("x"), y=b.get("y"),
+                                  origin=b.get("origin") or "frame", by=uid)
+        if a == "unnote":
+            return framenotes.remove(pid, str(b.get("id") or ""))
+        if a == "send_notes":
+            r = framenotes.send(pid, queue, by=uid)
+            return {"sent": r["sent"], "scenes": r["scenes"]}
         if a == "edit":
             return sceneedit.edit(pid, str(b.get("scene") or ""), str(b.get("e") or ""), text=b.get("text"),
                                   color=b.get("color"), dx=b.get("dx"), dy=b.get("dy"), by=uid)
@@ -203,7 +221,7 @@ def _scenes_post(pid, b, queue, uid):
             return sceneedit.restore(pid, b.get("n"), by=uid)
         if a == "cut":
             return sceneedit.cut(pid, b.get("scene"), b.get("start"), by=uid)
-    except sceneedit.EditError as e:
+    except (sceneedit.EditError, framenotes.NoteError) as e:
         raise ValueError(e.text(lang())) from None
     raise ValueError("unknown action")
 

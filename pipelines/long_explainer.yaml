@@ -79,6 +79,7 @@ stages:
     tools: [read_artifact, recipes, stock_search, render_stills, layout_lint, contact_sheet, proof_check]
     review:
       - "Every scene follows the outline's brief and the shared kit"
+      - "Each scene's motion follows the beats of its named mechanism, and every motion verb keeps one meaning (motion grammar)"
       - "Layout lint has no errors; no text sits under the caption band"
       - "Every on-screen number matches the script and the research"
 

@@ -430,7 +430,7 @@ def test_reviewer_sends_critical_findings_back_once(d, skills, monkeypatch):
                      '"problem": "only 3 sources", "fix": "add two more"}, {"severity": "nitpick", "item": "tone", '
                      '"problem": "dry", "fix": "warmer"}], "summary": "Kaynak az."}',
                      '{"verdict": "pass", "findings": [{"severity": "suggestion", "item": "angles", "problem": "x", '
-                     '"fix": "y"}], "summary": "Tamam."}'])
+                     '"fix": "y"}], "ledger": [{"id": "f1", "status": "fixed"}], "summary": "Tamam."}'])
 
     def fake_cli(prompt, tools=(), servers=None, model=None, **k):
         if "REVIEWER CONTRACT" in prompt:
@@ -446,6 +446,138 @@ def test_reviewer_sends_critical_findings_back_once(d, skills, monkeypatch):
     assert calls["review"] == ["opus", "opus"]                      # sonnet wrote it, opus reviews it
     assert out["review"]["verdict"] == "pass" and out["review"]["open_critical"] == 0 and out["review"]["rounds"] == 2
     assert P.checkpoint(pid, "research", d)["revisions"] == 0      # internal rounds cost the creator nothing
+
+
+def test_rubric_score_below_the_bar_goes_back_to_the_author(d, skills, monkeypatch):
+    from factory import llm
+    from factory.hat import tools as T
+    pid = P.create("explainer", "t", d=d)["id"]
+    s = manifest.stage(manifest.get("explainer"), "research")
+    n = len(s["review"])
+    assert n >= 2
+    assert skills.rubric(s["review"], [10] * n)[1] == 100 and skills.rubric(s["review"], [9.6] + [10] * (n - 1))[0][0]["score"] == 10
+    assert skills.rubric(s["review"], [10]) == (None, None) and skills.rubric(s["review"], ["x"] * n) == (None, None)
+    assert skills.rubric(s["review"], [99] + [-3] * (n - 1))[0][1]["score"] == 0
+    calls = {"author": [], "review": []}
+    low = [2] + [10] * (n - 1)
+    verdicts = iter([json.dumps({"verdict": "pass", "scores": low, "summary": "Zayıf.", "findings": [
+                         {"severity": "suggestion", "item": "sources", "problem": "eski", "fix": "yenile"}]}),
+                     json.dumps({"verdict": "pass", "scores": [10] * n, "summary": "Tamam.", "findings": []})])
+
+    def fake_cli(prompt, tools=(), servers=None, model=None, **k):
+        if "REVIEWER CONTRACT" in prompt:
+            calls["review"].append(prompt)
+            return next(verdicts), {"cost_usd": 0.05}
+        calls["author"].append(prompt)
+        T.call("submit_artifact", T.Ctx(pid, "research", d), {"data": GOOD_RESEARCH})
+        return "submitted", {"cost_usd": 0.1}
+    monkeypatch.setattr(llm, "ask_text", fake_cli)
+    out = skills.run_stage(pid, s, d=d)
+    assert f"{n} marks in `scores`" in calls["review"][0] and "Pass mark: 90/100" in calls["review"][0]
+    assert "1. " + s["review"][0] in calls["review"][0]
+    expected = round(10 * sum(low) / n)
+    assert expected < 90 and f"rubric score is {expected}/100; 90 is needed" in calls["author"][1]
+    assert f"- {s['review'][0]}: 2/10" in calls["author"][1] and "eski -> yenile" in calls["author"][1]
+    r = out["review"]
+    assert r["score"] == 100 and r["verdict"] == "pass" and r["rounds"] == 2 and r["pass_score"] == 90
+    assert [x["score"] for x in r["rubric"]] == [10] * n
+    ev = [json.loads(x) for x in open(P.path(pid, "events.jsonl", d=d))]
+    assert [e.get("score") for e in ev if e["kind"] == "review"] == [expected, 100]
+    # an unscored review keeps the old rule (criticals only) and says so in the log
+    monkeypatch.setattr(llm, "ask_text", lambda prompt, **k: ('{"findings": [], "summary": "x"}', {"cost_usd": 0})
+                        if "REVIEWER CONTRACT" in prompt else (T.call("submit_artifact", T.Ctx(pid, "research", d),
+                                                                     {"data": GOOD_RESEARCH}) and "ok", {"cost_usd": 0}))
+    out = skills.run_stage(pid, s, d=d)
+    assert out["review"]["score"] is None and out["review"]["verdict"] == "pass" and out["review"]["rounds"] == 1
+    assert any(json.loads(x)["kind"] == "review_unscored" for x in open(P.path(pid, "events.jsonl", d=d)))
+    js = open(os.path.join(os.path.dirname(manifest.__file__), "..", "..", "studio", "hat.js"), encoding="utf-8").read()
+    assert js.count("rb_low:") == 2 and js.count("verdict_low:") == 2
+    raw = yaml.safe_load(open(os.path.join(manifest.DIR, "explainer.yaml"), encoding="utf-8"))
+    raw["stages"][0]["pass_score"] = 85
+    assert manifest.validate(raw, manifest.stage_vocab())["stages"][0]["pass_score"] == 85
+    raw["stages"][0]["pass_score"] = 120
+    with pytest.raises(manifest.ManifestError, match="pass_score"):
+        manifest.validate(raw, manifest.stage_vocab())
+
+
+def test_gauntlet_ledger_must_close_earlier_findings(d, skills, monkeypatch):
+    from factory import llm
+    from factory.hat import gauntlet as G, tools as T
+    pid = P.create("explainer", "t", d=d)["id"]
+    s = manifest.stage(manifest.get("explainer"), "research")
+    n = len(s["review"])
+    reviews = iter([
+        {"scores": [10] * n, "findings": [{"severity": "critical", "item": "sources", "problem": "3 kaynak", "fix": "5 yap"},
+                                          {"severity": "nitpick", "item": "ton", "problem": "kuru", "fix": "sıcak"}]},
+        {"scores": [10] * n, "findings": [], "ledger": [{"id": "f1", "status": "open"}]},     # says pass, f1 still open
+        {"scores": [10] * n, "findings": [{"severity": "suggestion", "item": "angles", "problem": "a", "fix": "b"}],
+         "ledger": [{"id": "f1", "status": "fixed"}, {"id": "zz", "status": "fixed"}]}])
+    prompts = {"author": [], "review": []}
+
+    def fake_cli(prompt, **k):
+        if "REVIEWER CONTRACT" in prompt:
+            prompts["review"].append(prompt)
+            return json.dumps({"verdict": "pass", "summary": "x", **next(reviews)}), {"cost_usd": 0}
+        prompts["author"].append(prompt)
+        T.call("submit_artifact", T.Ctx(pid, "research", d), {"data": GOOD_RESEARCH})
+        return "ok", {"cost_usd": 0}
+    monkeypatch.setattr(llm, "ask_text", fake_cli)
+    out = skills.run_stage(pid, s, d=d)
+    assert len(prompts["author"]) == 3 and "Ledger" not in prompts["review"][0]
+    assert "- f1 [critical] sources: 3 kaynak -> 5 yap" in prompts["review"][1] and "ton" not in prompts["review"][1]
+    assert "Still open in the review ledger" in prompts["author"][2] and "f1 [sources]" in prompts["author"][2]
+    assert "Still open in the review ledger" not in prompts["author"][1]          # round 1's own critical is listed once
+    r = out["review"]
+    assert r["verdict"] == "pass" and r["rounds"] == 3 and r["open_critical"] == 0
+    assert (r["ledger"]["fixed"], r["ledger"]["open"]) == (1, 1) and [e["id"] for e in r["ledger"]["entries"]] == ["f1", "f2"]
+    led = G.load(pid, "research", d)
+    assert led["reviews"] == 3 and led["entries"][0]["closed_review"] == 3 and led["entries"][1]["round"] == 3
+    # the reviewer saying pass while an old critical stays open is not a pass
+    G._save(pid, "research", {"entries": [{"id": "f9", "review": 1, "run": 0, "round": 1, "status": "open",
+                                           "severity": "critical", "item": "x", "problem": "y", "fix": "z"}],
+                              "reviews": 1}, d)
+    monkeypatch.setattr(skills, "REVIEW_ROUNDS", 0)
+    monkeypatch.setattr(llm, "ask_text", lambda prompt, **k: (json.dumps({"scores": [10] * n, "findings": []}), {})
+                        if "REVIEWER CONTRACT" in prompt else (T.call("submit_artifact", T.Ctx(pid, "research", d),
+                                                                     {"data": GOOD_RESEARCH}) and "ok", {}))
+    r = skills.run_stage(pid, s, d=d)["review"]
+    assert r["verdict"] == "fix" and r["open_critical"] == 1
+
+
+def test_gauntlet_reviewer_judges_a_fresh_render(d, monkeypatch):
+    from factory.hat import agent as A, gauntlet as G, tools as T
+    pid = P.create("explainer", "t", d=d)["id"]
+    s = manifest.stage(manifest.get("explainer"), "scene_plan")
+    calls = []
+
+    def fake_call(name, ctx, args=None):
+        calls.append((name, ctx.stage))
+        if name == "render_stills":
+            return {"stills": ["/p/stills/a.png", "/p/stills/b.png"], "js_errors": ["boom"], "times": [1.0, 3.0]}
+        return {"sheet": "/p/stills/sheet.jpg"}
+    monkeypatch.setattr(T, "available", lambda name: (True, ""))
+    monkeypatch.setattr(T, "call", fake_call)
+    r = G.fresh_render(pid, s, 1, d)
+    assert calls == [("render_stills", "review-scene_plan-r2"), ("contact_sheet", "review-scene_plan-r2")]
+    assert r["sheet"] == "/p/stills/sheet.jpg" and r["js_errors"] == ["boom"]
+    task = A.review_task(pid, s, d, r)
+    assert "Fresh render" in task and "/p/stills/b.png" in task and "boom" in task and "do not trust stills" in task
+    assert G.fresh_render(pid, manifest.stage(manifest.get("explainer"), "research"), 0, d) is None
+    monkeypatch.setattr(T, "call", lambda *a, **k: (_ for _ in ()).throw(T.ToolError("no chromium")))
+    assert G.fresh_render(pid, s, 0, d) is None
+    assert any(json.loads(x)["kind"] == "review_render_error" for x in open(P.path(pid, "events.jsonl", d=d)))
+    from studio import hat_api
+    monkeypatch.setattr(P, "DIR", d)
+    monkeypatch.setattr(hat_api, "_check", lambda pid: pid)
+    monkeypatch.setattr(hat_api, "lang", lambda: "en")
+    sheet = P.path(pid, "stills", "review-x", "sheet.jpg", d=d)
+    cp = P.checkpoint(pid, "research", d)
+    cp["review"] = {"verdict": "pass", "findings": [], "render": {"sheet": sheet, "stills": 2}}
+    P._atomic(P.path(pid, "checkpoints", "research.json", d=d), cp)
+    st = next(x for x in hat_api.project(pid)["stages"] if x["id"] == "research")
+    assert st["review"]["render"]["sheet_url"].startswith("/media/projects/") and st["review"]["render"]["sheet_url"].endswith("sheet.jpg")
+    js = open(os.path.join(os.path.dirname(manifest.__file__), "..", "..", "studio", "hat.js"), encoding="utf-8").read()
+    assert js.count("gl_counts:") == 2 and js.count("gl_render:") == 2
 
 
 def test_a_broken_review_never_blocks_the_stage(d, skills, monkeypatch):
@@ -2019,6 +2151,149 @@ def test_scene_editor_frames_carry_clickable_boxes_and_the_api(d, monkeypatch, t
     assert st["scene_edit"]
     from factory import jobs
     assert '"scene_frames"' in open(jobs.__file__).read()
+
+
+# ---------------------------------------------------------------- frame comments (t514)
+
+def _fake_frames(monkeypatch, tmp_path):
+    from factory.hat import explainer
+
+    class Fake:
+        def shots(self, b, times, out, lint=False):
+            files = []
+            for i, t in enumerate(times):
+                files.append(os.path.join(out, f"shot_{i:03d}.png"))
+                open(files[-1], "wb").write(b"png")
+            lint_path = str(tmp_path / "lint.json")
+            json.dump({f"{t:.2f}": {"file": files[i], "boxes": [
+                {"scene": ["hook", "end"][i], "e": "2", "text": "1,48", "x": 400, "y": 600, "w": 120, "h": 60},
+                {"scene": ["hook", "end"][i], "e": "1", "text": "Konut milyon", "x": 100, "y": 500, "w": 800, "h": 200}]}
+                for i, t in enumerate(times)}, open(lint_path, "w"))
+            return files, [], lint_path
+    monkeypatch.setattr(explainer, "bundle", lambda pid, plan=None, d=None: "b.json")
+    monkeypatch.setattr(explainer, "scene_times", lambda pid, plan=None, d=None: [1.0, 3.0])
+    monkeypatch.setattr(explainer, "_htmlmotion", lambda: Fake())
+
+
+def test_frame_comments_name_the_element_and_its_source_line(d, monkeypatch, tmp_path):
+    from factory import framenotes as F, sceneedit as S
+    boxes = [{"e": "1", "x": 0, "y": 0, "w": 500, "h": 500}, {"e": "2", "x": 100, "y": 100, "w": 50, "h": 50}]
+    assert F.element_at(boxes, 120, 120)["e"] == "2" and F.element_at(boxes, 300, 300)["e"] == "1"
+    assert F.element_at(boxes, 540, 300)["e"] == "1" and F.element_at(boxes, 900, 900) is None
+    assert F.source_line('<div>\n  <b data-e="7">x</b>\n</div>', "7") == {"line": 2, "text": '<b data-e="7">x</b>'}
+    assert F.source_line("<div></div>", "7") is None
+    pid = _scene_gate(d)
+    _fake_frames(monkeypatch, tmp_path)
+    S.frames(pid, d)
+    n = F.add(pid, "  bu sayı   daha büyük olsun ", scene="hook", x=450, y=620, by="ali", d=d)
+    assert n["text"] == "bu sayı daha büyük olsun" and n["e"] == "2" and n["label"] == "1,48" and n["status"] == "open"
+    assert n["src"]["line"] == 1 and 'data-e="2"' in n["src"]["text"] and n["origin"] == "frame"
+    v = F.add(pid, "bitiş yazısı", t=99.0, x=5, y=5, origin="video", d=d)       # past the end: the last scene
+    assert v["scene"] == "end" and v["t"] == 99.0 and v["e"] is None
+    for bad in ({"text": " ", "scene": "hook"}, {"text": "x", "scene": "nope"}):
+        with pytest.raises(F.NoteError):
+            F.add(pid, d=d, **bad)
+    with pytest.raises(F.NoteError) as e:
+        F.remove(pid, "cnope", d=d)
+    assert "Böyle bir yorum" in e.value.text("tr")
+    assert F.remove(pid, v["id"], d=d) == {"removed": v["id"]} and [x["id"] for x in F.pending(pid, d)] == [n["id"]]
+    txt = F.note_text(pid, F.pending(pid, d), d)
+    assert "Change ONLY what each comment asks" in txt and "(hook)" in txt and 'data-e="2" ("1,48")' in txt
+    assert "scene html line 1" in txt and "point (450, 620) of the 1080x1920 frame" in txt
+
+
+def test_frame_comments_revise_only_the_commented_scenes(d, monkeypatch, tmp_path):
+    from factory import framenotes as F
+    from factory.hat import manifest, runner
+    pid = _scene_gate(d)
+    calls = []
+    monkeypatch.setattr(runner, "feedback", lambda pid, sid, note, queue, by=None, d=None: calls.append((sid, note)) or "queued")
+    with pytest.raises(F.NoteError):
+        F.send(pid, None, d=d)                                                  # nothing open
+    F.add(pid, "1,48 kırmızı olsun", scene="hook", d=d)
+    out = F.send(pid, None, by="ali", d=d)
+    assert out == {"sent": 1, "scenes": ["hook"], "state": "queued"} and calls[0][0] == "scene_plan"
+    assert "Frame comments" in calls[0][1] and F.pending(pid, d)[0]["status"] == "sent"
+    old = P.read_artifact(pid, "scene_plan", d)
+    plan = json.loads(json.dumps(old))                                          # the designer changes too much
+    plan["scenes"][0]["html"] = '<h1 data-e="1" style="color:red">1,48</h1>'
+    plan["scenes"][1]["html"] = "<p>başka</p>"
+    plan["palette"] = {"bg": "#000"}
+    plan["global_css"] = "h1{font-size:9px}"
+    P.write_artifact(pid, "scene_plan", plan, d)
+    s = manifest.stage(manifest.get("explainer"), "scene_plan")
+    assert F.settle(pid, s, d) == ["end", "palette", "global_css"]
+    now = P.read_artifact(pid, "scene_plan", d)
+    assert now["scenes"][0]["html"].startswith('<h1 data-e="1" style="color:red">') and now["scenes"][1] == old["scenes"][1]
+    assert now["palette"] == old["palette"] and now.get("global_css") == old.get("global_css")
+    vw = F.view(pid, d)
+    assert vw["notes"][0]["status"] == "done" and vw["batches"][0]["status"] == "done" and "before" not in vw["batches"][0]
+    assert F.settle(pid, s, d) is None                                          # nothing running: a plain run is left alone
+    with pytest.raises(F.NoteError) as e:
+        F.remove(pid, vw["notes"][0]["id"], d=d)
+    assert e.value.key == "sent"
+    P.approve(pid, "scene_plan", d=d)                                           # past the gate: the plan is reopened
+    F.add(pid, "bitiş", scene="end", d=d)
+    F.send(pid, None, d=d)
+    assert P.checkpoint(pid, "scene_plan", d)["status"] != "approved" and len(calls) == 2
+    assert '"busy"' not in json.dumps(F.view(pid, d))
+    src = open(os.path.join(os.path.dirname(runner.__file__), "runner.py")).read()
+    assert "framenotes.settle(pid, s, d)" in src
+
+
+def test_frame_comments_api_and_strings(d, monkeypatch, tmp_path):
+    from factory import config
+    from factory.hat import runner
+    from studio import hat_api
+    pid = _scene_gate(d)
+    monkeypatch.setattr(P, "DIR", d)
+    monkeypatch.setattr(hat_api, "_check", lambda pid: pid)
+    monkeypatch.setattr(hat_api.accounts, "current", lambda: "ali")
+    monkeypatch.setattr(hat_api, "lang", lambda: "en")
+    monkeypatch.setattr(runner, "feedback", lambda *a, **k: "queued")
+    post = lambda **b: hat_api.post(None, f"/api/hat/project/{pid}/scenes", b, lambda k, a: 1)
+    n = post(action="note", text="bigger", scene="hook", origin="frame")
+    assert n["scene"] == "hook" and n["by"] == "ali"
+    with pytest.raises(ValueError, match="cannot be empty"):
+        post(action="note", text="", scene="hook")
+    g = hat_api.get(None, f"/api/hat/project/{pid}/scenes", {})
+    assert g["comments"]["notes"][0]["text"] == "bigger" and g["busy"] is False and g["preview"] is None
+    assert post(action="unnote", id=n["id"]) == {"removed": n["id"]}
+    post(action="note", text="red", scene="end")
+    assert post(action="send_notes") == {"sent": 1, "scenes": ["end"]}
+    js = open(os.path.join(config.ROOT, "studio", "hat.js"), encoding="utf-8").read()
+    for k in ("cm_title", "cm_send", "cm_send_q", "cm_st_done", "cm_video_hint"):
+        assert js.count(k + ":") == 2
+    assert 'cm_title: "Kareye yorum"' in js and 'cm_title: "Frame comments"' in js
+
+
+def test_motion_grammar_reaches_the_designers_and_submit_checks_mechanisms(d):
+    from factory import motiongrammar as G
+    from factory.hat import agent as A, tools as T
+    assert len(G.MECHANISMS) >= 12 and all(len(v) == 4 for v in G.MECHANISMS.values())
+    assert G.problems([{"id": "a", "mechanism": "flow"}, {"id": "b", "mechanism": "reveal"}]) == []
+    found = G.problems([{"id": "a"}, {"id": "b", "mechanism": "slideshow"}])
+    assert "scene a: name its `mechanism`" in found[0] and "unknown mechanism 'slideshow'" in found[1]
+    three = [{"id": x, "mechanism": "flow"} for x in "abc"]
+    assert G.problems(three) == ["scenes 1-3 all use 'flow': change the mechanism of the middle one"]
+    for line, sid in (("explainer", "scene_plan"), ("long_explainer", "scene_build")):
+        text = A.skill(line, sid, {"aspect": "9:16"})
+        assert "MOTION GRAMMAR" in text and "MECHANISM CATALOGUE" in text and "cause_chain:" in text and "mechanism" in text
+    anim = A.skill("animation", "scene_plan", {"aspect": "9:16"})
+    assert "MOTION GRAMMAR" in anim and "MECHANISM CATALOGUE" not in anim
+    assert any("motion grammar" in r for r in manifest.stage(manifest.get("explainer"), "scene_plan")["review"])
+    pid = P.create("explainer", "m", d=d)["id"]
+    plan = {"concept": "c", "palette": {}, "summary": "s", "scenes": [
+        {"id": "hook", "lines": [0, 0], "html": "<h1>a</h1>", "mechanism": "hook_question"},
+        {"id": "end", "lines": [1, 1], "html": "<h1>b</h1>"}]}
+    r = T.call("submit_artifact", T.Ctx(pid, "scene_plan", d), {"data": plan})
+    assert not r["accepted"] and "scene end: name its `mechanism`" in r["problems"][0]
+    plan["scenes"][1]["mechanism"] = "cta_end"
+    assert T.call("submit_artifact", T.Ctx(pid, "scene_plan", d), {"data": plan})["accepted"]
+    anim_pid = P.create("animation", "a", d=d)["id"]                  # story scenes are not bound to the catalogue
+    plan["scenes"][1].pop("mechanism")
+    stage = next(s["id"] for s in manifest.get("animation")["stages"] if s["artifact"] == "scene_plan")
+    assert "mechanism" not in json.dumps(T.call("submit_artifact", T.Ctx(anim_pid, stage, d), {"data": plan}))
 
 
 def test_export_cues_srt_and_timelines():

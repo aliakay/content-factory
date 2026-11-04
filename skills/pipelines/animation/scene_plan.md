@@ -27,3 +27,5 @@ in a music-led piece the timing is the script's holds and there are no captions,
 {{include:factory.hat.explainer:design_rules}}
 
 {{include:factory.hat.explainer:design_kit}}
+
+{{include:factory.motiongrammar:GRAMMAR}}

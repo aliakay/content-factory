@@ -72,7 +72,10 @@ def validate(m, vocab):
                 "artifact": st.get("artifact") or base.get("artifact") or sid,
                 "schema": st.get("schema") or st.get("artifact") or base.get("artifact") or sid,
                 "name": st.get("name") or base["name"], "says": st.get("says") or base.get("says") or {"tr": "", "en": ""},
-                "gate_says": st.get("gate_says") or base.get("gate_says") or {"tr": "", "en": ""}}
+                "gate_says": st.get("gate_says") or base.get("gate_says") or {"tr": "", "en": ""},
+                "pass_score": st.get("pass_score")}
+        if full["pass_score"] is not None and not (isinstance(full["pass_score"], int) and 50 <= full["pass_score"] <= 100):
+            raise ManifestError(f"{where}.{sid}: pass_score must be a whole number 50-100")
         _bi(full["name"], "name", f"{where}.{sid}")
         stages.append(full)
     if m.get("aspect") is not None and m["aspect"] not in ("9:16", "16:9"):

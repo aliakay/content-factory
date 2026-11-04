@@ -165,6 +165,11 @@ def submit_artifact(ctx, data):
 def _meaning(ctx, schema, data):
     """Checks a schema cannot say: a long script's chapters, an outline against its script, a part against its outline."""
     from . import longform
+    from .. import motiongrammar
+    if schema in ("scene_plan", "scene_part") and P.load(ctx.pid, ctx.d)["line"] in motiongrammar.LINES:
+        found = motiongrammar.problems(data.get("scenes"))
+        if found:
+            return found
     if schema == "long_script":
         return longform.script_problems(data)
     script = P.read_artifact(ctx.pid, "script", ctx.d) or {}

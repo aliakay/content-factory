@@ -358,6 +358,36 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
   lead, davul; küçük bir oda yankısı); `assets/samples/<enstrüman>/` içine açık lisanslı nota örnekleri (`C4.wav`,
   `kick.wav`) konursa onlar çalınır. Nota döngüyle videonun boyuna uzar, sonu söner, m4a olarak yazılır, notası
   yanına kaydedilir. Kredi harcamaz; ses kartı ve öneri kartı "kredisiz" gösterir.
+- **Kareye yorum (t514):** sahne düzenleyicide "Yorum modu" açılınca bir kareye ya da durdurulmuş önizleme
+  videosuna tıklanır, ne değişmesi gerektiği yazılır. Yorum zamanı, sahneyi, imlecin altındaki yazıyı (çizicinin
+  ölçtüğü kutulardan en küçüğü, yoksa 60 px içindeki en yakını) ve o yazının sahne HTML'indeki satırını taşır
+  (`factory/framenotes.py`, `artifacts/frame_notes.json`). Açık yorumlar tek tıkla tasarımcıya hedefli bir revizyon
+  notu olarak gider (geç bir kapı bekliyorsa sahne planı yeniden açılır); koşu bitince yorumlanmayan sahneler,
+  palet ve ortak CSS olduğu gibi geri konur, yani ajan yalnız yorumlanan noktaları değiştirebilir; geri konanlar
+  kartta yazar. Kısmi çizim (t511) yalnız o sahneleri yeniden çizer. Kredi harcamaz; kapıda yine onay beklenir.
+- **Rubrikli puan kapısı (t515):** ayrı denetçi (yazarın değil öteki model, salt okuma araçları) aşamanın denetim
+  maddelerini rubrik olarak kullanır ve her maddeye sırayla 0–10 not verir; puanı (ortalama × 10) stüdyo hesaplar,
+  denetçinin kendi toplamına güvenilmez. Puan 90'ın altındaysa (manifestte aşama başına `pass_score: 50–100` ile
+  değişir) yazar, 10 almayan maddeleri ve bulguları içeren bir notla en çok iki kez daha dener; kritik bulgu kuralı
+  aynen sürer. Kapı kartı puanı, eşiği ve madde madde notları gösterir. Not vermeyen ya da yanlış sayıda not veren
+  denetim eski kurala (yalnız kritik bulgular) döner ve olay kaydına `review_unscored` düşer. Onayı yine sen verirsin.
+- **Gauntlet denetim döngüsü (t516, `factory/hat/gauntlet.py`):** kurucu asla yargıç değildir (denetçi öteki model,
+  yeni oturum, `submit_artifact` yok). Çizilebilen aşamalarda (araçlarında `render_stills` olanlar) stüdyo her
+  denetimden önce teslim edilen hâli kendisi taze çizer (`stills/review-<aşama>-r<tur>-…`, kontak sayfası ve JS
+  hataları) ve denetçiye "yazarın karelerine değil bunlara bak" der; çizim olmazsa denetim yine yapılır, olay kaydına
+  düşer. Her bulgu (zevk notları hariç) `artifacts/review_ledger.json` defterine kimlikle yazılır; sonraki denetim açık
+  kayıtları tek tek `fixed / open / dropped` işaretler, yazarın düzeltme notu önceki turlardan açık kalanları da
+  sayar. Kapatılmamış eski bir kritik bulgu "geçti" demeyi engeller. Kapı kartı defteri (düzeldi · açık · düştü) ve
+  taze çizimin kontak sayfasını gösterir.
+- **Hareket grameri (t517, `factory/motiongrammar.py`):** hareket doktrini bir hareketin nasıl hissettirdiğini,
+  gramer ne söylediğini anlatır: yön zaman ve nedendir, yukarı daha çok, içeri itiş odak, dışarı çekiş bağlam, ölçek
+  büyüklük, renk değişimi durum değişimi, çizilen bağ nedensellik; bir fiil videoda tek anlam taşır ve `concept` içine
+  yazılır. 15 mekanizmalık katalog (neden zinciri, ölçek kıyası, önce/sonra, kurulum, detaya zum, akış, zaman çizgisi,
+  harita, ikili kıyas, grafik, açılış/ters köşe, metafor, sayaç, kanca, kapanış) her biri için ne açıkladığını,
+  kurulum → eylem → çözüm vuruşlarını, hareketi ve tuzağı verir. Açıklayıcı ve uzun açıklayıcıda her sahne bir
+  `mechanism` adlandırır; `submit_artifact` bilinmeyen kimliği ve aynı mekanizmaya üst üste üç sahneyi geri çevirir;
+  denetçinin rubriğinde "vuruşlar ve gramer" maddesi vardır. Animasyon hattı yalnız grameri alır (hikâye sahneleri
+  kataloga bağlı değildir).
 - Menü sadeleşir: Stüdyo · Üretimler · Keşif · Takip · Ayarlar (kanallar, sesler, hesaplar, bütçe, stiller tek yerde).
 
 ## 8. Fazlar

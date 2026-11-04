@@ -96,6 +96,8 @@ def execute(pid, sid, d=None):
         elif s["run"] == "agent":
             from . import agent
             out = agent.run_stage(pid, s, note=cp.get("note"), d=d) or {}
+            from .. import framenotes
+            framenotes.settle(pid, s, d)      # frame comments (t514): only the commented scenes may change
         else:
             raise P.GateError(f"'{sid}' is not built yet on this line")
     except Exception as e:

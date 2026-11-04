@@ -116,7 +116,7 @@ scene_part:                          # long_explainer: one builder's scenes (one
         required: [id, lines, html]
         properties: {id: {type: string}, lines: {type: array, minItems: 2, maxItems: 2, items: {type: integer, minimum: 0}},
                      trigger: {type: string}, html: {type: string}, css: {type: string}, js: {type: string},
-                     notes: {type: string}}
+                     notes: {type: string}, mechanism: {type: string}}
     stock: {type: array}
     summary: {type: string}
 
@@ -136,7 +136,7 @@ scene_plan:
         properties: {id: {type: string, pattern: "^[a-z][a-z0-9_-]*$"}, lines: {type: array, minItems: 2, maxItems: 2,
                                                                           items: {type: integer, minimum: 0}},
                      trigger: {type: string}, html: {type: string}, css: {type: string}, js: {type: string},
-                     notes: {type: string}}
+                     notes: {type: string}, mechanism: {type: string}}
     stock: {type: array}
     summary: {type: string}
 

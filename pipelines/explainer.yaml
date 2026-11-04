@@ -66,6 +66,7 @@ stages:
     review:
       - "Scenes cover the whole script with no gaps; every scene has a trigger word"
       - "No two consecutive scenes use the same visual device"
+      - "Each scene's motion follows the beats of its named mechanism, and every motion verb keeps one meaning (motion grammar)"
       - "Layout lint has no errors; no text sits under the caption band"
       - "Every on-screen number matches the script and the research"
 

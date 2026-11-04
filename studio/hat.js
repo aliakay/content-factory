@@ -7,7 +7,7 @@ const LANGS = { tr: "Türkçe", en: "English" };
 const L = () => ((S.me && S.me.ui_lang) || "tr");
 const TX = {
   tr: {
-    nav_make: "Üret", nav_prods: "Üretimler", nav_fstyles: "Film stilleri", rc_nav: "Reçeteler", rc_lead: "Sahne planlayıcının kullandığı hareket reçeteleri: her kart bir FX çağrısı, zamanlaması, tuzakları ve çalışan bir örnek. Planlayıcı bir sahnenin reçetelerini adıyla seçer, tasarımcı kartın tamamını alır.", rc_all: "Hepsi", rc_search: "Ara: grafik, kamera, yağmur…", rc_render: "{0} örnek klibi üret (ücretsiz)", rc_rendering: "Klipler üretiliyor", rc_queued: "Örnek klipler üretiliyor (birkaç dakika, kredi harcamaz)", rc_noclip: "Örnek klip henüz üretilmedi.", rc_call: "Çağrı", rc_timing: "Zamanlama", rc_pitfalls: "Tuzaklar", rc_code: "Örnek kod", rc_more: "Ayrıntı", rc_none: "Bu filtrede reçete yok", rc_job: "reçete örnek klipleri", rc_count: "{0} reçete", mu_composer: "kendi bestecimiz, kredisiz", mu_composed: "Özgün beste, {0} BPM, kredisiz", mu_plain: "Basit beste (ajan yazamadı), {0} BPM, kredisiz", pt_label: "Ön-kırpma", pt_cut: "Metinde olmayan {0} dolgu/takılma kesildi ({1} sn)", parts_reused: "Yalnız değişen sahneler yeniden çizildi: {0}/{1} parça.", fs_lead: "Kütüphanedeki 12 stil ve senin kendi stillerin. Bir stili değiştirerek ya da boş sayfadan kendi stilini yap; onaylanınca öneri kapılarında seçilebilir.", fs_lib: "Kütüphane", fs_own: "Senin stillerin", fs_new: "Kendi stilini yap", fs_name: "Stilin adı", fs_base: "Nereden başlayalım?", fs_blank: "Boş sayfa", fs_create: "Başla", fs_change: "Bunu değiştir", fs_st_start: "Başlangıç", fs_st_plan: "Plan", fs_st_brand: "Marka", fs_st_sample: "Örnek kare", fs_st_approve: "Onay", fs_next: "İleri", fs_prev: "Geri", fs_save: "Kaydet", fs_skip: "Atla", fs_draw: "Örnek kareyi çiz", fs_drawing: "Çiziliyor (yaklaşık 1 dk)…", fs_redraw: "Yeniden çiz", fs_approve: "Onayla, kütüphaneye ekle", fs_draft: "taslak", fs_sampled: "kare hazır", fs_approved: "onaylı", fs_stale: "Değişiklikten sonra örnek kareyi yeniden çiz.", fs_need: "Yanıtlanmamış: {0}", fs_logo_up: "Logo yükle", fs_logo_ok: "Logo yüklü", fs_delete: "Sil", fs_del_q: "Bu stil silinsin mi?", fs_saved: "Kaydedildi", fs_in_lib: "Bu stil kütüphanede; öneri kapılarında seçilebilir.", fs_no_cost: "Kredi harcanmaz: kare stüdyonun kendi motoruyla çizilir.", fs_based: "Temel: {0}", lang: "Arayüz dili",
+    nav_make: "Üret", nav_prods: "Üretimler", nav_fstyles: "Film stilleri", rc_nav: "Reçeteler", rc_lead: "Sahne planlayıcının kullandığı hareket reçeteleri: her kart bir FX çağrısı, zamanlaması, tuzakları ve çalışan bir örnek. Planlayıcı bir sahnenin reçetelerini adıyla seçer, tasarımcı kartın tamamını alır.", rc_all: "Hepsi", rc_search: "Ara: grafik, kamera, yağmur…", rc_render: "{0} örnek klibi üret (ücretsiz)", rc_rendering: "Klipler üretiliyor", rc_queued: "Örnek klipler üretiliyor (birkaç dakika, kredi harcamaz)", rc_noclip: "Örnek klip henüz üretilmedi.", rc_call: "Çağrı", rc_timing: "Zamanlama", rc_pitfalls: "Tuzaklar", rc_code: "Örnek kod", rc_more: "Ayrıntı", rc_none: "Bu filtrede reçete yok", rc_job: "reçete örnek klipleri", rc_count: "{0} reçete", cm_title: "Kareye yorum", cm_on: "Yorum modu", cm_off: "Yorumu bitir", cm_hint: "Yorum modunu aç, karede ya da durdurulmuş önizlemede bir noktaya tıkla, ne değişmeli yaz. Yorumlar birlikte tasarımcıya gider; yalnız yorumlanan sahneler değişir.", cm_hint_on: "Karede ya da önizlemede bir noktaya tıkla. Tıkladığın yazı ve onun kaynak satırı yoruma eklenir.", cm_note: "Yorum", cm_ph: "Ne değişmeli? Örn. bu sayı daha büyük ve kırmızı olsun", cm_add: "Yorumu ekle", cm_cancel: "Vazgeç", cm_added: "Yorum eklendi", cm_empty: "Yorumu yaz.", cm_del: "Sil", cm_none: "Henüz yorum yok.", cm_send: "{0} yorumu tasarımcıya gönder", cm_send_hint: "Tasarımcı ajan yalnız yorumlanan sahneleri düzeltir; diğer sahneler, renkler ve ortak CSS olduğu gibi geri konur. Sahne planı kapısında yeniden onayın beklenir.", cm_send_q: "Yorumlar tasarımcıya gönderilsin mi? Sahne planı yeniden çalışır ve kapısında durur (kredi harcamaz).", cm_sent: "{0} yorum gönderildi", cm_running: "Tasarımcı yorumları uyguluyor…", cm_done: "Son revizyon: {0} sahnesi düzeltildi.", cm_restored: "Dokunulmaması gerekenler geri kondu: {0}.", cm_line: "satır {0}", cm_video: "Önizlemeye yorum", cm_video_hint: "Videoyu istediğin anda durdur, sonra görüntüde bir noktaya tıkla.", cm_at: "{0} sn anı seçildi", cm_st_open: "açık", cm_st_sent: "gönderildi", cm_st_done: "uygulandı", mu_composer: "kendi bestecimiz, kredisiz", mu_composed: "Özgün beste, {0} BPM, kredisiz", mu_plain: "Basit beste (ajan yazamadı), {0} BPM, kredisiz", pt_label: "Ön-kırpma", pt_cut: "Metinde olmayan {0} dolgu/takılma kesildi ({1} sn)", parts_reused: "Yalnız değişen sahneler yeniden çizildi: {0}/{1} parça.", fs_lead: "Kütüphanedeki 12 stil ve senin kendi stillerin. Bir stili değiştirerek ya da boş sayfadan kendi stilini yap; onaylanınca öneri kapılarında seçilebilir.", fs_lib: "Kütüphane", fs_own: "Senin stillerin", fs_new: "Kendi stilini yap", fs_name: "Stilin adı", fs_base: "Nereden başlayalım?", fs_blank: "Boş sayfa", fs_create: "Başla", fs_change: "Bunu değiştir", fs_st_start: "Başlangıç", fs_st_plan: "Plan", fs_st_brand: "Marka", fs_st_sample: "Örnek kare", fs_st_approve: "Onay", fs_next: "İleri", fs_prev: "Geri", fs_save: "Kaydet", fs_skip: "Atla", fs_draw: "Örnek kareyi çiz", fs_drawing: "Çiziliyor (yaklaşık 1 dk)…", fs_redraw: "Yeniden çiz", fs_approve: "Onayla, kütüphaneye ekle", fs_draft: "taslak", fs_sampled: "kare hazır", fs_approved: "onaylı", fs_stale: "Değişiklikten sonra örnek kareyi yeniden çiz.", fs_need: "Yanıtlanmamış: {0}", fs_logo_up: "Logo yükle", fs_logo_ok: "Logo yüklü", fs_delete: "Sil", fs_del_q: "Bu stil silinsin mi?", fs_saved: "Kaydedildi", fs_in_lib: "Bu stil kütüphanede; öneri kapılarında seçilebilir.", fs_no_cost: "Kredi harcanmaz: kare stüdyonun kendi motoruyla çizilir.", fs_based: "Temel: {0}", lang: "Arayüz dili",
     make_title: "Ne üretelim?", make_lead: "Bir üretim hattı seç. Her hat videoyu aynı sırayla, adım adım üretir ve her kapıda senin kararını bekler.",
     status_ready: "Hazır", status_partial: "Kısmen hazır", status_planned: "Yakında",
     makes: "Ne üretir", good: "İyi olduğu", not: "Uygun değil", needs: "Ne ister", cost: "Maliyet", duration: "Tipik süre",
@@ -28,7 +28,7 @@ const TX = {
     decision: "Karar", waiting_prev: "Önceki aşamalar bitince başlar.", not_built: "Bu aşama bu hatta henüz yazılmadı.",
     working: "Çalışıyor…", live: "Canlı akış", spent: "Harcanan", credits: "kredi", note_sent: "Not gönderildi, aşama yeniden çalışıyor",
     approved_ok: "Onaylandı, sıradaki aşama başladı", back_ok: "Aşama yeniden açıldı",
-    review: "Denetim", verdict_pass: "Denetimden geçti", verdict_fix: "Açık kritik bulgu var", verdict_unknown: "Denetim alınamadı",
+    review: "Denetim", verdict_pass: "Denetimden geçti", verdict_fix: "Açık kritik bulgu var", verdict_unknown: "Denetim alınamadı", verdict_low: "Puan eşiğin altında", gl_title: "Denetim defteri", gl_counts: "{0} düzeldi · {1} açık · {2} düştü", gl_render: "Denetçi teslim edilen hâlin taze çizimine baktı ({0} kare)", gl_sheet: "kontak sayfası", rb_pass: "geçer ({0}+)", rb_low: "{0} altında: ajan düzeltti ama yetmedi",
     sev_critical: "Kritik", sev_suggestion: "Öneri", sev_nitpick: "Ayrıntı", rounds: "{0} tur",
     insight: "Ana fikir", misconception: "Yaygın yanlış", data: "Veriler", sources: "Kaynaklar", angles: "Açılar",
     concepts: "Üç yaklaşım", chosen: "Seçilen", look: "Görünüm", music: "Müzik", yes: "Var", no: "Yok", total: "Toplam",
@@ -53,7 +53,7 @@ const TX = {
     ev_reopen: "{0} yeniden açıldı", ev_queued: "{0} sıraya alındı", ev_tool_error: "Araç hatası: {0}",
   },
   en: {
-    nav_make: "Make", nav_prods: "Productions", nav_fstyles: "Film styles", rc_nav: "Recipes", rc_lead: "The motion recipes the scene planner uses: each card is an FX call, its timing, its pitfalls and a working example. The planner names a scene's recipes by id and the designer gets the whole card.", rc_all: "All", rc_search: "Search: chart, camera, rain…", rc_render: "Render {0} demo clips (free)", rc_rendering: "Rendering clips", rc_queued: "Rendering the demo clips (a few minutes, no credits)", rc_noclip: "No demo clip rendered yet.", rc_call: "Call", rc_timing: "Timing", rc_pitfalls: "Pitfalls", rc_code: "Example code", rc_more: "Details", rc_none: "No recipes in this filter", rc_job: "recipe demo clips", rc_count: "{0} recipes", mu_composer: "our own composer, no credits", mu_composed: "Original score, {0} BPM, no credits", mu_plain: "Plain score (the agent could not write one), {0} BPM, no credits", pt_label: "Pre-trim", pt_cut: "{0} fillers/restarts the script lacks were cut ({1} s)", parts_reused: "Only the changed scenes were re-rendered: {0} of {1} parts.", fs_lead: "The library's 12 styles and your own. Make your own by changing a style or from a blank page; once approved it can be picked at proposal gates.", fs_lib: "Library", fs_own: "Your styles", fs_new: "Make your own style", fs_name: "Style name", fs_base: "Where to start?", fs_blank: "Blank page", fs_create: "Start", fs_change: "Change this", fs_st_start: "Start", fs_st_plan: "Plan", fs_st_brand: "Brand", fs_st_sample: "Sample frame", fs_st_approve: "Approve", fs_next: "Next", fs_prev: "Back", fs_save: "Save", fs_skip: "Skip", fs_draw: "Draw the sample frame", fs_drawing: "Drawing (about 1 min)…", fs_redraw: "Draw again", fs_approve: "Approve, add to the library", fs_draft: "draft", fs_sampled: "frame ready", fs_approved: "approved", fs_stale: "Draw the sample frame again after a change.", fs_need: "Unanswered: {0}", fs_logo_up: "Upload logo", fs_logo_ok: "Logo uploaded", fs_delete: "Delete", fs_del_q: "Delete this style?", fs_saved: "Saved", fs_in_lib: "This style is in the library; proposal gates can pick it.", fs_no_cost: "No credits: the frame is drawn by the studio's own engine.", fs_based: "Based on: {0}", lang: "Interface language",
+    nav_make: "Make", nav_prods: "Productions", nav_fstyles: "Film styles", rc_nav: "Recipes", rc_lead: "The motion recipes the scene planner uses: each card is an FX call, its timing, its pitfalls and a working example. The planner names a scene's recipes by id and the designer gets the whole card.", rc_all: "All", rc_search: "Search: chart, camera, rain…", rc_render: "Render {0} demo clips (free)", rc_rendering: "Rendering clips", rc_queued: "Rendering the demo clips (a few minutes, no credits)", rc_noclip: "No demo clip rendered yet.", rc_call: "Call", rc_timing: "Timing", rc_pitfalls: "Pitfalls", rc_code: "Example code", rc_more: "Details", rc_none: "No recipes in this filter", rc_job: "recipe demo clips", rc_count: "{0} recipes", cm_title: "Frame comments", cm_on: "Comment mode", cm_off: "Done commenting", cm_hint: "Turn comment mode on, click a point on a frame or on the paused preview and write what should change. The comments go to the designer together; only the commented scenes change.", cm_hint_on: "Click a point on a frame or on the preview. The text you click and its source line are added to the comment.", cm_note: "Comment", cm_ph: "What should change? E.g. make this number bigger and red", cm_add: "Add comment", cm_cancel: "Cancel", cm_added: "Comment added", cm_empty: "Write the comment.", cm_del: "Delete", cm_none: "No comments yet.", cm_send: "Send {0} comments to the designer", cm_send_hint: "The designer agent fixes only the commented scenes; every other scene, the colours and the shared CSS are put back as they are. The scene plan gate then waits for your approval again.", cm_send_q: "Send the comments to the designer? The scene plan runs again and stops at its gate (no credits).", cm_sent: "{0} comments sent", cm_running: "The designer is applying the comments…", cm_done: "Last revision: scene {0} fixed.", cm_restored: "Put back what had to stay: {0}.", cm_line: "line {0}", cm_video: "Comment on the preview", cm_video_hint: "Pause the video at any moment, then click a point in the picture.", cm_at: "Moment {0} s picked", cm_st_open: "open", cm_st_sent: "sent", cm_st_done: "applied", mu_composer: "our own composer, no credits", mu_composed: "Original score, {0} BPM, no credits", mu_plain: "Plain score (the agent could not write one), {0} BPM, no credits", pt_label: "Pre-trim", pt_cut: "{0} fillers/restarts the script lacks were cut ({1} s)", parts_reused: "Only the changed scenes were re-rendered: {0} of {1} parts.", fs_lead: "The library's 12 styles and your own. Make your own by changing a style or from a blank page; once approved it can be picked at proposal gates.", fs_lib: "Library", fs_own: "Your styles", fs_new: "Make your own style", fs_name: "Style name", fs_base: "Where to start?", fs_blank: "Blank page", fs_create: "Start", fs_change: "Change this", fs_st_start: "Start", fs_st_plan: "Plan", fs_st_brand: "Brand", fs_st_sample: "Sample frame", fs_st_approve: "Approve", fs_next: "Next", fs_prev: "Back", fs_save: "Save", fs_skip: "Skip", fs_draw: "Draw the sample frame", fs_drawing: "Drawing (about 1 min)…", fs_redraw: "Draw again", fs_approve: "Approve, add to the library", fs_draft: "draft", fs_sampled: "frame ready", fs_approved: "approved", fs_stale: "Draw the sample frame again after a change.", fs_need: "Unanswered: {0}", fs_logo_up: "Upload logo", fs_logo_ok: "Logo uploaded", fs_delete: "Delete", fs_del_q: "Delete this style?", fs_saved: "Saved", fs_in_lib: "This style is in the library; proposal gates can pick it.", fs_no_cost: "No credits: the frame is drawn by the studio's own engine.", fs_based: "Based on: {0}", lang: "Interface language",
     make_title: "What shall we make?", make_lead: "Pick a production line. Each line makes the video step by step in the same order and waits for your decision at every gate.",
     status_ready: "Ready", status_partial: "Partly built", status_planned: "Coming soon",
     makes: "What it makes", good: "Good for", not: "Not for", needs: "What it needs", cost: "Cost", duration: "Typical length",
@@ -74,7 +74,7 @@ const TX = {
     decision: "Decision", waiting_prev: "Starts when the earlier stages are done.", not_built: "This stage is not written on this line yet.",
     working: "Working…", live: "Live feed", spent: "Spent", credits: "credits", note_sent: "Note sent; the stage runs again",
     approved_ok: "Approved; the next stage started", back_ok: "Stage reopened",
-    review: "Review", verdict_pass: "Passed review", verdict_fix: "Open critical findings", verdict_unknown: "No review",
+    review: "Review", verdict_pass: "Passed review", verdict_fix: "Open critical findings", verdict_unknown: "No review", verdict_low: "Score below the bar", gl_title: "Review ledger", gl_counts: "{0} fixed · {1} open · {2} dropped", gl_render: "The reviewer judged a fresh render of the submitted output ({0} frames)", gl_sheet: "contact sheet", rb_pass: "passes ({0}+)", rb_low: "below {0}: the agent revised but not enough",
     sev_critical: "Critical", sev_suggestion: "Suggestion", sev_nitpick: "Nitpick", rounds: "{0} rounds",
     insight: "Insight", misconception: "Common misconception", data: "Data points", sources: "Sources", angles: "Angles",
     concepts: "Three approaches", chosen: "Chosen", look: "Look", music: "Music", yes: "Yes", no: "No", total: "Total",
@@ -373,12 +373,23 @@ function proofHtml(r) {
 function reviewHtml(r) {
   if (!r) return "";
   const v = r.verdict === "pass" ? "ok" : r.verdict === "fix" ? "bad" : "";
-  return `<div class="card"><h3>${esc(t("review"))} <span class="badge ${v}">${esc(t("verdict_" + (r.verdict || "unknown")))}</span>
+  return `<div class="card"><h3>${esc(t("review"))} <span class="badge ${v}">${esc(t(r.verdict === "fix" && !r.open_critical && r.score != null ? "verdict_low" : "verdict_" + (r.verdict || "unknown")))}</span>
       ${r.rounds ? `<span class="tiny faint">${esc(t("rounds", r.rounds))}</span>` : ""}</h3>
-    ${r.summary ? `<div class="small">${esc(r.summary)}</div>` : ""}
+    ${r.score != null ? `<div class="row mt8" style="gap:8px;align-items:baseline"><b style="font-size:22px">${r.score}</b><span class="small muted">/100</span>
+      <span class="badge ${r.score >= r.pass_score ? "ok" : "bad"}">${esc(t(r.score >= r.pass_score ? "rb_pass" : "rb_low", r.pass_score))}</span></div>
+      <div class="hl-rb mt8">${(r.rubric || []).map((x) => `<div class="tiny"><span class="hl-rb-bar"><i style="width:${x.score * 10}%"></i></span> ${x.score}/10 · ${esc(x.item)}</div>`).join("")}</div>` : ""}
+    ${r.summary ? `<div class="small mt8">${esc(r.summary)}</div>` : ""}
     ${(r.findings || []).map((x) => `<div class="hl-find sev-${esc(x.severity)} mt8"><span class="badge">${esc(t("sev_" + x.severity))}</span>
       <div class="small"><b>${esc(x.item || "")}</b> ${esc(x.problem || "")}</div>${x.fix ? `<div class="tiny muted">→ ${esc(x.fix)}</div>` : ""}</div>`).join("")}
+    ${r.ledger ? ledgerHtml(r.ledger) : ""}
+    ${r.render ? `<div class="tiny faint mt8">${esc(t("gl_render", r.render.stills))}${r.render.sheet_url ? ` · <a href="${esc(r.render.sheet_url)}" target="_blank">${esc(t("gl_sheet"))}</a>` : ""}</div>` : ""}
     ${r.error ? `<div class="tiny faint">${esc(r.error)}</div>` : ""}</div>`;
+}
+// the review ledger (factory/hat/gauntlet.py, t516): every finding of every round, closed only by a later review
+function ledgerHtml(l) {
+  const open = (l.entries || []).filter((e) => e.status === "open");
+  return `<div class="tiny muted mt12"><b>${esc(t("gl_title"))}</b> · ${esc(t("gl_counts", l.fixed || 0, l.open || 0, l.dropped || 0))}</div>
+    ${open.map((e) => `<div class="tiny mt4"><span class="badge ${e.severity === "critical" ? "bad" : ""}">${esc(e.id)}</span> ${esc(e.item || "")}: ${esc(e.problem || "")}</div>`).join("")}`;
 }
 function decisionHtml(s, f) {
   const id = esc(s.id);
@@ -577,7 +588,11 @@ async function viewScenes(pid) {
   const pct = (a, b) => (100 * a / b).toFixed(3) + "%";
   const boxes = sc.boxes.map((b) => `<div class="hl-se-box ${b.e === se.e ? "on" : ""}" data-act="seSel" data-e="${esc(b.e)}" title="${esc(b.text)}"
       style="left:${pct(b.x, W)};top:${pct(b.y, H)};width:${pct(b.w, W)};height:${pct(b.h, H)}"></div>`).join("");
-  const frame = sc.frame ? `<div class="hl-se-frame ${W > H ? "wide" : ""}" id="seFrame" data-w="${W}"><img src="${esc(sc.frame)}" alt="">${on ? boxes : ""}</div>`
+  const cm = HS.se.mode === "comment", cv = v.comments || { notes: [], batches: [] };
+  const pin = (x, cls, label) => x.x == null ? "" : `<div class="hl-cm-pin ${cls}" style="left:${pct(x.x, W)};top:${pct(x.y, H)}" title="${esc(label || "")}"></div>`;
+  const pins = cv.notes.filter((n) => n.scene === sc.id && n.status !== "done").map((n) => pin(n, n.status, n.text)).join("")
+    + (se.pin && se.pin.origin === "frame" && se.pin.scene === sc.id ? pin(se.pin, "new", "") : "");
+  const frame = sc.frame ? `<div class="hl-se-frame ${W > H ? "wide" : ""} ${cm ? "hl-cm-on" : ""}" id="seFrame" data-w="${W}" data-h="${H}"><img src="${esc(sc.frame)}" alt="">${on && !cm ? boxes : ""}${cm ? pins : ""}</div>`
     : `<div class="note small">${esc(t("se_noframes"))}</div>`;
   const panel = !el ? `<div class="small muted">${esc(t("se_pick"))}</div>` : `
     <label class="field"><span>${esc(t("se_text"))}</span><textarea id="seText" ${el.nested || !on ? "disabled" : ""}>${esc(el.text)}</textarea></label>
@@ -604,8 +619,10 @@ async function viewScenes(pid) {
     <div class="chips mt12">${v.scenes.map((x) => `<span class="chip ${x.id === se.scene ? "on" : ""}" data-act="seScene" data-id="${esc(x.id)}">${esc(x.id)}</span>`).join("")}</div>
     <div class="split mt16"><div class="col" style="gap:12px">${frame}
         ${!v.fresh || !sc.frame ? `<div class="row" style="gap:10px;align-items:center">${se.drawing ? `<span class="spin"></span><span class="small muted">${esc(t("se_drawing"))}</span>`
-          : `${sc.frame ? `<span class="small muted">${esc(t("se_stale"))}</span>` : ""}<button class="btn sm" data-act="seFrames" ${v.archived ? "disabled" : ""}>${esc(t("se_redraw"))}</button>`}</div>` : ""}${timeline}</div>
-      <div class="col sticky" style="gap:14px"><div class="card"><h3>${esc(t("se_elements"))}</h3>
+          : `${sc.frame ? `<span class="small muted">${esc(t("se_stale"))}</span>` : ""}<button class="btn sm" data-act="seFrames" ${v.archived ? "disabled" : ""}>${esc(t("se_redraw"))}</button>`}</div>` : ""}${cm && v.preview ? `<div class="card"><h3>${esc(t("cm_video"))}</h3><div class="tiny muted">${esc(t("cm_video_hint"))}</div>
+          <div class="hl-cm-vid mt8" id="cmVid" data-w="${W}" data-h="${H}"><video src="${esc(v.preview)}" controls playsinline preload="metadata"></video><div class="hl-cm-ov" id="cmOv"></div>${se.pin && se.pin.origin === "video" ? pin(se.pin, "new", "") : ""}</div>
+          ${se.pin && se.pin.origin === "video" ? `<div class="tiny faint mt8">${esc(t("cm_at", se.pin.t.toFixed(2)))}</div>` : ""}</div>` : ""}${timeline}</div>
+      <div class="col sticky" style="gap:14px">${cmCard(v, se)}<div class="card"><h3>${esc(t("se_elements"))}</h3>
           <div class="hl-se-list">${sc.elements.map((x) => `<div class="hl-se-row ${x.e === se.e ? "on" : ""}" data-act="seSel" data-e="${esc(x.e)}"><span class="badge">${esc(x.tag)}</span><span class="small">${esc(x.text.slice(0, 60))}</span></div>`).join("")}</div>
           <div class="mt12">${panel}</div></div>
         <div class="card"><h3>${esc(t("se_versions"))}</h3>
@@ -614,9 +631,57 @@ async function viewScenes(pid) {
             ${on ? `<button class="btn ghost sm" data-act="seRestore" data-n="${x.n}">${esc(t("se_restore"))}</button>` : ""}</div>`).join("")}</div>
         <div class="card"><h3>${esc(t("se_edits"))}</h3>${v.edits.length ? v.edits.slice().reverse().slice(0, 14).map((x) => `<div class="tiny muted mt8">${esc(dt(x.at))} · ${esc(what(x))}</div>`).join("") : `<div class="tiny faint">${esc(t("se_none"))}</div>`}</div></div></div>`;
   crumb([t("nav_prods"), t("se_title")]);
-  paint(html, JSON.stringify([L(), se, v.fresh, v.edits.length, v.versions.length, sc.frame, v.gate]));
-  return { poll: se.drawing && !v.fresh && se.drawing < 60 ? (se.drawing++, 3000) : 0 };
+  paint(html, JSON.stringify([L(), se, v.fresh, v.edits.length, v.versions.length, sc.frame, v.gate, cv, v.busy]));
+  return { poll: se.drawing && !v.fresh && se.drawing < 60 ? (se.drawing++, 3000) : v.busy ? 5000 : 0 };
 }
+// frame comments (factory/framenotes.py, t514): click a frame or the paused preview, write a note, send them as one
+// targeted revision; the scenes no comment names stay exactly as they are
+function cmCard(v, se) {
+  const cv = v.comments || { notes: [], batches: [] }, open = cv.notes.filter((n) => n.status !== "done");
+  const can = !v.archived && !v.busy;
+  const row = (n) => `<div class="hl-cm-row mt8"><div class="row" style="gap:6px;align-items:center"><span class="badge ${n.status === "done" ? "ok" : n.status === "sent" ? "" : "warn"}">${esc(t("cm_st_" + n.status))}</span>
+      <span class="tiny faint">${esc(n.scene)}${n.t != null ? " · " + n.t.toFixed(1) + " s" : ""}${n.label ? " · “" + esc(n.label.slice(0, 40)) + "”" : ""}${n.src ? " · " + esc(t("cm_line", n.src.line)) : ""}</span><span class="sp"></span>
+      ${n.status === "open" && can ? `<button class="btn ghost sm" data-act="cmDel" data-id="${esc(n.id)}">${esc(t("cm_del"))}</button>` : ""}</div>
+    <div class="small mt4">${esc(n.text)}</div></div>`;
+  const last = cv.batches[cv.batches.length - 1];
+  return `<div class="card"><div class="row" style="align-items:center"><h3 style="margin:0">${esc(t("cm_title"))}</h3><span class="sp"></span>
+      ${can ? `<button class="btn ${se.mode === "comment" ? "accent" : ""} sm" data-act="cmMode">${esc(t(se.mode === "comment" ? "cm_off" : "cm_on"))}</button>` : ""}</div>
+    <div class="tiny muted mt8">${esc(t(se.mode === "comment" ? "cm_hint_on" : "cm_hint"))}</div>
+    ${se.pin ? `<label class="field mt12"><span>${esc(t("cm_note"))}${se.pin.t != null ? " · " + se.pin.t.toFixed(2) + " s" : " · " + esc(se.pin.scene || "")}</span><textarea id="cmText" data-keep="cm-text-${esc(HS.pid)}" placeholder="${esc(t("cm_ph"))}"></textarea></label>
+      <div class="row mt8" style="gap:8px"><button class="btn accent sm" data-act="cmAdd">${esc(t("cm_add"))}</button><button class="btn ghost sm" data-act="cmCancel">${esc(t("cm_cancel"))}</button></div>` : ""}
+    ${v.busy ? `<div class="row mt12" style="gap:10px;align-items:center"><span class="spin"></span><span class="small muted">${esc(t("cm_running"))}</span></div>` : ""}
+    ${open.filter((n) => n.status === "open").length && can ? `<button class="btn accent block mt12" data-act="cmSend">${esc(t("cm_send", open.length))}</button><div class="tiny faint mt8">${esc(t("cm_send_hint"))}</div>` : ""}
+    ${last && last.status === "done" ? `<div class="tiny muted mt12">${esc(t("cm_done", last.scenes.join(", ")))}${(last.restored || []).length ? " " + esc(t("cm_restored", last.restored.join(", "))) : ""}</div>` : ""}
+    ${cv.notes.slice().reverse().slice(0, 20).map(row).join("") || `<div class="tiny faint mt8">${esc(t("cm_none"))}</div>`}</div>`;
+}
+const cmFrac = (box, ev) => { const r = box.getBoundingClientRect(); return [(ev.clientX - r.left) / r.width * +box.dataset.w, (ev.clientY - r.top) / r.height * +box.dataset.h]; };
+document.addEventListener("click", (ev) => {
+  if (HS.se.mode !== "comment" || !HS.seV) return;
+  const fr = ev.target.closest && ev.target.closest("#seFrame"), ov = ev.target.closest && ev.target.closest("#cmOv");
+  if (fr) { const [x, y] = cmFrac(fr, ev); HS.se.pin = { origin: "frame", scene: HS.se.scene, t: null, x, y }; route(); }
+  else if (ov) {
+    const box = $("#cmVid"), vid = box.querySelector("video"); vid.pause();
+    const [x, y] = cmFrac(box, ev); HS.se.pin = { origin: "video", scene: null, t: vid.currentTime, x, y }; HS.se.vt = vid.currentTime; route();
+  }
+});
+ACT.cmMode = () => { HS.se.mode = HS.se.mode === "comment" ? null : "comment"; HS.se.pin = null; route(); };
+ACT.cmCancel = () => { HS.se.pin = null; route(); };
+ACT.cmAdd = async (el) => {
+  const text = $("#cmText").value.trim(), p = HS.se.pin;
+  if (!text) { toast(t("cm_empty"), 1); return; }
+  el.disabled = true;
+  try {
+    await post(seUrl(), { action: "note", text, origin: p.origin, scene: p.scene, t: p.t, x: Math.round(p.x), y: Math.round(p.y) });
+    $("#cmText").value = ""; S.drafts["cm-text-" + HS.pid] = ""; HS.se.pin = null; toast(t("cm_added"));
+  } finally { el.disabled = false; S.sig = null; route(); }
+};
+ACT.cmDel = async (el) => { el.disabled = true; try { await post(seUrl(), { action: "unnote", id: el.dataset.id }); } finally { S.sig = null; route(); } };
+ACT.cmSend = async (el) => {
+  if (!confirm(t("cm_send_q"))) return;
+  el.disabled = true;
+  try { const r = await post(seUrl(), { action: "send_notes" }); toast(t("cm_sent", r.sent)); HS.se.mode = null; }
+  finally { S.sig = null; route({ poll: true }); }
+};
 ROUTE_RX.push([/^#\/u\/([\w-]+)\/sahneler/, viewScenes]);
 const seUrl = () => "/api/hat/project/" + encodeURIComponent(HS.pid) + "/scenes";
 ACT.seScene = (el) => { HS.se.scene = el.dataset.id; HS.se.e = null; route(); };
