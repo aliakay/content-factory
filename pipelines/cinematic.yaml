@@ -20,6 +20,9 @@ not_for:
 needs:
   tr: "Bir konsept; varsa görüntü ya da referans."
   en: "A concept; footage or a reference if you have them."
+limits:
+  tr: ["En fazla 3 yapay zekâ klibi; geri kalan çekimler senin görüntünden gelir", "Dış ses (anlatıcı) yok: müzik, ses tasarımı ve kısa ekran yazıları", "Hazır bir senaryoyu birebir çekmez; brief'ten kendi iki konseptini yazar", "Klipler arasında aynı kişinin aynı görünmesi garanti değil"]
+  en: ["At most 3 AI-generated clips; the other shots come from your footage", "No voiceover: score, sound design and short on-screen text", "Does not shoot a finished script word for word; it writes its own two concepts from the brief", "The same person is not guaranteed to look the same across clips"]
 cost:
   tr: "Üretilen her video klip ElevenLabs kredisi harcar (modele göre); öneri aşamasında kalem kalem gösterilir."
   en: "Every generated clip spends ElevenLabs credits (per model); itemised at the proposal."

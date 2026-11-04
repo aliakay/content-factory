@@ -17,6 +17,7 @@ STATUSES = ("ready", "partial", "planned")
 RUNS = ("agent", "code", "planned")
 TEXT = ("name", "tagline", "makes", "needs", "cost")          # {tr, en} strings
 LISTS = ("good_for", "not_for")                               # {tr, en} lists
+OPTIONAL_LISTS = ("limits",)                                  # {tr, en} lists a line may leave out (hard limits it has)
 
 
 class ManifestError(ValueError):
@@ -53,6 +54,9 @@ def validate(m, vocab):
         _bi(m.get(k), k, where)
     for k in LISTS:
         _bi(m.get(k), k, where, list_=True)
+    for k in OPTIONAL_LISTS:
+        if k in m:
+            _bi(m[k], k, where, list_=True)
     seen, stages = set(), []
     for st in m["stages"]:
         sid = st.get("id")
@@ -125,6 +129,8 @@ def localize(m, lang):
     out = {k: v for k, v in m.items() if k != "stages"}
     for k in TEXT + LISTS:
         out[k] = pick(m[k])
+    for k in OPTIONAL_LISTS:
+        out[k] = pick(m.get(k) or {lang: []})
     out["stages"] = [{**s, "name": pick(s["name"]), "says": pick(s["says"]), "gate_says": pick(s["gate_says"])}
                      for s in m["stages"]]
     return out
