@@ -384,6 +384,11 @@ def run(job_id):
             from . import catalog
             done, failed = catalog.render_all(jload(arg, {}).get("ids") or None, bool(jload(arg, {}).get("force")))
             result = f"{len(done)} örnek klip" + (f", {len(failed)} hata: {failed[0]}" if failed else "")
+        elif kind == "recipe_demos":     # t510: the shotbook's demo clips (headless render, no Claude / credits)
+            from . import recipes
+            o = jload(arg, {})
+            done, failed = recipes.render_all(o.get("ids") or None, bool(o.get("force")))
+            result = f"{len(done)} reçete klibi" + (f", {len(failed)} hata: {failed[0]}" if failed else "")
         elif kind == "own_style_sample":   # an own film style's sample frame (headless render, no Claude / credits)
             from . import ownstyles
             result = "örnek kare: " + ownstyles.render_sample(arg)["id"]

@@ -9,7 +9,8 @@ is a draft from the script.
    system exactly: its palette tokens, its global CSS classes and its kit. Do not restyle shared classes in a
    scene's css.
 2. Draw each scene: `html`, `css`, `js` (tweens on `tl` at absolute times from `T`, e.g. `T.at("word")`). Every
-   on-screen number comes from the script or the research, exactly.
+   on-screen number comes from the script or the research, exactly. Where the outline names recipe cards (above),
+   build on their example and keep their timing; the `recipes` tool has the other cards.
 3. Look at it: `render_stills` (no times = one settled frame of each of YOUR scenes) and open every PNG with Read.
    Ask: does each frame explain its line at a glance? Is anything clipped, overlapping, unreadable, or in the caption
    band? Does it look like the same film as the kit describes?

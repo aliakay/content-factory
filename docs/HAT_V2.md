@@ -328,6 +328,15 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
   `surface` yüksekliğe göre renkli yüzey, `curve` parametrik yol, `arrow`, `dot`, `label`). KaTeX yalnız sahne denklem
   yazıyorsa yüklenir. Teknik kataloğunda `look.math` ve `look.space3d` (demolu); tasarımcı FX belgesinde yer alır.
   **Canlıya geçişte `motion/` içinde `npm install` gerekir** (katex@0.16.11; node_modules depoda değil).
+- **Hareket reçeteleri ve çekim kitabı (t510):** `motion/recipes/*.yaml` içinde 9 ailede 123 kart (yazı, işaretleme,
+  veri ve bilim, kamera, geçiş, büyük sahne, karakter, canlı dünya, ritim). Her kartta TR/EN ad, ne zaman kullanılır,
+  FX çağrısı, zamanlama, tuzaklar ve çalışan bir örnek var (`factory/recipes.py`; `python -m factory.recipes check`
+  hepsini hata için tarar). Planlayıcıda `recipes` aracı (açıklayıcı, animasyon ve uzun açıklayıcı hatlarında): kimliksiz
+  çağrı dizini, kimlikle tam kartları verir. Uzun açıklayıcının taslağında sahneye `recipes: [id]` yazılabilir;
+  bilinmeyen kimlik reddedilir, o sahnenin tasarımcısı kartların tamamını alır. Studio'da **Reçeteler** sayfası
+  (`#/receteler`): aile süzgeci, arama, örnek klipler; eksik klipler `recipe_demos` işiyle ücretsiz üretilir.
+  Bu sırada düzeltilen iki FX hatası: `FX.shine` yazıyı görünmez yapıyordu, `FX.brushWipe` kareyi hiç açmıyordu
+  (artık fırçalar çekilir; `hold: true` örtüyü tutar).
 - Menü sadeleşir: Stüdyo · Üretimler · Keşif · Takip · Ayarlar (kanallar, sesler, hesaplar, bütçe, stiller tek yerde).
 
 ## 8. Fazlar

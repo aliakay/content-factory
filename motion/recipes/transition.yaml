@@ -1,0 +1,166 @@
+# Transition recipes: getting from one idea to the next with a cause, not a dissolve. Our own cards (t510).
+# A transition is caused by something in the frame (a click, a word, a hit); the demos show it between two panels.
+- id: transition.iris_open
+  name: {tr: "Noktadan açılma", en: "Iris open"}
+  use: {tr: "Sahne bir tıklamadan, bir gözden, bir ışıktan açılır.", en: "The scene opens from a click, an eye, a light."}
+  call: "FX.iris(tl, root, at, [x, y], {dur})  (call at the scene start)"
+  timing: {tr: "0.45 s; sahnenin ilk karesinde.", en: "0.45 s; on the scene's first frame."}
+  pitfalls:
+    tr: ["Nokta, önceki sahnedeki nedenle aynı yerde olmalı (tıklanan düğme).", "Sahne kökünü kırpar: içindeki her şey birlikte açılır."]
+    en: ["The point must sit where the cause was in the previous scene (the clicked button).", "It clips the scene root: everything in it opens together."]
+  seconds: 2.5
+  demo: |
+    D('NEW WORLD', 'inset:0;background:var(--accent2);color:#fff;font:900 140px/1920px Inter Tight;text-align:center');
+    FX.iris(tl, root, 0.3, [0.5, 0.6], {dur: 0.6});
+- id: transition.iris_close
+  name: {tr: "Noktaya kapanma", en: "Iris close"}
+  use: {tr: "Bir bölümü kapatmak; klasik çizgi film sonu.", en: "Closing a section; the classic cartoon ending."}
+  call: "FX.iris(tl, root, at, [x, y], {out: true})"
+  timing: {tr: "0.45 s; son kelimeden 0.2 s sonra.", en: "0.45 s; 0.2 s after the last word."}
+  pitfalls:
+    tr: ["Kapanma noktası bir yüz ya da nesne olsun, boşluk değil.", "Filmin ortasında kullanma."]
+    en: ["Close on a face or an object, not empty space.", "Not in the middle of a film."]
+  seconds: 2.5
+  demo: |
+    D('THE END?', 'inset:0;background:var(--accent);color:var(--bg);font:900 150px/1920px Inter Tight;text-align:center');
+    FX.iris(tl, root, 1.0, [0.5, 0.5], {out: true, dur: 0.6});
+- id: transition.brush_wipe
+  name: {tr: "Fırça silme", en: "Brush wipe"}
+  use: {tr: "Elle yapılmış, enerjik geçiş; kesme kalın fırçanın altında olur.", en: "A hand-made, energetic change; the cut happens under the thick strokes."}
+  call: "FX.brushWipe(tl, root, at, {n, color})  then switch scenes at at + 0.4"
+  timing: {tr: "Örtme 0.4 s; yeni sahneye tam örtüldüğü anda geç.", en: "0.4 s to cover; switch at full cover."}
+  pitfalls:
+    tr: ["Değişim örtü tamken olmalı, yoksa kesme görünür.", "Renk iki sahneden de farklı olsun."]
+    en: ["Switch only at full cover or the cut shows.", "Use a colour unlike both scenes."]
+  seconds: 2.5
+  demo: |
+    const a = D('BEFORE', 'inset:0;background:var(--bg);color:var(--ink);font:900 150px/1920px Inter Tight;text-align:center');
+    const b = D('AFTER', 'inset:0;background:var(--paper);color:#14120e;font:900 150px/1920px Inter Tight;text-align:center;opacity:0');
+    FX.brushWipe(tl, root, 0.6, {color: '#ffb347'}); tl.set(b, {opacity: 1}, 1.05);
+- id: transition.whip_pan
+  name: {tr: "Hızlı çevirme (whip)", en: "Whip pan"}
+  use: {tr: "Enerjiyle bir sonraki fikre atlamak; listeler, hızlı karşılaştırmalar.", en: "Jumping to the next idea with energy; lists, quick comparisons."}
+  call: "FX.whip(tl, oldEl, at, {dir}); FX.whipIn(tl, newEl, at + 0.18, {dir})"
+  timing: {tr: "Çıkış 0.18 s, giriş 0.22 s; ses (whoosh) otomatik.", en: "Out 0.18 s, in 0.22 s; the whoosh is automatic."}
+  pitfalls:
+    tr: ["İki öğe aynı yönde gitmeli (dir aynı).", "Art arda 3'ten fazla whip baş döndürür."]
+    en: ["Both move the same way (same dir).", "More than three whips in a row make people dizzy."]
+  seconds: 2.5
+  demo: |
+    const a = D('ONE', 'left:0;right:0;top:820px;text-align:center;font:900 200px Inter Tight;color:var(--ink)');
+    const b = D('TWO', 'left:0;right:0;top:820px;text-align:center;font:900 200px Inter Tight;color:var(--accent)');
+    gsap.set(b, {x: 2000}); FX.whip(tl, a, 0.8, {dir: 1}); FX.whipIn(tl, b, 0.98, {dir: 1});
+- id: transition.dip_cut
+  name: {tr: "Kısa karartmalı kesme", en: "Dip cut"}
+  use: {tr: "Zaman atlaması, sessiz bir an; yumuşak ama net bir kesme.", en: "A time jump, a quiet beat; a soft but clear cut."}
+  call: "FX.dipCut(tl, root, at)  (switch scenes at at)"
+  timing: {tr: "0.2 s civarı; nefes noktasında.", en: "About 0.2 s; on a breath."}
+  pitfalls:
+    tr: ["Sık kullanılırsa film yavaşlar.", "Müzikte de bir boşlukla birleşince güçlü."]
+    en: ["Used often it slows the film.", "Strong when the music also gaps."]
+  seconds: 2.5
+  demo: |
+    const a = D('MONDAY', 'inset:0;background:var(--bg);color:var(--ink);font:900 140px/1920px Inter Tight;text-align:center');
+    const b = D('FRIDAY', 'inset:0;background:#1d2a44;color:var(--accent);font:900 140px/1920px Inter Tight;text-align:center;opacity:0');
+    FX.dipCut(tl, root, 1.0); tl.set(b, {opacity: 1}, 1.0);
+- id: transition.color_flood
+  name: {tr: "Renk taşması", en: "Colour flood"}
+  use: {tr: "Bir renk ekranı doldurur: bölüm başı, ruh hali değişimi.", en: "A colour fills the frame: a chapter start, a mood change."}
+  call: "FX.colorFlood(tl, root, at, color, {z, dur})"
+  timing: {tr: "0.4 s; bir vuruşla.", en: "0.4 s; on a hit."}
+  pitfalls:
+    tr: ["z ile yeni sahnenin altında mı üstünde mi olacağını seç.", "Kaynak noktası merkez; başka nokta gerekiyorsa iris kullan."]
+    en: ["Use z to put it under or over the next scene.", "It floods from the centre; use the iris for another point."]
+  seconds: 2.5
+  demo: |
+    D('PART 2', 'left:0;right:0;top:820px;text-align:center;font:900 170px Inter Tight;color:var(--ink);z-index:6');
+    FX.colorFlood(tl, root, 0.6, '#ff5a5f', {z: 5});
+- id: transition.tv_off
+  name: {tr: "Televizyon kapanması", en: "TV switch-off"}
+  use: {tr: "Bir bölümü, bir fikri ya da eski yöntemi kapatmak.", en: "Switching off a section, an idea or the old way."}
+  call: "FX.tvOff(tl, el, at)"
+  timing: {tr: "0.24 s; 'bitti' anında.", en: "0.24 s; on 'done'."}
+  pitfalls:
+    tr: ["Bütün sahneye değil, bir panele uygula.", "Sonrasında kısa karanlık bırak."]
+    en: ["Apply it to a panel, not the whole scene.", "Leave a short dark beat after it."]
+  seconds: 2.5
+  demo: |
+    const p = D('OLD NEWS', 'left:90px;right:90px;top:560px;height:800px;border-radius:30px;background:#2a3147;color:#fff;font:900 120px/800px Inter Tight;text-align:center');
+    FX.tvOff(tl, p, 1.2);
+- id: transition.zoom_through
+  name: {tr: "İçinden geçerek dalış", en: "Zoom through"}
+  use: {tr: "Bir noktaya dalıp yeni katmana çıkmak: ekrana, hücreye, haritaya.", en: "Diving into a point and coming out in a new layer: a screen, a cell, a map."}
+  call: "FX.zoomThrough(tl, fromEl, toEl, at, {focus: [x, y], zoom, dur})"
+  timing: {tr: "0.7 s; dalış 'içine' kelimesinde.", en: "0.7 s; dive on the word 'inside'."}
+  pitfalls:
+    tr: ["Odak, dalınan nesnenin merkezi olmalı.", "toEl başta gizli olmalı (opacity 0)."]
+    en: ["The focus is the centre of what you dive into.", "toEl starts hidden (opacity 0)."]
+  seconds: 2.5
+  demo: |
+    const a = D('<div style="position:absolute;left:390px;top:810px;width:300px;height:300px;border-radius:50%;background:var(--accent)"></div>', 'inset:0');
+    const b = D('INSIDE', 'inset:0;background:var(--accent);color:var(--bg);font:900 160px/1920px Inter Tight;text-align:center;opacity:0');
+    FX.zoomThrough(tl, a, b, 0.6, {focus: [0.5, 0.5]});
+- id: transition.zoom_letter
+  name: {tr: "Harfin içinden geçme", en: "Fly through a letter"}
+  use: {tr: "Başlıktan sahneye: kameranın bir harfin boşluğundan geçmesi.", en: "From a title into the scene: the camera passes through a letter's hole."}
+  call: "FX.zoomLetter(tl, wrapEl, letterSpan, at, {zoom, dur})"
+  timing: {tr: "0.45 s; arkadaki sahne harfin içinden görünmeli.", en: "0.45 s; the next scene must show through the letter."}
+  pitfalls:
+    tr: ["O, D, A gibi boşluklu harf seç.", "Yazı ile arkası farklı renkte olsun."]
+    en: ["Pick a letter with a hole: O, D, A.", "Use different colours for the type and what is behind."]
+  seconds: 2.5
+  demo: |
+    D('', 'inset:0;background:var(--accent2)');
+    const w = D('<span style="display:inline-block;background:var(--bg);padding:0 30px">G<span id="o">O</span></span>', 'inset:0;background:var(--bg);font:900 360px/1920px Inter Tight;text-align:center;color:var(--ink);mix-blend-mode:normal');
+    FX.zoomLetter(tl, w, w.querySelector('#o'), 0.8, {dur: 0.6});
+    tl.to(w, {opacity: 0, duration: 0.1}, 1.35);
+- id: transition.lights_out
+  name: {tr: "Işıkların sönmesi", en: "Lights out"}
+  use: {tr: "Korku, gerilim, bir kural çiğnendiğinde: titreme, karanlık, müzik kesilir.", en: "Horror, suspense, a rule broken: flicker, darkness, the music cuts."}
+  call: "d = FX.lightsOut(tl, root, at, {keep}); FX.lightsOn(tl, d, at2, {music: true})"
+  timing: {tr: "Titreme 0.3 s; karanlıkta en az 0.8 s kal.", en: "Flicker 0.3 s; stay dark 0.8 s or more."}
+  pitfalls:
+    tr: ["keep ile hafif bir silüet bırak.", "Ses ve müzik kesimi otomatik; ikinci bir ses ekleme."]
+    en: ["Leave a faint silhouette with keep.", "The clunk and music cut are automatic; do not add another."]
+  seconds: 3
+  demo: |
+    const m = FX.stickman(root, {x: 540, y: 1350, h: 460, color: '#f4efe6'}); FX.alive(m);
+    const d = FX.lightsOut(tl, root, 0.6, {keep: 0.18}); FX.lightsOn(tl, d, 2.4);
+- id: transition.freeze_frame
+  name: {tr: "Dondurulmuş kare", en: "Freeze frame"}
+  use: {tr: "'İşte ben' anı: görüntü durur, renk solar, etiket basılır.", en: "The 'yep, that is me' moment: the frame stops, colour drains, a label stamps."}
+  call: "FX.freezeFrame(tl, root, at, {target: pictureEl, label})  (stop your own tweens at at)"
+  timing: {tr: "Flaş 0.3 s, etiket 0.25 s sonra; 1.5 s tut.", en: "Flash 0.3 s, label 0.25 s later; hold 1.5 s."}
+  pitfalls:
+    tr: ["Diğer animasyonları at anında durdur, yoksa donma anlaşılmaz.", "Etiket kısa: 2-3 kelime."]
+    en: ["Stop other tweens at that moment or the freeze does not read.", "Short label: 2-3 words."]
+  seconds: 3
+  demo: |
+    const p = D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    tl.fromTo(p, {scale: 1}, {scale: 1.12, duration: 1.0, ease: 'none'}, 0);
+    FX.freezeFrame(tl, root, 1.0, {target: p, label: 'me, again'});
+- id: transition.slash_shatter
+  name: {tr: "Kesip parçalama", en: "Slash and shatter"}
+  use: {tr: "Eski yöntemi, bir efsaneyi, bir engeli yok etmek.", en: "Destroying the old way, a myth, an obstacle."}
+  call: "FX.slash(tl, root, at, [x1, y1, x2, y2]); FX.shatter(tl, el, at + 0.3)"
+  timing: {tr: "Kesik 0.12 s, parçalanma 0.3 s sonra.", en: "Slash 0.12 s, the shatter 0.3 s later."}
+  pitfalls:
+    tr: ["Kesik çizgisi parçalanan kartın üstünden geçmeli.", "Sesler otomatik (swish, glass)."]
+    en: ["The slash must cross the card that breaks.", "The sounds are automatic (swish, glass)."]
+  seconds: 3
+  demo: |
+    const card = D('OLD WAY', 'left:190px;top:760px;width:700px;height:400px;border-radius:30px;background:#2a3147;color:#fff;font:900 110px/400px Inter Tight;text-align:center');
+    FX.slash(tl, root, 0.8, [160, 1180, 920, 720]); FX.shatter(tl, card, 1.1);
+- id: transition.match_cut
+  name: {tr: "Şekil eşleşmeli kesme", en: "Match cut"}
+  use: {tr: "Bir şekil başka bir şeye dönüşür: daire -> güneş -> tabak.", en: "One shape becomes another thing: a circle -> the sun -> a plate."}
+  call: "the same shape at the same place and size in both scenes; cut on the beat"
+  timing: {tr: "Kesme anında konum ve boyut aynı; 0 s geçiş.", en: "Same position and size at the cut; a 0 s transition."}
+  pitfalls:
+    tr: ["Konum birkaç piksel kayarsa sıçrama görünür.", "Renk değişimi eşleşmeyi güçlendirir."]
+    en: ["A few pixels off and the cut jumps.", "A change of colour sells the match."]
+  seconds: 3
+  demo: |
+    const a = D('<div style="position:absolute;left:340px;top:760px;width:400px;height:400px;border-radius:50%;background:var(--ink)"></div><div style="position:absolute;left:0;right:0;top:1250px;text-align:center;font:800 70px Inter Tight;color:var(--ink)">a dot</div>', 'inset:0');
+    const b = D('<div style="position:absolute;left:340px;top:760px;width:400px;height:400px;border-radius:50%;background:var(--accent);box-shadow:0 0 160px #ffb347"></div><div style="position:absolute;left:0;right:0;top:1250px;text-align:center;font:800 70px Inter Tight;color:var(--accent)">the sun</div>', 'inset:0;background:#1d2a44;opacity:0');
+    tl.set(a, {opacity: 0}, 1.4); tl.set(b, {opacity: 1}, 1.4); FX.sfx('hit', 1.4);

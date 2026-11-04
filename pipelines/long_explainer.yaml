@@ -64,7 +64,7 @@ stages:
     gate: true
     run: agent
     model: opus
-    tools: [read_artifact, catalog, stock_search]
+    tools: [read_artifact, catalog, recipes, stock_search]
     review:
       - "Scenes cover every script line except the chapter title lines, in order, none crossing a chapter"
       - "No two consecutive scenes use the same visual device; each chapter has its own centrepiece"
@@ -76,7 +76,7 @@ stages:
     run: code
     call: factory.hat.longform:build_scenes
     model: opus
-    tools: [read_artifact, stock_search, render_stills, layout_lint, contact_sheet, proof_check]
+    tools: [read_artifact, recipes, stock_search, render_stills, layout_lint, contact_sheet, proof_check]
     review:
       - "Every scene follows the outline's brief and the shared kit"
       - "Layout lint has no errors; no text sits under the caption band"

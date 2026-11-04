@@ -42,7 +42,7 @@
     return el;
   };
   /* emphasis */
-  FX.shine = (tl, el, at, o = {}) => { el.style.backgroundImage = `linear-gradient(110deg, ${o.base || "currentColor"} 40%, ${o.light || "#fff"} 50%, ${o.base || "currentColor"} 60%)`; el.style.backgroundSize = "250% 100%"; el.style.webkitBackgroundClip = "text"; el.style.backgroundClip = "text"; el.style.color = "transparent"; tl.fromTo(el, { backgroundPosition: "120% 0" }, { backgroundPosition: "-120% 0", duration: o.dur || 1.2, ease: "power1.inOut" }, at); };
+  FX.shine = (tl, el, at, o = {}) => { const base = o.base || getComputedStyle(el).color; el.style.backgroundImage = `linear-gradient(110deg, ${base} 40%, ${o.light || "#fff"} 50%, ${base} 60%)`; el.style.backgroundSize = "250% 100%"; el.style.webkitBackgroundClip = "text"; el.style.backgroundClip = "text"; el.style.color = "transparent"; tl.fromTo(el, { backgroundPosition: "120% 0" }, { backgroundPosition: "-120% 0", duration: o.dur || 1.2, ease: "power1.inOut" }, at); };
   FX.gradientText = (el, colors) => { el.style.backgroundImage = `linear-gradient(90deg, ${colors.join(",")})`; el.style.webkitBackgroundClip = "text"; el.style.backgroundClip = "text"; el.style.color = "transparent"; };
   FX.highlight = (tl, el, at, o = {}) => { el.style.backgroundImage = `linear-gradient(${o.color || "var(--accent)"}, ${o.color || "var(--accent)"})`; el.style.backgroundRepeat = "no-repeat"; el.style.backgroundPosition = "0 88%"; tl.fromTo(el, { backgroundSize: "0% 40%" }, { backgroundSize: "100% 40%", duration: o.dur || 0.45, ease: "power2.out" }, at); };
   FX.countUp = (tl, el, at, to, o = {}) => { const st = { v: o.from || 0 }, dec = o.decimals || 0; tl.fromTo(st, { v: o.from || 0 }, { v: to, duration: o.dur || 0.9, ease: "power2.out", onUpdate: () => { el.textContent = (o.prefix || "") + st.v.toLocaleString(o.locale || "en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }) + (o.suffix || ""); } }, at); };
@@ -1046,12 +1046,13 @@
     const out = o.out;   // out: true closes onto the point at `at`
     tl.fromTo(root, { clipPath: `circle(${out ? 150 : 0}% at ${p[0] * 100}% ${p[1] * 100}%)` }, { clipPath: `circle(${out ? 0 : 150}% at ${p[0] * 100}% ${p[1] * 100}%)`, duration: o.dur || 0.45, ease: out ? "power3.in" : "power3.out" }, at);
   };
-  FX.brushWipe = (tl, root, at, o = {}) => {   // fat strokes cover the frame then drag off (cut under full cover)
+  FX.brushWipe = (tl, root, at, o = {}) => {   // fat strokes cover the frame then drag off (cut under full cover, at + 0.4; hold: true keeps the cover)
     const W = root.clientWidth || 1080, H = root.clientHeight || 1920, svg = FX.svg(root, W, H), n = o.n || 5, c = o.color || "var(--ink, #111)";
     svg.style.zIndex = 90;
     for (let i = 0; i < n; i++) {
       const y = (H / n) * (i + 0.5), p = FX.el(svg, "path", { d: `M-80,${y} L${W + 80},${y + (i % 2 ? 40 : -40)}`, stroke: c, "stroke-width": H / n + 60, "stroke-linecap": "round", fill: "none" });
       FX.drawOn(tl, p, at + i * 0.04, { dur: 0.32, ease: "power2.in" });
+      if (!o.hold) tl.to(p, { strokeDashoffset: -p.getTotalLength(), duration: 0.32, ease: "power2.out" }, at + 0.44 + i * 0.04);   // drag off
     }
     if (o.sfx !== false) FX.sfx("swish", at + 0.1);
     return svg;

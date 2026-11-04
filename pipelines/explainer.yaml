@@ -62,7 +62,7 @@ stages:
     gate: true
     run: agent
     model: opus
-    tools: [read_artifact, catalog, stock_search, render_stills, layout_lint, contact_sheet, proof_check]
+    tools: [read_artifact, catalog, recipes, stock_search, render_stills, layout_lint, contact_sheet, proof_check]
     review:
       - "Scenes cover the whole script with no gaps; every scene has a trigger word"
       - "No two consecutive scenes use the same visual device"

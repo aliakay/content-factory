@@ -6,6 +6,8 @@ GET  /api/hat/styles                   the film style library (cards + preview f
 GET  /api/hat/ownstyles                the creator's own film styles; /api/hat/ownstyle/<id> one, with its questions
 POST /api/hat/ownstyles     {name, base}                      step 1: a draft from a base style or a blank page
 POST /api/hat/ownstyle/<id> {action: answer|sample|approve|delete, q?, value?}   steps 2-5
+GET  /api/hat/recipes                the shotbook (t510): motion recipe cards with their demo clips
+POST /api/hat/recipes {ids?, force?} queue the recipe_demos job that renders the missing clips (no credits)
 GET  /api/hat/project/<id>             the flow view of one project: stages, their outputs, stills, live events
 GET  /api/hat/project/<id>/scenes      the scene editor: scenes, their text elements, frames with boxes, versions
 POST /api/hat/project/<id>/scenes {action: edit|frames|save_version|restore|cut, ...}   hand edits at the scene plan gate
@@ -319,6 +321,9 @@ def get(con, path, q):
     if path == "/api/hat/ownstyles":
         from factory import ownstyles
         return [ownstyles.view(st, lang()) for st in ownstyles.listing()]
+    if path == "/api/hat/recipes":          # t510: the shotbook, every motion recipe card with its demo clip
+        from factory import recipes
+        return recipes.listing(lang())
     m = re.fullmatch(r"/api/hat/ownstyle/(own_[a-z0-9_]+)", path)
     if m:
         from factory import ownstyles
@@ -354,6 +359,10 @@ def _post(con, path, b, queue):
         return {"ui_lang": accounts.set_ui_lang(uid, b.get("lang"))}
     if path == "/api/hat/ownstyles" or path.startswith("/api/hat/ownstyle/"):
         return _own_style(path, b, queue, uid)
+    if path == "/api/hat/recipes":          # render the shotbook's missing demo clips (headless, no credits)
+        from factory import recipes
+        ids = [x for x in b.get("ids") or [] if recipes.get(x)] or None
+        return {"job_id": queue("recipe_demos", json.dumps({"ids": ids, "force": bool(b.get("force"))}))}
     if path == "/api/hat/projects":
         line = manifest.get(b.get("line") or "")
         if line["status"] != "ready":

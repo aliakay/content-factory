@@ -15,7 +15,7 @@ from the current plan, hand edits included.
 """
 import concurrent.futures as cf, hashlib, html as H, json, os, re, time
 
-from .. import llm
+from .. import llm, recipes
 from ..config import ROOT
 from . import explainer as X, manifest, mcp_server, project as P, tools as T
 
@@ -103,6 +103,9 @@ def outline_problems(script, outline):
             out.append(f"scene '{sc['id']}' covers a chapter title line; the chapter card shows it")
         elif not any(_in(sc, p) for p in ps):
             out.append(f"scene '{sc['id']}' crosses from one chapter into the next")
+        bad = recipes.unknown(sc.get("recipes"))
+        if bad:
+            out.append(f"scene '{sc['id']}': unknown recipes {bad} (the recipes tool lists them)")
         want = max(want, b + 1)
     while want in titles:
         want += 1
@@ -214,6 +217,11 @@ def part_times(pid, k, d=None, draft=None):
 
 # ---------------------------------------------------------------- the designers (one agent run per part)
 
+def _recipe_cards(scenes):
+    ids = [r for x in scenes for r in x.get("recipes") or []]
+    return f"\n## Recipe cards the outline names for your scenes (proven FX calls; adapt them to 1920x1080)\n{recipes.card_text(ids)}\n" if ids else ""
+
+
 def _task(pid, s, part, outline, script, note=None, d=None):
     from .. import proof, sceneedit
     from . import agent
@@ -221,7 +229,8 @@ def _task(pid, s, part, outline, script, note=None, d=None):
     lines = script.get("lines") or []
     mine = [x for x in outline.get("scenes") or [] if _in(x, part)]
     rows = "\n".join(f'- "{x["id"]}" lines [{x["lines"][0]}, {x["lines"][1]}]'
-                     f'{" · device: " + x["device"] if x.get("device") else ""}\n  brief: {x["brief"]}\n  says: '
+                     f'{" · device: " + x["device"] if x.get("device") else ""}'
+                     f'{" · recipes: " + ", ".join(x["recipes"]) if x.get("recipes") else ""}\n  brief: {x["brief"]}\n  says: '
                      + " ".join(lines[x["lines"][0]:x["lines"][1] + 1]) for x in mine)
     where = "the intro (before chapter 1)" if part["chapter"] is None else f"chapter {part['chapter']}: {part['name']}"
     ui = p.get("ui_lang", "tr")
@@ -245,7 +254,7 @@ Global CSS (already loaded for every scene):
 {outline.get('global_css', '') or '(none)'}
 Component kit (binding: reuse these looks for titles, figures, labels, charts):
 {outline.get('kit', '')}
-
+{_recipe_cards(mine)}
 ## Stage brief
 {agent.skill('long_explainer', 'scene_build', p)}{proof.brief(pid, s, d)}{sceneedit.brief(pid, s, d)}
 """

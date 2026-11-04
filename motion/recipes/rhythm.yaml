@@ -1,0 +1,141 @@
+# Rhythm recipes: type and cuts that land on the beat, for hooks, music-led edits and drops. Our own cards (t510).
+# FX.B(k) is the time of beat k from the bundle's bpm; land every hit on a beat, never between.
+- id: rhythm.beat_grid
+  name: {tr: "Vuruşa oturtma", en: "Landing on the beat"}
+  use: {tr: "Müzikli her sahne: olayları saniye yerine vuruş numarasıyla yerleştirmek.", en: "Any scene with music: place events by beat number, not seconds."}
+  call: "FX.B(k) -> seconds of beat k (FX.BPM from the bundle; half beats: FX.B(2.5))"
+  timing: {tr: "Büyük olay 1. ve 3. vuruşa, küçükler ara vuruşlara.", en: "Big events on beats 1 and 3, small ones on the off-beats."}
+  pitfalls:
+    tr: ["Saniyeyi elle yazma: tempo değişince her şey kayar.", "Her vuruşa bir şey koyma; nefes bırak."]
+    en: ["Never hard-code seconds: a tempo change shifts everything.", "Do not fill every beat; leave air."]
+  seconds: 3
+  bpm: 120
+  demo: |
+    [0, 1, 2, 3, 4, 5].forEach((k) => {
+      const d = D('', `left:${190 + k * 130}px;top:900px;width:90px;height:90px;border-radius:50%;background:${k % 2 ? 'var(--muted)' : 'var(--accent)'}`);
+      tl.fromTo(d, {scale: 0.3, opacity: 0.3}, {scale: 1, opacity: 1, duration: 0.18, ease: 'back.out(3)'}, FX.B(k)); FX.sfx(k % 2 ? 'tick' : 'knock', FX.B(k));
+    });
+- id: rhythm.slam
+  name: {tr: "Kelime çarpması", en: "Word slam"}
+  use: {tr: "Hook'un tek kelimesi: büyük, yere çakılan, yankılı.", en: "The one word of a hook: huge, slammed down, echoed."}
+  call: "FX.kinetic(tl, root, at, {style: 'slam', text, until, ground, color, fx: 'punch' | 'hit'})"
+  timing: {tr: "0.2 s iniş, tam vuruşta; 1-2 vuruş ekranda.", en: "A 0.2 s landing right on the beat; 1-2 beats on screen."}
+  pitfalls:
+    tr: ["Bir kelime, en çok iki: cümle çakılmaz.", "Hayalet satırlar istemiyorsan echo: false."]
+    en: ["One word, two at most: you cannot slam a sentence.", "echo: false drops the ghost rows."]
+  seconds: 2.5
+  bpm: 120
+  demo: |
+    FX.kinetic(tl, root, FX.B(1), {style: 'slam', text: 'STOP', until: FX.B(4.5), fx: 'punch'});
+- id: rhythm.punch3d
+  name: {tr: "3B yumruk yazı", en: "3D punch type"}
+  use: {tr: "Sayı ya da marka adı: derinlikle yüzüne gelen yazı.", en: "A number or a brand: type that punches out at you with depth."}
+  call: "FX.kinetic(tl, root, at, {style: 'punch3d', text, until, side})"
+  timing: {tr: "0.28 s; arkasındaki iz kendiliğinden söner.", en: "0.28 s; the trailing echo fades by itself."}
+  pitfalls:
+    tr: ["side rengi zeminden koyu olmalı.", "Sahne başına bir kez."]
+    en: ["The side colour must be darker than the ground.", "Once a scene."]
+  seconds: 2.5
+  bpm: 120
+  demo: |
+    FX.kinetic(tl, root, FX.B(1), {style: 'punch3d', text: '10X', until: FX.B(4.5), color: 'var(--accent)', side: '#8a5a00', fx: 'punch'});
+- id: rhythm.stack
+  name: {tr: "Üst başlık + kelime", en: "Kicker over word"}
+  use: {tr: "Küçük bir üst başlık, ardından vuruşta asıl kelime ve çizgi.", en: "A small kicker, then the main word and a bar on the beat."}
+  call: "FX.kinetic(tl, root, at, {style: 'stack', text: ['KICKER', 'WORD'], second, until})"
+  timing: {tr: "İkinci kelime yarım vuruş sonra (second = 60/BPM/2).", en: "The second word half a beat later (second = 60/BPM/2)."}
+  pitfalls:
+    tr: ["Üst başlık 1-2 kelime.", "İki satır da büyük harf; uzun kelime küçülür."]
+    en: ["The kicker is 1-2 words.", "Both rows are upper case; a long word shrinks."]
+  seconds: 2.5
+  bpm: 120
+  demo: |
+    FX.kinetic(tl, root, FX.B(1), {style: 'stack', text: ['THE TRUTH', 'NOBODY TELLS'], second: 0.25, until: FX.B(4.5)});
+- id: rhythm.split
+  name: {tr: "Bölünmüş satır", en: "Split line"}
+  use: {tr: "Küçük + büyük kelime: 'sadece / 3 DAKİKA'.", en: "A small then a big word: 'only / 3 MINUTES'."}
+  call: "FX.kinetic(tl, root, at, {style: 'split', text: [small, big], second})"
+  timing: {tr: "Büyük kelime sağdan, yarım vuruş sonra.", en: "The big word from the right, half a beat later."}
+  pitfalls:
+    tr: ["Büyük kelime kısa olmalı.", "Yön bir sonraki kesmeyle uyumlu olsun."]
+    en: ["Keep the big word short.", "Match the direction to the next cut."]
+  seconds: 2.5
+  bpm: 120
+  demo: |
+    FX.kinetic(tl, root, FX.B(1), {style: 'split', text: ['ONLY', '3 MINUTES'], second: 0.25, until: FX.B(4.5), ground: 'var(--accent)', color: '#0f1220'});
+- id: rhythm.pair
+  name: {tr: "Karşılıklı iki satır", en: "Opposing pair"}
+  use: {tr: "Zıtlık: 'ÇOK ÇALIŞ / AZ KAZAN'; satırlar iki yandan girer.", en: "A contrast: 'WORK MORE / EARN LESS'; the rows come from both sides."}
+  call: "FX.kinetic(tl, root, at, {style: 'pair', text: [line1, line2], second})"
+  timing: {tr: "İkinci satır bir vuruş sonra.", en: "The second row a beat later."}
+  pitfalls:
+    tr: ["İki satır benzer uzunlukta olsun.", "Zıtlığı renkle de göster."]
+    en: ["Keep the rows a similar length.", "Show the contrast in colour too."]
+  seconds: 2.5
+  bpm: 120
+  demo: |
+    FX.kinetic(tl, root, FX.B(1), {style: 'pair', text: ['WORK MORE', 'EARN LESS'], second: 0.5, until: FX.B(4.5)});
+- id: rhythm.cut_run
+  name: {tr: "Hızlanan kesme dizisi", en: "Accelerating cut run"}
+  use: {tr: "Liste, sayım, gerilim: kelimeler vuruşla değişir ve hızlanır.", en: "A list, a countdown, suspense: words cut on the beat and speed up."}
+  call: "t_end = FX.cutRun(tl, root, at, ['WORD', ...], {beats: [1, 1, .5, .5, .25], grounds, inks})"
+  timing: {tr: "4-8 kelime; sonunda beyaz flaş ve whoosh, dönen t ondan sonraki sahne.", en: "4-8 words; a white flash and a whoosh close it, and the returned t starts what follows."}
+  pitfalls:
+    tr: ["Çeyrek vuruşta kelime okunmaz: orayı tek harflik ya da sayı yap.", "Zemin ve yazı rengi birlikte değişir (inks)."]
+    en: ["A word on a quarter beat cannot be read: use a digit or a letter there.", "Ground and type change together (inks)."]
+  seconds: 3.5
+  bpm: 120
+  demo: |
+    FX.cutRun(tl, root, FX.B(0.5), ['READY', 'SET', 'NOT', 'YET', '3', '2', '1']);
+- id: rhythm.charge
+  name: {tr: "Patlama öncesi toplanma", en: "Charge-up"}
+  use: {tr: "Drop'tan hemen önce: hız çizgileri bir noktada toplanır, sonra çarpma.", en: "Right before a drop: speed lines gather into a point, then the hit."}
+  call: "FX.charge(tl, root, at, dur); FX.kinetic(..., at + dur, {fx: 'punch'})"
+  timing: {tr: "1-2 vuruş toplanma, çarpma tam bitişte.", en: "1-2 beats of charge, the hit right as it ends."}
+  pitfalls:
+    tr: ["Arkasından çarpma gelmezse boşa gider.", "riser sesi kendiliğinden çalar."]
+    en: ["Wasted without a hit after it.", "The riser sound plays by itself."]
+  seconds: 3
+  bpm: 120
+  demo: |
+    FX.charge(tl, root, FX.B(0.5), FX.B(2) - FX.B(0.5));
+    FX.kinetic(tl, root, FX.B(2), {style: 'slam', text: 'DROP', until: FX.B(6), fx: 'punch', big: true});
+- id: rhythm.hit_fx
+  name: {tr: "Darbe efekti", en: "Hit burst"}
+  use: {tr: "Bir sayının, görselin ya da kesmenin vuruşu: ışın, halka, flaş, sarsıntı.", en: "The hit of a number, a picture or a cut: rays, a ring, a flash, a shake."}
+  call: "FX.hitFx(tl, root, at, {rays, ring, flash, shake, at: [x, y], color, big})"
+  timing: {tr: "0.3-0.45 s, vuruşta.", en: "0.3-0.45 s, on the beat."}
+  pitfalls:
+    tr: ["Her vuruşta tam efekt yorar: çoğunda flash: false, rays: false.", "Merkez (at) konunun üstünde olsun."]
+    en: ["A full burst on every beat tires: drop rays and flash on most.", "Centre it (at) on the subject."]
+  seconds: 2.5
+  bpm: 120
+  demo: |
+    const n = D('$1M', 'left:0;right:0;top:770px;text-align:center;font:900 260px Inter Tight;color:var(--ink);opacity:0');
+    tl.set(n, {opacity: 1}, FX.B(1)); tl.fromTo(n, {scale: 1.5}, {scale: 1, duration: 0.2, ease: 'expo.out'}, FX.B(1));
+    FX.hitFx(tl, root, FX.B(1), {at: [540, 900], big: true, target: n});
+- id: rhythm.ground_flip
+  name: {tr: "Vuruşta zemin değişimi", en: "Ground flips on the beat"}
+  use: {tr: "Her vuruşta tüm arka plan rengi değişir: enerji, bölüm geçişi.", en: "The whole background colour changes on each beat: energy, a section change."}
+  call: "FX.ground(tl, root, at, colour) (each call lays a new ground under everything)"
+  timing: {tr: "Tam vuruşta, geçişsiz.", en: "Exactly on the beat, no fade."}
+  pitfalls:
+    tr: ["Yazı rengini zemine göre değiştir.", "En çok üç renk dön."]
+    en: ["Switch the type colour with the ground.", "Cycle three colours at most."]
+  seconds: 3
+  bpm: 120
+  demo: |
+    const w = D('BEAT', 'left:0;right:0;top:820px;text-align:center;font:900 220px Inter Tight;z-index:5');
+    ['var(--accent)', '#0f1220', 'var(--hot)', '#f4efe6', 'var(--accent)'].forEach((c, k) => { FX.ground(tl, root, FX.B(k), c); tl.set(w, {color: k % 2 ? '#f4efe6' : '#0f1220'}, FX.B(k)); FX.sfx('knock', FX.B(k)); });
+- id: rhythm.type_prompt
+  name: {tr: "Yazılan istem ve drop", en: "Typed prompt into the drop"}
+  use: {tr: "Yapay zekâ, kod, arama: bir istem yazılır, Enter'a basılır, renk patlar.", en: "AI, code, search: a prompt is typed, Enter is hit, colour floods."}
+  call: "FX.typePrompt(tl, root, at, {label, text: [['plain '], ['keyword', 1]], cps, enterAt}) -> {enter}"
+  timing: {tr: "Saniyede 22 harf; Enter drop'un vuruşunda (enterAt).", en: "22 characters a second; Enter on the drop's beat (enterAt)."}
+  pitfalls:
+    tr: ["Metin kısa: 40 harfi geçmesin.", "Enter'dan sonraki sahne accent renginde başlasın."]
+    en: ["Keep the text short: under 40 characters.", "Start the next scene in the accent colour."]
+  seconds: 4
+  bpm: 120
+  demo: |
+    FX.typePrompt(tl, root, 0.2, {label: 'PROMPT', text: [['make a '], ['viral', 1], [' video']], enterAt: FX.B(7)});

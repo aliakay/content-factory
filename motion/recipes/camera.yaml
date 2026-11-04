@@ -1,0 +1,126 @@
+# Camera recipes: moving the frame over a still picture or a built scene. Our own cards (t510).
+# Each demo wraps the stage in one element and moves that; put everything the camera sees inside the wrapper.
+- id: camera.push_in
+  name: {tr: "Yavaş yaklaşma", en: "Slow push-in"}
+  use: {tr: "Gerilim ya da yakınlık: anlatım önemli bir yere yaklaşırken.", en: "Tension or intimacy: as the story closes in on something important."}
+  call: "FX.camera(tl, wrap, T, {move: 'push_in', focus: [x, y], from, to})"
+  timing: {tr: "Sahnenin tamamı; 1.08 -> 1.2 ölçek fark edilmeden çalışır.", en: "The whole scene; 1.08 -> 1.2 works without being noticed."}
+  pitfalls:
+    tr: ["Görsel en az %20 büyük çözünürlükte olmalı, yoksa bulanıklaşır.", "Yazıları wrap'in dışına koy, yoksa onlar da büyür."]
+    en: ["The picture needs 20% spare resolution or it softens.", "Keep text outside the wrapper or it grows too."]
+  seconds: 3.5
+  demo: |
+    const w = D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    FX.camera(tl, w, T, {move: 'push_in', focus: [0.5, 0.45], from: 1.0, to: 1.3});
+- id: camera.pull_out
+  name: {tr: "Geri çekilip açılma", en: "Pull-back reveal"}
+  use: {tr: "Ayrıntıdan bütüne: 'aslında bu daha büyük bir şeyin parçası'.", en: "From a detail to the whole: 'this is part of something bigger'."}
+  call: "FX.camera(tl, wrap, T, {move: 'pull_out', focus, from, to})"
+  timing: {tr: "Açılma 'aslında' kelimesinden başlasın.", en: "Start the reveal on the word 'actually'."}
+  pitfalls:
+    tr: ["Başlangıç ölçeği büyükse görüntü pikselleşir: en çok 1.6.", "Açılınca görünen kısım boş olmasın."]
+    en: ["A big starting scale pixelates: 1.6 at most.", "What the reveal shows must not be empty."]
+  seconds: 3.5
+  demo: |
+    const w = D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    FX.camera(tl, w, T, {move: 'pull_out', focus: [0.5, 0.42], from: 1.0, to: 1.6});
+- id: camera.pan
+  name: {tr: "Yatay kaydırma", en: "Horizontal pan"}
+  use: {tr: "Bir manzarayı, sırayı ya da kalabalığı soldan sağa taramak.", en: "Scanning a landscape, a queue or a crowd from side to side."}
+  call: "FX.camera(tl, wrap, T, {move: 'pan_left' | 'pan_right'})"
+  timing: {tr: "Sahnenin tamamı; sine.inOut ile başı ve sonu yumuşak.", en: "The whole scene; sine.inOut keeps both ends soft."}
+  pitfalls:
+    tr: ["Hareket yönü bir sonraki sahnenin girişine uysun.", "Çok hızlı pan telefonda titrer."]
+    en: ["Match the direction to how the next scene enters.", "A fast pan judders on a phone."]
+  seconds: 3.5
+  demo: |
+    const w = D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    FX.camera(tl, w, T, {move: 'pan_right'});
+- id: camera.tilt
+  name: {tr: "Dikey kaydırma", en: "Tilt up or down"}
+  use: {tr: "Uzun bir şeyi göstermek: bina, ağaç, liste; yukarı bakış umut verir.", en: "Showing something tall: a building, a tree, a list; tilting up feels hopeful."}
+  call: "FX.camera(tl, wrap, T, {move: 'tilt_up' | 'tilt_down'})"
+  timing: {tr: "Sahnenin tamamı.", en: "The whole scene."}
+  pitfalls:
+    tr: ["Dikey karede tilt az yol alır: görseli uzun hazırla.", "Altyazı bölgesini boş bırakma."]
+    en: ["In a tall frame a tilt travels little: prepare a tall picture.", "Do not leave the caption zone empty."]
+  seconds: 3.5
+  demo: |
+    const w = D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    FX.camera(tl, w, T, {move: 'tilt_up'});
+- id: camera.hold
+  name: {tr: "Nefes alan duruş", en: "Breathing hold"}
+  use: {tr: "Sabit görüntü ölü durmasın diye çok hafif yaklaşma.", en: "A barely-there drift so a still never looks dead."}
+  call: "FX.camera(tl, wrap, T, {move: 'hold'})"
+  timing: {tr: "Sahnenin tamamı; izleyici fark etmemeli.", en: "The whole scene; nobody should notice it."}
+  pitfalls:
+    tr: ["Başka bir kamera hareketiyle birleştirme.", "Hiç hareket olmayan sahne yerine bunu kullan."]
+    en: ["Do not stack it with another camera move.", "Use it instead of a fully frozen scene."]
+  seconds: 3
+  demo: |
+    const w = D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    FX.camera(tl, w, T, {move: 'hold'});
+- id: camera.zoom_to
+  name: {tr: "Ayrıntıya dijital zoom", en: "Digital zoom to a detail"}
+  use: {tr: "'Şuraya bakın': görüntüde bir ayrıntıya hızla yaklaşmak.", en: "'Look here': snapping into a detail of the picture."}
+  call: "FX.camera(tl, wrap, T, {move: 'zoom_to', focus: [x, y], at, zoom})"
+  timing: {tr: "0.9 s; ayrıntı söylenmeden hemen önce.", en: "0.9 s; just before the detail is named."}
+  pitfalls:
+    tr: ["zoom 2.5'ten büyükse görsel bulanıklaşır.", "Odak noktası ayrıntının tam merkezi olmalı."]
+    en: ["Zoom above 2.5 blurs the picture.", "The focus must be the detail's exact centre."]
+  seconds: 3
+  demo: |
+    const w = D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    FX.camera(tl, w, T, {move: 'zoom_to', focus: [0.5, 0.42], at: 0.8, zoom: 2.2});
+- id: camera.vertigo
+  name: {tr: "Vertigo (dolly zoom)", en: "Vertigo dolly zoom"}
+  use: {tr: "Şok, fark ediş anı: arka plan kayarken konu yerinde kalır.", en: "Shock, a realisation: the background slides while the subject holds."}
+  call: "FX.vertigo(tl, bgEl, subjectEl, T, {amount, inward, focus})"
+  timing: {tr: "1.5-3 s; fark ediş cümlesi boyunca.", en: "1.5-3 s; through the line of realisation."}
+  pitfalls:
+    tr: ["Konu ayrı bir katman (kesik PNG ya da çizim) olmalı.", "Filmde bir kez; tekrarı etkiyi öldürür."]
+    en: ["The subject must be its own layer (a cutout PNG or a drawing).", "Once a film; repeating it kills it."]
+  seconds: 3
+  demo: |
+    const bg = D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    const subj = D('', 'left:0;right:0;top:0;bottom:0'); FX.stickman(subj, {x: 540, y: 1500, h: 600, color: '#14120e'});
+    FX.vertigo(tl, bg, subj, T, {amount: 0.35, inward: true, focus: [0.5, 0.6]});
+- id: camera.orbit_card
+  name: {tr: "Kartın etrafında dönme", en: "Orbit a card"}
+  use: {tr: "Ürün, ekran görüntüsü, kitap kapağı: düz bir şeye 3B hacim vermek.", en: "A product, a screenshot, a book cover: giving a flat thing 3D presence."}
+  call: "FX.orbit(tl, el, T, {from: -35, turn: 70, tilt})"
+  timing: {tr: "Sahnenin tamamı; parlama kendiliğinden geçer.", en: "The whole scene; the sheen passes by itself."}
+  pitfalls:
+    tr: ["Kartın kenarları yuvarlak olsun, gölge otomatik.", "turn 90'ı geçerse kartın arkası görünür."]
+    en: ["Round the card's corners; the shadow is automatic.", "Past a 90° turn the back of the card shows."]
+  seconds: 3.5
+  demo: |
+    const c = D('<div style="font:900 90px Inter Tight;color:#14120e;padding:70px">THE<br>BOOK</div>', 'left:240px;top:560px;width:600px;height:800px;border-radius:24px;background:linear-gradient(160deg,#ffb347,#ff5a5f)');
+    FX.orbit(tl, c, T, {from: -35, turn: 70});
+- id: camera.shake
+  name: {tr: "Sarsıntı", en: "Camera shake"}
+  use: {tr: "Darbe, patlama, kapı çarpması: tek bir sert an.", en: "An impact, a blast, a slammed door: one hard moment."}
+  call: "FX.shake(tl, el, at, {amp, dur})"
+  timing: {tr: "0.3-0.5 s, sesle aynı karede.", en: "0.3-0.5 s, on the same frame as the sound."}
+  pitfalls:
+    tr: ["amp 20'yi geçmesin, kenarlar boş görünür; wrap'i hafif büyüt.", "Sürekli sarsıntı mide bulandırır."]
+    en: ["Keep amp under 20 or the edges show; scale the wrapper up a little.", "Constant shaking makes people sick."]
+  seconds: 2.5
+  demo: |
+    const w = D('<div style="position:absolute;left:0;right:0;top:820px;text-align:center;font:900 200px Inter Tight;color:var(--hot)">BANG</div>', 'inset:0');
+    gsap.set(w, {scale: 1.04}); FX.shake(tl, w, 0.6, {amp: 18, dur: 0.45}); FX.sfx('hit', 0.6);
+- id: camera.parallax
+  name: {tr: "Katmanlı derinlik (parallax)", en: "Layered parallax"}
+  use: {tr: "Düz bir sahneye derinlik: ön plan hızlı, arka plan yavaş kayar.", en: "Depth in a flat scene: the foreground moves fast, the background slow."}
+  call: "layers move the same way with x shifts in ratio to their depth (far 1x, mid 2x, near 4x)"
+  timing: {tr: "Sahnenin tamamı, sine.inOut.", en: "The whole scene, sine.inOut."}
+  pitfalls:
+    tr: ["Katmanlar kenarlardan taşacak kadar geniş olsun.", "Üç katman yeter."]
+    en: ["Make layers wide enough to cover the edges.", "Three layers are enough."]
+  seconds: 3.5
+  demo: |
+    const svg = (fill, d) => `<svg viewBox="0 0 1400 1920" width="1400" height="1920"><path d="${d}" fill="${fill}"/></svg>`;
+    const far = D(svg('#2e294e', 'M0 1100 Q350 800 700 1050 T1400 1000 V1920 H0Z'), 'left:-160px;top:0');
+    const mid = D(svg('#7b3f61', 'M0 1300 Q300 1100 650 1280 T1400 1250 V1920 H0Z'), 'left:-160px;top:0');
+    const near = D(svg('#d1665a', 'M0 1550 Q400 1400 800 1560 T1400 1500 V1920 H0Z'), 'left:-160px;top:0');
+    [[far, 40], [mid, 90], [near, 180]].forEach(([l, dx]) => tl.fromTo(l, {x: dx}, {x: -dx, duration: 3.5, ease: 'sine.inOut'}, 0));

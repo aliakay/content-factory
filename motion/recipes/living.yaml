@@ -1,0 +1,219 @@
+# Living-world recipes: idle life so a drawn world never looks frozen. Our own cards (t510).
+# They run on the render clock by themselves (no tl, no at): call them once when the element is built.
+- id: living.sway
+  name: {tr: "Rüzgarda salınma", en: "Sway"}
+  use: {tr: "Bitki, çimen, asılı tabela, lamba, kulak, kuyruk.", en: "Plants, grass, a hanging sign, a lamp, ears, a tail."}
+  call: "FX.sway(el | [root, ..tip], {deg, period, pivot: [x, y] | 'origin'})"
+  timing: {tr: "1.5-4° ve 3-6 s periyot; zincirde uç en çok oynar.", en: "1.5-4° over 3-6 s; in a chain the tip moves most."}
+  pitfalls:
+    tr: ["Pivot gövdenin dibi olmalı, yoksa bitki kayar.", "Yan yana bitkilere farklı period ver."]
+    en: ["The pivot is the base, or the plant slides.", "Give neighbouring plants different periods."]
+  seconds: 4
+  demo: |
+    const svg = FX.svg(root, 1080, 1920);
+    FX.el(svg, 'rect', {x: 0, y: 1330, width: 1080, height: 600, fill: '#1e3b2f'});
+    [[300, 3, 4.2], [540, 2.5, 5.1], [780, 3.5, 3.6]].forEach(([x, deg, period]) => {
+      const stem = FX.el(svg, 'g', {}); FX.el(stem, 'path', {d: `M${x} 1330 C${x - 6} 1150 ${x + 14} 1050 ${x} 900`, stroke: '#5fa35a', 'stroke-width': 14, fill: 'none'});
+      const top = FX.el(stem, 'g', {}); FX.el(top, 'ellipse', {cx: x + 30, cy: 900, rx: 70, ry: 28, fill: '#7fd16f'});
+      FX.sway([stem, top], {pivot: [x, 1330], deg: deg * 2, period});
+    });
+- id: living.breathe
+  name: {tr: "Nefes alma", en: "Breathing"}
+  use: {tr: "Uyuyan bir hayvan, bir yastık, şişen bir çanta: canlılık hissi.", en: "A sleeping animal, a pillow, a bag: a sense of life."}
+  call: "FX.breathe(el, {amp, period})"
+  timing: {tr: "Yükseklik %1-2, 3-5 s periyot.", en: "1-2 % height over 3-5 s."}
+  pitfalls:
+    tr: ["transform-origin alt orta olmalı.", "Çok belirgin nefes komik olur."]
+    en: ["Set transform-origin to the bottom centre.", "Obvious breathing turns comic."]
+  seconds: 4
+  demo: |
+    const b = D('<div style="width:420px;height:260px;border-radius:200px 200px 60px 60px;background:#c98a4b"></div><div style="position:absolute;left:300px;top:60px;font:700 60px Inter Tight;color:var(--muted)">z z</div>', 'left:330px;top:1000px;transform-origin:50% 100%');
+    FX.breathe(b, {amp: 0.04, period: 2});
+- id: living.bob
+  name: {tr: "Suda yüzme", en: "Bob on water"}
+  use: {tr: "Tekne, şamandıra, aracın gövdesi; hafif inip kalkma ve yalpalama.", en: "A boat, a buoy, a vehicle body; a little rise and rock."}
+  call: "FX.bob(el, {px, rock, period})"
+  timing: {tr: "1-4 px, 2° yalpa, 2.8 s.", en: "1-4 px, 2° rock, 2.8 s."}
+  pitfalls:
+    tr: ["Suyun kendisini de oynat (ripples).", "Büyük px deniz tutması yapar."]
+    en: ["Move the water too (ripples).", "Large px makes people seasick."]
+  seconds: 4
+  demo: |
+    D('', 'left:0;right:0;top:1150px;bottom:0;background:#1d3b5c');
+    const boat = D('<svg width="360" height="200"><path d="M0 80 L360 80 L300 170 L60 170 Z" fill="#ff5a5f"/><rect x="170" y="0" width="12" height="80" fill="#f4efe6"/><path d="M182 0 L290 70 L182 70Z" fill="#f4efe6"/></svg>', 'left:360px;top:990px');
+    FX.bob(boat, {px: 8, rock: 4}); FX.ripples(root, {x: 540, y: 1170, r: 220});
+- id: living.flicker
+  name: {tr: "Alev titremesi", en: "Flame flicker"}
+  use: {tr: "Mum, ateş, meşale: sıcak ya da ürkütücü ışık.", en: "A candle, a fire, a torch: warm or eerie light."}
+  call: "FX.flicker(flame, {inner, amount})"
+  timing: {tr: "İki dalga (0.7 s, 1.1 s); iç alev üçüncü dalgada.", en: "Two waves (0.7 s, 1.1 s); the inner flame on a third."}
+  pitfalls:
+    tr: ["Alevin pivotu tabanı olmalı.", "Yanına FX.glow ile hale ekle."]
+    en: ["Pivot the flame at its base.", "Add a halo with FX.glow beside it."]
+  seconds: 3
+  demo: |
+    const svg = FX.svg(root, 1080, 1920);
+    const halo = FX.el(svg, 'circle', {cx: 540, cy: 980, r: 220, fill: '#ffb34722'}); FX.glow(halo);
+    FX.el(svg, 'rect', {x: 500, y: 1040, width: 80, height: 300, fill: '#eee', rx: 10});
+    const fl = FX.el(svg, 'ellipse', {cx: 540, cy: 980, rx: 34, ry: 70, fill: '#ffb347'}); const inner = FX.el(svg, 'ellipse', {cx: 540, cy: 1000, rx: 16, ry: 38, fill: '#fff3c4'});
+    FX.flicker(fl, {inner});
+- id: living.glow
+  name: {tr: "Işıma", en: "Glow"}
+  use: {tr: "Lamba halesi, ekran, güneş: yavaşça büyüyüp küçülen ışık.", en: "A lamp halo, a screen, the sun: light that swells gently."}
+  call: "FX.glow(el, {amp, period})"
+  timing: {tr: "%2-5 büyüme, 2-4 s.", en: "2-5 % growth, 2-4 s."}
+  pitfalls:
+    tr: ["Asla yarıya kadar sönmesin.", "Haleyi ayrı bir öğe yap, kaynağı değil."]
+    en: ["Never dims halfway.", "Glow a separate halo, not the source."]
+  seconds: 3
+  demo: |
+    const h = D('', 'left:290px;top:710px;width:500px;height:500px;border-radius:50%;background:radial-gradient(#ffb347aa, transparent 70%)');
+    D('', 'left:440px;top:860px;width:200px;height:200px;border-radius:50%;background:#ffe2b0');
+    FX.glow(h, {amp: 0.08, period: 2});
+- id: living.spin
+  name: {tr: "Dönen dişli", en: "Spinning gear"}
+  use: {tr: "Dişliler, pervane, güneş ışınları: bir sistemin çalıştığını göstermek.", en: "Gears, a fan, sun rays: showing a system at work."}
+  call: "FX.spin(el, {period, dir, pivot})"
+  timing: {tr: "Doğrusal; birbirine geçen dişliler ters yöne, diş oranında.", en: "Linear; meshing gears turn opposite ways in their tooth ratio."}
+  pitfalls:
+    tr: ["Pivot dişlinin merkezi olmalı.", "Hızlı dönüş stroboskop etkisi yapar."]
+    en: ["Pivot at the gear's centre.", "Fast spins strobe."]
+  seconds: 3
+  demo: |
+    const gear = (r, n, c) => `<svg width="${2 * r + 40}" height="${2 * r + 40}" viewBox="${-r - 20} ${-r - 20} ${2 * r + 40} ${2 * r + 40}"><circle r="${r}" fill="${c}"/>${[...Array(n)].map((_, i) => `<rect x="-14" y="${-r - 18}" width="28" height="36" fill="${c}" transform="rotate(${360 * i / n})"/>`).join('')}<circle r="${r * 0.3}" fill="#0f1220"/></svg>`;
+    const a = D(gear(160, 12, '#ffb347'), 'left:230px;top:700px'), b = D(gear(110, 8, '#9aa3b5'), 'left:590px;top:1000px');
+    FX.spin(a, {period: 6}); FX.spin(b, {period: 4, dir: -1});
+- id: living.drift
+  name: {tr: "Süzülen bulutlar", en: "Drifting clouds"}
+  use: {tr: "Gökyüzü, uzak tepeler: arka planın yavaşça kayması.", en: "The sky, far hills: a slow slide in the background."}
+  call: "FX.drift(el, {period, span, dir})"
+  timing: {tr: "Çok yavaş (40 s periyot); uzaktaki katman daha yavaş.", en: "Very slow (40 s period); further layers slower."}
+  pitfalls:
+    tr: ["Ön plan hiç kaymasın.", "Bulutlar karenin dışından girip çıkacak kadar geniş alan ister."]
+    en: ["Keep the foreground still.", "Clouds need room to enter and leave the frame."]
+  seconds: 4
+  demo: |
+    D('', 'inset:0;background:linear-gradient(#3a6ea5,#9cc3e6)');
+    const c = (x, y, s) => D('<div style="width:300px;height:100px;border-radius:60px;background:#fff;box-shadow:80px -40px 0 10px #fff, 160px 0 0 0 #fff"></div>', `left:${x}px;top:${y}px;transform:scale(${s})`);
+    FX.drift(c(200, 500, 1), {period: 8, span: 600}); FX.drift(c(500, 800, 0.7), {period: 14, span: 500, dir: -1});
+- id: living.steam
+  name: {tr: "Buhar ve duman", en: "Steam and smoke"}
+  use: {tr: "Sıcak kahve, çorba, baca, sönen bir mum.", en: "Hot coffee, soup, a chimney, a snuffed candle."}
+  call: "FX.steam(root, {x, y, n, rise, period})"
+  timing: {tr: "2-3 tel, 60-120 px yükselir, sırayla.", en: "2-3 wisps, rising 60-120 px, out of phase."}
+  pitfalls:
+    tr: ["Kabın arkasında başlasın: buharı kaptan sonra çiz.", "Koyu zeminde açık renk."]
+    en: ["Start it behind the rim: draw the cup after the steam.", "Light on a dark ground."]
+  seconds: 3.5
+  demo: |
+    FX.steam(root, {x: 540, y: 1000, rise: 160, w: 40});
+    D('<div style="width:300px;height:240px;border-radius:0 0 90px 90px;background:#f4efe6"></div>', 'left:390px;top:1000px');
+- id: living.ripples
+  name: {tr: "Su halkaları", en: "Water ripples"}
+  use: {tr: "Göl, damla, yağmur birikintisi: suyun canlı olduğu yer.", en: "A pond, a drop, a puddle: where the water lives."}
+  call: "FX.ripples(root, {x, y, r, n, flat})"
+  timing: {tr: "Halkalar 2.4 s'de büyüyüp söner.", en: "Rings grow and fade over 2.4 s."}
+  pitfalls:
+    tr: ["flat kamera açısı: yukarıdan bakış 1, yandan 0.3.", "Su düz renk değil, hafif koyu bir gradyan."]
+    en: ["flat is the camera angle: 1 from above, 0.3 from the side.", "Water is a soft dark gradient, not a flat fill."]
+  seconds: 3.5
+  demo: |
+    D('', 'left:0;right:0;top:900px;bottom:0;background:linear-gradient(#1d3b5c,#0e2338)');
+    FX.ripples(root, {x: 540, y: 1300, r: 260}); FX.ripples(root, {x: 300, y: 1550, r: 140, period: 3.1});
+- id: living.rain
+  name: {tr: "Yağmur", en: "Rain"}
+  use: {tr: "Hüzün, gerilim, kötü hava; tek tuval, ucuz.", en: "Sadness, suspense, bad weather; one canvas, cheap."}
+  call: "FX.weather(root, {kind: 'rain', n, seed})"
+  timing: {tr: "Sahne boyunca; şimşekle (beyaz flaş) birleştir.", en: "Through the scene; pair it with lightning (a white flash)."}
+  pitfalls:
+    tr: ["Yazının üstüne yağmasın: yazıları daha yüksek z-index'e koy.", "n 200'ü geçmesin."]
+    en: ["Keep text above it with a higher z-index.", "Keep n under 200."]
+  seconds: 3
+  demo: |
+    D('', 'inset:0;background:linear-gradient(#1a2033,#2c3550)');
+    FX.weather(root, {kind: 'rain'});
+- id: living.snow
+  name: {tr: "Kar", en: "Snow"}
+  use: {tr: "Kış, sessizlik, yalnızlık, tatil.", en: "Winter, quiet, loneliness, holidays."}
+  call: "FX.weather(root, {kind: 'snow', n})"
+  timing: {tr: "Yavaş (9 s periyot).", en: "Slow (9 s period)."}
+  pitfalls:
+    tr: ["Açık zeminde görünmez.", "Ön planda birkaç büyük tane derinlik verir."]
+    en: ["Invisible on a light ground.", "A few big flakes in front add depth."]
+  seconds: 3
+  demo: |
+    FX.weather(root, {kind: 'snow', n: 90});
+- id: living.leaves
+  name: {tr: "Düşen yapraklar", en: "Falling leaves"}
+  use: {tr: "Sonbahar, zamanın geçmesi, değişim.", en: "Autumn, time passing, change."}
+  call: "FX.weather(root, {kind: 'leaves', n})"
+  timing: {tr: "Az sayıda (12-20), yavaş.", en: "Few (12-20), slow."}
+  pitfalls:
+    tr: ["Çok yaprak dikkat dağıtır.", "Yaprak renkleri paletin sıcak tonlarından."]
+    en: ["Too many leaves distract.", "Leaf colours from the palette's warm tones."]
+  seconds: 3
+  demo: |
+    FX.weather(root, {kind: 'leaves', n: 18});
+- id: living.stars
+  name: {tr: "Yıldızlı gece", en: "Starry night"}
+  use: {tr: "Gece, uzay, hayal; parıldayan noktalar.", en: "Night, space, dreams; twinkling points."}
+  call: "FX.weather(root, {kind: 'stars', n})"
+  timing: {tr: "Parıltı 3.5 s periyot.", en: "Twinkle over 3.5 s."}
+  pitfalls:
+    tr: ["Koyu lacivert zemin siyahtan iyi.", "Ay ya da tek parlak yıldız odak verir."]
+    en: ["Deep navy beats black.", "A moon or one bright star gives a focus."]
+  seconds: 3
+  demo: |
+    D('', 'inset:0;background:linear-gradient(#070b1a,#1b2a4a)');
+    FX.weather(root, {kind: 'stars', n: 140});
+    D('', 'left:640px;top:360px;width:160px;height:160px;border-radius:50%;background:#f4efe6;box-shadow:0 0 90px #f4efe688');
+- id: living.buzz_jiggle
+  name: {tr: "Titreşen telefon, kıpırdayan kutu", en: "Buzzing phone, jiggling box"}
+  use: {tr: "Gelen arama, alarm; dokunulmayı bekleyen hediye kutusu.", en: "An incoming call, an alarm; a gift box waiting to be tapped."}
+  call: "FX.buzz(el, at, {bursts, gap, deg}); FX.jiggle(el, {from, to, amp, beat})"
+  timing: {tr: "Buzz: ±3° 0.45 s patlamalar; jiggle: 0.28 s vuruş.", en: "Buzz: ±3° bursts of 0.45 s; jiggle: a 0.28 s beat."}
+  pitfalls:
+    tr: ["Patlamalar arası tamamen dursun.", "Dokunuştan önce jiggle'ı durdur (to)."]
+    en: ["Fully still between bursts.", "Stop the jiggle before the tap (to)."]
+  seconds: 3.5
+  demo: |
+    const ph = D('<div style="width:220px;height:420px;border-radius:40px;background:#1b2236;border:8px solid #9aa3b5"></div>', 'left:200px;top:760px');
+    const gift = D('<div style="width:260px;height:240px;background:#ff5a5f;border-radius:16px;box-shadow:inset 0 0 0 0 #fff"></div><div style="position:absolute;left:115px;top:0;width:30px;height:240px;background:#ffb347"></div>', 'left:620px;top:940px;transform-origin:50% 100%');
+    FX.buzz(ph, 0.3, {bursts: 3}); FX.sfx('buzz', 0.3); FX.jiggle(gift, {from: 0.3, to: 3});
+- id: living.aurora
+  name: {tr: "Akan renk alanı", en: "Aurora colour field"}
+  use: {tr: "Yumuşak, sakin, premium arka plan; teknoloji ve meditasyon.", en: "A soft, calm, premium background; tech and meditation."}
+  call: "FX.aurora(root, T, {colors, seed})"
+  timing: {tr: "Sahne boyunca; yavaş akar.", en: "Through the scene; it flows slowly."}
+  pitfalls:
+    tr: ["Üstündeki yazının kontrastını kontrol et.", "Palet renkleri ver, rastgele değil."]
+    en: ["Check the contrast of text on top.", "Give palette colours, not random ones."]
+  seconds: 3.5
+  demo: |
+    FX.aurora(root, T, {colors: ['#7c5cff', '#ffb347', '#0f1220'], seed: 3});
+    D('breathe', 'left:0;right:0;top:860px;text-align:center;font:400 160px Instrument Serif;color:#fff');
+- id: living.particles
+  name: {tr: "Toz ve veri parçacıkları", en: "Dust and data particles"}
+  use: {tr: "Havada asılı toz, veri akışı, sihirli parıltı.", en: "Dust in the air, flowing data, a magic shimmer."}
+  call: "FX.particles(root, T, {n, color, seed})"
+  timing: {tr: "Sahne boyunca; ön planda çok az.", en: "Through the scene; very few in front."}
+  pitfalls:
+    tr: ["n 150'yi geçmesin.", "Ana konunun önünü kapatmasın."]
+    en: ["Keep n under 150.", "Do not veil the subject."]
+  seconds: 3
+  demo: |
+    FX.particles(root, T, {n: 120, color: '#ffb347', seed: 5});
+- id: living.boil
+  name: {tr: "Elle çizim kaynaması", en: "Hand-drawn boil"}
+  use: {tr: "Her şey hafifçe titrer: defter, çocuk çizimi, el yapımı his.", en: "Everything wobbles a little: a notebook, a child's drawing, a hand-made feel."}
+  call: "FX.boil(root, {px, targets}) or FX.boil(el, T, {amount})"
+  timing: {tr: "12 fps titreme; tüm sahneye bir kez.", en: "A 12 fps wobble; once for the whole scene."}
+  pitfalls:
+    tr: ["Pürüzsüz grafiklerle karıştırma.", "px 2-4; fazlası okunmaz."]
+    en: ["Do not mix it with slick graphics.", "px 2-4; more is unreadable."]
+  seconds: 3
+  css: "position:absolute;inset:0;background:#f6f1e6"
+  demo: |
+    FX.boil(root, {px: 3});
+    const m = FX.stickman(root, {x: 540, y: 1350, h: 460, color: '#222', twos: true}); FX.alive(m); FX.act(m, [[0, 'stand'], [1, 'shrug'], [3, 'shrug']]);
+    D('hmm...', 'left:0;right:0;top:600px;text-align:center;font:400 120px Instrument Serif;color:#222');

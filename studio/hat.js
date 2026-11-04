@@ -1,5 +1,5 @@
 /* v2 production lines in the Studio (factory/hat, studio/hat_api.py).
-   Pages: #/uret (the 14 lines, start one), #/uretimler (every v2 production), #/u/<project> (one production as a flow:
+   Pages: #/uret (the 14 lines, start one), #/uretimler (every v2 production), #/receteler (the recipe shotbook), #/u/<project> (one production as a flow:
    stages left to right, the selected stage's output, and at a gate one decision: continue, feedback, or go back).
    Every word on these pages comes from TX in the user's interface language (S.me.ui_lang). */
 (() => {
@@ -7,7 +7,7 @@ const LANGS = { tr: "Türkçe", en: "English" };
 const L = () => ((S.me && S.me.ui_lang) || "tr");
 const TX = {
   tr: {
-    nav_make: "Üret", nav_prods: "Üretimler", nav_fstyles: "Film stilleri", fs_lead: "Kütüphanedeki 12 stil ve senin kendi stillerin. Bir stili değiştirerek ya da boş sayfadan kendi stilini yap; onaylanınca öneri kapılarında seçilebilir.", fs_lib: "Kütüphane", fs_own: "Senin stillerin", fs_new: "Kendi stilini yap", fs_name: "Stilin adı", fs_base: "Nereden başlayalım?", fs_blank: "Boş sayfa", fs_create: "Başla", fs_change: "Bunu değiştir", fs_st_start: "Başlangıç", fs_st_plan: "Plan", fs_st_brand: "Marka", fs_st_sample: "Örnek kare", fs_st_approve: "Onay", fs_next: "İleri", fs_prev: "Geri", fs_save: "Kaydet", fs_skip: "Atla", fs_draw: "Örnek kareyi çiz", fs_drawing: "Çiziliyor (yaklaşık 1 dk)…", fs_redraw: "Yeniden çiz", fs_approve: "Onayla, kütüphaneye ekle", fs_draft: "taslak", fs_sampled: "kare hazır", fs_approved: "onaylı", fs_stale: "Değişiklikten sonra örnek kareyi yeniden çiz.", fs_need: "Yanıtlanmamış: {0}", fs_logo_up: "Logo yükle", fs_logo_ok: "Logo yüklü", fs_delete: "Sil", fs_del_q: "Bu stil silinsin mi?", fs_saved: "Kaydedildi", fs_in_lib: "Bu stil kütüphanede; öneri kapılarında seçilebilir.", fs_no_cost: "Kredi harcanmaz: kare stüdyonun kendi motoruyla çizilir.", fs_based: "Temel: {0}", lang: "Arayüz dili",
+    nav_make: "Üret", nav_prods: "Üretimler", nav_fstyles: "Film stilleri", rc_nav: "Reçeteler", rc_lead: "Sahne planlayıcının kullandığı hareket reçeteleri: her kart bir FX çağrısı, zamanlaması, tuzakları ve çalışan bir örnek. Planlayıcı bir sahnenin reçetelerini adıyla seçer, tasarımcı kartın tamamını alır.", rc_all: "Hepsi", rc_search: "Ara: grafik, kamera, yağmur…", rc_render: "{0} örnek klibi üret (ücretsiz)", rc_rendering: "Klipler üretiliyor", rc_queued: "Örnek klipler üretiliyor (birkaç dakika, kredi harcamaz)", rc_noclip: "Örnek klip henüz üretilmedi.", rc_call: "Çağrı", rc_timing: "Zamanlama", rc_pitfalls: "Tuzaklar", rc_code: "Örnek kod", rc_more: "Ayrıntı", rc_none: "Bu filtrede reçete yok", rc_job: "reçete örnek klipleri", rc_count: "{0} reçete", fs_lead: "Kütüphanedeki 12 stil ve senin kendi stillerin. Bir stili değiştirerek ya da boş sayfadan kendi stilini yap; onaylanınca öneri kapılarında seçilebilir.", fs_lib: "Kütüphane", fs_own: "Senin stillerin", fs_new: "Kendi stilini yap", fs_name: "Stilin adı", fs_base: "Nereden başlayalım?", fs_blank: "Boş sayfa", fs_create: "Başla", fs_change: "Bunu değiştir", fs_st_start: "Başlangıç", fs_st_plan: "Plan", fs_st_brand: "Marka", fs_st_sample: "Örnek kare", fs_st_approve: "Onay", fs_next: "İleri", fs_prev: "Geri", fs_save: "Kaydet", fs_skip: "Atla", fs_draw: "Örnek kareyi çiz", fs_drawing: "Çiziliyor (yaklaşık 1 dk)…", fs_redraw: "Yeniden çiz", fs_approve: "Onayla, kütüphaneye ekle", fs_draft: "taslak", fs_sampled: "kare hazır", fs_approved: "onaylı", fs_stale: "Değişiklikten sonra örnek kareyi yeniden çiz.", fs_need: "Yanıtlanmamış: {0}", fs_logo_up: "Logo yükle", fs_logo_ok: "Logo yüklü", fs_delete: "Sil", fs_del_q: "Bu stil silinsin mi?", fs_saved: "Kaydedildi", fs_in_lib: "Bu stil kütüphanede; öneri kapılarında seçilebilir.", fs_no_cost: "Kredi harcanmaz: kare stüdyonun kendi motoruyla çizilir.", fs_based: "Temel: {0}", lang: "Arayüz dili",
     make_title: "Ne üretelim?", make_lead: "Bir üretim hattı seç. Her hat videoyu aynı sırayla, adım adım üretir ve her kapıda senin kararını bekler.",
     status_ready: "Hazır", status_partial: "Kısmen hazır", status_planned: "Yakında",
     makes: "Ne üretir", good: "İyi olduğu", not: "Uygun değil", needs: "Ne ister", cost: "Maliyet", duration: "Tipik süre",
@@ -53,7 +53,7 @@ const TX = {
     ev_reopen: "{0} yeniden açıldı", ev_queued: "{0} sıraya alındı", ev_tool_error: "Araç hatası: {0}",
   },
   en: {
-    nav_make: "Make", nav_prods: "Productions", nav_fstyles: "Film styles", fs_lead: "The library's 12 styles and your own. Make your own by changing a style or from a blank page; once approved it can be picked at proposal gates.", fs_lib: "Library", fs_own: "Your styles", fs_new: "Make your own style", fs_name: "Style name", fs_base: "Where to start?", fs_blank: "Blank page", fs_create: "Start", fs_change: "Change this", fs_st_start: "Start", fs_st_plan: "Plan", fs_st_brand: "Brand", fs_st_sample: "Sample frame", fs_st_approve: "Approve", fs_next: "Next", fs_prev: "Back", fs_save: "Save", fs_skip: "Skip", fs_draw: "Draw the sample frame", fs_drawing: "Drawing (about 1 min)…", fs_redraw: "Draw again", fs_approve: "Approve, add to the library", fs_draft: "draft", fs_sampled: "frame ready", fs_approved: "approved", fs_stale: "Draw the sample frame again after a change.", fs_need: "Unanswered: {0}", fs_logo_up: "Upload logo", fs_logo_ok: "Logo uploaded", fs_delete: "Delete", fs_del_q: "Delete this style?", fs_saved: "Saved", fs_in_lib: "This style is in the library; proposal gates can pick it.", fs_no_cost: "No credits: the frame is drawn by the studio's own engine.", fs_based: "Based on: {0}", lang: "Interface language",
+    nav_make: "Make", nav_prods: "Productions", nav_fstyles: "Film styles", rc_nav: "Recipes", rc_lead: "The motion recipes the scene planner uses: each card is an FX call, its timing, its pitfalls and a working example. The planner names a scene's recipes by id and the designer gets the whole card.", rc_all: "All", rc_search: "Search: chart, camera, rain…", rc_render: "Render {0} demo clips (free)", rc_rendering: "Rendering clips", rc_queued: "Rendering the demo clips (a few minutes, no credits)", rc_noclip: "No demo clip rendered yet.", rc_call: "Call", rc_timing: "Timing", rc_pitfalls: "Pitfalls", rc_code: "Example code", rc_more: "Details", rc_none: "No recipes in this filter", rc_job: "recipe demo clips", rc_count: "{0} recipes", fs_lead: "The library's 12 styles and your own. Make your own by changing a style or from a blank page; once approved it can be picked at proposal gates.", fs_lib: "Library", fs_own: "Your styles", fs_new: "Make your own style", fs_name: "Style name", fs_base: "Where to start?", fs_blank: "Blank page", fs_create: "Start", fs_change: "Change this", fs_st_start: "Start", fs_st_plan: "Plan", fs_st_brand: "Brand", fs_st_sample: "Sample frame", fs_st_approve: "Approve", fs_next: "Next", fs_prev: "Back", fs_save: "Save", fs_skip: "Skip", fs_draw: "Draw the sample frame", fs_drawing: "Drawing (about 1 min)…", fs_redraw: "Draw again", fs_approve: "Approve, add to the library", fs_draft: "draft", fs_sampled: "frame ready", fs_approved: "approved", fs_stale: "Draw the sample frame again after a change.", fs_need: "Unanswered: {0}", fs_logo_up: "Upload logo", fs_logo_ok: "Logo uploaded", fs_delete: "Delete", fs_del_q: "Delete this style?", fs_saved: "Saved", fs_in_lib: "This style is in the library; proposal gates can pick it.", fs_no_cost: "No credits: the frame is drawn by the studio's own engine.", fs_based: "Based on: {0}", lang: "Interface language",
     make_title: "What shall we make?", make_lead: "Pick a production line. Each line makes the video step by step in the same order and waits for your decision at every gate.",
     status_ready: "Ready", status_partial: "Partly built", status_planned: "Coming soon",
     makes: "What it makes", good: "Good for", not: "Not for", needs: "What it needs", cost: "Cost", duration: "Typical length",
@@ -104,7 +104,7 @@ const STATUS_ICON = { pending: "○", running: "", awaiting_approval: "⏸", app
 const HS = { lines: null, open: null, sel: {}, fsQ: {} };
 
 // ---------------- shell: nav entries and the language switch ----------------
-NAV.unshift(["#/uret", "wand", ""], ["#/uretimler", "film", ""], ["#/film-stilleri", "palette", ""]);
+NAV.unshift(["#/uret", "wand", ""], ["#/uretimler", "film", ""], ["#/film-stilleri", "palette", ""], ["#/receteler", "layers", ""]);
 // One way in: the planner home and the old board send you to the productions list (t206); their pages stay reachable
 // from old links until go-live removes them.
 for (const old of ["#/", "#/hat"]) ROUTES[old] = () => { location.replace("#/uretimler"); return { poll: 0 }; };
@@ -131,7 +131,7 @@ function translateShell() {
 }
 const _renderShell = renderShell;
 renderShell = function () {
-  NAV[0][2] = t("nav_make"); NAV[1][2] = t("nav_prods"); NAV[2][2] = t("nav_fstyles");
+  NAV[0][2] = t("nav_make"); NAV[1][2] = t("nav_prods"); NAV[2][2] = t("nav_fstyles"); NAV[3][2] = t("rc_nav"); JOBTR.recipe_demos = t("rc_job");
   document.documentElement.lang = L();   // text-transform: uppercase needs the right language (tr: i→İ, en: i→I)
   _renderShell();
   translateShell();
@@ -721,6 +721,44 @@ async function viewOwnStyle(sid) {
   return { poll: HS.fsBusy === sid && st.status === "draft" ? 4000 : 0 };
 }
 ROUTE_RX.push([/^#\/film-stilleri\/(own_[\w]+)/, viewOwnStyle]);
+// ---------------- #/receteler: the shotbook (t510) ----------------
+const rcCard = (c) => `<div class="card rccard" style="padding:10px" data-id="${esc(c.id)}" data-fam="${esc(c.family)}" data-q="${esc((c.id + " " + c.name + " " + c.use).toLowerCase())}">
+    ${c.demo ? `<video src="${esc(c.demo)}" data-auto muted loop playsinline preload="none" style="width:100%;aspect-ratio:9/16;border-radius:10px;background:#000"></video>`
+      : `<div class="tiny muted" style="aspect-ratio:9/16;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;padding:14px;text-align:center">${esc(t("rc_noclip"))}</div>`}
+    <div class="mt8" style="font-weight:680">${esc(c.name)}</div><div class="tiny faint">${esc(c.family_name)} · <code>${esc(c.id)}</code></div>
+    <div class="small muted mt8">${esc(c.use)}</div>
+    <details class="mt8"><summary class="small muted" style="cursor:pointer">${esc(t("rc_more"))}</summary>
+      <div class="tiny mt8"><b>${esc(t("rc_call"))}</b><pre class="log" style="white-space:pre-wrap">${esc(c.call)}</pre></div>
+      <div class="tiny mt8"><b>${esc(t("rc_timing"))}</b> ${esc(c.timing)}</div>
+      <div class="tiny mt8"><b>${esc(t("rc_pitfalls"))}</b><ul style="margin:4px 0 0 16px;padding:0">${c.pitfalls.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
+      <div class="tiny mt8"><b>${esc(t("rc_code"))}</b> <span class="faint">${c.seconds} ${esc(t("sec"))}</span><pre class="log" style="white-space:pre-wrap">${esc(c.demo_js)}</pre></div></details></div>`;
+function rcFilter() {
+  const fam = HS.rcFam || "all", q = (HS.rcQ || "").trim().toLowerCase();
+  let n = 0;
+  $$(".rccard").forEach((el) => { const on = (fam === "all" || el.dataset.fam === fam) && (!q || el.dataset.q.includes(q)); el.style.display = on ? "" : "none"; n += on; });
+  const e = $("#rcNone"); if (e) e.style.display = n ? "none" : "";
+}
+ROUTES["#/receteler"] = async () => {
+  crumb([t("rc_nav")]);
+  const d = await api("/api/hat/recipes"), fam = HS.rcFam || "all";
+  const busy = S.jobs.some((j) => j.kind === "recipe_demos" && (j.status === "running" || j.status === "queued"));
+  const html = `<div class="row"><div><h1>${esc(t("rc_nav"))}</h1><p class="lead">${esc(t("rc_lead"))}</p></div></div>
+    <div class="row mt16" style="gap:8px;align-items:center"><input id="rcQ" type="search" placeholder="${esc(t("rc_search"))}" value="${esc(HS.rcQ || "")}" style="flex:1;min-width:180px">
+      <span class="tiny faint">${esc(t("rc_count", d.cards.length))}</span>
+      ${d.missing ? `<button class="btn sm" data-act="rcDemos" ${busy ? "disabled" : ""}>${busy ? `<span class="spin"></span> ${esc(t("rc_rendering"))}` : `🎬 ${esc(t("rc_render", d.missing))}`}</button>` : ""}</div>
+    <div class="chips mt8"><span class="chip ${fam === "all" ? "on" : ""}" data-act="rcFam" data-v="all">${esc(t("rc_all"))}</span>${d.families.map((f) => `<span class="chip ${fam === f.id ? "on" : ""}" data-act="rcFam" data-v="${esc(f.id)}">${esc(f.name)}</span>`).join("")}</div>
+    <div class="grid mt16" style="grid-template-columns:repeat(auto-fill,minmax(min(190px,44vw),1fr))">${d.cards.map(rcCard).join("")}</div>
+    <div class="empty" id="rcNone" style="display:none">${esc(t("rc_none"))}</div>`;
+  if (paint(html, JSON.stringify([d.cards.map((c) => c.demo), d.missing, busy, L()]))) {
+    wireAutoplay();
+    const inp = $("#rcQ"); if (inp) inp.addEventListener("input", () => { HS.rcQ = inp.value; rcFilter(); });
+  }
+  rcFilter();
+  return { poll: busy ? 8000 : 0 };
+};
+ACT.rcFam = (el) => { HS.rcFam = el.dataset.v; $$("[data-act=rcFam]").forEach((c) => c.classList.toggle("on", c.dataset.v === HS.rcFam)); rcFilter(); };
+ACT.rcDemos = async () => { await post("/api/hat/recipes", {}); toast(t("rc_queued")); setTimeout(() => route({ poll: true }), 1500); };
+
 ROUTES["#/film-stilleri"] = viewStyles;
 const fsId = () => location.hash.split("/")[2];
 const fsPost = (b) => post("/api/hat/ownstyle/" + encodeURIComponent(fsId()), b);

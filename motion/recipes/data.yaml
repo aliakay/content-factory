@@ -1,0 +1,224 @@
+# Data and science recipes: charts, equations, plots and 3D spaces. Our own cards (t510).
+- id: data.bar_chart
+  name: {tr: "Büyüyen sütunlar", en: "Growing bars"}
+  use: {tr: "Birkaç değeri karşılaştırmak; yıllara göre artış.", en: "Comparing a few values; growth over the years."}
+  call: "FX.chart(tl, root, at, {type: 'bar', data, labels, highlight, prefix, suffix, x, y, w, h})"
+  timing: {tr: "1.0 s büyüme; vurgulanan sütun söylenirken.", en: "1.0 s growth; the highlighted bar as it is named."}
+  pitfalls:
+    tr: ["En çok 6 sütun; fazlası telefon ekranında okunmaz.", "Veriyi araştırmadan al, yuvarla ama değiştirme."]
+    en: ["6 bars at most; more is unreadable on a phone.", "Take the numbers from the research; round them, never change them."]
+  seconds: 3
+  demo: |
+    FX.chart(tl, root, 0.3, {type: 'bar', data: [12, 19, 31, 54], labels: ['2019', '2021', '2023', '2025'], highlight: 3, suffix: 'k', x: 120, y: 620, w: 840, h: 700});
+- id: data.line_chart
+  name: {tr: "Çizilen çizgi grafik", en: "Drawn line chart"}
+  use: {tr: "Zaman içindeki eğilim: yükseliş, çöküş, kırılma noktası.", en: "A trend over time: a rise, a crash, a turning point."}
+  call: "FX.chart(tl, root, at, {type: 'line', data, labels, highlight})"
+  timing: {tr: "1.0-1.4 s çizim; kırılma noktası söylenirken bitsin.", en: "1.0-1.4 s to draw; finish as the turning point is said."}
+  pitfalls:
+    tr: ["Y ekseni sıfırdan başlamıyorsa söyle (min ver).", "Çok gürültülü veriyi önce sadeleştir."]
+    en: ["Say so when the axis does not start at zero (set min).", "Smooth very noisy data first."]
+  seconds: 3
+  demo: |
+    FX.chart(tl, root, 0.3, {type: 'line', data: [5, 7, 6, 9, 14, 13, 21], labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'], highlight: 6, x: 120, y: 620, w: 840, h: 700});
+- id: data.area_chart
+  name: {tr: "Alan grafiği", en: "Area chart"}
+  use: {tr: "Toplam miktarın büyüklüğünü hissettirmek: birikim, hacim.", en: "Making a total feel heavy: accumulation, volume."}
+  call: "FX.chart(tl, root, at, {type: 'area', data, labels})"
+  timing: {tr: "1.2 s; dolgu çizgiyle birlikte yükselir.", en: "1.2 s; the fill rises with the line."}
+  pitfalls:
+    tr: ["İki seriyi üst üste koyma; tek seri.", "Açık zeminde dolgu rengini koyulaştır."]
+    en: ["Do not stack two series; one series.", "On a light ground darken the fill."]
+  seconds: 3
+  demo: |
+    FX.chart(tl, root, 0.3, {type: 'area', data: [2, 3, 5, 8, 13, 21], labels: ['1', '2', '3', '4', '5', '6'], color: '#7c5cff', x: 120, y: 620, w: 840, h: 700});
+- id: data.donut
+  name: {tr: "Halka grafik", en: "Donut chart"}
+  use: {tr: "Bir bütünün payları: 'paranın %70'i kiraya gidiyor'.", en: "Shares of a whole: '70% of the money goes to rent'."}
+  call: "FX.chart(tl, root, at, {type: 'donut', data, labels, colors})"
+  timing: {tr: "Dilimler sırayla 1.0 s; en büyük pay söylenirken.", en: "Slices in turn over 1.0 s; as the big share is said."}
+  pitfalls:
+    tr: ["En çok 4 dilim.", "Paylar 100'e tamamlanmıyorsa 'diğer' ekle."]
+    en: ["4 slices at most.", "If shares do not reach 100, add 'other'."]
+  seconds: 3
+  demo: |
+    FX.chart(tl, root, 0.3, {type: 'donut', data: [70, 20, 10], labels: ['rent', 'food', 'fun'], suffix: '%', x: 140, y: 560, w: 800, h: 800});
+- id: data.stat_compare
+  name: {tr: "İki sayının yarışı", en: "Two numbers side by side"}
+  use: {tr: "Önce / sonra, biz / onlar: iki rakamın farkı.", en: "Before / after, us / them: the gap between two figures."}
+  call: "FX.countUp on two elements, the bigger one later and in the accent"
+  timing: {tr: "İlki 0.8 s, ikincisi 0.5 s sonra 1.2 s.", en: "First 0.8 s, the second 0.5 s later over 1.2 s."}
+  pitfalls:
+    tr: ["Birimler aynı olmalı.", "Fark küçükse büyük punto yanıltır: yüzdeyi göster."]
+    en: ["Units must match.", "When the gap is small, huge type misleads: show the percentage."]
+  seconds: 3.5
+  demo: |
+    const a = D('0', 'left:80px;width:440px;top:760px;text-align:center;font:900 170px Inter Tight;color:var(--muted)');
+    const b = D('0', 'right:80px;width:440px;top:760px;text-align:center;font:900 170px Inter Tight;color:var(--accent)');
+    D('2015', 'left:80px;width:440px;top:980px;text-align:center;font:600 54px Inter Tight;color:var(--muted)'); D('2025', 'right:80px;width:440px;top:980px;text-align:center;font:600 54px Inter Tight;color:var(--muted)');
+    FX.countUp(tl, a, 0.3, 14, {suffix: '%', dur: 0.8}); FX.countUp(tl, b, 0.9, 63, {suffix: '%', dur: 1.2});
+- id: data.progress_bar
+  name: {tr: "Dolan çubuk", en: "Filling bar"}
+  use: {tr: "Bir hedefe ne kadar kaldığı, yüzde, ilerleme.", en: "How far to a goal, a percentage, progress."}
+  call: "fill = D(..); tl.fromTo(fill, {scaleX:0}, {scaleX: v, transformOrigin:'0 50%'}, at); FX.countUp(label)"
+  timing: {tr: "1.0 s; sayı ve çubuk birlikte dursun.", en: "1.0 s; the number and the bar stop together."}
+  pitfalls:
+    tr: ["Çubuk genişliği ile sayı aynı oranda olmalı.", "Bitmeden önce ease ile yavaşlat: power2.out."]
+    en: ["The bar width and the number must agree.", "Slow it before the end: power2.out."]
+  seconds: 3
+  demo: |
+    D('', 'left:120px;right:120px;top:940px;height:64px;border-radius:32px;background:#ffffff1a');
+    const f = D('', 'left:120px;right:120px;top:940px;height:64px;border-radius:32px;background:var(--accent)');
+    const n = D('0', 'left:120px;top:760px;font:900 130px Inter Tight;color:var(--ink)');
+    tl.fromTo(f, {scaleX: 0, transformOrigin: '0 50%'}, {scaleX: 0.72, duration: 1.2, ease: 'power2.out'}, 0.3); FX.countUp(tl, n, 0.3, 72, {suffix: '%', dur: 1.2});
+- id: data.timeline
+  name: {tr: "Zaman çizelgesi", en: "Timeline"}
+  use: {tr: "Olayların sırası, tarih aralıkları, bir hikayenin dönüm noktaları.", en: "The order of events, dates, a story's turning points."}
+  call: "a line drawn with FX.drawOn, then dots and labels popping in order"
+  timing: {tr: "Çizgi 0.8 s; her olay söylenirken bir nokta (0.5-1 s arayla).", en: "Line 0.8 s; a dot per event as it is said (0.5-1 s apart)."}
+  pitfalls:
+    tr: ["Dikey çizgi telefon için daha uygun; en çok 5 olay.", "Tarihleri araştırmadan al."]
+    en: ["A vertical line suits a phone better; 5 events at most.", "Take the dates from the research."]
+  seconds: 4
+  demo: |
+    const svg = FX.svg(root, 1080, 1920);
+    FX.drawOn(tl, FX.el(svg, 'path', {d: 'M260 480 L260 1440', stroke: '#9aa3b5', 'stroke-width': 6, fill: 'none'}), 0.2, {dur: 0.8});
+    [['1969', 'Moon landing'], ['1991', 'The web'], ['2007', 'The iPhone'], ['2022', 'Chatbots']].forEach(([y, t], i) => {
+      const cy = 560 + i * 270, dot = FX.el(svg, 'circle', {cx: 260, cy, r: 22, fill: '#ffb347'});
+      const l = D(`<b style="color:var(--accent)">${y}</b><br>${t}`, `left:330px;top:${cy - 60}px;font:700 56px/1.1 Inter Tight;color:var(--ink)`);
+      tl.from(dot, {attr: {r: 0}, duration: 0.3, ease: 'back.out(3)'}, 0.8 + i * 0.7); tl.from(l, {opacity: 0, x: -24, duration: 0.35}, 0.85 + i * 0.7);
+    });
+- id: data.equation
+  name: {tr: "Yazılan denklem", en: "Equation written term by term"}
+  use: {tr: "Tek bir formülü tanıtmak; bir terimi vurgulamak.", en: "Introducing one formula; lighting one term."}
+  call: "FX.math(tl, root, at, 'LaTeX with \\\\hl{part}', {x, y, size, mark})"
+  timing: {tr: "Terimler 0.6-1 s'de; vurgu (mark) o terim söylenirken.", en: "Terms over 0.6-1 s; the mark as that term is said."}
+  pitfalls:
+    tr: ["JS dizesinde ters eğik çizgiyi ikile: '\\\\frac'.", "Telefon için en çok 12-15 sembol bir satırda."]
+    en: ["Double the backslashes in a JS string: '\\\\frac'.", "Keep 12-15 symbols a line on a phone."]
+  seconds: 3
+  demo: |
+    FX.math(tl, root, 0.3, 'E = \\hl{m}c^2', {y: 860, size: 150, mark: 1.6});
+- id: data.derivation
+  name: {tr: "Adım adım türetme", en: "Step-by-step derivation"}
+  use: {tr: "Bir sonuca nasıl varıldığını göstermek; eski satırlar yukarı kayıp söner.", en: "Showing how a result is reached; older lines slide up and dim."}
+  call: "FX.eqSteps(tl, root, [{tex, at, mark}], {y, size, gap})"
+  timing: {tr: "Her adım 1.2-1.6 s; son adımı \\hl ile parlat.", en: "1.2-1.6 s per step; light the last one with \\hl."}
+  pitfalls:
+    tr: ["En çok 4 adım; fazlası okunmaz.", "Her adım tek bir değişiklik yapsın."]
+    en: ["4 steps at most; more is unreadable.", "Each step makes one change."]
+  seconds: 4.5
+  demo: |
+    FX.eqSteps(tl, root, [{tex: '2x + 6 = 14', at: 0.2}, {tex: '2x = 8', at: 1.4}, {tex: 'x = \\hl{4}', at: 2.6}], {y: 860, size: 110});
+- id: data.function_plot
+  name: {tr: "Fonksiyon çizimi", en: "Function plot"}
+  use: {tr: "Bir eğrinin şekli: büyüme, dalga, doyma.", en: "The shape of a curve: growth, a wave, saturation."}
+  call: "FX.plot(tl, root, {box, x: [min, max, step], y, fns: [{f, at, dur, label, labelAt}], xlabel, ylabel})"
+  timing: {tr: "Eksenler 0.4 s, eğri 1.2-1.6 s; etiket eğri bitince.", en: "Axes 0.4 s, the curve 1.2-1.6 s; the label when it ends."}
+  pitfalls:
+    tr: ["İki eğriden fazlası karışır; renkleri farklı ver.", "Adım (step) çok küçükse eksen yazıları üst üste biner."]
+    en: ["More than two curves gets confusing; give them different colours.", "A tiny step crowds the axis numbers."]
+  seconds: 3.5
+  demo: |
+    FX.plot(tl, root, {box: [120, 620, 840, 700], x: [0, 10, 2], y: [0, 1, 0.5], at: 0.2, xlabel: 't', ylabel: 'y',
+      fns: [{f: (x) => 1 - Math.exp(-x / 2), at: 0.6, dur: 1.4, label: 'saturation', labelAt: 2.1}]});
+- id: data.plot_area
+  name: {tr: "Eğrinin altındaki alan", en: "Area under a curve"}
+  use: {tr: "İntegral, toplam etki, birikmiş miktar.", en: "An integral, a total effect, an amount piled up."}
+  call: "fns: [{f, area: [a, b], areaAt}]"
+  timing: {tr: "Eğri çizildikten 0.4 s sonra alan dolar.", en: "The area fills 0.4 s after the curve is drawn."}
+  pitfalls:
+    tr: ["Alan sınırlarını anlatımda söyle.", "Negatif bölge varsa ayrı renk düşün."]
+    en: ["Say the bounds in the narration.", "If part dips below zero, think about a second colour."]
+  seconds: 3.5
+  demo: |
+    FX.plot(tl, root, {box: [120, 620, 840, 700], x: [-1, 3, 1], y: [0, 9, 3], at: 0.2,
+      fns: [{f: (x) => x * x, at: 0.4, dur: 1.0, area: [0, 2], areaAt: 1.6}]});
+- id: data.plot_tracer
+  name: {tr: "Eğri üzerinde gezen nokta", en: "Tracer on a curve"}
+  use: {tr: "Bir değerin değişimini canlı göstermek; nokta ilerledikçe sayı akar.", en: "Showing a value change live; a number runs as the dot moves."}
+  call: "tracer: {fn, from, to, at, dur, digits}"
+  timing: {tr: "1.2-2 s; durduğu yer anlatımın sonucu.", en: "1.2-2 s; where it stops is the narration's point."}
+  pitfalls:
+    tr: ["Hızlı giderse sayı okunmaz.", "Tek eğride kullan; fn vermezsen ilk eğri."]
+    en: ["Too fast and the number cannot be read.", "One curve; without fn it follows the first."]
+  seconds: 3.5
+  demo: |
+    FX.plot(tl, root, {box: [120, 620, 840, 700], x: [0, 6, 1], y: [-1, 1, 0.5], at: 0.1,
+      fns: [{f: Math.sin, at: 0.3, dur: 0.8}], tracer: {from: 0, to: 4.7, at: 1.2, dur: 1.8, digits: 2}});
+- id: data.plot_points
+  name: {tr: "Veri noktaları", en: "Data points"}
+  use: {tr: "Ölçümler, bir deneyin sonuçları, aykırı bir değer.", en: "Measurements, an experiment's results, an outlier."}
+  call: "points: [{x, y, at, label}]"
+  timing: {tr: "Noktalar 0.1-0.2 s arayla.", en: "Points 0.1-0.2 s apart."}
+  pitfalls:
+    tr: ["Etiketi yalnız önemli noktaya ver.", "20'den fazla nokta için bar/line daha iyi."]
+    en: ["Label only the point that matters.", "Over 20 points, a bar or line chart reads better."]
+  seconds: 3
+  demo: |
+    FX.plot(tl, root, {box: [120, 620, 840, 700], x: [0, 10, 2], y: [0, 10, 5], at: 0.1,
+      points: [[1, 2], [2, 2.8], [3, 4.1], [4, 4.6], [5, 6], [6, 6.4], [7, 7.9], [8, 3, 'outlier']].map(([x, y, label], i) => ({x, y, at: 0.4 + i * 0.15, label}))});
+- id: data.surface3d
+  name: {tr: "Dönen 3B yüzey", en: "Turning 3D surface"}
+  use: {tr: "İki değişkenli bir fonksiyon, bir arazi, bir olasılık tepesi.", en: "A function of two variables, a landscape, a probability hill."}
+  call: "k = FX.space(root, T, {range, turn}); k.surface((x, y) => z, {at, dur})"
+  timing: {tr: "Yüzey 1.5-2 s'de büyür; kamera sahne boyunca döner.", en: "The surface grows over 1.5-2 s; the camera turns through the scene."}
+  pitfalls:
+    tr: ["z değerlerini range içinde tut.", "Tel kafes (wire) dikey karede hare yapar: kapalı bırak."]
+    en: ["Keep z inside the range.", "The wireframe moirés in a tall frame: leave it off."]
+  seconds: 4
+  demo: |
+    const k = FX.space(root, T, {range: 3, turn: 0.9});
+    k.surface((x, y) => 1.5 * Math.exp(-(x * x + y * y) / 2.5), {at: 0.3, dur: 1.8});
+- id: data.curve3d
+  name: {tr: "3B eğri", en: "3D curve"}
+  use: {tr: "Sarmal, yörünge, bir parçacığın yolu.", en: "A helix, an orbit, a particle's path."}
+  call: "k.curve((t) => [x, y, z], {t: [a, b], at, dur, color})"
+  timing: {tr: "2-3 s çizim, kamera dönerken.", en: "2-3 s to draw while the camera turns."}
+  pitfalls:
+    tr: ["t aralığını uzun tut, çizim yavaş görünsün diye dur'u artır.", "Eksen etiketlerini unutma (k.label)."]
+    en: ["Use a long t range; raise dur for a slower draw.", "Do not forget axis labels (k.label)."]
+  seconds: 4
+  demo: |
+    const k = FX.space(root, T, {range: 3, turn: 1.0});
+    k.curve((t) => [2.2 * Math.cos(t), 2.2 * Math.sin(t), 0.22 * t - 1.4], {t: [0, 4 * Math.PI], at: 0.3, dur: 2.8, color: 'hot'});
+- id: data.vector3d
+  name: {tr: "3B vektör ve etiket", en: "3D vector with a label"}
+  use: {tr: "Kuvvet, hız, yön; uzayda bir nokta.", en: "A force, a velocity, a direction; a point in space."}
+  call: "k.arrow([x, y, z], {from, color, at}); k.dot(p, {at}); k.label(p, 'text', {at, tex})"
+  timing: {tr: "Ok 0.5 s, etiket 0.3 s sonra.", en: "Arrow 0.5 s, the label 0.3 s later."}
+  pitfalls:
+    tr: ["Etiket oka değmesin: ucun biraz ötesine koy.", "Üçten fazla ok karışır."]
+    en: ["Keep the label off the arrow: just past the tip.", "More than three arrows gets busy."]
+  seconds: 3.5
+  demo: |
+    const k = FX.space(root, T, {range: 2.2, turn: 0.8});
+    k.arrow([2, 1, 1.6], {at: 0.4, color: 'accent'}); k.label([2.3, 1.15, 1.9], '\\vec{F}', {at: 0.9, tex: true});
+    k.arrow([-1.5, 2, 0.5], {at: 1.3, color: 'hot'}); k.dot([0, 0, 0], {at: 0.2});
+- id: data.globe
+  name: {tr: "Dönen dünya", en: "Turning globe"}
+  use: {tr: "Küresel bir konu, ülkeler arası, 'dünyanın öbür ucunda'.", en: "A global topic, between countries, 'the other side of the world'."}
+  call: "FX.globe(root, T, {color, grid, from, turn})"
+  timing: {tr: "Sahne boyunca yavaş döner; hedefe yaklaşırken anlatım ülkeyi söylesin.", en: "Turns slowly through the scene; the voice names the place as it comes round."}
+  pitfalls:
+    tr: ["Kıta çizmez: gerçek harita gerekiyorsa görsel kullan.", "Çok hızlı dönüş baş döndürür: turn en çok 1.5."]
+    en: ["It draws no continents: use a picture when a real map matters.", "Fast spins make people dizzy: turn 1.5 at most."]
+  seconds: 3
+  demo: |
+    FX.globe(root, T, {turn: 1.2});
+- id: data.ranking
+  name: {tr: "Sıralama listesi", en: "Ranking list"}
+  use: {tr: "İlk 5, en çok / en az: değerle birlikte sıralı çubuklar.", en: "A top 5, most / least: ordered bars with their values."}
+  call: "rows with a bar each: tl.fromTo(bar, {scaleX:0}, {scaleX:v/max}) staggered from the bottom up"
+  timing: {tr: "Sondan başa 0.3 s arayla; birinci en son ve vurgulu.", en: "From the bottom up, 0.3 s apart; number one last and highlighted."}
+  pitfalls:
+    tr: ["Etiketler çubuğun dışında okunur kalsın.", "Sıralamayı araştırmadan al."]
+    en: ["Keep labels readable outside the bars.", "Take the ranking from the research."]
+  seconds: 3.5
+  demo: |
+    const rows = [['Rice', 100], ['Wheat', 82], ['Maize', 64], ['Potato', 41]];
+    rows.forEach(([n, v], i) => {
+      D(n, `left:110px;top:${620 + i * 190}px;font:800 58px Inter Tight;color:var(--ink)`);
+      const b = D('', `left:110px;top:${700 + i * 190}px;height:44px;width:${8.4 * v}px;border-radius:22px;background:${i ? 'var(--muted)' : 'var(--accent)'}`);
+      tl.fromTo(b, {scaleX: 0, transformOrigin: '0 50%'}, {scaleX: 1, duration: 0.5, ease: 'power2.out'}, 0.3 + (rows.length - 1 - i) * 0.3);
+    });

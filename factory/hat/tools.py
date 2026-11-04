@@ -187,6 +187,20 @@ def catalog(ctx, kind="topic"):
     return capabilities.catalogue(kind)
 
 
+@tool("recipes", "planning", "The motion recipe cards (text, annotation, data, camera, transition, set piece, "
+      "character, living world, rhythm). No ids: one line per card. With ids: the full cards (the FX call, timing, "
+      "pitfalls and a working example), to name in a scene's `recipes` or to copy into a scene's js.",
+      schema={"type": "object", "properties": {
+          "ids": {"type": "array", "items": {"type": "string"}},
+          "family": {"type": "string", "enum": ["text", "annotate", "data", "camera", "transition", "setpiece",
+                                                 "character", "living", "rhythm"]}}})
+def recipes(ctx, ids=None, family=None):
+    from .. import recipes as R
+    if ids:
+        return {"cards": R.card_text(ids), "unknown": R.unknown(ids)}
+    return {"index": R.index("en", family)}
+
+
 @tool("memory", "planning", "What the studio made lately, how it performed, what is overused and what is unexplored, "
       "so a new proposal does not repeat itself.")
 def memory(ctx):

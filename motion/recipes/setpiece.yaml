@@ -1,0 +1,209 @@
+# Set-piece recipes: whole-scene constructions that carry a moment on their own. Our own cards (t510).
+- id: setpiece.phone_ui
+  name: {tr: "Telefonda uygulama", en: "App on a phone"}
+  use: {tr: "Bir uygulamayı, mesajı ya da ekranı göstermek: reklam, nasıl yapılır.", en: "Showing an app, a message or a screen: ads, how-tos."}
+  call: "ph = FX.phone(root, {w, x (centre), y, html}); animate ph.el; build the app inside ph.screen"
+  timing: {tr: "Telefon 0.6 s'de girer; ekrandaki ilk eylem 1 s sonra.", en: "The phone enters in 0.6 s; the first on-screen action 1 s later."}
+  pitfalls:
+    tr: ["Arayüzü kendin çiz; gerçek marka logosu koyma.", "Ekrandaki yazılar en az 30 px."]
+    en: ["Draw the UI yourself; no real brand logos.", "Screen text 30 px or more."]
+  seconds: 3.5
+  css: "position:absolute;inset:0;background:#e9e6df"
+  demo: |
+    const ph = FX.phone(root, {w: 560, x: 540, y: 300, html: `<div style="padding:70px 34px;font:600 34px Inter Tight;color:#111">
+      <div style="font:800 52px Inter Tight">Balance</div><div style="font:900 96px Inter Tight;margin:20px 0">$1,240</div>
+      <div style="background:#eee;border-radius:22px;padding:28px;margin-top:30px">Groceries <b style="float:right">-$42</b></div>
+      <div style="background:#eee;border-radius:22px;padding:28px;margin-top:16px">Salary <b style="float:right;color:#1a8f4a">+$2,100</b></div></div>`});
+    tl.fromTo(ph.el, {y: 120, opacity: 0}, {y: 0, opacity: 1, duration: 0.6}, 0.2);
+- id: setpiece.phone_alert
+  name: {tr: "Bildirim ve dokunuş", en: "Notification and tap"}
+  use: {tr: "Bir bildirim düşer, parmak dokunur: eylem çağrısı, sonuç anı.", en: "A notification drops, a finger taps: a call to action, a result."}
+  call: "FX.tap(tl, root, at, [x, y]); FX.alert(tl, ph, at, {app, title, body})"
+  timing: {tr: "Dokunuş 0.3 s; bildirim dokunuştan 0.5-0.8 s sonra.", en: "Tap 0.3 s; the alert 0.5-0.8 s after the tap."}
+  pitfalls:
+    tr: ["Dokunuş noktası ekrandaki düğmenin üstünde olmalı (px).", "Sesler otomatik (click, notify)."]
+    en: ["Tap on the button's spot (px).", "Sounds are automatic (click, notify)."]
+  seconds: 3.5
+  css: "position:absolute;inset:0;background:#e9e6df"
+  demo: |
+    const ph = FX.phone(root, {w: 560, x: 540, y: 300, html: `<div style="padding:70px 34px;font:600 34px Inter Tight;color:#111"><div style="font:800 52px Inter Tight">Send money</div>
+      <div style="background:#111;color:#fff;border-radius:40px;padding:30px;text-align:center;margin-top:600px">Send $50</div></div>`});
+    FX.tap(tl, root, 0.8, [540, 1100]); FX.alert(tl, ph, 1.5, {app: 'Bank', title: 'Sent', body: '$50 to Alex'});
+- id: setpiece.screen_wall
+  name: {tr: "Ekran duvarı", en: "Wall of screens"}
+  use: {tr: "Her yerde aynı şey: haber, reklam, bildirim yağmuru; sonra birine dalış.", en: "The same thing everywhere: news, ads, a flood of alerts; then a dive into one."}
+  call: "FX.screenWall(tl, root, at, pics, {cols, rows, focus: i, focusAt})"
+  timing: {tr: "Ekranlar 1 s içinde yanar; odak dalışı 0.8 s.", en: "Screens light up within 1 s; the focus dive takes 0.8 s."}
+  pitfalls:
+    tr: ["9-12 ekran yeter.", "Odaklanılan ekranın içeriği bir sonraki sahneyle eşleşsin."]
+    en: ["9-12 screens are enough.", "The focused screen should match the next scene."]
+  seconds: 3.5
+  demo: |
+    const pics = [...Array(12)].map((_, i) => `<div style="width:100%;height:100%;background:hsl(${i * 31},60%,${i === 4 ? 60 : 30}%);color:#fff;font:900 60px Inter Tight;display:flex;align-items:center;justify-content:center">${i === 4 ? 'YOU' : 'AD'}</div>`);
+    FX.screenWall(tl, root, 0.2, pics, {cols: 3, focus: 4, focusAt: 2.2});
+- id: setpiece.headline_wall
+  name: {tr: "Gazete başlıkları duvarı", en: "Wall of headlines"}
+  use: {tr: "Bir konunun ne kadar konuşulduğunu göstermek; haber kupürleri çarpar.", en: "Showing how much something is talked about; clippings slam in."}
+  call: "FX.headlineWall(tl, root, at, [{title, source}], {highlight: i})"
+  timing: {tr: "Kupürler 0.2-0.3 s arayla; vurgulanan en son.", en: "Clippings 0.2-0.3 s apart; the highlight last."}
+  pitfalls:
+    tr: ["Başlıkları uydurma ama gerçek yayın adını taklit etme: genel kaynak adı yaz.", "4-6 başlık."]
+    en: ["Do not fake real outlets: use generic source names.", "4-6 headlines."]
+  seconds: 3.5
+  demo: |
+    FX.headlineWall(tl, root, 0.2, [{title: 'Rents up again', source: 'City paper'}, {title: 'Young people move home', source: 'Weekly'},
+      {title: 'Is the dream over?', source: 'Opinion'}, {title: 'Nobody can afford a flat', source: 'Daily'}], {highlight: 3});
+- id: setpiece.ui_world
+  name: {tr: "Yüzen arayüz dünyası", en: "Floating UI world"}
+  use: {tr: "Kamera havada asılı kartların arasından uçar: özellik turu, bir sistemin parçaları.", en: "The camera flies through floating cards: a feature tour, the parts of a system."}
+  call: "FX.uiWorld(tl, root, T, [{html, x, y, z, w}], {spacing})"
+  timing: {tr: "Sahnenin tamamı; her kart bir cümleye denk gelsin.", en: "The whole scene; one card per spoken sentence."}
+  pitfalls:
+    tr: ["Kartlar kısa: başlık + bir satır.", "4-6 kart; fazlası bulanık geçer."]
+    en: ["Short cards: a title and one line.", "4-6 cards; more blur past."]
+  seconds: 4
+  demo: |
+    const card = (t, s) => `<div style="padding:40px;background:#1b2236;border:2px solid #ffffff22;border-radius:30px;color:#fff;font:800 50px Inter Tight">${t}<div style="font:500 32px Inter Tight;opacity:.7;margin-top:10px">${s}</div></div>`;
+    FX.uiWorld(tl, root, T, [card('Plan', 'pick a goal'), card('Track', 'every day'), card('Review', 'each Sunday'), card('Win', 'small and often')]);
+- id: setpiece.frame_break
+  name: {tr: "Çerçeveden taşma", en: "Breaking the frame"}
+  use: {tr: "Konu fotoğrafın çerçevesinden dışarı çıkar: dikkat, sürpriz.", en: "The subject steps out of the photo frame: attention, surprise."}
+  call: "FX.frameBreak(tl, root, at, {img, cutout, box: [x, y, w, h]})"
+  timing: {tr: "Çerçeve 0.5 s, taşma 0.4 s sonra.", en: "Frame 0.5 s, the break 0.4 s later."}
+  pitfalls:
+    tr: ["Kesik PNG (cutout) aynı görselden olmalı.", "Cutout yoksa sadece çerçeveli görsel kalır."]
+    en: ["The cutout must come from the same picture.", "Without a cutout only the framed picture shows."]
+  seconds: 3
+  demo: |
+    FX.frameBreak(tl, root, 0.3, {img: '/work/catalog/picture.png', box: [0.12, 0.3, 0.76, 0.4]});
+- id: setpiece.cover_story
+  name: {tr: "Dergi kapağı", en: "Magazine cover"}
+  use: {tr: "Bir kişiyi ya da fikri 'manşet' yapmak: başarı hikayesi, ironik övgü.", en: "Making a person or idea the cover story: a success story, ironic praise."}
+  call: "FX.coverStory(tl, root, at, {img, cutout, masthead, issue, kicker, headline, lines})"
+  timing: {tr: "Kapak 0.5 s'de düşer; manşet söylenirken.", en: "The cover drops in 0.5 s; as the headline is said."}
+  pitfalls:
+    tr: ["Gerçek bir derginin adını ve logosunu kullanma.", "Kapak yazıları kısa: 3 satır."]
+    en: ["Never use a real magazine's name or logo.", "Short cover lines: 3."]
+  seconds: 3
+  demo: |
+    FX.coverStory(tl, root, 0.2, {img: '/work/catalog/picture.png', masthead: 'DAILY', issue: 'No. 12', kicker: 'EXCLUSIVE', headline: 'The window that changed everything', lines: ['Why light matters', 'A room for ideas']});
+- id: setpiece.glass_type
+  name: {tr: "Buzlu cam harfler", en: "Frosted glass letters"}
+  use: {tr: "Görselin üstünde cam gibi büyük kelime: şık başlık, marka.", en: "A big glassy word over a picture: a sleek title, a brand."}
+  call: "FX.glassType(tl, root, at, 'WORD', {bg: same picture URL, size, y})"
+  timing: {tr: "0.6 s giriş; 1.5 s tut.", en: "0.6 s in; hold 1.5 s."}
+  pitfalls:
+    tr: ["bg, arkadaki görselle aynı olmalı, yoksa cam yanlış kırar.", "Tek kelime, en çok 7 harf."]
+    en: ["bg must be the picture behind, or the glass refracts wrongly.", "One word, 7 letters at most."]
+  seconds: 3
+  demo: |
+    D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    FX.glassType(tl, root, 0.3, 'CALM', {bg: '/work/catalog/picture.png', size: 260});
+- id: setpiece.paper_cut
+  name: {tr: "Kağıt kesik tepeler", en: "Paper-cut hills"}
+  use: {tr: "Sıcak, el yapımı bir manzara; bölüm açılışı, masalsı ton.", en: "A warm, hand-made landscape; a chapter opener, a fairy-tale tone."}
+  call: "FX.paperCut(tl, root, at, {colors, top, dur})"
+  timing: {tr: "Katmanlar 1-1.5 s'de sırayla yükselir.", en: "The layers rise in turn over 1-1.5 s."}
+  pitfalls:
+    tr: ["Renkler açıktan koyuya ya da tersine sıralı olsun.", "Üstüne yazı koyacaksan top'u düşür."]
+    en: ["Order the colours light to dark or the other way.", "Lower top if text sits above."]
+  seconds: 3
+  demo: |
+    FX.paperCut(tl, root, 0.2, {top: 0.45});
+    D('Once upon a time', 'left:0;right:0;top:420px;text-align:center;font:400 110px Instrument Serif;color:#14120e');
+  css: "position:absolute;inset:0;background:#fbe8c8"
+- id: setpiece.paper_note
+  name: {tr: "Yırtık kağıt not", en: "Torn paper note"}
+  use: {tr: "Bir not, alıntı ya da tanım; dokulu ve gölgeli.", en: "A note, a quote or a definition; textured and shadowed."}
+  call: "FX.paperSheet(root, {x, y, w, h, html, color}) -> element to animate"
+  timing: {tr: "0.4 s'de hafif dönerek düşer.", en: "Drops in 0.4 s with a slight turn."}
+  pitfalls:
+    tr: ["Koyu zeminde daha iyi görünür.", "html kısa olsun: 2-3 satır."]
+    en: ["Reads best on a dark ground.", "Keep the html short: 2-3 lines."]
+  seconds: 3
+  demo: |
+    const n = FX.paperSheet(root, {x: 120, y: 700, w: 840, h: 480, html: '<div style="padding:60px;font:500 60px/1.2 Instrument Serif;color:#222"><b>Habit</b> (n.): what you do when nobody is watching.</div>'});
+    tl.from(n, {y: -200, rotation: -6, opacity: 0, duration: 0.5, ease: 'back.out(1.6)'}, 0.3);
+- id: setpiece.choice_end
+  name: {tr: "Seçimli kapanış", en: "Choice ending"}
+  use: {tr: "Film izleyiciye soruyla biter: iki cevap düğmesi, yorum çağrısı.", en: "The film ends on a question: two answer buttons, a call to comment."}
+  call: "FX.choice(tl, root, at, {q, a, b, sub})"
+  timing: {tr: "Son 2-3 saniye; soru söylenirken.", en: "The last 2-3 seconds; as the question is asked."}
+  pitfalls:
+    tr: ["Cevaplar 1-2 kelime.", "Soru gerçekten tartışmalı olmalı, yoksa yorum gelmez."]
+    en: ["1-2 word answers.", "The question must be genuinely open or nobody comments."]
+  seconds: 3
+  demo: |
+    FX.choice(tl, root, 0.3, {q: 'Would you stay?', a: 'STAY', b: 'RUN'});
+- id: setpiece.flip_card
+  name: {tr: "Dönen kart", en: "Flip card"}
+  use: {tr: "Gece 1 -> Gece 2, bölüm değişimi, önce -> sonra.", en: "Night 1 -> Night 2, a chapter change, before -> after."}
+  call: "FX.flipCard(tl, root, at, 'FROM', 'TO', {y})"
+  timing: {tr: "0.5 s; ses otomatik (flip).", en: "0.5 s; the flip sound is automatic."}
+  pitfalls:
+    tr: ["İki yüz de kısa yazı.", "Arka arkaya kullanma."]
+    en: ["Short text on both faces.", "Not back to back."]
+  seconds: 2.5
+  demo: |
+    FX.flipCard(tl, root, 0.6, 'NIGHT 1', 'NIGHT 2', {y: 860});
+- id: setpiece.hud_clock
+  name: {tr: "Köşe saati (HUD)", en: "Corner clock HUD"}
+  use: {tr: "Hikayede zaman ilerler: '2:17 AM', yer adı; gerilimli anlatılar.", en: "Story time moves on: '2:17 AM', a place name; suspense stories."}
+  call: "FX.hud(root, {label, place, times: [[t, '2:17 AM'], ...]})"
+  timing: {tr: "Saat atlamaları sahne geçişlerine denk gelsin.", en: "Clock jumps land on scene changes."}
+  pitfalls:
+    tr: ["Sol üst köşe: TikTok arayüzünden uzak.", "Saatler hikayedekiyle aynı olmalı."]
+    en: ["Top left: clear of the TikTok UI.", "Times must match the story."]
+  seconds: 3
+  demo: |
+    FX.hud(root, {label: 'NIGHT 1', place: 'GAS STATION', times: [[0, '2:17 AM'], [1.2, '2:41 AM'], [2.2, '3:05 AM']]});
+    const m = FX.stickman(root, {x: 540, y: 1350, h: 440, color: '#f4efe6'}); FX.alive(m);
+- id: setpiece.rule_tag
+  name: {tr: "Kural etiketi", en: "Rule tag"}
+  use: {tr: "'Kural #3: kapıyı açma' — kurallı korku ve hayatta kalma hikayeleri.", en: "'Rule #3: never open the door' — rule-based horror and survival stories."}
+  call: "FX.rule(tl, root, at, n, 'HEADLINE', {y})"
+  timing: {tr: "Kural söylenirken; ses (hit) otomatik.", en: "As the rule is said; the hit sound is automatic."}
+  pitfalls:
+    tr: ["Başlık iki satır, büyük harf.", "Numaralar hikaye boyunca sıralı."]
+    en: ["A two-line capital headline.", "Numbers in order through the story."]
+  seconds: 3
+  demo: |
+    FX.rule(tl, root, 0.3, 3, 'NEVER OPEN\nTHE DOOR', {y: 700});
+- id: setpiece.picture_alive
+  name: {tr: "Canlanan resim", en: "Picture brought to life"}
+  use: {tr: "Tek bir görselden hareketli sahne: kelimeler, yakın çekimler, hava.", en: "A moving scene from one picture: words, cut-ins, weather."}
+  call: "FX.picture(tl, root, at, dur, {src, words: [[t, 'TEXT', colour]], cutIns: [[t, scale, [x, y], dur]], tint, weather})"
+  timing: {tr: "Sahnenin tamamı; kelimeler seslendirmeyle.", en: "The whole scene; words with the voice."}
+  pitfalls:
+    tr: ["Görsel 9:16'ya yakın olsun.", "cutIns arasında en az 1 s."]
+    en: ["The picture should be close to 9:16.", "At least 1 s between cut-ins."]
+  seconds: 3.5
+  demo: |
+    FX.picture(tl, root, 0, 3.5, {src: '/work/catalog/picture.png', words: [[0.4, 'MONSTERS'], [1.6, 'NEXT DOOR.', 'var(--accent)']], cutIns: [[2.4, 1.6, [0.5, 0.4], 0.6]], tint: 0.25, weather: 'rain'});
+- id: setpiece.set3d_room
+  name: {tr: "3B oda (set)", en: "3D room set"}
+  use: {tr: "Gerçek ölçekli basit bir mekan, ışık ve kamera hareketi: gece odası, sahne.", en: "A simple real-scale place with light and a camera move: a night room, a stage."}
+  call: "set = FX.set3d(root, T, {lens, light, fog}); set.room([w, h, d], colour); set.box(size, pos, colour); set.practical(pos, colour, power); set.dolly(from, to, look)"
+  timing: {tr: "Sahnenin tamamı; dolly yavaş.", en: "The whole scene; a slow dolly."}
+  pitfalls:
+    tr: ["Ölçüler metre: kapı 2 m, masa 0.75 m.", "Detaylı model değil, bloklama."]
+    en: ["Sizes are metres: a door is 2 m, a table 0.75 m.", "A blockout, not a detailed model."]
+  seconds: 3.5
+  demo: |
+    const set = FX.set3d(root, T, {lens: 35, light: 'night_interior', fog: '#0b1020'});
+    set.room([8, 3, 6], '#3a4058'); set.box([1.6, 0.8, 0.9], [0, 0, -1], '#6b5a48'); set.practical([1.5, 1.6, -1.5], '#ffd59a', 1.6);
+    set.dolly([0, 1.6, 6], [0, 1.4, 3.6], [0, 1, -1]);
+- id: setpiece.orbit3d
+  name: {tr: "3B nesne etrafında tur", en: "3D orbit around an object"}
+  use: {tr: "Bir nesneyi her yönden göstermek: molekül, ürün, heykel.", en: "Showing an object from all sides: a molecule, a product, a sculpture."}
+  call: "k = FX.orbit3d(root, T, {radius, height, turn}); add meshes to k.scene (k.THREE)"
+  timing: {tr: "Sahnenin tamamı; turn 1-1.6 radyan.", en: "The whole scene; turn 1-1.6 radians."}
+  pitfalls:
+    tr: ["Işık eklemeyi unutma (Ambient + Directional).", "Nesne merkezde (0,0,0) olmalı."]
+    en: ["Remember the lights (ambient + directional).", "Keep the object at the centre (0,0,0)."]
+  seconds: 3.5
+  demo: |
+    const k = FX.orbit3d(root, T, {radius: 13, height: 2, turn: 1.4}), {THREE, scene} = k;
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5)); const l = new THREE.DirectionalLight(0xffffff, 1.6); l.position.set(4, 6, 5); scene.add(l);
+    const m = new THREE.MeshStandardMaterial({color: '#ffb347', roughness: 0.4});
+    scene.add(new THREE.Mesh(new THREE.TorusKnotGeometry(1.6, 0.5, 160, 24), m));
