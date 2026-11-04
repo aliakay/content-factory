@@ -350,6 +350,14 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
   kelimeler kalır. Eşleşme %60'ın altındaysa hiçbir şey kesilmez. Kesimler küçük geçişlerle birleşir; altyazı ve
   sahneler kırpılmış dosyayı izler. Ücretsiz, yerel. Ses kartı kesim sayısını ve süresini gösterir; karar günlüğüne
   yazılır. `project.pretrim = false` kapatır, hata olursa ses olduğu gibi kalır.
+- **Özgün müzik bestecisi (t513):** öneri `music.source = "composer"` seçerse ElevenLabs yerine `factory/compose.py`
+  çalışır: tempo sahne başlangıçlarını yarım ölçü çizgilerine oturtacak şekilde seçilir, ajan küçük bir ABC alt
+  kümesinde (nota, uzunluk, akor, bağ, üçleme, dinamik, davul harfleri) sahne işaretlerini vurgulayan bir nota
+  yazar; doğrulayıcı ölçü toplamlarını, enstrüman aralıklarını ve uzunluğu kelimelerle söyler, ajan bir kez düzeltir,
+  olmazsa ruh hâline göre basit bir nota çalınır. Enstrümanlar kendi kodumuz (piyano, pad, yaylılar, bas, pluck, çan,
+  lead, davul; küçük bir oda yankısı); `assets/samples/<enstrüman>/` içine açık lisanslı nota örnekleri (`C4.wav`,
+  `kick.wav`) konursa onlar çalınır. Nota döngüyle videonun boyuna uzar, sonu söner, m4a olarak yazılır, notası
+  yanına kaydedilir. Kredi harcamaz; ses kartı ve öneri kartı "kredisiz" gösterir.
 - Menü sadeleşir: Stüdyo · Üretimler · Keşif · Takip · Ayarlar (kanallar, sesler, hesaplar, bütçe, stiller tek yerde).
 
 ## 8. Fazlar

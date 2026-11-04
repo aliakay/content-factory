@@ -20,6 +20,9 @@ approved cost becomes the budget no later step may exceed.
    {{include:factory.hat.explainer:words_per_second}} in the video language.
 5. Sound: `voice` = {"tone": ..., "pace": ...} (the channel's default voice unless the brief names one);
    `music` = {"use": true|false, "prompt": "<mood, tempo, instruments; a quiet bed that never fights the voice>"}.
+   Add `"source": "composer"` to use our own composer instead: an original score written on the scene cues and played
+   locally, 0 credits (no music cost line) - pick it when the user asks to save credits or when a plain bed is enough;
+   ElevenLabs music sounds richer.
 6. Cost: call `estimate_cost` with the real items and copy its result into `cost` = {credits, usd: 0, lines}:
    narration = {kind: "tts", model: "eleven_v4", units: <characters: seconds x 15 for Turkish, x 16 for English>,
    unit: "char", label: "Seslendirme" / "Narration"}; music if used = {kind: "music", model: "eleven_music_v2_5",

@@ -251,13 +251,16 @@ def assets(pid, s, note=None, d=None):
         prompt = mu.get("prompt") or "Instrumental, no vocals. Subtle, steady pulse under a spoken explainer."
         if "instrumental" not in prompt.lower():
             prompt = "Instrumental, no vocals. " + prompt
-        gen = min(secs, MUSIC_MAX)
-        mpath, mcost = eleven.generate(con, "music", productions.MUSIC_MODEL, prompt, {"duration_seconds": gen,
-                                       "instrumental": True}, gen, "s", ext="mp3",
-                                       approved=max(0, remaining_budget(pid, d) - round(cost)), account=account)
-        if secs > gen:
-            mpath = loop_music(mpath, secs, P.path(pid, "work", "music-long.m4a", d=d))
-        music = {"file": _rel(mpath), "prompt": prompt, "credits": round(mcost), "db": -22}
+        if composed(mu):
+            music = compose_music(pid, prompt, secs, times, True, d)
+        else:
+            gen = min(secs, MUSIC_MAX)
+            mpath, mcost = eleven.generate(con, "music", productions.MUSIC_MODEL, prompt, {"duration_seconds": gen,
+                                           "instrumental": True}, gen, "s", ext="mp3",
+                                           approved=max(0, remaining_budget(pid, d) - round(cost)), account=account)
+            if secs > gen:
+                mpath = loop_music(mpath, secs, P.path(pid, "work", "music-long.m4a", d=d))
+            music = {"file": _rel(mpath), "prompt": prompt, "credits": round(mcost), "db": -22}
     art = {"voice": voice, "music": music}
     P.write_artifact(pid, "assets", art, d)          # the preview reads the real timing from here
     res, sp = _render(pid, final=False, d=d)
@@ -337,6 +340,31 @@ def loop_music(path, secs, out):
     return out
 
 
+def composed(mu):
+    """The proposal chose our own composer (no credits) instead of ElevenLabs music."""
+    return (mu or {}).get("source") == "composer"
+
+
+def compose_music(pid, prompt, secs, line_times, narrated, d=None):
+    """An original score on the scene cues (t513), played locally: the music artifact entry, 0 credits."""
+    from .. import compose
+    plan = P.read_artifact(pid, "scene_plan", d) or {}
+    cues = []
+    for i, sc in enumerate(plan.get("scenes") or []):
+        a = (sc.get("lines") or [0])[0]
+        if i and 0 <= a < len(line_times):
+            lt = line_times[a]
+            cues.append({"label": f"scene {sc.get('id', i)}", "t": round((lt["start"] if isinstance(lt, dict) else lt[0])
+                                                                         + VOICE_START, 2)})
+    out = P.path(pid, "work", "music-composed.m4a", d=d)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    res = compose.compose(prompt, secs, cues, out, narrated=narrated)
+    P.decision(pid, "music", "composer" if res["agent"] else "composer (plain score)", d=d, bpm=res["bpm"],
+               reason=res.get("why") or f"{len(cues)} cues")
+    return {"file": _rel(out), "prompt": prompt, "credits": 0, "db": -22, "source": "composer", "bpm": res["bpm"],
+            "agent": res["agent"], "score": _rel(os.path.splitext(out)[0] + ".score.json")}
+
+
 def _music_only(pid, p, prop, con, account, d=None):
     from .. import eleven, productions
     _, _, dur, _ = timing(pid, d)
@@ -345,10 +373,15 @@ def _music_only(pid, p, prop, con, account, d=None):
     prompt = mu.get("prompt") or "Instrumental, no vocals. A confident pulse with clear accents for motion graphics."
     if "instrumental" not in prompt.lower():
         prompt = "Instrumental, no vocals. " + prompt
-    mpath, mcost = eleven.generate(con, "music", productions.MUSIC_MODEL, prompt, {"duration_seconds": secs,
-                                   "instrumental": True}, secs, "s", ext="mp3",
-                                   approved=remaining_budget(pid, d), account=account)
-    art = {"voice": None, "music": {"file": _rel(mpath), "prompt": prompt, "credits": round(mcost), "db": -10}}
+    if composed(mu):
+        mcost = 0.0
+        music = {**compose_music(pid, prompt, secs, timing(pid, d)[1], False, d), "db": -10}
+    else:
+        mpath, mcost = eleven.generate(con, "music", productions.MUSIC_MODEL, prompt, {"duration_seconds": secs,
+                                       "instrumental": True}, secs, "s", ext="mp3",
+                                       approved=remaining_budget(pid, d), account=account)
+        music = {"file": _rel(mpath), "prompt": prompt, "credits": round(mcost), "db": -10}
+    art = {"voice": None, "music": music}
     P.write_artifact(pid, "assets", art, d)
     res, sp = _render(pid, final=False, d=d)
     ui = p.get("ui_lang") if p.get("ui_lang") in ("tr", "en") else "tr"

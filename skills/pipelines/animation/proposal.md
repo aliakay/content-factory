@@ -18,6 +18,9 @@ becomes the budget no later step may exceed.
    needs a sentence). Put it in `voice` = {"use": false} or {"use": true, "tone": ..., "pace": ...}.
    `music` = {"use": true, "prompt": "<mood, tempo in BPM, instruments, where the drop/accent lands>"}. A music-led
    piece always has music.
+   Add `"source": "composer"` to use our own composer instead: an original score written on the scene cues and played
+   locally, 0 credits (no music cost line) - pick it when the user asks to save credits or when a plain bed is enough;
+   ElevenLabs music sounds richer.
 4. Length: `seconds` from the brief, else 12-25 for music-led, 20-40 narrated.
 5. Cost: `estimate_cost` with the real items, copied into `cost` = {credits, usd: 0, lines}: music = {kind: "music",
    model: "eleven_music_v2_5", units: <seconds + 3>, unit: "s"}; narration only if used = {kind: "tts", model:
