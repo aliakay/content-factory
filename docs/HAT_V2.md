@@ -297,6 +297,19 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
   düğme/açıklama bölgeleriyle karşılaştırır, diğerlerinde kenar yoğunluğuyla tahmin eder; her platform için
   bölgeleri işaretleyen önizleme. Studio'da "Platforma teslim" kartı (`deliver` işi, kredisiz); inceleme
   aşamalarında `safe_area` aracı.
+- **Uzun anlatım hattı (t507):** `long_explainer`, YouTube için 2–8 dk, 16:9 sabit (hat `aspect` alanı; Studio'da
+  kadraj seçimi kilitli). Senaryo bölümleri adlandırır (`long_script` şeması: 3–9 bölüm, her biri anlatıcının okuduğu
+  ≤10 kelimelik bir başlık satırıyla açılır). Yeni onaylı "Sahne taslağı" aşaması (`outline`) ortak tasarım sistemini
+  (palet, ortak CSS, yazılı bileşen kiti) ve her sahnenin brifini sabitler; kapsama, sıra ve bölüm sınırı kodla
+  kontrol edilir. Sahne planı (`factory/hat/longform.py`) parça başına bir tasarımcı ajanı (giriş + her bölüm) en çok 3
+  paralel çalıştırır; parçalar `scene_part_<k>` olarak teslim edilir, `render_stills` / `layout_lint` yalnız o parçanın
+  sahnelerine ve zaman aralığına bakar. Bölüm kartları kodla çizilir (numara, başlık, bölüm listesi). Yeniden
+  çalıştırmada yalnız taslağı değişen, hiç çizilmemiş ya da notta adı geçen parçalar (sahne id'si, "bölüm 3", "giriş")
+  yeniden çizilir; diğerleri elle düzenlemeleriyle kalır. Kabukta altta bölüm bölüm ilerleme çubuğu (`chrome.progress`).
+  Seslendirme bölüm başlarında ve ≤2400 karakterde parçalara bölünür, aralarında 0,45 sn boşlukla birleşir; müzik en
+  çok 240 sn üretilir, çapraz geçişle döngülenir. 75 sn'den uzun videolar 3 kare aralığında paralel yakalanıp yeniden
+  kodlamadan birleştirilir (render süresi tahmini bunu hesaba katar). Son aşama YouTube bölüm zamanlarını
+  (`chapter_marks`, 0:00'dan başlar) açıklamaya koyar.
 - Menü sadeleşir: Stüdyo · Üretimler · Keşif · Takip · Ayarlar (kanallar, sesler, hesaplar, bütçe, stiller tek yerde).
 
 ## 8. Fazlar

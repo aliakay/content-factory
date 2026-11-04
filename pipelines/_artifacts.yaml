@@ -65,6 +65,61 @@ script:
     holds: {type: array, items: {type: number, minimum: 0.6, maximum: 12}}   # seconds per line when narrate is false
     summary: {type: string}
 
+long_script:                         # long_explainer: the script plus its chapters (factory/hat/longform.py)
+  type: object
+  required: [title, hook, lines, chapters, claims, summary]
+  properties:
+    title: {type: string}
+    hook: {type: string}
+    lines: {type: array, minItems: 12, items: {type: string, minLength: 1}}
+    chapters:                        # each chapter opens on its own short title line, read by the narrator
+      type: array
+      minItems: 3
+      maxItems: 9
+      items: {type: object, required: [title, line], properties: {title: {type: string, minLength: 2, maxLength: 48},
+                                                                   line: {type: integer, minimum: 1}}}
+    claims:
+      type: array
+      items: {type: object, required: [text, verified], properties: {text: {type: string}, verified: {type: boolean},
+                                                                        source: {type: string}}}
+    caption: {type: string}
+    summary: {type: string}
+
+outline:                             # long_explainer: the design system and every scene's brief, before any HTML
+  type: object
+  required: [concept, palette, kit, scenes, summary]
+  properties:
+    concept: {type: string}
+    palette: {type: object}
+    global_css: {type: string}
+    kit: {type: string, minLength: 40}   # the shared components every scene builder reuses (titles, figures, labels, charts)
+    scenes:
+      type: array
+      minItems: 4
+      items:
+        type: object
+        required: [id, lines, brief]
+        properties: {id: {type: string, pattern: "^[a-z][a-z0-9_-]*$"}, lines: {type: array, minItems: 2, maxItems: 2,
+                                                                          items: {type: integer, minimum: 0}},
+                     brief: {type: string, minLength: 10}, device: {type: string}, trigger: {type: string}}
+    summary: {type: string}
+
+scene_part:                          # long_explainer: one builder's scenes (one chapter, or the intro)
+  type: object
+  required: [scenes, summary]
+  properties:
+    scenes:
+      type: array
+      minItems: 1
+      items:
+        type: object
+        required: [id, lines, html]
+        properties: {id: {type: string}, lines: {type: array, minItems: 2, maxItems: 2, items: {type: integer, minimum: 0}},
+                     trigger: {type: string}, html: {type: string}, css: {type: string}, js: {type: string},
+                     notes: {type: string}}
+    stock: {type: array}
+    summary: {type: string}
+
 scene_plan:
   type: object
   required: [concept, palette, scenes, summary]

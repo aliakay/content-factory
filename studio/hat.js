@@ -178,7 +178,7 @@ function startForm(l) {
     <label class="field mt8"><span>${esc(t("title"))}</span><input id="hlTitle" data-keep="hl-title" maxlength="80"></label>
     <div class="row mt8" style="gap:12px;align-items:flex-end">
       <label class="field"><span>${esc(t("video_lang"))}</span><select id="hlVlang">${Object.entries(LANGS).map(([k, v]) => `<option value="${k}" ${k === vl ? "selected" : ""}>${v}</option>`).join("")}</select></label>
-      <label class="field"><span>${esc(t("aspect"))}</span><select id="hlAspect"><option>9:16</option><option>16:9</option></select></label>
+      <label class="field"><span>${esc(t("aspect"))}</span><select id="hlAspect" ${l.aspect ? "disabled" : ""}>${["9:16", "16:9"].map((x) => `<option ${x === l.aspect ? "selected" : ""}>${x}</option>`).join("")}</select></label>
       <label class="field"><span>${esc(t("channel"))}</span><select id="hlChan"><option value="">${esc(t("none"))}</option>${S.channels.map((c) => `<option value="${esc(c.id)}" ${c.id === S.ch ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
     </div>
     ${(l.inputs || []).includes("url") ? `<label class="field mt8"><span>${esc(t("page_url"))}</span><input type="url" id="hlUrl" placeholder="https://"></label><div class="tiny faint">${esc(t("page_url_hint"))}</div>` : ""}

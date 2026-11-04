@@ -49,7 +49,7 @@ def lines():
         out.append({k: v[k] for k in ("id", "order", "status", "category", "inputs", "duration", "name", "tagline",
                                       "makes", "good_for", "not_for", "needs", "cost")} |
                    {"stages": [{k: s[k] for k in ("id", "name", "says", "gate", "run")} for s in v["stages"]],
-                    "proof": proof.supports(m)})
+                    "proof": proof.supports(m), "aspect": m.get("aspect")})
     return out
 
 
@@ -313,6 +313,8 @@ def _post(con, path, b, queue):
                               "en": "Say in a few words what you want to make."}[lang()])
         vl = b.get("video_lang") if b.get("video_lang") in VIDEO_LANGS else lang()
         aspect = b.get("aspect") if b.get("aspect") in ASPECTS else "9:16"
+        if line.get("aspect"):                             # a line with a fixed frame (e.g. a YouTube long explainer)
+            aspect = line["aspect"]
         title = str(b.get("title") or "").strip() or brief.split(".")[0][:60]
         extra = {"ui_lang": lang(), "eleven_account": accounts.default_eleven(uid)}
         if "video" in (line.get("inputs") or []):          # the creator's own video, uploaded to raw/talk/ first

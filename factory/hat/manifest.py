@@ -70,10 +70,13 @@ def validate(m, vocab):
         full = {"id": sid, "gate": bool(st.get("gate")), "run": run, "call": st.get("call"), "model": st.get("model"),
                 "tools": list(st.get("tools") or []), "review": list(st.get("review") or []),
                 "artifact": st.get("artifact") or base.get("artifact") or sid,
+                "schema": st.get("schema") or st.get("artifact") or base.get("artifact") or sid,
                 "name": st.get("name") or base["name"], "says": st.get("says") or base.get("says") or {"tr": "", "en": ""},
                 "gate_says": st.get("gate_says") or base.get("gate_says") or {"tr": "", "en": ""}}
         _bi(full["name"], "name", f"{where}.{sid}")
         stages.append(full)
+    if m.get("aspect") is not None and m["aspect"] not in ("9:16", "16:9"):
+        raise ManifestError(f"{where}: aspect must be 9:16 or 16:9")
     if m["status"] == "ready" and any(s["run"] == "planned" for s in stages):
         raise ManifestError(f"{where}: a ready line cannot have planned stages")
     return {**m, "stages": stages}

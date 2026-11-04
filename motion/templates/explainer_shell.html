@@ -28,6 +28,10 @@ html,body{margin:0;background:#000;overflow:hidden}
 #stage>#cap .k{color:var(--capKey,#b8ff3c)}
 #stage>#cap .d{color:var(--capDanger,#ff453a)}
 #stage>#cap b.k,#stage>#cap b.d{text-decoration:underline;text-decoration-thickness:8px;text-underline-offset:10px}
+/* long form (B.chrome.progress): a thin bar along the bottom edge, one segment per chapter, filled up to now */
+#stage>#prog{position:absolute;left:0;right:0;bottom:0;height:8px;display:flex;gap:6px;z-index:60;pointer-events:none}
+#stage>#prog>i{position:relative;display:block;height:100%;background:color-mix(in srgb,var(--ink,#fff) 22%,transparent);overflow:hidden}
+#stage>#prog>i>b{position:absolute;inset:0;transform-origin:0 50%;transform:scaleX(0);background:var(--accent,#2ee6c5)}
 </style>
 <div id="stage"><div id="cap"></div></div>
 <script src="/motion/node_modules/gsap/dist/gsap.min.js"></script>
@@ -35,7 +39,7 @@ html,body{margin:0;background:#000;overflow:hidden}
 <script>
 const norm = (w) => String(w).toLowerCase().replace(/[^\p{L}\p{N}%$.]/gu, "");
 let tl, B, chunks = [];
-window.render = (t) => { if (tl) { tl.time(t, false); for (const f of FX._hooks) f(t); caps(t); } };
+window.render = (t) => { if (tl) { tl.time(t, false); for (const f of FX._hooks) f(t); caps(t); prog(t); } };
 // sound + music cues the scenes declared (FX.sfx / FX.music), read by render.mjs --cues after setup
 window.cues = () => ({ sfx: FX._cues, music: FX._music });
 window.cutTimes = () => (B ? B.scenes.slice(1).map((s) => s.start) : []);   // render.mjs --blur keeps the shutter off the cuts
@@ -85,6 +89,16 @@ window.ready = (async () => {
     catch (e) { console.error("scene " + sc.id + " js: " + e.message); }
   }
   tl.set(document.getElementById("s_" + B.scenes[0].id), { display: "block" }, 0);
+  if ((B.chrome || {}).progress) {   // segments: the intro (if any) and each chapter, in proportion to their length
+    const starts = (B.chapters || []).map((c) => c.start).filter((x) => x > 0.5 && x < B.duration);
+    const cuts = [0, ...starts, B.duration];
+    const bar = document.createElement("div"); bar.id = "prog";
+    for (let i = 0; i + 1 < cuts.length; i++) {
+      const seg = document.createElement("i"); seg.style.flex = String(cuts[i + 1] - cuts[i]);
+      seg.dataset.a = cuts[i]; seg.dataset.b = cuts[i + 1]; seg.appendChild(document.createElement("b")); bar.appendChild(seg);
+    }
+    stage.appendChild(bar);
+  }
   // kinetic captions: <=3 words / <=16 chars, the active word in the accent colour
   let cur = [];
   const flush = () => { if (cur.length) chunks.push(cur); cur = []; };
@@ -163,6 +177,12 @@ window.lintMotion = () => {
   }
   return out;
 };
+function prog(t) {
+  for (const seg of document.querySelectorAll("#stage > #prog > i")) {
+    const a = +seg.dataset.a, b = +seg.dataset.b;
+    seg.firstChild.style.transform = `scaleX(${Math.max(0, Math.min(1, (t - a) / (b - a))).toFixed(4)})`;
+  }
+}
 let lastKey = null;
 function caps(t) {
   const el = document.querySelector("#stage > #cap");

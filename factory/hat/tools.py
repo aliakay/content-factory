@@ -28,8 +28,8 @@ class ToolError(RuntimeError):
 
 
 class Ctx:
-    def __init__(self, pid, stage=None, d=None, user=None):
-        self.pid, self.stage, self.d, self.user = pid, stage, d, user
+    def __init__(self, pid, stage=None, d=None, user=None, part=None):
+        self.pid, self.stage, self.d, self.user, self.part = pid, stage, d, user, part
 
     def path(self, *parts):
         return P.path(self.pid, *parts, d=self.d)
@@ -150,12 +150,31 @@ def submit_artifact(ctx, data):
     if not ctx.stage:
         raise ToolError("submit_artifact needs a stage")
     p = P.load(ctx.pid, ctx.d)
-    name = manifest.stage(manifest.get(p["line"]), ctx.stage)["artifact"]
-    problems = validate_artifact(name, data)
+    st = manifest.stage(manifest.get(p["line"]), ctx.stage)
+    name, schema = st["artifact"], st["schema"]
+    if ctx.part is not None:                 # a long explainer's designer hands in its own part of the scene plan
+        from . import longform
+        name, schema = longform.part_art(ctx.part), "scene_part"
+    problems = validate_artifact(schema, data) or _meaning(ctx, schema, data)
     if problems:
         return {"accepted": False, "problems": problems}
     P.write_artifact(ctx.pid, name, data, ctx.d)
     return {"accepted": True, "artifact": name}
+
+
+def _meaning(ctx, schema, data):
+    """Checks a schema cannot say: a long script's chapters, an outline against its script, a part against its outline."""
+    from . import longform
+    if schema == "long_script":
+        return longform.script_problems(data)
+    script = P.read_artifact(ctx.pid, "script", ctx.d) or {}
+    if schema == "outline":
+        return longform.outline_problems(script, data)
+    if schema == "scene_part":
+        part = next((x for x in longform.parts(script) if x["k"] == ctx.part), None)
+        outline = P.read_artifact(ctx.pid, "outline", ctx.d) or {}
+        return longform.part_problems([s for s in outline.get("scenes") or [] if part and longform._in(s, part)], data)
+    return []
 
 
 # ---------------------------------------------------------------- planning
@@ -213,6 +232,15 @@ def _draft_plan(ctx, plan):
     return explainer.bundle(ctx.pid, plan, ctx.d)
 
 
+def _part_plan(ctx, draft):
+    """A long explainer's designer: the whole plan with its part as drafted (or as last submitted) -> (bundle,
+    its scenes' times, its span, its scene ids)."""
+    from . import explainer, longform
+    draft = draft or P.read_artifact(ctx.pid, longform.part_art(ctx.part), ctx.d)
+    pl, times, span, ids = longform.part_times(ctx.pid, ctx.part, ctx.d, draft)
+    return explainer.bundle(ctx.pid, pl, ctx.d), times, span, ids
+
+
 _PLAN = {"type": "object", "description": "a scene_plan draft; omit to use the last submitted one"}
 
 
@@ -223,9 +251,13 @@ _PLAN = {"type": "object", "description": "a scene_plan draft; omit to use the l
                                                "plan": _PLAN}})
 def render_stills(ctx, times=None, plan=None):
     from . import explainer
-    b = _draft_plan(ctx, plan)
-    times = times or explainer.scene_times(ctx.pid, plan, ctx.d)
-    out = ctx.path("stills", f"{ctx.stage or 'x'}-{int(time.time())}")
+    if ctx.part is not None:
+        b, mine, _, _ = _part_plan(ctx, plan)
+        times = times or mine
+    else:
+        b = _draft_plan(ctx, plan)
+        times = times or explainer.scene_times(ctx.pid, plan, ctx.d)
+    out = ctx.path("stills", f"{ctx.stage or 'x'}{'' if ctx.part is None else '-p' + str(ctx.part)}-{int(time.time())}")
     paths, errs = explainer._htmlmotion().shots(b, times, out)
     return {"stills": paths, "js_errors": errs, "times": times}
 
@@ -238,11 +270,23 @@ def render_stills(ctx, times=None, plan=None):
 def layout_lint(ctx, times=None, plan=None):
     from .. import layoutlint
     from . import explainer
+    p = P.load(ctx.pid, ctx.d)
+    if ctx.part is not None:                 # only this designer's part: its stills, its span of the timing pass
+        b, mine, span, ids = _part_plan(ctx, plan)
+        paths, errs, found = layoutlint.run(b, times or mine, ctx.path("stills", f"lint-p{ctx.part}"), "16:9", span=span)
+        found = [f for f in found if f.get("scene") in ids]
+        return {"findings": found, "text": layoutlint.as_text(found), "js_errors": errs, "stills": paths}
     b = _draft_plan(ctx, plan)
     times = times or explainer.scene_times(ctx.pid, plan, ctx.d)
-    p = P.load(ctx.pid, ctx.d)
     paths, errs, found = layoutlint.run(b, times, ctx.path("stills", "lint"), p.get("aspect", "9:16"))
     return {"findings": found, "text": layoutlint.as_text(found), "js_errors": errs, "stills": paths}
+
+
+@tool("chapter_marks", "publish", "The video's chapter marks from its real timing, as YouTube wants them in the "
+      "description (\"0:00 Intro\" first, one line per chapter).")
+def chapter_marks(ctx):
+    from . import longform
+    return {"marks": longform.marks(ctx.pid, ctx.d), "text": longform.marks_text(ctx.pid, ctx.d)}
 
 
 @tool("proof_check", "qa", "Proof mode: find every number in this stage's output (or in a draft `data`) and say which "

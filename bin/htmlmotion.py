@@ -33,6 +33,7 @@ def make_bundle(spec, design):
     return {"palette": design["meta"].get("palette") or {}, "global_css": design.get("global_css", ""), "words": words,
             "scenes": scenes, "duration": spec["duration"], "w": w, "h": h, "captions": spec.get("captions") or {},
             "lang": spec.get("lang", "en"),   # sets <html lang>: CSS uppercase then maps i -> İ in Turkish
+            "chapters": spec.get("chapters") or [], "chrome": spec.get("chrome") or {},   # long form: progress bar
             **beat_grid(spec)}
 
 
@@ -68,7 +69,11 @@ def write_bundle(spec, design):
     return path
 
 
-def _node(page_hash_bundle, out, dur, extra, fps=30, hash=""):
+PAR_MIN_S = 75          # videos at least this long are captured in parallel slices (one Chromium each)
+PAR_SLICES = max(1, min(3, (os.cpu_count() or 2) - 1))
+
+
+def _node_cmd(page_hash_bundle, out, dur, extra, fps=30, hash=""):
     page = os.path.join(MOTION, "templates", "explainer_shell.html")
     rel = "/" + os.path.relpath(page_hash_bundle, ROOT) + hash
     try:
@@ -76,8 +81,43 @@ def _node(page_hash_bundle, out, dur, extra, fps=30, hash=""):
         w, h = b.get("w", 1080), b.get("h", 1920)
     except (OSError, ValueError):
         w, h = 1080, 1920
-    cmd = ["node", os.path.join(MOTION, "render.mjs"), f"{page}#b={rel}", out, str(dur), str(fps), str(w), str(h), *extra]
-    return subprocess.run(cmd, cwd=MOTION, capture_output=True, text=True)
+    return ["node", os.path.join(MOTION, "render.mjs"), f"{page}#b={rel}", out, str(dur), str(fps), str(w), str(h), *extra]
+
+
+def _node(page_hash_bundle, out, dur, extra, fps=30, hash=""):
+    return subprocess.run(_node_cmd(page_hash_bundle, out, dur, extra, fps, hash), cwd=MOTION, capture_output=True, text=True)
+
+
+def capture(bundle, out, dur, extra, fps=30, cues_path=None, slices=None):
+    """The silent video of a bundle. A long one is cut into frame ranges captured side by side (each Chromium is
+    single-threaded) and joined without re-encoding; the scenes' sound cues come from the first slice."""
+    frames = round(dur * fps)
+    n = slices or (PAR_SLICES if dur >= PAR_MIN_S else 1)
+    cue = ["--cues=" + cues_path] if cues_path else []
+    if n <= 1:
+        r = _node(bundle, out, dur, extra + cue, fps)
+        if r.returncode or not os.path.exists(out):
+            raise RuntimeError("html render failed: " + (r.stderr or "")[-400:])
+        return
+    bounds = [round(frames * k / n) for k in range(n + 1)]
+    parts = [f"{out}.part{k}.mp4" for k in range(n)]
+    procs = [subprocess.Popen(_node_cmd(bundle, parts[k], dur, extra + [f"--range={bounds[k]},{bounds[k + 1]}"] + (cue if k == 0 else []),
+                                        fps), cwd=MOTION, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+             for k in range(n)]
+    errs = [p.communicate()[1] for p in procs]
+    try:
+        for k, p in enumerate(procs):
+            if p.returncode or not os.path.exists(parts[k]):
+                raise RuntimeError(f"html render failed (slice {k + 1}/{n}): " + (errs[k] or "")[-400:])
+        lst = out + ".parts.txt"
+        with open(lst, "w") as f:
+            f.writelines(f"file '{os.path.abspath(x)}'\n" for x in parts)
+        subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", lst, "-c", "copy", out], check=True)
+        os.remove(lst)
+    finally:
+        for x in parts:
+            if os.path.exists(x):
+                os.remove(x)
 
 
 def shots(bundle_path, times, outdir, lint=False):
@@ -92,14 +132,16 @@ def shots(bundle_path, times, outdir, lint=False):
     return (paths, errs[:12], lint_path) if lint else (paths, errs[:12])
 
 
-def readcheck(bundle_path):
-    """Visible texts every 0.2 s + the timeline's motion lint (render.mjs --readcheck) -> dict."""
+def readcheck(bundle_path, span=None):
+    """Visible texts every 0.2 s (only within span=(a, b) seconds if given) + the timeline's motion lint
+    (render.mjs --readcheck) -> dict."""
     out = os.path.join(os.path.dirname(os.path.abspath(bundle_path)), "readcheck.json")
     try:
         dur = json.load(open(bundle_path)).get("duration", 30)
     except (OSError, ValueError):
         dur = 30
-    _node(bundle_path, "/dev/null", round(dur, 2), ["--opaque", "--readcheck=" + out])
+    rng = [f"--range={int(span[0] * 30)},{int(span[1] * 30) + 1}"] if span else []
+    _node(bundle_path, "/dev/null", round(dur, 2), ["--opaque", "--readcheck=" + out] + rng)
     return json.load(open(out))
 
 
@@ -185,10 +227,7 @@ def render_bundle(bundle, spec, workdir, dst, preview=False):
     blur = [] if preview or not spec.get("motion_blur") else [f"--blur={int(spec['motion_blur'])}"]   # real sub-frame blur, final only
     fps = 15 if preview else 30
     t0 = time.time()
-    r = _node(bundle, silent, round(total, 3), (["--opaque", "--scale=0.5"] if preview else ["--opaque"]) + blur + ["--cues=" + cues_path],
-              fps)
-    if r.returncode or not os.path.exists(silent):
-        raise RuntimeError("html render failed: " + (r.stderr or "")[-400:])
+    capture(bundle, silent, round(total, 3), (["--opaque", "--scale=0.5"] if preview else ["--opaque"]) + blur, fps, cues_path)
     capture_s, t1 = time.time() - t0, time.time()
     from factory import audiofx
     cues, mutes, drop = sound_plan(cues_path, spec, total)
@@ -216,7 +255,8 @@ def render_bundle(bundle, spec, workdir, dst, preview=False):
     print(f"sound: {len(cues)} effects, {len(mutes)} music cut(s)" + (f", drop on {drop:.2f}s" if drop is not None else ""), flush=True)
     try:   # this machine's real render speed, for the Studio's time estimates (factory/renderspeed.py)
         from factory import renderspeed
-        renderspeed.record("preview" if preview else "final", round(total * fps) * (int(spec["motion_blur"]) if blur else 1),
+        renderspeed.record(("preview" if preview else "final") + ("_par" if total >= PAR_MIN_S and PAR_SLICES > 1 else ""),
+                           round(total * fps) * (int(spec["motion_blur"]) if blur else 1),
                            capture_s, post_per_s=round((time.time() - t1) / max(1.0, total), 3))
     except Exception as e:
         print(f"render speed not recorded: {e}", flush=True)

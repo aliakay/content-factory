@@ -154,9 +154,9 @@ def readcheck(data, lang="en", min_chars=4):
     return sorted(out, key=lambda f: f["t"])
 
 
-def run(bundle_path, times, outdir, aspect="9:16", hide_caps=(), timing=True):
+def run(bundle_path, times, outdir, aspect="9:16", hide_caps=(), timing=True, span=None):
     """Stills + findings for an HTML design: (paths, page errors, findings). timing=True also runs the readcheck /
-    motion lint pass over the whole video (no screenshots, a few seconds)."""
+    motion lint pass over the whole video, or over span=(a, b) seconds (no screenshots, a few seconds)."""
     import sys
     from .config import ROOT
     sys.path.insert(0, os.path.join(ROOT, "bin"))
@@ -169,7 +169,7 @@ def run(bundle_path, times, outdir, aspect="9:16", hide_caps=(), timing=True):
     found = check(lint, aspect, hide_caps)
     if timing:
         try:
-            found += readcheck(htmlmotion.readcheck(bundle_path))
+            found += readcheck(htmlmotion.readcheck(bundle_path, span))
         except Exception as e:      # the timing pass must never stop a design round
             errs = errs + [f"readcheck failed: {type(e).__name__}"]
     return paths, errs, found

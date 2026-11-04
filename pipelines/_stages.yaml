@@ -47,6 +47,14 @@ rig_plan:
   says: {tr: "Karakterlerin hareket iskeleti ve pozları.", en: "The characters' motion rigs and poses."}
   gate_says: {tr: "", en: ""}
 
+outline:
+  artifact: outline
+  name: {tr: Sahne taslağı, en: Scene outline}
+  says: {tr: "Ortak tasarım dili ve her sahnenin kısa tarifi; sahneler henüz çizilmez.",
+         en: "The shared design language and a short brief for every scene; nothing is drawn yet."}
+  gate_says: {tr: "Onaylarsan sahneler bölüm bölüm, aynı anda birkaç tasarımcıyla çizilir.",
+              en: "Approving has the scenes drawn chapter by chapter, by several designers at once."}
+
 scene_plan:
   artifact: scene_plan
   name: {tr: Sahne planı, en: Scene plan}

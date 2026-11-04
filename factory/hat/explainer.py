@@ -90,9 +90,12 @@ def spec(pid, plan=None, d=None):
         scenes.append({"id": sc["id"], "lines": [a, b], "start": start, "hide_captions": silent or bool(sc.get("hide_captions"))})
     for i, sc in enumerate(scenes):
         sc["end"] = scenes[i + 1]["start"] if i + 1 < len(scenes) else total
+    chapters = [{"title": c["title"], "start": 0.0 if not c["line"] else round(line_times[c["line"]]["start"] + VOICE_START, 3)}
+                for c in plan.get("chapters") or [] if 0 <= c.get("line", -1) < n]     # long form (factory/hat/longform.py)
     return {"name": pid, "words": words, "line_times": line_times, "voice_start": VOICE_START, "duration": total,
             "scenes": scenes, "aspect": p.get("aspect", "9:16"), "lang": p.get("video_lang", "tr"),
-            "captions": plan.get("captions") or CAPTIONS, "timing": source}
+            "captions": plan.get("captions") or CAPTIONS, "timing": source, "chapters": chapters,
+            "chrome": plan.get("chrome") or {}}
 
 
 def design(plan):
@@ -216,8 +219,7 @@ def assets(pid, s, note=None, d=None):
     if not narrated(script):
         return _music_only(pid, p, prop, con, account, d)
     voice_id = (prop.get("voice") or {}).get("voice_id") or p.get("voice_id") or formats.default_voice(lang, account)
-    text = " ".join(lines)
-    path, cost = eleven.tts(con, text, voice_id, formats.VOICE_MODEL, approved=remaining_budget(pid, d), account=account)
+    path, cost = narrate(pid, con, lines, voice_id, account, [c.get("line") for c in script.get("chapters") or []], d)
     times, dur, words = productions.align(path, lines, lang)
     P.decision(pid, "voice", voice_id, reason="proposal voice or channel default", d=d, model=formats.VOICE_MODEL)
     voice = {"file": _rel(path), "voice_id": voice_id, "model": formats.VOICE_MODEL, "credits": round(cost),
@@ -229,9 +231,12 @@ def assets(pid, s, note=None, d=None):
         prompt = mu.get("prompt") or "Instrumental, no vocals. Subtle, steady pulse under a spoken explainer."
         if "instrumental" not in prompt.lower():
             prompt = "Instrumental, no vocals. " + prompt
-        mpath, mcost = eleven.generate(con, "music", productions.MUSIC_MODEL, prompt, {"duration_seconds": secs,
-                                       "instrumental": True}, secs, "s", ext="mp3",
+        gen = min(secs, MUSIC_MAX)
+        mpath, mcost = eleven.generate(con, "music", productions.MUSIC_MODEL, prompt, {"duration_seconds": gen,
+                                       "instrumental": True}, gen, "s", ext="mp3",
                                        approved=max(0, remaining_budget(pid, d) - round(cost)), account=account)
+        if secs > gen:
+            mpath = loop_music(mpath, secs, P.path(pid, "work", "music-long.m4a", d=d))
         music = {"file": _rel(mpath), "prompt": prompt, "credits": round(mcost), "db": -22}
     art = {"voice": voice, "music": music}
     P.write_artifact(pid, "assets", art, d)          # the preview reads the real timing from here
@@ -242,6 +247,74 @@ def assets(pid, s, note=None, d=None):
                         "en": f"Voice ready ({dur:.1f} s, {total} credits){', with music' if music else ''}. Watch the preview."
                         }[p.get("ui_lang", "tr") if p.get("ui_lang") in ("tr", "en") else "tr"])
     return {"artifact": art, "summary": art["summary"], "cost": {"credits": total}}
+
+
+TTS_MAX = 2400        # characters per narration request: a long script is voiced in pieces (and re-voiced piece by piece)
+PIECE_GAP = 0.45      # silence between two pieces
+MUSIC_MAX = 240       # seconds of music generated at most; a longer video loops it with a crossfade
+LOOP_FADE = 4.0
+
+
+def pieces(lines, starts=()):
+    """Line ranges [a, b] voiced in one request each: a new piece at every chapter start and before TTS_MAX characters."""
+    out, a, size = [], 0, 0
+    cut = {int(x) for x in starts or () if x}
+    for i, ln in enumerate(lines):
+        if i > a and (i in cut or size + len(ln) + 1 > TTS_MAX):
+            out.append([a, i - 1])
+            a, size = i, 0
+        size += len(ln) + 1
+    if lines:
+        out.append([a, len(lines) - 1])
+    return out
+
+
+def narrate(pid, con, lines, voice_id, account, starts=(), d=None):
+    """The narration of `lines` inside the approved budget -> (audio path, credits). One request for a short script
+    (same cache key as always); a long one piece by piece, joined with PIECE_GAP of silence."""
+    from .. import eleven, formats
+    ps = pieces(lines, starts)
+    if len(ps) == 1:
+        return eleven.tts(con, " ".join(lines), voice_id, formats.VOICE_MODEL, approved=remaining_budget(pid, d), account=account)
+    files, cost = [], 0.0
+    for a, b in ps:
+        path, c = eleven.tts(con, " ".join(lines[a:b + 1]), voice_id, formats.VOICE_MODEL,
+                             approved=max(0, remaining_budget(pid, d) - round(cost)), account=account)
+        files.append(path)
+        cost += c
+    out = P.path(pid, "work", "voice.m4a", d=d)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    join_audio(files, out, PIECE_GAP)
+    return out, cost
+
+
+def join_audio(files, out, gap):
+    import subprocess
+    from ..config import FFMPEG
+    ins = sum((["-i", f] for f in files), [])
+    pads = "".join(f"[{i}:a]aresample=48000,aformat=channel_layouts=mono,apad=pad_dur={gap if i + 1 < len(files) else 0}[p{i}];"
+                   for i in range(len(files)))
+    fc = pads + "".join(f"[p{i}]" for i in range(len(files))) + f"concat=n={len(files)}:v=0:a=1[a]"
+    subprocess.run([FFMPEG, "-y", "-v", "error", *ins, "-filter_complex", fc, "-map", "[a]", "-c:a", "aac", "-b:a", "192k",
+                    out], check=True)
+    return out
+
+
+def loop_music(path, secs, out):
+    """Repeat a music track with a LOOP_FADE crossfade at each seam until it lasts `secs`."""
+    import subprocess
+    from ..config import FFMPEG
+    from .. import fftools
+    one = fftools.measure(path)["duration"]
+    n = max(2, int((secs - LOOP_FADE) // max(1.0, one - LOOP_FADE)) + 1)
+    ins = sum((["-i", path] for _ in range(n)), [])
+    chain, prev = "", "[0:a]"
+    for i in range(1, n):
+        chain += f"{prev}[{i}:a]acrossfade=d={LOOP_FADE}:c1=tri:c2=tri[x{i}];"
+        prev = f"[x{i}]"
+    subprocess.run([FFMPEG, "-y", "-v", "error", *ins, "-filter_complex", chain.rstrip(";"), "-map", prev, "-t", f"{secs:.2f}",
+                    "-c:a", "aac", "-b:a", "192k", out], check=True)
+    return out
 
 
 def _music_only(pid, p, prop, con, account, d=None):

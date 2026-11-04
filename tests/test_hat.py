@@ -14,7 +14,7 @@ _REAL_ASK_TEXT = _llm.ask_text      # for the one test that checks the CLI comma
 
 def test_every_line_loads_with_both_languages():
     lines = manifest.all_lines()
-    assert len(lines) == 14 and list(lines)[0] == "explainer"
+    assert len(lines) == 15 and list(lines)[0] == "explainer"
     for m in lines.values():
         for k in manifest.TEXT:
             assert m[k]["tr"] and m[k]["en"], (m["id"], k)
