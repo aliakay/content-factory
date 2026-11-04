@@ -319,6 +319,15 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
   `work/minimax/clips.json` ve aynı klasördeki mp4'lerde durur. Studio'da üretilen video kullanan hatlarda "Üretilen
   klipler" kartı: istem, süre (5–15 sn), kalite, isteğe bağlı başlangıç karesi, her düğmede kredi tahmini; finalin
   onayı ayrıca kredi tutarıyla sorulur.
+- **Bilim sahneleri, Manim değerlendirmesi (t509):** Manim bu sunucuda çalışmıyor: ManimGL OpenGL (libGL) istiyor,
+  Manim Community pycairo'yu kaynaktan derlemek istiyor (derleyici ve Cairo yok), ikisi de denklem için LaTeX istiyor;
+  sudo yok, conda ikilisi indirmeye izin verilmedi. Görevin yedek yolu seçildi: aynı sahne türleri motion motorunda
+  (Chromium + SwiftShader WebGL zaten 3D çiziyor). Yeni FX aygıtları: `FX.math` (KaTeX, MIT; terim terim yazılır,
+  `\hl{..}` kısmı vurgulanır), `FX.eqSteps` (adım adım türetme, eski satırlar yukarı kayıp söner), `FX.plot` (eksenler
+  çizilir, eğri çizilir, eğri altı alan, değeri okunan izleyici nokta), `FX.space` (dönen 3D eksenler, z yukarı:
+  `surface` yüksekliğe göre renkli yüzey, `curve` parametrik yol, `arrow`, `dot`, `label`). KaTeX yalnız sahne denklem
+  yazıyorsa yüklenir. Teknik kataloğunda `look.math` ve `look.space3d` (demolu); tasarımcı FX belgesinde yer alır.
+  **Canlıya geçişte `motion/` içinde `npm install` gerekir** (katex@0.16.11; node_modules depoda değil).
 - Menü sadeleşir: Stüdyo · Üretimler · Keşif · Takip · Ayarlar (kanallar, sesler, hesaplar, bütçe, stiller tek yerde).
 
 ## 8. Fazlar

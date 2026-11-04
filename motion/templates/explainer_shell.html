@@ -54,6 +54,14 @@ window.ready = (async () => {
   if (B.three !== false) {   // Three.js for scenes that build 3D with FX.three / FX.globe (deterministic, driven by render)
     try { window.THREE = await import("/motion/node_modules/three/build/three.module.min.js"); } catch (e) { console.error("three: " + e.message); }
   }
+  if (B.math || /FX\.(math|eqSteps|tex)\b|k\.label\([^)]*tex/.test((B.scenes || []).map((s) => s.js || "").join("\n"))) {
+    await new Promise((ok) => {   // KaTeX for equations (FX.math / FX.eqSteps), only when a scene writes one
+      const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "/motion/node_modules/katex/dist/katex.min.css"; document.head.appendChild(l);
+      const sc = document.createElement("script"); sc.src = "/motion/node_modules/katex/dist/katex.min.js"; sc.onload = ok;
+      sc.onerror = () => { console.error("katex: not installed (npm install in motion/)"); ok(); }; document.head.appendChild(sc);
+    });
+    if (document.fonts) await Promise.all(["KaTeX_Main", "KaTeX_Math"].map((f) => document.fonts.load(`40px ${f}`).catch(() => {})));
+  }
   FX._W = B.w || 1080; FX._H = B.h || 1920;   // the stage, for the kinetic kit
   if (B.bpm) { FX.BPM = B.bpm; FX.beat0 = B.beat0 || 0; }   // the music's beat grid: FX.B(k)
   const root = document.documentElement;
