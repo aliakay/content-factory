@@ -344,6 +344,12 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
   yana), parçalar yeniden kodlanmadan birleşir ve kare sayısı kontrol edilir; tutmazsa önbellek silinip tüm video
   baştan çekilir. Ortak bir değişiklik (yeni ses, renk, global CSS) her parçayı yeniler. Parça kullanan render'lar
   render hızı ölçümüne yazılmaz. Final kartı kaç parçanın yeniden çizildiğini gösterir.
+- **Ses ön-kırpma (t512):** anlatım alınınca, hizalamadan önce `factory/pretrim.py` dolgu istemli tek bir whisper
+  geçişini metnin kelimelerine eşler. Yalnız metinde olmayan VE dolgu ("ıı", "uh"), hemen tekrarlanan bir başlangıç
+  ("büyük fikir büyük fikir") ya da yarım kalmış bir kelime olan duyulan kelimeler kesilir; metinde olmayan başka
+  kelimeler kalır. Eşleşme %60'ın altındaysa hiçbir şey kesilmez. Kesimler küçük geçişlerle birleşir; altyazı ve
+  sahneler kırpılmış dosyayı izler. Ücretsiz, yerel. Ses kartı kesim sayısını ve süresini gösterir; karar günlüğüne
+  yazılır. `project.pretrim = false` kapatır, hata olursa ses olduğu gibi kalır.
 - Menü sadeleşir: Stüdyo · Üretimler · Keşif · Takip · Ayarlar (kanallar, sesler, hesaplar, bütçe, stiller tek yerde).
 
 ## 8. Fazlar

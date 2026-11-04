@@ -205,6 +205,22 @@ def _render(pid, final, d=None):
     return _htmlmotion().render_bundle(b, sp, out, dst, preview=not final), sp
 
 
+def pretrim_voice(pid, path, lines, lang, p, d=None):
+    """Cut the fillers and restarts the script does not have from a fresh take (t512), before the alignment, so captions
+    and scenes follow the trimmed file. Off with project.pretrim = false; a failure keeps the take as it is."""
+    if p.get("pretrim") is False:
+        return path, None
+    from .. import pretrim
+    try:
+        out, info = pretrim.trim(path, lines, lang)
+    except Exception as e:                       # never lose a paid take to the trimmer
+        P.decision(pid, "pretrim", "skipped", reason=f"pre-trim failed: {e}"[:300], d=d)
+        return path, None
+    if info["cuts"]:
+        P.decision(pid, "pretrim", f"{len(info['cuts'])} cuts", reason=", ".join(c[2] for c in info["cuts"])[:300], d=d)
+    return out, info if info["cuts"] else None
+
+
 def assets(pid, s, note=None, d=None):
     """Narration (inside the approved budget), word alignment, optional music, then a preview of the whole video.
     An unnarrated script skips the voice and must have music."""
@@ -221,10 +237,13 @@ def assets(pid, s, note=None, d=None):
         return _music_only(pid, p, prop, con, account, d)
     voice_id = (prop.get("voice") or {}).get("voice_id") or p.get("voice_id") or formats.default_voice(lang, account)
     path, cost = narrate(pid, con, lines, voice_id, account, [c.get("line") for c in script.get("chapters") or []], d)
+    path, trimmed = pretrim_voice(pid, path, lines, lang, p, d)
     times, dur, words = productions.align(path, lines, lang)
     P.decision(pid, "voice", voice_id, reason="proposal voice or channel default", d=d, model=formats.VOICE_MODEL)
     voice = {"file": _rel(path), "voice_id": voice_id, "model": formats.VOICE_MODEL, "credits": round(cost),
              "duration": dur, "line_times": times, "words": [list(w) for w in words]}
+    if trimmed:
+        voice["pretrim"] = trimmed
     music, mcost = None, 0.0
     mu = prop.get("music") or {}
     if mu.get("use"):
