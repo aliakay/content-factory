@@ -1,0 +1,5 @@
+{
+ "seconds": 3,
+ "css": "position:absolute;inset:0;background:#f1ece1",
+ "js": "E('left:-200px;top:820px;width:900px;height:700px;border-radius:50% 50% 0 0;background:#6e6a63;filter:blur(18px);opacity:.55');\nE('left:380px;top:960px;width:900px;height:600px;border-radius:45% 55% 0 0;background:#161513;filter:blur(10px);opacity:.75');\nE('left:-100px;top:1250px;width:1300px;height:700px;border-radius:40% 60% 0 0;background:#161513;filter:blur(4px);opacity:.92');\nE('left:690px;top:430px;width:170px;height:170px;border-radius:50%;background:#c8372d;opacity:.92');\nE('left:130px;top:300px;font:400 72px/1.1 Instrument Serif;color:#161513;letter-spacing:.04em', 'sessiz<br>dağ');\ntl.from(root.children[3], {opacity: 0, scale: .6, duration: 2, ease: 'sine.out'}, 0);"
+}

@@ -1,0 +1,59 @@
+id: clip_factory
+order: 7
+status: ready
+category: footage
+inputs: [video]
+duration: [15, 60]
+name: {tr: Klip fabrikası, en: Clip factory}
+tagline:
+  tr: "Tek bir uzun içerikten puanlanmış bir dizi kısa video."
+  en: "A ranked batch of shorts from one long piece."
+makes:
+  tr: "Yayın, sunum ya da röportajdan en güçlü anlar bulunur, puanlanır; her biri kendi kancası, kadrajı ve altyazısıyla bağımsız bir kısa video olur."
+  en: "The strongest moments of a stream, talk or interview are found and ranked; each becomes its own short with a hook, framing and captions."
+good_for:
+  tr: ["Bir uzun içerikten haftalık kısa video stoku", "Webinar ve canlı yayın tekrarları"]
+  en: ["A week of shorts from one long piece", "Webinar and stream repurposing"]
+not_for:
+  tr: ["Zaten kısa olan kaynaklar"]
+  en: ["Sources that are already short"]
+needs:
+  tr: "Uzun bir video; kaç klip istediğini açıklamaya yaz (ör. \"8 klip\", yoksa 5)."
+  en: "A long video; say how many clips in the brief (e.g. \"8 clips\", 5 otherwise)."
+cost:
+  tr: "Kredi gerekmez; transkript yerelde yapılır."
+  en: "No credits; transcription runs locally."
+stages:
+  - id: idea
+    gate: true
+    name: {tr: Klip seçimi, en: Clip selection}
+    run: code
+    call: factory.hat.clips:idea
+    tools: [align_words]
+
+  - id: scene_plan
+    gate: true
+    name: {tr: Kadraj, en: Framing}
+    artifact: plates
+    run: code
+    call: factory.hat.clips:scene_plan
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.clips:assets
+    tools: [preview_render]
+
+  - id: edit
+    run: code
+    call: factory.hat.clips:edit
+
+  - id: compose
+    run: code
+    call: factory.hat.clips:compose
+    tools: [final_render, qa_technical, thumbnails, deliver]
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.clips:publish

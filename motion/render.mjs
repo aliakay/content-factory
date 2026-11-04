@@ -1,7 +1,7 @@
 // Deterministic HTML -> transparent video renderer (headless Chromium + ffmpeg).
 //
 // Usage: node render.mjs <page.html> <out.mov> <duration_s> [fps=30] [w=1080] [h=1920] [--opaque] [--scale=0.5]
-//        [--shots=t1,t2 [--lint=boxes.json]] [--cues=cues.json]
+//        [--shots=t1,t2 [--lint=boxes.json]] [--cues=cues.json] [--range=first,end]
 //
 // The page must define `window.render(t)` (draw the state at t seconds; may return a Promise) and may set
 // `window.ready` (a Promise) before the first frame. Each frame is captured with a transparent background and
@@ -28,6 +28,9 @@ const readOut = (flags.find((f) => f.startsWith("--readcheck=")) || "").slice(12
 // --blur=N: real motion blur. N sub-frame samples over a 180° shutter, averaged by ffmpeg (tmix); the window slides back
 // so it never straddles a scene cut (the last frame before a cut stays blurred, never a mix of two shots)
 const blurN = Math.max(1, Number((flags.find((f) => f.startsWith("--blur=")) || "--blur=1").slice(7)) || 1);
+// --range=a,b: only frames a..b-1 (a slice of a long video captured in parallel and joined by the caller)
+const range = (flags.find((f) => f.startsWith("--range=")) || "").slice(8).split(",").filter(Boolean).map(Number);
+const [f0, f1] = range.length === 2 ? [Math.max(0, range[0]), Math.min(frames, range[1])] : [0, frames];
 const libs = cfg.chromeLibs;
 
 // ES modules don't load from file://, so serve the project root on a loopback-only port for the page
@@ -37,8 +40,9 @@ const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/ja
 const server = createServer(async (req, res) => {
   const p = path.resolve(ROOT, "." + decodeURIComponent(req.url.split("?")[0].split("#")[0]));
   if (!p.startsWith(ROOT)) { res.writeHead(403).end(); return; }
-  try { res.writeHead(200, { "Content-Type": TYPES[path.extname(p)] || "application/octet-stream" }).end(await readFile(p)); }
-  catch { res.writeHead(404).end(); }
+  let body;   // read first: a missing file must answer 404, not write a second header after the 200
+  try { body = await readFile(p); } catch { res.writeHead(404).end(); return; }
+  res.writeHead(200, { "Content-Type": TYPES[path.extname(p)] || "application/octet-stream" }).end(body);
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const base = `http://127.0.0.1:${server.address().port}`;
@@ -65,7 +69,7 @@ if (cuesOut) {
 if (readOut) {   // no screenshots: which texts are readable when, and what the timeline says about the motion
   const { writeFile } = await import("node:fs/promises");
   const samples = [];
-  for (let t = 0; t < Number(durS); t += 0.2) {
+  for (let t = f0 / fps; t < f1 / fps; t += 0.2) {   // --range limits it to a part of the video
     await page.evaluate((x) => window.render(x), t);
     const b = await page.evaluate(() => (window.lintBoxes ? window.lintBoxes().boxes.map((x) => [x.scene, x.text]) : []));
     samples.push([+t.toFixed(2), b]);
@@ -100,7 +104,7 @@ const ffmpeg = spawn(cfg.ffmpeg, [
 
 const t0 = Date.now();
 const shutter = 0.5 / fps;   // 180°
-for (let i = 0; i < frames; i++) {
+for (let i = f0; i < f1; i++) {
   let ts = i / fps;
   if (blurN > 1) { const c = cuts.find((x) => x > ts + 1e-6 && x <= ts + shutter); if (c !== undefined) ts = Math.max(0, c - shutter - 1e-4); }
   for (let k = 0; k < blurN; k++) {
@@ -113,4 +117,4 @@ ffmpeg.stdin.end();
 await new Promise((r) => ffmpeg.on("close", r));
 await browser.close();
 server.close();
-console.log(`${out} · ${frames} frames${blurN > 1 ? ` · blur x${blurN}` : ""} · ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+console.log(`${out} · ${f1 - f0} frames${blurN > 1 ? ` · blur x${blurN}` : ""} · ${((Date.now() - t0) / 1000).toFixed(1)}s`);

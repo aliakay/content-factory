@@ -8,10 +8,10 @@ Sound: scenes declare their own sound effects and music moments next to the anim
 render.mjs --cues hands them back after setup and factory/audiofx.mix puts each sound on its frame (never over a word),
 cuts the music out and back in on the story events and lines the track's drop up with FX.music("drop", t).
 """
-import json, os, subprocess, sys, time
+import hashlib, json, os, shutil, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-from factory.config import ROOT, FFMPEG  # noqa: E402
+from factory.config import ROOT, FFMPEG, FFPROBE  # noqa: E402
 MOTION = os.path.join(ROOT, "motion")
 SHELL = "/motion/templates/explainer_shell.html"
 ASPECTS = {"9:16": (1080, 1920), "16:9": (1920, 1080)}
@@ -33,6 +33,7 @@ def make_bundle(spec, design):
     return {"palette": design["meta"].get("palette") or {}, "global_css": design.get("global_css", ""), "words": words,
             "scenes": scenes, "duration": spec["duration"], "w": w, "h": h, "captions": spec.get("captions") or {},
             "lang": spec.get("lang", "en"),   # sets <html lang>: CSS uppercase then maps i -> İ in Turkish
+            "chapters": spec.get("chapters") or [], "chrome": spec.get("chrome") or {},   # long form: progress bar
             **beat_grid(spec)}
 
 
@@ -57,7 +58,10 @@ def beat_grid(spec):
             return {}
     if not g.get("bpm"):
         return {}
-    return {"bpm": g["bpm"], "beat0": round(mu["drop_at"] if mu.get("drop_at") is not None else g.get("first", 0.0), 3)}
+    if mu.get("drop_at") is not None:
+        return {"bpm": g["bpm"], "beat0": round(mu["drop_at"], 3)}
+    first = g.get("first", 0.0) - (mu.get("seek") or 0)          # a track placed by its ending starts part way in
+    return {"bpm": g["bpm"], "beat0": round(first % (60 / g["bpm"]) if first < 0 else first, 3)}
 
 
 def write_bundle(spec, design):
@@ -68,16 +72,55 @@ def write_bundle(spec, design):
     return path
 
 
-def _node(page_hash_bundle, out, dur, extra, fps=30):
+PAR_MIN_S = 75          # videos at least this long are captured in parallel slices (one Chromium each)
+PAR_SLICES = max(1, min(3, (os.cpu_count() or 2) - 1))
+
+
+def _node_cmd(page_hash_bundle, out, dur, extra, fps=30, hash=""):
     page = os.path.join(MOTION, "templates", "explainer_shell.html")
-    rel = "/" + os.path.relpath(page_hash_bundle, ROOT)
+    rel = "/" + os.path.relpath(page_hash_bundle, ROOT) + hash
     try:
         b = json.load(open(page_hash_bundle))
         w, h = b.get("w", 1080), b.get("h", 1920)
     except (OSError, ValueError):
         w, h = 1080, 1920
-    cmd = ["node", os.path.join(MOTION, "render.mjs"), f"{page}#b={rel}", out, str(dur), str(fps), str(w), str(h), *extra]
-    return subprocess.run(cmd, cwd=MOTION, capture_output=True, text=True)
+    return ["node", os.path.join(MOTION, "render.mjs"), f"{page}#b={rel}", out, str(dur), str(fps), str(w), str(h), *extra]
+
+
+def _node(page_hash_bundle, out, dur, extra, fps=30, hash=""):
+    return subprocess.run(_node_cmd(page_hash_bundle, out, dur, extra, fps, hash), cwd=MOTION, capture_output=True, text=True)
+
+
+def capture(bundle, out, dur, extra, fps=30, cues_path=None, slices=None):
+    """The silent video of a bundle. A long one is cut into frame ranges captured side by side (each Chromium is
+    single-threaded) and joined without re-encoding; the scenes' sound cues come from the first slice."""
+    frames = round(dur * fps)
+    n = slices or (PAR_SLICES if dur >= PAR_MIN_S else 1)
+    cue = ["--cues=" + cues_path] if cues_path else []
+    if n <= 1:
+        r = _node(bundle, out, dur, extra + cue, fps)
+        if r.returncode or not os.path.exists(out):
+            raise RuntimeError("html render failed: " + (r.stderr or "")[-400:])
+        return
+    bounds = [round(frames * k / n) for k in range(n + 1)]
+    parts = [f"{out}.part{k}.mp4" for k in range(n)]
+    procs = [subprocess.Popen(_node_cmd(bundle, parts[k], dur, extra + [f"--range={bounds[k]},{bounds[k + 1]}"] + (cue if k == 0 else []),
+                                        fps), cwd=MOTION, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+             for k in range(n)]
+    errs = [p.communicate()[1] for p in procs]
+    try:
+        for k, p in enumerate(procs):
+            if p.returncode or not os.path.exists(parts[k]):
+                raise RuntimeError(f"html render failed (slice {k + 1}/{n}): " + (errs[k] or "")[-400:])
+        lst = out + ".parts.txt"
+        with open(lst, "w") as f:
+            f.writelines(f"file '{os.path.abspath(x)}'\n" for x in parts)
+        subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", lst, "-c", "copy", out], check=True)
+        os.remove(lst)
+    finally:
+        for x in parts:
+            if os.path.exists(x):
+                os.remove(x)
 
 
 def shots(bundle_path, times, outdir, lint=False):
@@ -92,15 +135,104 @@ def shots(bundle_path, times, outdir, lint=False):
     return (paths, errs[:12], lint_path) if lint else (paths, errs[:12])
 
 
-def readcheck(bundle_path):
-    """Visible texts every 0.2 s + the timeline's motion lint (render.mjs --readcheck) -> dict."""
+def readcheck(bundle_path, span=None):
+    """Visible texts every 0.2 s (only within span=(a, b) seconds if given) + the timeline's motion lint
+    (render.mjs --readcheck) -> dict."""
     out = os.path.join(os.path.dirname(os.path.abspath(bundle_path)), "readcheck.json")
     try:
         dur = json.load(open(bundle_path)).get("duration", 30)
     except (OSError, ValueError):
         dur = 30
-    _node(bundle_path, "/dev/null", round(dur, 2), ["--opaque", "--readcheck=" + out])
+    rng = [f"--range={int(span[0] * 30)},{int(span[1] * 30) + 1}"] if span else []
+    _node(bundle_path, "/dev/null", round(dur, 2), ["--opaque", "--readcheck=" + out] + rng)
     return json.load(open(out))
+
+
+def scene_parts(b, frames, fps):
+    """The capture cut at scene starts: [(first frame, end frame, fingerprint)]. A part's fingerprint covers what can
+    show in it: everything but the scenes (palette, CSS, words, captions, chapters...), its own scene and both
+    neighbours (a scene's exit and the next one's entrance overlap the cut). Editing one scene changes only its part and
+    the two around it."""
+    sc = sorted(b.get("scenes") or [], key=lambda x: x.get("start", 0))
+    glob = hashlib.sha1(json.dumps({k: v for k, v in b.items() if k != "scenes"}, sort_keys=True).encode()).hexdigest()
+    starts = [0] + [min(frames, max(0, round(x["start"] * fps))) for x in sc[1:]] + [frames]
+    out = []
+    for k in range(len(sc)):
+        a, e = starts[k], max(starts[k], starts[k + 1])
+        if e <= a:
+            continue
+        deps = sc[max(0, k - 1):k + 2]
+        out.append((a, e, hashlib.sha1(json.dumps([glob, a, e, deps], sort_keys=True).encode()).hexdigest()))
+    return out
+
+
+def frame_count(path):
+    r = subprocess.run([FFPROBE, "-v", "error", "-select_streams", "v:0", "-count_packets",
+                        "-show_entries", "stream=nb_read_packets", "-of", "csv=p=0", path], capture_output=True, text=True)
+    try:
+        return int(r.stdout.strip().split(",")[0])
+    except ValueError:
+        return -1
+
+
+def capture_parts(bundle, out, dur, extra, fps=30, cues_path=None, cache=None):
+    """The silent video of a bundle, one part per scene, reusing the parts a previous render left in `cache` whose
+    fingerprint has not changed (t511: a fixed scene re-renders itself and its neighbours, not the whole video). The
+    missing parts are captured side by side, all are joined without re-encoding and the frame count is checked; on a
+    mismatch the cache is dropped and the whole video is captured again. -> {parts, rendered}"""
+    frames = round(dur * fps)
+    b = json.load(open(bundle))
+    flags = hashlib.sha1(json.dumps([fps, frames, sorted(extra)]).encode()).hexdigest()[:10]
+    parts = [(a, e, f"{h[:20]}-{flags}") for a, e, h in scene_parts(b, frames, fps)]
+    if len(parts) < 2 or not cache:
+        capture(bundle, out, dur, extra, fps, cues_path)
+        return {"parts": 1, "rendered": 1}
+    os.makedirs(cache, exist_ok=True)
+    whole = hashlib.sha1(json.dumps([p[2] for p in parts]).encode()).hexdigest()[:20]
+    cue_cache = os.path.join(cache, f"cues-{whole}.json")
+    path = lambda key: os.path.join(cache, key + ".mp4")
+    todo = [p for p in parts if not os.path.exists(path(p[2]))]
+    want_cues = bool(cues_path) and not os.path.exists(cue_cache)
+    if want_cues and not todo:      # every part is reused but the cues are not: read them from a one-frame capture
+        tmp = os.path.join(cache, "cues-probe.mp4")
+        _node(bundle, tmp, dur, extra + ["--range=0,1", "--cues=" + cue_cache], fps)
+        if os.path.exists(tmp):
+            os.remove(tmp)
+    running, errs = [], []
+    for i, (a, e, key) in enumerate(todo):
+        cue = ["--cues=" + cue_cache] if want_cues and i == 0 else []
+        while len(running) >= PAR_SLICES:
+            p, k = running.pop(0)
+            err = p.communicate()[1]
+            if p.returncode or not os.path.exists(path(k) + ".tmp.mp4"):
+                errs.append(f"{k}: " + (err or "")[-300:])
+        p = subprocess.Popen(_node_cmd(bundle, path(key) + ".tmp.mp4", dur, extra + [f"--range={a},{e}"] + cue, fps),
+                             cwd=MOTION, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        running.append((p, key))
+    for p, k in running:
+        err = p.communicate()[1]
+        if p.returncode or not os.path.exists(path(k) + ".tmp.mp4"):
+            errs.append(f"{k}: " + (err or "")[-300:])
+    if errs:
+        raise RuntimeError("html render failed: " + errs[0])
+    for _, _, key in todo:
+        os.replace(path(key) + ".tmp.mp4", path(key))
+    lst = out + ".parts.txt"
+    with open(lst, "w") as f:
+        f.writelines(f"file '{os.path.abspath(path(k))}'\n" for _, _, k in parts)
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", lst, "-c", "copy", out], check=True)
+    os.remove(lst)
+    keep = {os.path.basename(path(k)) for _, _, k in parts} | {os.path.basename(cue_cache)}
+    for f in os.listdir(cache):     # the cache holds the current render's parts only
+        if f not in keep:
+            os.remove(os.path.join(cache, f))
+    if frame_count(out) != frames:
+        shutil.rmtree(cache, ignore_errors=True)
+        capture(bundle, out, dur, extra, fps, cues_path)
+        return {"parts": len(parts), "rendered": len(parts), "fallback": True}
+    if cues_path and os.path.exists(cue_cache):
+        shutil.copyfile(cue_cache, cues_path)
+    return {"parts": len(parts), "rendered": len(todo)}
 
 
 def post_vf(fx, preview=False):
@@ -164,17 +296,30 @@ def main(path, preview=False, stills=None):
         return shots(bundle, stills, out)[0]
     out_dir = os.path.join(ROOT, "work", "preview") if preview else os.path.join(ROOT, "out", name)
     os.makedirs(out_dir, exist_ok=True)
-    silent = os.path.join(ROOT, "work", "auto", name, "silent.mp4")
-    cues_path = os.path.join(ROOT, "work", "auto", name, "cues.json")
+    dst = os.path.join(out_dir, f"{name}.mp4")
+    render_bundle(bundle, spec, os.path.join(ROOT, "work", "auto", name), dst, preview)
+    if spec.get("post") and not preview:
+        sys.path.insert(0, os.path.join(ROOT, "bin"))
+        import cinecut
+        cinecut.write_caption(os.path.join(out_dir, "caption.txt"), spec["post"])
+    print(f"{dst}  ({total:.2f}s)")
+    return dst, total
+
+
+def render_bundle(bundle, spec, workdir, dst, preview=False):
+    """Capture a bundle, mix its sound (voice, music, the scenes' own cues) and encode `dst`. `spec` carries name,
+    duration, voice {file (ROOT-relative), db?}, music, voice_start, words, voice_chain, post_fx, motion_blur, sound."""
+    name, total = spec["name"], spec["duration"]
+    os.makedirs(workdir, exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.abspath(dst)), exist_ok=True)
+    silent = os.path.join(workdir, "silent.mp4")
+    cues_path = os.path.join(workdir, "cues.json")
     blur = [] if preview or not spec.get("motion_blur") else [f"--blur={int(spec['motion_blur'])}"]   # real sub-frame blur, final only
     fps = 15 if preview else 30
     t0 = time.time()
-    r = _node(bundle, silent, round(total, 3), (["--opaque", "--scale=0.5"] if preview else ["--opaque"]) + blur + ["--cues=" + cues_path],
-              fps)
-    if r.returncode or not os.path.exists(silent):
-        raise RuntimeError("html render failed: " + (r.stderr or "")[-400:])
+    parts = capture_parts(bundle, silent, round(total, 3), (["--opaque", "--scale=0.5"] if preview else ["--opaque"]) + blur,
+                          fps, cues_path, cache=os.path.join(workdir, "parts"))
     capture_s, t1 = time.time() - t0, time.time()
-    dst = os.path.join(out_dir, f"{name}.mp4")
     from factory import audiofx
     cues, mutes, drop = sound_plan(cues_path, spec, total)
     voice = dict(spec["voice"], file=os.path.join(ROOT, spec["voice"]["file"])) if spec.get("voice") else None
@@ -188,7 +333,7 @@ def main(path, preview=False, stills=None):
     vs = spec.get("voice_start", 0)
     words = spec.get("words") or []        # relative to the voice file, which starts at voice_start
     audiofx.save_placed(name, cues, words, vs)
-    mixed = os.path.join(ROOT, "work", "auto", name, "mixed.mp4")
+    mixed = os.path.join(workdir, "mixed.mp4")
     audiofx.mix(silent, mixed, total, voice=voice, music=music, cues=cues, words=words, voice_offset=vs,
                 chain=spec.get("voice_chain"))
     vpost = post_vf(spec.get("post_fx"), preview)
@@ -201,16 +346,56 @@ def main(path, preview=False, stills=None):
     print(f"sound: {len(cues)} effects, {len(mutes)} music cut(s)" + (f", drop on {drop:.2f}s" if drop is not None else ""), flush=True)
     try:   # this machine's real render speed, for the Studio's time estimates (factory/renderspeed.py)
         from factory import renderspeed
-        renderspeed.record("preview" if preview else "final", round(total * fps) * (int(spec["motion_blur"]) if blur else 1),
-                           capture_s, post_per_s=round((time.time() - t1) / max(1.0, total), 3))
+        if parts["rendered"] == parts["parts"]:   # a render that reused parts is not a full capture's time
+            renderspeed.record(("preview" if preview else "final") + ("_par" if total >= PAR_MIN_S and PAR_SLICES > 1 else ""),
+                               round(total * fps) * (int(spec["motion_blur"]) if blur else 1),
+                               capture_s, post_per_s=round((time.time() - t1) / max(1.0, total), 3))
     except Exception as e:
         print(f"render speed not recorded: {e}", flush=True)
-    if spec.get("post") and not preview:
-        sys.path.insert(0, os.path.join(ROOT, "bin"))
-        import cinecut
-        cinecut.write_caption(os.path.join(out_dir, "caption.txt"), spec["post"])
-    print(f"{dst}  ({total:.2f}s)")
-    return dst, total
+    return {"file": dst, "duration": total, "cues": len(cues), "music_cuts": len(mutes), "drop": drop,
+            "capture_s": round(capture_s, 1), "parts": parts}
+
+
+def alpha(bundle, dst, total):
+    """The graphics with a transparent background (ProRes 4444 .mov): the stage paints nothing, the scenes' own shapes,
+    texts and captions stay. Silent; for laying over footage in an editor."""
+    r = _node(bundle, dst, round(total, 3), [], 30, hash="&alpha=1")
+    if r.returncode or not os.path.exists(dst):
+        raise RuntimeError("alpha render failed: " + (r.stderr or "")[-400:])
+    return dst
+
+
+def stems(spec, cues_path, outdir):
+    """The final's sound as separate WAVs on the video's timeline: voice (with its chain), music (with its cuts and drop
+    placement, not ducked), effects. Mirrors render_bundle's mix one source at a time. -> {name: path}"""
+    from factory import audiofx
+    total = spec["duration"]
+    os.makedirs(outdir, exist_ok=True)
+    black = os.path.join(outdir, ".black.mp4")
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", f"color=black:s=16x16:d={total:.3f}:r=30",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", black], check=True)
+    cues, mutes, drop = sound_plan(cues_path, spec, total) if os.path.exists(cues_path) else ([], [], None)
+    voice = dict(spec["voice"], file=os.path.join(ROOT, spec["voice"]["file"])) if spec.get("voice") else None
+    music = None
+    if spec.get("music"):
+        mu = spec["music"]
+        music = {"file": os.path.join(ROOT, mu["file"]), "db": mu.get("db", -20), "mutes": mutes + (mu.get("mutes") or []),
+                 "seek": mu.get("seek", 0), "delay": mu.get("delay", 0), "drop_t": mu.get("drop_t")}
+        if drop is not None or mu.get("drop_at") is not None:
+            music = audiofx.place_music(music, drop if drop is not None else mu["drop_at"])
+    vs, words = spec.get("voice_start", 0), spec.get("words") or []
+    out = {}
+    for name, kw in (("voice", {"voice": voice, "chain": spec.get("voice_chain")}), ("music", {"music": music}),
+                     ("sfx", {"cues": cues, "words": words, "voice_offset": vs})):
+        if not any(kw.get(k) for k in ("voice", "music", "cues")):
+            continue
+        tmp = os.path.join(outdir, f".{name}.mp4")
+        audiofx.mix(black, tmp, total, **kw)
+        out[name] = os.path.join(outdir, f"{name}.wav")
+        subprocess.run([FFMPEG, "-y", "-v", "error", "-i", tmp, "-vn", "-c:a", "pcm_s16le", "-ar", "48000", out[name]], check=True)
+        os.remove(tmp)
+    os.remove(black)
+    return out
 
 
 if __name__ == "__main__":

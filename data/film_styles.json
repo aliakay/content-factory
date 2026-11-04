@@ -1,7 +1,10 @@
 {
  "_about": "Film styles the motion designer can be handed as a whole visual bible (factory/capabilities.py turns each into a 'style.<id>' technique). Each one says what the medium IS and is NOT, how to render it in code here (CSS / SVG / canvas / Three.js + fxlib), composition, colour logic, type, motion quality, camera grammar, its own native transitions and its sound palette. post = film texture added in ffmpeg after capture (never drawn in the page: grain in the page makes every frame slow and incompressible). Written for this studio; references teach grammar only.",
  "styles": [
-  {"id": "riso_print", "name": "Risograph print", "tr": "Riso baskı",
+  {
+   "id": "riso_print",
+   "name": "Risograph print",
+   "tr": "Riso baskı",
    "essence": "Looks printed one ink at a time: 2-3 translucent spot inks on warm off-white paper, overprints make the extra colours, halftone dots for mid-tones, plates a few px out of register.",
    "not": "Not flat vector with a noise overlay, not CMYK pop-art, no outlines, no gradients except stepped halftone.",
    "render": "Draw each ink as its own layer (div / svg group) with mix-blend-mode: multiply over paper #f4eee2; each layer gets a fixed offset of 1-3 px per shot (misregistration), a kick of ~10 px decaying in 0.25 s on accents; halftone via CSS radial-gradient dots (period 7 px) masked onto shapes; a paper-white knockout halo (4 px) around characters.",
@@ -12,8 +15,39 @@
    "camera": "Wide lateral tracking with a small figure; locked composition for the one pause; push into the halftone until dots become shapes.",
    "transitions": "A roller sweep that adds the next ink; an overprint growing over the frame; a match cut on a flat shape. Never a cross-dissolve.",
    "sound": "Warm, dry, handmade: upright bass, vibraphone or marimba, brushed kit, shaker; each new ink can bring one instrument.",
-   "post": {"grain": 0.35}},
-  {"id": "ink_wash", "name": "Ink wash", "tr": "Mürekkep fırça",
+   "post": {
+    "grain": 0.35
+   },
+   "card": {
+    "palette": [
+     "#f4eee2",
+     "#0078bf",
+     "#ff48b0",
+     "#ffe800"
+    ],
+    "fonts": [
+     "Montserrat 900"
+    ],
+    "tr": {
+     "look": "Tek tek basılmış gibi: sıcak kâğıt üstünde 2-3 yarı saydam mürekkep, üst üste binen renkler, kaymış kalıplar.",
+     "type": "Ağır, kalın başlıklar; tek mürekkeple, hafif çift baskı.",
+     "motion": "Kâğıt kesik gibi kararlı hareketler; vurguda kalıp bir an kayar.",
+     "sound": "Kontrbas, vibrafon, fırçalı davul; sıcak ve kuru.",
+     "avoid": "Gradyan, kontur, CMYK pop-art, düz vektöre gürültü eklemek."
+    },
+    "en": {
+     "look": "Printed one ink at a time: 2-3 translucent inks on warm paper, overprints, plates slightly out of register.",
+     "type": "Heavy grotesque titles on one ink with a visible double hit.",
+     "motion": "Decisive, paper-like moves; plates kick out of register on accents.",
+     "sound": "Upright bass, vibraphone, brushed kit; warm and dry.",
+     "avoid": "Gradients, outlines, CMYK pop art, flat vector with a noise overlay."
+    }
+   }
+  },
+  {
+   "id": "ink_wash",
+   "name": "Ink wash",
+   "tr": "Mürekkep fırça",
    "essence": "Black ink brushed on rice paper: wet edges, dry-brush strokes, large empty paper, one seal-red accent.",
    "not": "Not a font on a beige gradient; no outlines everywhere; never fill the frame.",
    "render": "SVG paths with variable stroke widths drawn on (FX.drawOn) + feTurbulence displacement for the dry edge (FX.boil with px 2-3); washes as blurred low-opacity shapes; paper #efe9dc with a fibre noise layer.",
@@ -24,8 +58,41 @@
    "camera": "Slow vertical pans down a scroll; a push through mist layers.",
    "transitions": "Ink blooming into the next scene; a brush stroke that wipes across and becomes the horizon.",
    "sound": "Guqin / koto-like plucks, a low flute, wind, water drips; long silences.",
-   "post": {"grain": 0.2, "vignette": 0.25}},
-  {"id": "cut_paper", "name": "Cut-paper diorama", "tr": "Kâğıt kesik diorama",
+   "post": {
+    "grain": 0.2,
+    "vignette": 0.25
+   },
+   "card": {
+    "palette": [
+     "#f1ece1",
+     "#161513",
+     "#6e6a63",
+     "#c8372d"
+    ],
+    "fonts": [
+     "Instrument Serif",
+     "Cormorant Garamond"
+    ],
+    "tr": {
+     "look": "Kâğıda fırçayla mürekkep: üç tonda siyah, bol boşluk, tek kırmızı mühür.",
+     "type": "Az kelime, küçük serif; dikey dizilebilir.",
+     "motion": "Yavaş, nefes alan; mürekkep yayılarak belirir.",
+     "sound": "Shakuhachi, koto, uzun sessizlikler.",
+     "avoid": "Kalabalık kare, parlak renkler, sert kesmeler."
+    },
+    "en": {
+     "look": "Brush ink on paper: black in three dilutions, a lot of empty space, one red seal.",
+     "type": "Few words, small serif; vertical stacks allowed.",
+     "motion": "Slow and breathing; ink spreads into place.",
+     "sound": "Shakuhachi, koto, long silences.",
+     "avoid": "Busy frames, bright colours, hard cuts."
+    }
+   }
+  },
+  {
+   "id": "cut_paper",
+   "name": "Cut-paper diorama",
+   "tr": "Kâğıt kesik diorama",
    "essence": "Layered cut card stock in depth: every shape is a flat paper piece with a soft drop shadow on the one behind it.",
    "not": "Not flat vector; no gradients inside a piece; no outlines.",
    "render": "Absolutely positioned divs / SVG paths with irregular edges, box-shadow 0 6px 10px rgba(0,0,0,.25); 4-6 depth layers moving at different speeds (parallax); a faint paper texture per colour.",
@@ -36,8 +103,41 @@
    "camera": "Lateral parallax tracking; a push through the layers into the next scene.",
    "transitions": "A layer slides across and becomes the next set; a pop-up fold.",
    "sound": "Paper rustles and slides, felt and wood knocks, music box, pizzicato strings.",
-   "post": {"grain": 0.15}},
-  {"id": "blueprint", "name": "Blueprint", "tr": "Teknik çizim",
+   "post": {
+    "grain": 0.15
+   },
+   "card": {
+    "palette": [
+     "#e9d8b4",
+     "#d9734e",
+     "#7a9e7e",
+     "#355070",
+     "#f2c14e"
+    ],
+    "fonts": [
+     "Shrikhand",
+     "Montserrat 800"
+    ],
+    "tr": {
+     "look": "Katman katman kesilmiş karton: yumuşak gölgeler, mat dokular, derinlik.",
+     "type": "Kâğıttan kesilmiş başlıklar, aynı gölgeyle.",
+     "motion": "Katmanlar ayrı hızlarda kayar (paralaks); parçalar kâğıt gibi sallanarak oturur.",
+     "sound": "Kalimba, ukulele, el çırpma; neşeli ve el yapımı.",
+     "avoid": "Parlak yüzey, 3D render görünümü, beşten fazla renk."
+    },
+    "en": {
+     "look": "Layered cut card: soft drop shadows, matte textures, depth.",
+     "type": "Titles cut from paper with the same drop shadow.",
+     "motion": "Layers slide at different speeds (parallax); pieces settle with a paper wobble.",
+     "sound": "Kalimba, ukulele, hand claps; cheerful and handmade.",
+     "avoid": "Glossy surfaces, a 3D-render look, more than five colours."
+    }
+   }
+  },
+  {
+   "id": "blueprint",
+   "name": "Blueprint",
+   "tr": "Teknik çizim",
    "essence": "A technical drawing that draws itself: white and light-cyan lines on cobalt, dimensions, callouts and section cuts that explain how a thing works.",
    "not": "Not a generic HUD; no glow; no 3D renders.",
    "render": "SVG strokes (FX.drawOn) with a fine 40 px grid; dimension lines with arrowheads and numbers; hatching for sections; occasional exploded views built from the same lines.",
@@ -48,8 +148,39 @@
    "camera": "Pushes into a detail circle; pans along an assembly; an exploded view separating on one axis.",
    "transitions": "The current drawing gets erased by a sweeping line; zoom through a detail circle into the next sheet.",
    "sound": "Pencil and drafting sounds as light ticks, a clean minimal synth pulse, a soft click per callout.",
-   "post": {"grain": 0.1}},
-  {"id": "archive_film", "name": "Archive newsreel", "tr": "Arşiv filmi",
+   "post": {
+    "grain": 0.1
+   },
+   "card": {
+    "palette": [
+     "#1d3f8f",
+     "#f2f6ff",
+     "#8fd3ff",
+     "#ffb547"
+    ],
+    "fonts": [
+     "Inter Tight 600"
+    ],
+    "tr": {
+     "look": "Kobalt zeminde beyaz teknik çizim: ölçü çizgileri, ızgara, tek kehribar vurgu.",
+     "type": "Geniş aralıklı büyük harf etiketler; sayılar birimiyle.",
+     "motion": "Çizgiler kendini çizer; kamera parçaya yaklaşır, patlatılmış görünüm.",
+     "sound": "Minimal elektronik, mekanik tıkırtılar, düşük nabız.",
+     "avoid": "Fotoğraf, gölge, dekoratif yazı tipi, birimsiz sayı."
+    },
+    "en": {
+     "look": "White technical drawing on cobalt: dimension lines, grid, one amber highlight.",
+     "type": "Wide-tracked caps for labels; numbers always with units.",
+     "motion": "Lines draw themselves; the camera moves into a part, exploded views.",
+     "sound": "Minimal electronics, mechanical clicks, a low pulse.",
+     "avoid": "Photos, drop shadows, decorative fonts, numbers without units."
+    }
+   }
+  },
+  {
+   "id": "archive_film",
+   "name": "Archive newsreel",
+   "tr": "Arşiv filmi",
    "essence": "A 1930s-60s newsreel: black-and-white or sepia, gate weave, flicker, film grain, bold title cards with an announcer's urgency.",
    "not": "Not a sepia filter over modern graphics; no flat UI; no modern sans titles.",
    "render": "Monochrome scenes (CSS filter grayscale/sepia on the scene), vintage cards with heavy borders; photos from the open-licence stock pipeline where real; the texture (grain, flicker, weave, vignette) comes from the post-pass.",
@@ -60,8 +191,44 @@
    "camera": "Slow pushes on photos (Ken Burns), sudden snap zooms on a detail.",
    "transitions": "Iris in / out to black; a quick whip; a flash frame.",
    "sound": "Brass fanfare-like stabs, a marching snare, crowd murmur, projector rattle under everything.",
-   "post": {"grain": 0.8, "flicker": true, "weave": true, "vignette": 0.45, "mono": true}},
-  {"id": "swiss_grid", "name": "Swiss grid motion", "tr": "İsviçre grid'i",
+   "post": {
+    "grain": 0.8,
+    "flicker": true,
+    "weave": true,
+    "vignette": 0.45,
+    "mono": true
+   },
+   "card": {
+    "palette": [
+     "#111111",
+     "#eeeeee",
+     "#8a8a8a",
+     "#b5651d"
+    ],
+    "fonts": [
+     "Anton",
+     "Playfair Display 900"
+    ],
+    "tr": {
+     "look": "Eski film: siyah-beyaz ya da sepya, gren, titreme, çerçeve kayması.",
+     "type": "Ara yazı kartlarında büyük harf, küçük serif alt yazılar.",
+     "motion": "Kesik kesik, döneminin kamerası; ara yazı kartlarıyla bölünür.",
+     "sound": "Piyano, gramofon cızırtısı, projektör sesi.",
+     "avoid": "Temiz dijital görüntü, doygun renk, modern geçişler."
+    },
+    "en": {
+     "look": "Old film: black and white or sepia, grain, flicker, gate weave.",
+     "type": "Caps on title cards, small serif captions.",
+     "motion": "Period camera, a little jerky; broken up by title cards.",
+     "sound": "Piano, gramophone crackle, projector whirr.",
+     "avoid": "Clean digital picture, saturated colour, modern transitions."
+    }
+   }
+  },
+  {
+   "id": "swiss_grid",
+   "name": "Swiss grid motion",
+   "tr": "İsviçre grid'i",
    "essence": "International typographic style in motion: a strict grid, huge type, red, black and white, information as composition.",
    "not": "No decoration, no gradients, no shadows, no illustrations; nothing off the grid.",
    "render": "CSS grid of 12 columns; text blocks that snap to columns; rules and blocks of solid colour; numbers enormous.",
@@ -72,8 +239,37 @@
    "camera": "No camera wobble: cuts and slides along the grid lines.",
    "transitions": "A colour block sweeps across a column; type pushes the previous type off the grid.",
    "sound": "Precise: tight clicks, a minimal techno pulse, crisp ticks on every snap.",
-   "post": {}},
-  {"id": "retro_cel", "name": "Retro cel animation", "tr": "Retro cel animasyon",
+   "post": {},
+   "card": {
+    "palette": [
+     "#f5f5f0",
+     "#111111",
+     "#e3262d"
+    ],
+    "fonts": [
+     "Inter Tight 800",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Sıkı ızgara, beyaz zemin, siyah tipografi, tek kırmızı.",
+     "type": "Sıkı aralıklı kalın başlıklar, sola dayalı.",
+     "motion": "Izgaraya oturan net kaymalar; her şey hizada.",
+     "sound": "Minimal tekno, temiz ritim.",
+     "avoid": "Ortalanmış yazı, süs, gölge, üçten fazla renk."
+    },
+    "en": {
+     "look": "A strict grid, white ground, black type, one red.",
+     "type": "Tight-tracked heavy headlines, flush left.",
+     "motion": "Crisp slides that land on the grid; everything aligned.",
+     "sound": "Minimal techno, a clean beat.",
+     "avoid": "Centred text, ornament, shadows, more than three colours."
+    }
+   }
+  },
+  {
+   "id": "retro_cel",
+   "name": "Retro cel animation",
+   "tr": "Retro cel animasyon",
    "essence": "Hand-painted cel look: flat colours with one hard shadow shape, speed lines, sunset gradients, glints, on twos.",
    "not": "No soft 3D shading, no photo backgrounds, no modern flat UI.",
    "render": "SVG shapes with flat fills + one hard-edged shadow shape each; painted gradient skies; speed-line fields for action; FX.boil lightly on outlines; characters with FX.stickman or custom SVG on twos.",
@@ -84,8 +280,41 @@
    "camera": "Pan across a long background, a push on a face, a shake on impact.",
    "transitions": "Smash cut on an impact frame; a white flash; a wipe made of speed lines.",
    "sound": "Synth-pop bass and gated drums, brassy synth stabs, whooshes on every big move, a sparkle on glints.",
-   "post": {"grain": 0.25}},
-  {"id": "hologram_hud", "name": "Hologram HUD", "tr": "Hologram arayüz",
+   "post": {
+    "grain": 0.25
+   },
+   "card": {
+    "palette": [
+     "#2b1055",
+     "#d53f8c",
+     "#ff8c42",
+     "#ffd166",
+     "#ffffff"
+    ],
+    "fonts": [
+     "Shrikhand",
+     "Anton"
+    ],
+    "tr": {
+     "look": "80'ler cel animasyonu: gün batımı pembeleri, morlar, sert gölgeler, parıltılar.",
+     "type": "Sert gölgeli ya da krom başlıklar.",
+     "motion": "Az kareli, hızlı poz değişimleri, hız çizgileri.",
+     "sound": "Synthwave, gated davul, analog synth.",
+     "avoid": "Yumuşak gradyan 3D, düz kurumsal vektör."
+    },
+    "en": {
+     "look": "80s cel animation: sunset magentas and violets, hard shadows, glints.",
+     "type": "Titles with a hard offset shadow or chrome.",
+     "motion": "Animated on twos, snappy poses, speed lines.",
+     "sound": "Synthwave, gated drums, analog synths.",
+     "avoid": "Soft-gradient 3D, flat corporate vector."
+    }
+   }
+  },
+  {
+   "id": "hologram_hud",
+   "name": "Hologram HUD",
+   "tr": "Hologram arayüz",
    "essence": "Sci-fi interface projected in space: thin cyan lines, scanlines, data rings, glitches, everything assembled from light.",
    "not": "Not a dashboard screenshot; no heavy fills; no paper textures.",
    "render": "SVG thin strokes, rings and ticks drawn on; additive glow via CSS text/box-shadow; scanline overlay; FX.scramble for labels; occasional FX.three for a wireframe object.",
@@ -96,8 +325,39 @@
    "camera": "Orbit around the object; push into a panel.",
    "transitions": "A glitch tear; panels folding into lines and re-expanding into the next scene.",
    "sound": "Soft synth beeps (sparingly), a low drone, data ticks, a power-up swell on reveals.",
-   "post": {"grain": 0.15, "vignette": 0.3}},
-  {"id": "woodcut", "name": "Woodcut", "tr": "Ağaç baskı",
+   "post": {
+    "grain": 0.15,
+    "vignette": 0.3
+   },
+   "card": {
+    "palette": [
+     "#05080d",
+     "#3df0ff",
+     "#ff8a3d"
+    ],
+    "fonts": [
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Koyu zeminde camgöbeği arayüz: halkalar, ölçekler, parlayan çizgiler.",
+     "type": "Küçük, geniş aralıklı büyük harf; sayılar sayarak gelir.",
+     "motion": "Taramalar, açılan halkalar, sayaçlar; yalnız tehlikede turuncu.",
+     "sound": "Sentez darbeleri, arayüz bipleri, alçak uğultu.",
+     "avoid": "Kalabalık ekran, birden fazla vurgu rengi, okunmayan küçük yazı."
+    },
+    "en": {
+     "look": "A cyan interface on near-black: rings, scales, glowing lines.",
+     "type": "Small wide-tracked caps; numbers count up.",
+     "motion": "Scans, opening rings, counters; orange only for danger.",
+     "sound": "Synth pulses, UI blips, a low hum.",
+     "avoid": "Cluttered screens, more than one accent, unreadably small text."
+    }
+   }
+  },
+  {
+   "id": "woodcut",
+   "name": "Woodcut",
+   "tr": "Ağaç baskı",
    "essence": "Carved black lines on rough paper: gouge marks, bold silhouettes, one accent colour block printed slightly off.",
    "not": "No thin even lines, no gradients, no soft shadows.",
    "render": "SVG shapes in black with carved white gouge strokes (tapered paths) cut out of them; paper texture; one colour layer multiply-blended and offset 2 px.",
@@ -108,8 +368,39 @@
    "camera": "Mostly locked; slow pushes; cuts between symbolic close-ups.",
    "transitions": "A carved line sweeps across; a stamp-in of the next block.",
    "sound": "Wooden percussion, low frame drum, a single folk melody, paper and stamp thuds.",
-   "post": {"grain": 0.45}},
-  {"id": "miniature", "name": "Miniature world", "tr": "Minyatür dünya",
+   "post": {
+    "grain": 0.45
+   },
+   "card": {
+    "palette": [
+     "#efe6d2",
+     "#141414",
+     "#b8322a"
+    ],
+    "fonts": [
+     "Anton",
+     "Playfair Display 900"
+    ],
+    "tr": {
+     "look": "Oyma baskı: kalın siyah formlar, tarama çizgileri, kâğıt dokusu, tek vurgu rengi.",
+     "type": "Pürüzlü kenarlı büyük harfler.",
+     "motion": "Ağır, kararlı; baskı gibi bir anda belirir.",
+     "sound": "Davul, halk çalgıları, ahşap vurmalılar.",
+     "avoid": "Gri tonlar, yumuşak gölge, ince çizgi."
+    },
+    "en": {
+     "look": "Carved print: heavy black shapes, hatching, paper texture, one accent.",
+     "type": "Caps with rough edges.",
+     "motion": "Heavy and decisive; appears like a print being pulled.",
+     "sound": "Drums, folk instruments, wooden percussion.",
+     "avoid": "Greys, soft shadows, thin lines."
+    }
+   }
+  },
+  {
+   "id": "miniature",
+   "name": "Miniature world",
+   "tr": "Minyatür dünya",
    "essence": "A tiny toy world in 3D: shallow depth of field (tilt-shift), soft daylight, rounded toy shapes.",
    "not": "Not realistic 3D; no sharp everything-in-focus frames.",
    "render": "FX.set3d with the daylight or product rig, a 50-85 mm lens, rounded boxes and cylinders; blur bands top and bottom of the frame (backdrop-filter blur in two gradient-masked divs) to fake tilt-shift.",
@@ -120,8 +411,40 @@
    "camera": "A slow dolly across the tabletop; a crane down into a detail.",
    "transitions": "The camera flies over a building into the next block; a tilt up into the sky and down into the next place.",
    "sound": "Toy-like: marimba, glockenspiel, ukulele-free light percussion, tiny foley pitched up.",
-   "post": {"vignette": 0.2}},
-  {"id": "chalkboard", "name": "Chalkboard", "tr": "Kara tahta",
+   "post": {
+    "vignette": 0.2
+   },
+   "card": {
+    "palette": [
+     "#ffd6a5",
+     "#4cc9f0",
+     "#f72585",
+     "#80ed99",
+     "#3a86ff"
+    ],
+    "fonts": [
+     "Poppins 700"
+    ],
+    "tr": {
+     "look": "Oyuncak dünya: doygun renkler, sıcak ışık, üst ve altta bulanıklık (tilt-shift).",
+     "type": "Dünyanın içindeki küçük tabelalarda yuvarlak kalın yazı.",
+     "motion": "Yukarıdan bakan yavaş kamera, hızlandırılmış küçük hareketler.",
+     "sound": "Müzik kutusu, ksilofon, pizzicato.",
+     "avoid": "Gerçekçi ölçek, soğuk renkler, sert gölge."
+    },
+    "en": {
+     "look": "A toy world: saturated colours, warm light, blur at top and bottom (tilt-shift).",
+     "type": "Rounded heavy type on small signs inside the world.",
+     "motion": "A slow camera from above, small sped-up movements.",
+     "sound": "Music box, xylophone, pizzicato.",
+     "avoid": "Realistic scale, cold colours, hard shadows."
+    }
+   }
+  },
+  {
+   "id": "chalkboard",
+   "name": "Chalkboard",
+   "tr": "Kara tahta",
    "essence": "A teacher's board: dusty chalk lines drawn by hand, smudges, coloured chalk for emphasis, diagrams that build as the voice explains.",
    "not": "No clean vector, no fills, no fonts that look typed.",
    "render": "SVG strokes with a rough texture (FX.boil px 1.5 + a dotted stroke-dasharray for chalk grain), drawn on in order; a dark green-black board #1f2b26 with smudge layers.",
@@ -132,8 +455,40 @@
    "camera": "Pans along the board; a push on the conclusion.",
    "transitions": "A wipe like a board eraser sweep.",
    "sound": "Chalk scratches as soft ticks, a light piano, room tone of a classroom.",
-   "post": {"grain": 0.2}},
-  {"id": "noir", "name": "Noir", "tr": "Noir",
+   "post": {
+    "grain": 0.2
+   },
+   "card": {
+    "palette": [
+     "#23332c",
+     "#f2f2ea",
+     "#f3e37a",
+     "#f29bb5"
+    ],
+    "fonts": [
+     "Instrument Serif italic",
+     "Cormorant italic"
+    ],
+    "tr": {
+     "look": "Kara tahta: tebeşir beyazı, sarı ve pembe vurgular, silinmiş izler.",
+     "type": "El yazısı hissi veren italik serif.",
+     "motion": "Çizgiler elle çiziliyor gibi; okla, daireyle anlatır.",
+     "sound": "Akustik gitar, tebeşir sesi, sınıf ortamı.",
+     "avoid": "Düz renk dolgular, parlak neon, kusursuz geometri."
+    },
+    "en": {
+     "look": "A chalkboard: chalk white, yellow and pink for emphasis, smudged erasures.",
+     "type": "Italic serif with a handwritten feel.",
+     "motion": "Lines draw as if by hand; explains with arrows and circles.",
+     "sound": "Acoustic guitar, chalk scratches, a classroom room tone.",
+     "avoid": "Flat colour fills, bright neon, perfect geometry."
+    }
+   }
+  },
+  {
+   "id": "noir",
+   "name": "Noir",
+   "tr": "Noir",
    "essence": "High-contrast black and white: hard light, venetian-blind shadows, silhouettes, rain, one colour for the clue.",
    "not": "No mid-grey mush; no bright cheerful colours.",
    "render": "Black and white shapes with hard shadow stripes (repeating-linear-gradient), silhouettes (FX.stickman in black on a lit wall), rain as seeded line particles; the post-pass adds grain and vignette.",
@@ -144,6 +499,36 @@
    "camera": "Slow push on a face; a tilt across shadows; a sudden snap zoom on the clue.",
    "transitions": "Cut to black; a shadow sweeping across the frame.",
    "sound": "Muted trumpet, upright bass walking, rain bed, distant sirens, footsteps.",
-   "post": {"grain": 0.6, "vignette": 0.5, "mono": true}}
+   "post": {
+    "grain": 0.6,
+    "vignette": 0.5,
+    "mono": true
+   },
+   "card": {
+    "palette": [
+     "#0a0a0a",
+     "#f0f0f0",
+     "#d62828"
+    ],
+    "fonts": [
+     "DM Serif Display",
+     "Playfair Display"
+    ],
+    "tr": {
+     "look": "Kara film: derin siyahlar, jaluzi gölgeleri, sis, tek kırmızı ipucu.",
+     "type": "Eski jenerik gibi küçük beyaz serif.",
+     "motion": "Yavaş kayan ışık, siluetler, sert gölgeler.",
+     "sound": "Caz trompet, kontrbas, yağmur.",
+     "avoid": "Renk, düz aydınlatma, neşeli tempo."
+    },
+    "en": {
+     "look": "Film noir: deep blacks, venetian-blind shadows, haze, one red clue.",
+     "type": "Small white serif, like an old title card.",
+     "motion": "Slowly moving light, silhouettes, hard shadows.",
+     "sound": "Jazz trumpet, upright bass, rain.",
+     "avoid": "Colour, flat lighting, upbeat tempo."
+    }
+   }
+  }
  ]
 }

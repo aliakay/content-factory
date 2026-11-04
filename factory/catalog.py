@@ -103,6 +103,17 @@ FX.doodle(tl, root, 0.4, 'M200 600 Q540 400 880 600', {T, color: '#222'});""", "
 const set = FX.set3d(root, T, {lens: 35, light: 'night_interior', fog: '#0b1020'});
 set.room([8, 3, 6], '#3a4058'); set.box([1.6, 0.8, 0.9], [0, 0, -1], '#6b5a48'); set.practical([1.5, 1.6, -1.5], '#ffd59a', 1.6);
 set.dolly([0, 1.6, 6], [0, 1.4, 3.6], [0, 1, -1]);"""),
+    "look.math": (6, """
+FX.eqSteps(tl, root, [{tex: 'A = \\\\int_0^{2} x^2\\\\,dx', at: 0.2}, {tex: 'A = \\\\left[\\\\tfrac{x^3}{3}\\\\right]_0^{2}', at: 1.6},
+                      {tex: 'A = \\\\hl{\\\\tfrac{8}{3}}', at: 3.0}], {y: 520, size: 76});
+FX.plot(tl, root, {box: [140, 900, 800, 760], x: [-1, 3, 1], y: [0, 9, 3], at: 0.4, xlabel: 'x', ylabel: 'y',
+                   fns: [{f: (x) => x * x, at: 1.0, dur: 1.3, label: 'x²', labelAt: 2.6, area: [0, 2], areaAt: 3.2}],
+                   tracer: {from: 0, to: 2, at: 4.1, dur: 1.4}});"""),
+    "look.space3d": (6, """
+const k = FX.space(root, T, {range: 3, turn: 1.1});
+k.surface((x, y) => 1.4 * Math.exp(-(x * x + y * y) / 3) * Math.cos(1.3 * Math.hypot(x, y)), {at: 0.3, dur: 1.8});
+k.curve((t) => [2.4 * Math.cos(t), 2.4 * Math.sin(t), 0.25 * t - 0.8], {t: [0, 4 * Math.PI], at: 2.0, dur: 2.6, color: 'hot'});
+k.arrow([0, 0, 2.2], {at: 1.6, color: 'ink'}); k.label([0, 0, 2.4], 'z', {at: 1.9, tex: true});"""),
     "look.caused_transitions": (4, """
 const a = document.createElement('div'); a.style.cssText = 'position:absolute;inset:0;background:var(--accent)'; root.appendChild(a);
 const b = document.createElement('div'); b.style.cssText = 'position:absolute;inset:0;background:var(--accent2)'; root.appendChild(b); b.style.opacity = 0;

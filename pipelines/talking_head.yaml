@@ -1,0 +1,57 @@
+id: talking_head
+order: 6
+status: ready
+category: footage
+inputs: [video]
+duration: [15, 90]
+name: {tr: Konuşan kafa, en: Talking head}
+tagline:
+  tr: "Kameraya konuştuğun ham videodan sıkı, altyazılı bir kısa video."
+  en: "A tight, captioned short from your raw talk-to-camera video."
+makes:
+  tr: "Tekrarlar, takılmalar ve duraklamalar kesilir; yüz takibiyle dikey kadraj, punch-in'ler, B-roll, kelime kelime altyazı ve temiz ses zinciri."
+  en: "Retakes, stumbles and pauses are cut; face-tracked vertical framing, punch-ins, B-roll, word-level captions and a clean voice chain."
+good_for:
+  tr: ["Görüş ve yorum videoları", "İpuçları", "Hikâye anlatımı"]
+  en: ["Opinion and commentary", "Tips", "Storytelling"]
+not_for:
+  tr: ["Konuşma olmayan görüntüler"]
+  en: ["Footage without speech"]
+needs:
+  tr: "Ham konuşma videosu."
+  en: "A raw talking video."
+cost:
+  tr: "Kredi gerekmez (müzik istenmezse)."
+  en: "No credits needed (unless you want music)."
+stages:
+  - id: idea
+    gate: true
+    run: code
+    call: factory.hat.talkhead:idea
+
+  - id: script
+    gate: true
+    artifact: cut
+    name: {tr: Kesim kararı, en: Cut decision}
+    run: code
+    call: factory.hat.talkhead:script
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.talkhead:assets
+    tools: [music, preview_render]
+
+  - id: edit
+    run: code
+    call: factory.hat.talkhead:edit
+
+  - id: compose
+    run: code
+    call: factory.hat.talkhead:compose
+    tools: [final_render, qa_technical, qa_sound, thumbnails, deliver]
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.talkhead:publish

@@ -341,6 +341,27 @@ CAPS = {
         "designer": "Block out with FX.set3d(root, T, {lens, light, fog}) -> set.room / set.floor / set.box / set.practical "
                     "/ set.dolly; big shapes first, ground contact (nothing floats), foreground-midground-background.",
     },
+    "look.math": {
+        "area": "look", "tr": "Denklem ve grafik (Manim tarzı)", "kinds": ("topic",),
+        "what": "Maths shown the way a maths channel does it: equations typeset properly and written in term by term, a "
+                "derivation that steps down line by line with the changed part lit, function plots whose axes draw on "
+                "before the curve, the area under a curve filling in and a dot tracing the curve with its value.",
+        "designer": "FX.math(tl, root, at, tex, {x, y, size, mark}) writes LaTeX (KaTeX: no \\begin{document}, no "
+                    "packages); wrap the part that matters in \\hl{...}. FX.eqSteps(tl, root, [{tex, at}], {y, size}) "
+                    "for a derivation, one step per narration beat. FX.plot(tl, root, {box, x: [min, max, step], y: [...], "
+                    "fns: [{f: (x) => ..., at, dur, label, area: [a, b]}], points, tracer: {from, to, at, dur}, xlabel, "
+                    "ylabel}). Every number on screen comes from the script; a plot's range shows the part the "
+                    "narration talks about.",
+    },
+    "look.space3d": {
+        "area": "look", "tr": "3D bilim sahnesi (yüzey, yörünge, vektör)", "kinds": ("topic",),
+        "what": "A turning 3D stage with axes and a floor grid for science scenes: a surface z = f(x, y) rising out of "
+                "the floor coloured by height, a parametric path (an orbit, a helix, a trajectory) drawn on with a "
+                "glowing head, vectors growing from the origin, labelled points.",
+        "designer": "k = FX.space(root, T, {range, turn}); k.surface((x, y) => z, {at, dur}); k.curve((t) => [x, y, z], "
+                    "{t: [a, b], at, dur}); k.arrow([x, y, z], {at}); k.dot(p, {at}); k.label(p, text, {at, tex}). "
+                    "Maths axes: z is up. Keep values inside the range; one idea per space, the camera does the turning.",
+    },
     "look.caused_transitions": {
         "area": "look", "tr": "Sebebi olan geçişler", "kinds": ("topic",),
         "what": "Every seam gets a transition caused by something on screen (iris from the click or an eye, a fat brush "
@@ -405,11 +426,16 @@ CAPS = {
     },
 }
 
-def _film_styles():
+def _film_styles(own=True):
+    """The library's film styles, then the creator's approved own styles (factory/ownstyles.py)."""
     try:
-        return json.load(open(os.path.join(ROOT, "data", "film_styles.json")))["styles"]
+        lib = json.load(open(os.path.join(ROOT, "data", "film_styles.json")))["styles"]
     except (OSError, ValueError, KeyError):
-        return []
+        lib = []
+    if own:
+        from . import ownstyles
+        lib = lib + ownstyles.approved()
+    return lib
 
 
 def film_style_bible(st):
@@ -419,14 +445,18 @@ def film_style_bible(st):
         f"  {k.upper()}: {st[k]}" for k in keys if st.get(k))
 
 
-for _st in _film_styles():
-    CAPS["style." + _st["id"]] = {
-        "area": "style", "tr": _st.get("tr") or _st["name"], "kinds": ("topic",), "style": True,
-        "what": f"{_st['name']}: {_st['essence']}",
-        "designer": film_style_bible(_st),
-        "writer": f"If you write sound.music_prompt, use this film style's sound palette: {_st.get('sound', '')}",
-        "data": {"post_fx": _st.get("post") or {}},
+def register_style(st):
+    CAPS["style." + st["id"]] = {
+        "area": "style", "tr": st.get("tr") or st["name"], "kinds": ("topic",), "style": True,
+        "what": f"{st['name']}: {st['essence']}",
+        "designer": film_style_bible(st),
+        "writer": f"If you write sound.music_prompt, use this film style's sound palette: {st.get('sound', '')}",
+        "data": {"post_fx": st.get("post") or {}},
     }
+
+
+for _st in _film_styles():
+    register_style(_st)
 
 
 DEFAULTS = {
@@ -437,6 +467,10 @@ DEFAULTS = {
 
 
 def get(cid):
+    if cid not in CAPS and str(cid).startswith("style.own_"):   # approved in another process since this one started
+        for st in _film_styles():
+            if "style." + st["id"] == cid:
+                register_style(st)
     return CAPS.get(cid)
 
 

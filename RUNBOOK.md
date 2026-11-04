@@ -4,6 +4,44 @@ The user's short-form video studio on this VM. I act as their **social-media exp
 video editor**: I propose ideas, get approval, edit/render, QA, and hand over videos + captions.
 On-screen text is **English**, market is **global**, channel is travel-first (TikTok + YouTube Shorts + Reels).
 
+## Factory v2 — production lines (since 2026-11)
+The Studio's Produce menu is v2: **Üret** (`#/uret`, pick a line and write the brief) → **Üretimler**
+(`#/uretimler`) → one production as a flow (`#/u/<id>`). Design: `docs/HAT_V2.md`; code: `factory/hat/`,
+`pipelines/`, `skills/`. The older sections below describe the v1 engines the lines still call.
+
+**Rules (binding, from the user):**
+- Every stage **stops at its gate**. Only the creator approves or gives feedback; never approve on their behalf.
+- ElevenLabs credits are spent only inside the budget locked at the proposal gate (`lock_budget`, counted across
+  stages by `explainer.spent_credits`) and the `credits.guard` cap.
+- TR UI = everything Turkish, EN UI = everything English; the video language is chosen per project.
+- The 11 old productions are a **read-only archive** (shown as "Arşiv"; every action is refused).
+- OpenMontage / AGPL / noncommercial repos: ideas only, no code.
+
+**How a stage runs:** the `hat_stage` job → `runner` → `agent.run_stage`. The author agent works through the tools
+(`tools.py`, MCP), submits its artifact (`submit_artifact` checks the schema and the meaning: mechanisms, numbers,
+...), then the reviewer (the other model) scores the rubric. It loops back on a critical finding, a score under
+`pass_score` (90) or an open critical in the ledger, at most 2 fix rounds. The reviewer judges a fresh render (stills,
+contact sheet, the lint and the measured grade). The gate card shows the score bars, the ledger and the grade.
+Feedback at a gate re-runs the stage with the note (max 3 revisions); reopening an earlier stage makes later ones
+stale. Frame comments (click a frame or the preview) revise only the scenes they name.
+
+**Operating:**
+- Logs: `projects/<id>/events.jsonl` (every tool call, review, error), `decisions.jsonl` (music ending, budget, ...),
+  `checkpoints/<stage>.json`. The provider and model per user: Settings → accounts (`users.json`).
+- A restart of the Studio kills a running stage agent: restart only when no stage is running (check `#/uretimler`).
+- A stage that failed (session limit, tool error) shows the error on its card; press continue to retry it.
+- Lint grade: `layout_lint` reports `grade slop|orta|maxxed <score>/100`; Slop is a major review finding.
+
+**Go-live (t602), in order** (only with the user's go-ahead, after the acceptance test t601):
+1. Back up the live data: `cp -a ~/tiktok/data ~/tiktok-data-backup-$(date +%F)` (and `projects/` if it exists).
+2. Merge `feat/hat-v2` into `main` on GitHub (main is protected), then `git pull` in `~/tiktok`.
+3. `cd ~/tiktok/motion && npm install` (KaTeX for math scenes), `.venv/bin/python -m pytest -q tests/test_hat.py`.
+4. Import the old productions as the archive on the live data: `.venv/bin/python -m factory.hat.migrate` (dry run,
+   read the list), then `.venv/bin/python -m factory.hat.migrate --apply --archive`.
+5. Restart the Studio when no job is running (find the PID with `ps`, never `pkill -f`; `bin/start-factory.sh`
+   brings it back), open `#/uretimler` in TR and EN, and check that the 11 archive rows are there.
+6. Stop the test Studio on :8511 once the user no longer needs it.
+
 ## Studio (main panel since 2026-10-26)
 http://100.98.58.82:8501 — `studio/server.py` + `studio/index.html` (stdlib, Turkish UI, tailnet-only, POSTs need
 `X-Studio: 1`). Kept up by `bin/start-factory.sh` (cron), which also runs the old Streamlit panel on **:8503**

@@ -1,0 +1,5 @@
+{
+ "seconds": 3,
+ "css": "position:absolute;inset:0;background:#f4eee2",
+ "js": "E('left:-120px;top:260px;width:820px;height:820px;border-radius:50%;background:#ffe800;mix-blend-mode:multiply');\nE('left:300px;top:520px;width:700px;height:700px;border-radius:50%;background:radial-gradient(#ff48b0 38%,transparent 40%) 0 0/16px 16px;mix-blend-mode:multiply;opacity:.9');\nE('left:-40px;top:900px;width:1160px;height:1100px;background:#0078bf;clip-path:polygon(0 40%,30% 5%,55% 35%,80% 0,100% 30%,100% 100%,0 100%);mix-blend-mode:multiply;opacity:.92');\nE('left:-28px;top:1010px;width:1160px;height:1100px;background:#ff48b0;clip-path:polygon(0 55%,25% 25%,50% 50%,75% 20%,100% 45%,100% 100%,0 100%);mix-blend-mode:multiply;opacity:.75');\nE('left:76px;top:170px;font:900 190px/0.9 Montserrat;color:#ff48b0;mix-blend-mode:multiply', 'KIYI');\nE('left:70px;top:164px;font:900 190px/0.9 Montserrat;color:#0078bf;mix-blend-mode:multiply', 'KIYI');\ntl.from(root.children[2], {y: 60, duration: 1.2, ease: 'power2.out'}, 0);"
+}

@@ -100,6 +100,8 @@ def guard(con, kind, model, units, approved, account="ali"):
     if approved is None:
         raise BudgetError("no approved credit amount for this generation")
     est = estimate([{"kind": kind, "model": model, "units": units, "unit": ""}])
+    if est["unknown"] and approved <= 0:
+        raise BudgetError(f"{model} has no known price and nothing is left of the approved budget")
     need = est["total"] if not est["unknown"] else approved
     if need > approved * 1.15:
         raise BudgetError(f"estimate {need} credits is above the approved {approved}")

@@ -1,0 +1,100 @@
+# Shared stage vocabulary for every production line (pipelines/*.yaml).
+# A manifest lists stage ids in order; each id takes its display name, the one-line explanation shown on the
+# Studio flow and its default artifact from here. A manifest may override any of these per stage.
+# User-facing text is bilingual (tr / en): the Studio shows the language the user picked.
+
+research:
+  artifact: research
+  name: {tr: Araştırma, en: Research}
+  says: {tr: "Konu kaynaklarıyla araştırılır: veri noktaları, açılar, yaygın yanlışlar, görsel referanslar.",
+         en: "The topic is researched with sources: data points, angles, common misconceptions, visual references."}
+  gate_says: {tr: "", en: ""}
+
+proposal:
+  artifact: proposal
+  name: {tr: Öneri, en: Proposal}
+  says: {tr: "Üç farklı konsept, seçilen yol, kalem kalem maliyet ve render süresi.",
+         en: "Three distinct concepts, the chosen path, an itemised cost and the render time."}
+  gate_says: {tr: "Onaylarsan konsept ve bütçe kilitlenir. Kredi harcayan adımlar bu bütçeyi aşamaz.",
+              en: "Approving locks the concept and the budget. Credit-spending steps cannot exceed it."}
+
+idea:
+  artifact: proposal
+  name: {tr: Fikir, en: Idea}
+  says: {tr: "Kaynak incelenir, ne üretileceği ve maliyeti netleşir.",
+         en: "The source is inspected; what to make and what it costs become clear."}
+  gate_says: {tr: "Onaylarsan plan ve bütçe kilitlenir.", en: "Approving locks the plan and the budget."}
+
+script:
+  artifact: script
+  name: {tr: Senaryo, en: Script}
+  says: {tr: "Seslendirme metni satır satır, süresi ve doğrulanmış iddialarıyla.",
+         en: "The narration line by line, with its timing and verified claims."}
+  gate_says: {tr: "Onaylarsan metin kilitlenir; ses bu metinle üretilir.",
+              en: "Approving locks the text; the voice is made from it."}
+
+character_design:
+  artifact: characters
+  name: {tr: Karakter tasarımı, en: Character design}
+  says: {tr: "Karakterlerin görünüşü, renkleri ve poz kütüphanesi.",
+         en: "How the characters look, their colours and pose library."}
+  gate_says: {tr: "Onaylarsan karakterler tüm sahnelerde bu haliyle kullanılır.",
+              en: "Approving fixes the characters for every scene."}
+
+rig_plan:
+  artifact: rig_plan
+  name: {tr: Rig planı, en: Rig plan}
+  says: {tr: "Karakterlerin hareket iskeleti ve pozları.", en: "The characters' motion rigs and poses."}
+  gate_says: {tr: "", en: ""}
+
+outline:
+  artifact: outline
+  name: {tr: Sahne taslağı, en: Scene outline}
+  says: {tr: "Ortak tasarım dili ve her sahnenin kısa tarifi; sahneler henüz çizilmez.",
+         en: "The shared design language and a short brief for every scene; nothing is drawn yet."}
+  gate_says: {tr: "Onaylarsan sahneler bölüm bölüm, aynı anda birkaç tasarımcıyla çizilir.",
+              en: "Approving has the scenes drawn chapter by chapter, by several designers at once."}
+
+scene_plan:
+  artifact: scene_plan
+  name: {tr: Sahne planı, en: Scene plan}
+  says: {tr: "Sahne sahne görsel dil, zamanlama ve tasarım kareleri.",
+         en: "Scene by scene: the visual language, timing and design frames."}
+  gate_says: {tr: "Onaylarsan tasarım kilitlenir; varlıklar bu plana göre üretilir.",
+              en: "Approving locks the design; assets are made for this plan."}
+
+assets:
+  artifact: assets
+  name: {tr: Varlıklar, en: Assets}
+  says: {tr: "Ses, müzik, görseller ve klipler üretilir; önizleme hazırlanır.",
+         en: "Voice, music, images and clips are made; a preview is prepared."}
+  gate_says: {tr: "Onaylarsan önizlemedeki ses ve görseller finalde kullanılır.",
+              en: "Approving keeps the previewed voice and visuals for the final."}
+
+edit:
+  artifact: edit
+  name: {tr: Kurgu, en: Edit}
+  says: {tr: "Kesimler, geçişler, altyazı ve ses miksi kararları.",
+         en: "Cuts, transitions, captions and sound-mix decisions."}
+  gate_says: {tr: "Onaylarsan kurgu bu haliyle render edilir.", en: "Approving renders the edit as it is."}
+
+compose:
+  artifact: render
+  name: {tr: Render, en: Render}
+  says: {tr: "Final render ve teknik, görsel, ses kalite kontrolü.",
+         en: "The final render and its technical, visual and sound quality checks."}
+  gate_says: {tr: "", en: ""}
+
+publish:
+  artifact: publish
+  name: {tr: Yayın, en: Publish}
+  says: {tr: "Açıklama, etiketler ve kapak adayları; video indirilmeye hazır.",
+         en: "Caption, hashtags and cover candidates; the video is ready to download."}
+  gate_says: {tr: "Onaylarsan video \"hazır\" olur; paylaşınca linkini ekleyebilirsin.",
+              en: "Approving marks the video ready; add its link once you post it."}
+
+capture:
+  artifact: capture
+  name: {tr: Yakalama, en: Capture}
+  says: {tr: "Ekran kaydı ya da terminal oturumu alınır.", en: "The screen or terminal session is recorded."}
+  gate_says: {tr: "", en: ""}

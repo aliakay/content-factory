@@ -1,0 +1,136 @@
+# Annotation recipes: pointing at what matters in a picture, a chart or a sentence. Our own cards (t510).
+- id: annotate.box_label
+  name: {tr: "Çerçeve ve etiket", en: "Box and label"}
+  use: {tr: "Bir görüntüdeki bölgeyi adlandırmak: 'burası mutfak', 'SONUÇ'.", en: "Naming a region of a picture: 'the kitchen', 'RESULT'."}
+  call: "FX.boxLabel(tl, root, at, [x, y, w, h], 'LABEL', {color})  (fractions of the frame)"
+  timing: {tr: "Nesne söylenirken, 0.5 s çizim; en az 1.2 s kalsın.", en: "As the thing is named, 0.5 s to draw; keep it 1.2 s or more."}
+  pitfalls:
+    tr: ["Koordinatlar karenin oranları (0-1), piksel değil.", "Aynı anda iki kutudan fazlası dikkati böler."]
+    en: ["Coordinates are fractions of the frame (0-1), not pixels.", "More than two boxes at once splits attention."]
+  seconds: 3
+  demo: |
+    D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    FX.boxLabel(tl, root, 0.4, [0.19, 0.3, 0.62, 0.4], 'THE WINDOW');
+- id: annotate.pin_label
+  name: {tr: "İğne ve etiket", en: "Pin label"}
+  use: {tr: "Haritada ya da fotoğrafta tek bir noktayı göstermek: 'SEN BURADASIN'.", en: "Marking one point on a map or photo: 'YOU ARE HERE'."}
+  call: "FX.pinLabel(tl, root, at, [x, y], 'TEXT', {dx, dy})"
+  timing: {tr: "0.4 s; noktayı söyleyen kelimede.", en: "0.4 s; on the word that names the point."}
+  pitfalls:
+    tr: ["Etiket kenara taşmasın: dx/dy ile içeri al.", "Altyazı bandına denk getirme."]
+    en: ["Keep the label in frame: pull it inside with dx/dy.", "Do not drop it on the caption band."]
+  seconds: 3
+  demo: |
+    D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    FX.pinLabel(tl, root, 0.4, [0.5, 0.42], 'YOU', {dx: 120, dy: -160});
+- id: annotate.spotlight
+  name: {tr: "Spot ışığı", en: "Spotlight"}
+  use: {tr: "Kalabalık bir görüntüde gözü tek noktaya çekmek; gerisi kararır.", en: "Pulling the eye to one spot in a busy picture; the rest dims."}
+  call: "FX.spotlight(tl, root, at, [x, y], {r, dur})"
+  timing: {tr: "0.8 s yumuşak kararma; anlatım o noktadayken kalsın.", en: "0.8 s soft dim; hold while the narration is about that spot."}
+  pitfalls:
+    tr: ["r çok küçükse konu kesilir: en az 180 px.", "Zaten karanlık görüntüde fark edilmez."]
+    en: ["A small r cuts the subject: 180 px or more.", "Unnoticed on an already dark picture."]
+  seconds: 3
+  demo: |
+    D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    FX.spotlight(tl, root, 0.4, [0.5, 0.42], {r: 240});
+- id: annotate.draw_arrow
+  name: {tr: "Çizilen ok", en: "Hand-drawn arrow"}
+  use: {tr: "Bir şeyden diğerine bağlantı, neden-sonuç, 'şuna bak'.", en: "A link from one thing to another, cause and effect, 'look here'."}
+  call: "svg = FX.svg(root, 1080, 1920); FX.drawOn(tl, FX.el(svg, 'path', {d, stroke, 'stroke-width', fill:'none'}), at)"
+  timing: {tr: "Gövde 0.6 s, uç 0.15 s sonra; bağlantı söylenirken.", en: "Shaft 0.6 s, head 0.15 s after; while the link is said."}
+  pitfalls:
+    tr: ["Ucu gövdeden sonra çiz, aynı anda değil.", "stroke-linecap: round eklenmezse uçlar kesik görünür."]
+    en: ["Draw the head after the shaft, not together.", "Without stroke-linecap: round the ends look chopped."]
+  seconds: 3
+  demo: |
+    const a = D('CAUSE', 'left:110px;top:560px;font:900 90px Inter Tight;color:var(--ink)'), b = D('EFFECT', 'right:110px;top:1240px;font:900 90px Inter Tight;color:var(--accent)');
+    const svg = FX.svg(root, 1080, 1920), st = {stroke: '#ffb347', 'stroke-width': 14, fill: 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round'};
+    FX.drawOn(tl, FX.el(svg, 'path', {d: 'M300 700 C320 980 560 1100 780 1180', ...st}), 0.4, {dur: 0.7});
+    FX.drawOn(tl, FX.el(svg, 'path', {d: 'M700 1110 L790 1185 L690 1240', ...st}), 1.1, {dur: 0.2});
+- id: annotate.circle_it
+  name: {tr: "Daire içine alma", en: "Circle it"}
+  use: {tr: "Bir sayıyı, kelimeyi ya da yüzü elle çizilmiş halkayla işaretlemek.", en: "Ringing a number, a word or a face with a hand-drawn loop."}
+  call: "FX.drawOn(tl, FX.el(svg, 'path', {d: loop}), at, {dur})"
+  timing: {tr: "0.5-0.7 s; hafif açık bırakılmış döngü daha el yapımı görünür.", en: "0.5-0.7 s; a loop that overshoots its start looks hand-made."}
+  pitfalls:
+    tr: ["Tam çember (ellipse) makine gibi durur: üst üste binen bir path kullan.", "Yazının üstüne değil etrafına çiz."]
+    en: ["A perfect ellipse looks mechanical: use an overlapping path.", "Draw around the text, not over it."]
+  seconds: 3
+  demo: |
+    D('Only <b style="color:var(--accent)">3%</b> of people<br>finish the course', 'left:0;right:0;top:820px;text-align:center;font:800 90px/1.25 Inter Tight;color:var(--ink)');
+    const svg = FX.svg(root, 1080, 1920);
+    FX.drawOn(tl, FX.el(svg, 'path', {d: 'M450 830 C310 820 290 960 410 960 C550 965 590 870 490 828 C450 815 400 830 380 850', stroke: '#ff5a5f', 'stroke-width': 9, fill: 'none', 'stroke-linecap': 'round'}), 0.6, {dur: 0.6});
+- id: annotate.underline
+  name: {tr: "Altını çizme", en: "Underline stroke"}
+  use: {tr: "Cümlede bir ifadeyi kalemle çizer gibi vurgulamak.", en: "Stressing a phrase as if with a pen."}
+  call: "FX.drawOn(tl, FX.el(svg, 'path', {d: 'M x1 y Q .. x2 y'}), at, {dur: 0.4})"
+  timing: {tr: "0.35-0.45 s, ifade söylenirken soldan sağa.", en: "0.35-0.45 s, left to right while the phrase is said."}
+  pitfalls:
+    tr: ["Hafif eğri dalga düz çizgiden daha canlı.", "Çizgiyi yazının taban çizgisinin 10-20 px altına koy."]
+    en: ["A slight wave reads livelier than a straight rule.", "Sit the stroke 10-20 px below the baseline."]
+  seconds: 2.5
+  demo: |
+    D('It is not about <span style="color:var(--accent)">talent</span>', 'left:90px;top:860px;font:800 92px Inter Tight;color:var(--ink)');
+    const svg = FX.svg(root, 1080, 1920);
+    FX.drawOn(tl, FX.el(svg, 'path', {d: 'M690 985 Q800 970 990 988', stroke: '#ffb347', 'stroke-width': 10, fill: 'none', 'stroke-linecap': 'round'}), 0.6, {dur: 0.4});
+- id: annotate.strike
+  name: {tr: "Üstünü çizme", en: "Strike-through"}
+  use: {tr: "Yanlış bir inanışı, eski bir fiyatı, iptal edilen bir planı silmek.", en: "Cancelling a myth, an old price, a dropped plan."}
+  call: "FX.drawOn(tl, FX.el(svg, 'path', {d: line through the text}), at, {dur: 0.3})"
+  timing: {tr: "0.3 s, 'yanlış' / 'artık değil' söylenirken; ardından doğrusu gelsin.", en: "0.3 s, on 'wrong' / 'not anymore'; then bring the right one."}
+  pitfalls:
+    tr: ["Silinen metin okunur kalsın: çizgi kalın ama yarı saydam değil.", "Doğrusunu göstermeden bırakma."]
+    en: ["Keep the struck text readable: a bold but thin enough stroke.", "Never leave it without showing the right answer."]
+  seconds: 3
+  demo: |
+    D('$99', 'left:0;right:0;top:700px;text-align:center;font:900 200px Inter Tight;color:var(--muted)');
+    const now = D('$49', 'left:0;right:0;top:1000px;text-align:center;font:900 220px Inter Tight;color:var(--accent)');
+    const svg = FX.svg(root, 1080, 1920);
+    FX.drawOn(tl, FX.el(svg, 'path', {d: 'M360 830 L720 790', stroke: '#ff5a5f', 'stroke-width': 18, fill: 'none', 'stroke-linecap': 'round'}), 0.5, {dur: 0.3});
+    tl.from(now, {opacity: 0, scale: 0.8, duration: 0.4, ease: 'back.out(2)'}, 1.1);
+- id: annotate.doodle
+  name: {tr: "Karalama", en: "Doodle"}
+  use: {tr: "Elle çizilmiş bir yıldız, kıvrım, bulut: samimi, defter tonu.", en: "A hand-drawn star, swirl, cloud: a friendly notebook tone."}
+  call: "FX.doodle(tl, root, at, 'M.. path', {T, color})"
+  timing: {tr: "0.6-1 s; çizildikten sonra hafif kaynar (12 fps).", en: "0.6-1 s; it boils a little after it is drawn (12 fps)."}
+  pitfalls:
+    tr: ["Path'i 1080x1920 çizim biriminde ver.", "Pürüzsüz grafiklerle karıştırırsan dil bozulur."]
+    en: ["Give the path in 1080x1920 drawing units.", "Mixing it with slick graphics breaks the language."]
+  seconds: 3
+  demo: |
+    D('good idea', 'left:0;right:0;top:900px;text-align:center;font:400 120px Instrument Serif;color:#222');
+    FX.doodle(tl, root, 0.3, 'M540 700 L570 780 L655 785 L588 835 L612 915 L540 870 L468 915 L492 835 L425 785 L510 780 Z', {T, color: '#222'});
+  css: "position:absolute;inset:0;background:#f6f1e6"
+- id: annotate.number_badge
+  name: {tr: "Numara rozeti", en: "Number badge"}
+  use: {tr: "Sıralı adımları ya da listedeki yeri göstermek: 1, 2, 3.", en: "Showing step order or a list position: 1, 2, 3."}
+  call: "badge = D(n); tl.fromTo(badge, {scale:0}, {scale:1, ease:'back.out(3)'}, at)"
+  timing: {tr: "0.35 s; adımın ilk kelimesinde.", en: "0.35 s; on the first word of the step."}
+  pitfalls:
+    tr: ["Rozet metni kapatmasın: solda sabit bir sütunda dursun.", "Numaralar ve söylenen sıra aynı olmalı."]
+    en: ["Do not cover the text: keep badges in a fixed left column.", "Numbers must match the spoken order."]
+  seconds: 3
+  demo: |
+    ['Breathe in', 'Hold it', 'Let go'].forEach((s, i) => {
+      const b = D(String(i + 1), `left:110px;top:${640 + i * 220}px;width:130px;height:130px;border-radius:50%;background:var(--accent);color:var(--bg);font:900 80px/130px Inter Tight;text-align:center`);
+      const t = D(s, `left:290px;top:${660 + i * 220}px;font:800 80px Inter Tight;color:var(--ink)`);
+      tl.fromTo(b, {scale: 0}, {scale: 1, duration: 0.35, ease: 'back.out(3)'}, 0.3 + i * 0.7); tl.from(t, {opacity: 0, x: -30, duration: 0.4}, 0.4 + i * 0.7);
+    });
+- id: annotate.callout_card
+  name: {tr: "Bilgi balonu", en: "Callout card"}
+  use: {tr: "Bir nesnenin yanına kısa açıklama: fiyat, ölçü, yaş.", en: "A short fact beside a thing: a price, a size, an age."}
+  call: "line drawOn from the point, then the glass card: FX.glass(card); tl.from(card, {opacity:0, y:20})"
+  timing: {tr: "Çizgi 0.3 s, kart 0.3 s sonra; 2 s kalsın.", en: "Line 0.3 s, the card 0.3 s later; hold 2 s."}
+  pitfalls:
+    tr: ["Kart konuyu örtmesin; çizgi en az 120 px uzasın.", "Cam kart sadece desenli/fotoğraflı zeminde güzel durur."]
+    en: ["Do not cover the subject; the line runs 120 px or more.", "A glass card only shines over a picture or texture."]
+  seconds: 3
+  demo: |
+    D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    const svg = FX.svg(root, 1080, 1920);
+    FX.el(svg, 'circle', {cx: 540, cy: 820, r: 14, fill: '#fff'});
+    FX.drawOn(tl, FX.el(svg, 'path', {d: 'M540 820 L760 560', stroke: '#fff', 'stroke-width': 5, fill: 'none'}), 0.4, {dur: 0.3});
+    const c = D('<div style="font:800 54px Inter Tight">1.8 m</div><div style="font:500 34px Inter Tight;opacity:.8">window height</div>', 'left:640px;top:380px;padding:26px 34px;color:#fff');
+    FX.glass(c); tl.from(c, {opacity: 0, y: 20, duration: 0.35}, 0.7);

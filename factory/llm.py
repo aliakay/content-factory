@@ -180,8 +180,28 @@ def selected_model(step, requested=None, uid=None):
     return default_model(step, "codex")
 
 
-def _codex(prompt, tools, timeout, model, effort, step, approve_mcp=False):
+def _toml(v):
+    """A JSON value as a TOML literal for `codex -c key=value` (strings, lists, flat tables)."""
+    if isinstance(v, dict):
+        return "{" + ", ".join(f"{k}={_toml(x)}" for k, x in v.items()) + "}"
+    if isinstance(v, (list, tuple)):
+        return "[" + ", ".join(_toml(x) for x in v) + "]"
+    return json.dumps(v, ensure_ascii=False)
+
+
+def _codex_server_flags(servers):
+    """Our own stdio MCP servers ({name: {command, args, env}}) as Codex config overrides."""
+    flags = []
+    for name, s in (servers or {}).items():
+        for k in ("command", "args", "env"):
+            if s.get(k) is not None:
+                flags += ["-c", f"mcp_servers.{name}.{k}={_toml(s[k])}"]
+    return flags
+
+
+def _codex(prompt, tools, timeout, model, effort, step, approve_mcp=False, servers=None):
     """One Codex CLI turn. MCP write tools need the CLI's automatic approval review."""
+    approve_mcp = approve_mcp or bool(servers)    # our factory tools write the stage's files
     if approve_mcp:
         # ElevenLabs generation tools are write actions. With `never`, Codex rejects them
         # before they reach ElevenLabs; use its automatic review only for explicitly
@@ -192,7 +212,7 @@ def _codex(prompt, tools, timeout, model, effort, step, approve_mcp=False):
     if any(t in ("WebSearch", "WebFetch") for t in tools):
         cmd.append("--search")
     cmd += ["exec", "--json", "--ephemeral", "--sandbox", "workspace-write" if approve_mcp else "read-only", "--skip-git-repo-check",
-            "--model", model, "-C", WORKDIR, "-c", f'model_reasoning_effort="{effort}"', "-"]
+            "--model", model, "-C", WORKDIR, "-c", f'model_reasoning_effort="{effort}"', *_codex_server_flags(servers), "-"]
     os.makedirs(WORKDIR, exist_ok=True)
     try:
         p = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=timeout, cwd=WORKDIR)
@@ -301,12 +321,15 @@ def ask(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=False, 
     return extract_json(text), meta
 
 
-def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=False, effort=None):
+def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=False, effort=None, servers=None,
+             budget_usd=None):
     """Run one headless Claude turn; ask() returns (parsed_json, meta), ask_text() the raw reply text.
 
     Slim mode: no skills/slash commands and no MCP connectors are loaded (the craft rules travel in the prompt),
     which cuts the per-call context ~8x. Built-in tools (Read, WebSearch, WebFetch) still work.
     Transient failures (rate limits, concurrent sessions) are retried with backoff.
+    `servers` attaches our own stdio MCP servers ({name: {command, args, env}}, e.g. factory/hat/mcp_server.py) and
+    nothing else; their tools are named mcp__<name>__<tool> in `tools`. `budget_usd` caps a Claude run's spend.
     """
     import time
     from . import accounts
@@ -321,11 +344,19 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
     model = selected_model(step, model) if provider == "codex" or not mcp else (model or MODEL)
     level = min(effort, MAX_EFFORT, key=EFFORTS.index) if effort in EFFORTS else effort_for(step, model)
     if provider == "codex":
-        return _codex(prompt, tools, timeout, model, level, step, approve_mcp=mcp)
+        return _codex(prompt, tools, timeout, model, level, step, approve_mcp=mcp, servers=servers)
     cmd = [CLAUDE, "-p", prompt, "--output-format", "stream-json", "--verbose", "--allowedTools", ",".join(tools),
            "--disable-slash-commands"]
-    if not mcp:  # connectors (e.g. ElevenLabs) are only loaded when a step needs them
+    if servers:   # only our own servers: no claude.ai connectors next to them
+        os.makedirs(WORKDIR, exist_ok=True)
+        cfg = os.path.join(WORKDIR, f"mcp-{os.getpid()}-{abs(hash(json.dumps(servers, sort_keys=True))) % 10**8}.json")
+        with open(cfg, "w") as f:
+            json.dump({"mcpServers": {n: {"type": "stdio", **s} for n, s in servers.items()}}, f)
+        cmd += ["--mcp-config", cfg, "--strict-mcp-config"]
+    elif not mcp:  # connectors (e.g. ElevenLabs) are only loaded when a step needs them
         cmd.append("--strict-mcp-config")
+    if budget_usd:
+        cmd += ["--max-budget-usd", str(budget_usd)]
     cmd += ["--model", model or MODEL]
     global _NO_EFFORT_FLAG
     level = min(effort, MAX_EFFORT, key=EFFORTS.index) if effort in EFFORTS else effort_for(step, model)

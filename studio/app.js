@@ -90,16 +90,16 @@ function stageBadge(s) { return `<span class="badge stage st-${s}"><i class="dot
 function thumb(p) { return p.thumb_url || (p.thumb ? `/thumb/clip/${encodeURIComponent(p.thumb)}?t=${p.thumb_t || 0}` : ""); }
 
 // ---------------- shell ----------------
-const NAV = [
-  ["#/", "spark", "Stüdyo"], ["#/hat", "board", "Üretim panosu"], ["#/katalog", "layers", "Teknik kataloğu"], ["#/seriler", "book", "Seriler"], ["#/kesif", "compass", "Keşif"], ["#/takip", "chart", "Takip"],
+const NAV = [   // studio/hat.js puts "Üret" and "Üretimler" first; the old board and planner home are reached by link only
+  ["#/kesif", "compass", "Keşif"], ["#/takip", "chart", "Takip"],
   null,
-  ["#/videolar", "film", "Videolar"], ["#/stiller", "palette", "Stiller"], ["#/referanslar", "ref", "Referanslar"], ["#/yerler", "pin", "Yerler & çekimler"],
+  ["#/seriler", "book", "Seriler"], ["#/yerler", "pin", "Yerler & çekimler"], ["#/referanslar", "ref", "Referanslar"], ["#/katalog", "layers", "Teknik kataloğu"],
   null,
-  ["#/ses", "mic", "Ses & avatar"], ["#/butce", "coin", "Bütçe"], ["#/sinyal", "radar", "Sinyaller"], ["#/hesaplar", "user", "Hesaplar"],
+  ["#/ses", "mic", "Ses & avatar"], ["#/stiller", "palette", "Stiller"], ["#/butce", "coin", "Bütçe"], ["#/sinyal", "radar", "Sinyaller"], ["#/hesaplar", "user", "Hesaplar"],
 ];
 function navHtml(path) {
   let grp = 0;
-  const lbl = ["Üretim", "Kütüphane", "Sistem"];
+  const lbl = ["Üretim", "Kütüphane", "Ayarlar"];
   let out = `<div class="navlbl">${lbl[0]}</div>`;
   for (const n of NAV) {
     if (!n) { grp++; out += `<div class="navlbl">${lbl[grp]}</div>`; continue; }
@@ -130,7 +130,7 @@ function renderShell() {
     <span class="sp"></span>${running.length ? `<span class="jobs-ind on"><span class="spin"></span>${running.length}</span>` : ""}
     <button class="iconbtn" data-act="palette">${ICON.search}</button>`;
   const tab = (href, ic, t) => `<a href="${href}" class="${path === href ? "on" : ""}">${ICON[ic]}${t}</a>`;
-  $("#tabbar").innerHTML = tab("#/", "spark", "Stüdyo") + tab("#/hat", "board", "Pano") + `<button data-act="newPrompt"><span class="plus">${ICON.plus}</span></button>` + tab("#/kesif", "compass", "Keşif") + `<button data-act="drawer">${ICON.menu}Menü</button>`;
+  $("#tabbar").innerHTML = tab("#/uretimler", "film", "Üretimler") + tab("#/kesif", "compass", "Keşif") + `<a href="#/uret" aria-label="Üret"><span class="plus">${ICON.plus}</span></a>` + tab("#/takip", "chart", "Takip") + `<button data-act="drawer">${ICON.menu}Menü</button>`;
   $("#drawerPanel").innerHTML = `<div class="navlbl">Kanallar</div><div class="chlist">${S.channels.map((x) => `<a class="chav ${x.id === S.ch ? "on" : ""}" style="--c:${esc(x.color)};flex:none" href="#/c/${esc(x.id)}" data-act="pickChannel" data-id="${esc(x.id)}">${chAvatar(x)}</a>`).join("")}<a class="chav add" href="#/kanal-yeni" style="flex:none">+</a></div>${navHtml(path)}
     <div class="foot mt16"><button class="btn sm" data-act="theme">${document.documentElement.dataset.theme === "light" ? "🌙 Koyu" : "☀️ Açık"} tema</button></div>`;
 }
@@ -139,6 +139,7 @@ function modeTr(m) { return { footage: "çekimli", topic: "çekimsiz", mixed: "k
 
 // ---------------- router + poller ----------------
 const ROUTES = {};
+const ROUTE_RX = [];   // [regex, view] pairs other scripts add (studio/hat.js: #/u/<project>)
 let pollT = null, routeSeq = 0;
 function keepDrafts() { for (const el of $$("[data-keep]")) S.drafts[el.dataset.keep] = el.type === "checkbox" ? el.checked : el.value; }
 function restoreDrafts() { for (const el of $$("[data-keep]")) { const v = S.drafts[el.dataset.keep]; if (v !== undefined) { if (el.type === "checkbox") el.checked = v; else el.value = v; } } }
@@ -149,7 +150,7 @@ async function route(opts = {}) {
   const h = location.hash || "#/";
   const path = h.split("?")[0];
   let view = ROUTES[path], arg = null;
-  for (const [re, fn] of [[/^#\/p\/(\d+)/, viewProd], [/^#\/c\/([\w-]+)/, viewChannel], [/^#\/s\/(\d+)/, viewSeries]]) { const m = path.match(re); if (m) { view = fn; arg = m[1]; } }
+  for (const [re, fn] of [...ROUTE_RX, [/^#\/p\/(\d+)/, viewProd], [/^#\/c\/([\w-]+)/, viewChannel], [/^#\/s\/(\d+)/, viewSeries]]) { const m = path.match(re); if (m) { view = fn; arg = m[1]; } }
   view = view || viewHome;
   if (!opts.poll) { S.drafts = {}; S.sig = null; }
   renderShell();

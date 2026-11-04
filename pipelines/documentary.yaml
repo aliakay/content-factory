@@ -1,0 +1,58 @@
+id: documentary
+order: 11
+status: ready
+category: footage
+inputs: [theme]
+duration: [45, 120]
+name: {tr: Belgesel montaj, en: Documentary montage}
+tagline:
+  tr: "Açık lisanslı gerçek görüntülerden tematik bir montaj."
+  en: "A thematic montage of open-licence real footage."
+makes:
+  tr: "Wikimedia Commons, NASA ve Internet Archive arşivlerinden anlamca aranıp seçilen gerçek görüntülerle kurgulanmış, anlatımlı ya da yalnız müzikli bir montaj; görüntü kaynakları açıklamaya eklenir."
+  en: "A narrated or music-only montage cut from real footage found by meaning across Wikimedia Commons, NASA and the Internet Archive; footage credits go into the caption."
+good_for:
+  tr: ["Tarih, şehir ve doğa videoları", "\"Bir duygu\" videoları", "Üretim maliyeti olmadan gerçek görüntü"]
+  en: ["History, city and nature videos", "Mood pieces", "Real footage without generation costs"]
+not_for:
+  tr: ["Güncel haber (arşivde görüntüsü olmaz)"]
+  en: ["Breaking news (the archive has no footage of it)"]
+needs:
+  tr: "Bir tema ve ton. Anlatımsız için brifte \"yalnız müzik\" yaz."
+  en: "A theme and a tone. For no narration write \"music only\" in the brief."
+cost:
+  tr: "Görüntü ücretsiz; yalnız anlatım ve müzik ElevenLabs kredisi harcar."
+  en: "Footage is free; only narration and music cost ElevenLabs credits."
+stages:
+  - id: idea
+    gate: true
+    run: code
+    call: factory.hat.documentary:idea
+    tools: [estimate_cost]
+
+  - id: scene_plan
+    gate: true
+    artifact: plates
+    run: code
+    call: factory.hat.documentary:scene_plan
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.documentary:assets
+    tools: [tts, align_words, music]
+
+  - id: edit
+    gate: true
+    run: code
+    call: factory.hat.documentary:edit
+
+  - id: compose
+    run: code
+    call: factory.hat.documentary:compose
+    tools: [final_render, qa_technical, thumbnails, deliver]
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.documentary:publish

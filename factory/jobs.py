@@ -384,6 +384,34 @@ def run(job_id):
             from . import catalog
             done, failed = catalog.render_all(jload(arg, {}).get("ids") or None, bool(jload(arg, {}).get("force")))
             result = f"{len(done)} örnek klip" + (f", {len(failed)} hata: {failed[0]}" if failed else "")
+        elif kind == "recipe_demos":     # t510: the shotbook's demo clips (headless render, no Claude / credits)
+            from . import recipes
+            o = jload(arg, {})
+            done, failed = recipes.render_all(o.get("ids") or None, bool(o.get("force")))
+            result = f"{len(done)} reçete klibi" + (f", {len(failed)} hata: {failed[0]}" if failed else "")
+        elif kind == "own_style_sample":   # an own film style's sample frame (headless render, no Claude / credits)
+            from . import ownstyles
+            result = "örnek kare: " + ownstyles.render_sample(arg)["id"]
+        elif kind == "scene_frames":       # the scene editor's frames with clickable text boxes (headless, no credits)
+            from . import sceneedit
+            result = f"{sceneedit.frames(jload(arg, {})['project'])['frames']} kare"
+        elif kind == "export_pack":        # t505: SRT, stems, frames, GIF, FCPXML/EDL, alpha (no credits)
+            from . import export
+            o = jload(arg, {})
+            r = export.build(o["project"], o.get("items") or export.DEFAULT)
+            result = f"{len(r['files'])} dosya: {os.path.basename(r['zip'])}"
+        elif kind == "deliver":            # t506: one file per platform, verified, with the safe-area check (no credits)
+            from . import delivery
+            o = jload(arg, {})
+            r = delivery.build(o["project"], o.get("platforms") or [])
+            result = ", ".join(f"{x['platform']}: " + ("refused" if x.get("refused") else "ok" if x["ok"] else "check")
+                               for x in r["results"])
+        elif kind in ("minimax_draft", "minimax_final"):    # t508: a clip's 480p draft / its approved final (credits)
+            from .hat import minimax
+            o = jload(arg, {})
+            c = (minimax.draft if kind == "minimax_draft" else minimax.final)(o["project"], o["clip"])
+            x = c["draft" if kind == "minimax_draft" else "final"]
+            result = f"{c['id']}: {x['resolution']} {x['credits']} kredi"
         elif kind == "style_extract":
             o = jload(arg, {})
             result = "stil: " + styles.extract(o["files"], o.get("note", ""))
@@ -399,6 +427,9 @@ def run(job_id):
             pid = talk.create(con, os.path.join(ROOT, o["file"]), o.get("brief", ""), o.get("channel"), o.get("aspect", "9:16"),
                               o.get("recipe"), o.get("lang"))
             result = f"konuşma kurgusu {pid}"
+        elif kind == "hat_stage":   # one stage of a v2 production line; the line keeps moving until a gate
+            from .hat import runner
+            result = runner.run_job(arg, lambda k, a: queue(con, k, a, user=job["user"]))
         elif kind.startswith("p_"):
             result = run_production(con, kind, arg, job_id)
         elif kind == "ideas":

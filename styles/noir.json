@@ -1,0 +1,5 @@
+{
+ "seconds": 3,
+ "css": "position:absolute;inset:0;background:#0a0a0a",
+ "js": "E('inset:0;background:repeating-linear-gradient(-28deg,rgba(240,240,240,.16) 0 46px,transparent 46px 110px);clip-path:polygon(30% 0,100% 0,100% 70%,10% 100%)');\nE('left:420px;top:760px;width:240px;height:240px;border-radius:50%;background:#000');\nE('left:340px;top:960px;width:400px;height:960px;background:#000;border-radius:120px 120px 0 0');\nE('left:330px;top:700px;width:420px;height:70px;background:#000;border-radius:50%');\nE('left:610px;top:1100px;width:22px;height:22px;border-radius:50%;background:#d62828;box-shadow:0 0 24px #d62828');\nE('left:0;right:0;top:300px;text-align:center;font:400 72px DM Serif Display;color:#f0f0f0;letter-spacing:.08em', 'Son Tanık');\nE('inset:0;background:radial-gradient(circle at 50% 50%,transparent 40%,rgba(0,0,0,.75))');\ntl.from(root.children[0], {x: -200, duration: 2, ease: 'sine.inOut'}, 0);"
+}

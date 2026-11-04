@@ -1,0 +1,64 @@
+id: cinematic
+order: 4
+status: ready
+category: mixed
+inputs: [concept, footage]
+duration: [15, 90]
+name: {tr: Sinematik, en: Cinematic}
+tagline:
+  tr: "Fragman, marka filmi ya da duygu odaklı kısa bir film."
+  en: "A trailer, brand film or mood-led short."
+makes:
+  tr: "Kendi görüntün ve gerektiğinde yapay zekâyla üretilen video klipler (Kling, Veo, Seedance) ile atmosferi güçlü bir kurgu; müzik, ses tasarımı, film görünümü."
+  en: "A strongly atmospheric edit from your footage plus AI-generated clips where needed (Kling, Veo, Seedance); score, sound design, film look."
+good_for:
+  tr: ["Teaser ve fragmanlar", "Motivasyon videoları", "\"Bir dünya kur\" konseptleri"]
+  en: ["Teasers and trailers", "Motivation videos", "\"Build a world\" concepts"]
+not_for:
+  tr: ["Bilgi yoğun anlatım"]
+  en: ["Information-heavy explanation"]
+needs:
+  tr: "Bir konsept; varsa görüntü ya da referans."
+  en: "A concept; footage or a reference if you have them."
+cost:
+  tr: "Üretilen her video klip ElevenLabs kredisi harcar (modele göre); öneri aşamasında kalem kalem gösterilir."
+  en: "Every generated clip spends ElevenLabs credits (per model); itemised at the proposal."
+stages:
+  - id: idea
+    gate: true
+    run: code
+    call: factory.hat.cinematic:idea
+    tools: [catalog, media_models, estimate_cost]
+
+  - id: script
+    gate: true
+    artifact: shot_list
+    run: code
+    call: factory.hat.cinematic:script
+
+  - id: scene_plan
+    gate: true
+    artifact: plates
+    run: code
+    call: factory.hat.cinematic:scene_plan
+    tools: [image_gen]
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.cinematic:assets
+    tools: [video_gen, music, preview_render]
+
+  - id: edit
+    run: code
+    call: factory.hat.cinematic:edit
+
+  - id: compose
+    run: code
+    call: factory.hat.cinematic:compose
+    tools: [final_render, qa_technical, qa_sound, thumbnails, deliver]
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.cinematic:publish

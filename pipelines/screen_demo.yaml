@@ -1,0 +1,66 @@
+id: screen_demo
+order: 13
+status: ready
+category: capture
+inputs: [url]
+duration: [20, 120]
+name: {tr: Ekran demosu, en: Screen demo}
+tagline:
+  tr: "Uygulama ya da web gezintisinden cilalı bir demo videosu."
+  en: "A polished demo from an app or website walkthrough."
+makes:
+  tr: "Tarayıcının otomatik oynattığı bir web gezintisi; imleç, tıklanana yakınlaştırma, altyazı ve isteğe bağlı anlatım."
+  en: "A web walkthrough played by the browser: a visible cursor, zooms on what is clicked, captions and optional narration."
+good_for:
+  tr: ["Ürün tanıtımı", "\"Nasıl yapılır\" anlatımları", "Kod ve terminal demoları"]
+  en: ["Product demos", "How-to walkthroughs", "Code and terminal demos"]
+not_for:
+  tr: ["Gerçek dünya görüntüsü", "Giriş isteyen ya da yerel ağdaki sayfalar"]
+  en: ["Real-world footage", "Pages behind a login or on the local network"]
+needs:
+  tr: "Herkese açık bir web adresi (giriş gerektirmeyen). Sessiz demo için brifte \"sessiz\" yaz."
+  en: "A public web address (no login). For a silent demo write \"no voice\" in the brief."
+cost:
+  tr: "Yalnız anlatım ElevenLabs kredisi harcar; sessiz demo ücretsiz."
+  en: "Only the narration costs ElevenLabs credits; a silent demo is free."
+stages:
+  - id: idea
+    gate: true
+    run: code
+    call: factory.hat.screendemo:idea
+    tools: [estimate_cost]
+
+  - id: script
+    gate: true
+    run: code
+    call: factory.hat.screendemo:script
+
+  - id: capture
+    run: code
+    call: factory.hat.screendemo:capture
+
+  - id: scene_plan
+    gate: true
+    artifact: plates
+    run: code
+    call: factory.hat.screendemo:scene_plan
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.screendemo:assets
+    tools: [tts, align_words]
+
+  - id: edit
+    run: code
+    call: factory.hat.screendemo:edit
+
+  - id: compose
+    run: code
+    call: factory.hat.screendemo:compose
+    tools: [final_render, qa_technical, thumbnails, deliver]
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.screendemo:publish

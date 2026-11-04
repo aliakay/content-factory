@@ -241,6 +241,133 @@ generated image node id>"}}
     return path, cost, data.get("flow_id") or flow_id, data.get("node_id")
 
 
+VIDEO_MODEL = "bytedance-seedance-v2.5"
+
+
+def video(con, prompt_text, approved, seconds, account=None, aspect="9:16", flow_id=None, start=None, model=None,
+          audio=False, idea_id=None, inputs=None, resolution=None, rate_model=None, frame_aspect=False):
+    """One generated clip (mp4) through the connector. `start` = the node id of an image on flow `flow_id` that
+    becomes the clip's first frame (a keyframe the creator approved); `inputs` = {node_id: what it is} for models fed
+    by several nodes (an avatar: the presenter image and the voice). Returns (path, cost, flow_id, node_id).
+    `resolution` names the exact resolution (else the lowest of 720p or above); `rate_model` is the price key when
+    the price depends on more than the model (e.g. "minimax-h3-max@480p"); `frame_aspect` leaves the aspect to the
+    start frame (models that reject aspect_ratio with one). Cached by (model, prompt, inputs, seconds, aspect, audio,
+    resolution)."""
+    model = model or VIDEO_MODEL
+    rate_model = rate_model or model
+    inputs = dict(inputs or ({start: "the clip's start frame"} if start else {}))
+    key = "vid_" + hashlib.sha1((f"{model}|{aspect}|{sorted(inputs)}|{seconds}|{audio}|{prompt_text}"
+                                 + (f"|{resolution}" if resolution else "")).encode()).hexdigest()[:16]
+    cached = os.path.join(OUT, f"{key}.mp4")
+    meta_path = cached + ".json"
+    if os.path.exists(cached) and os.path.exists(meta_path):
+        m = json.load(open(meta_path))
+        return cached, 0.0, m.get("flow_id"), m.get("node_id")
+    account, acc = _account(account)
+    if acc["type"] == "apikey":
+        raise ElevenError("video üretimi yalnızca connector hesabıyla yapılabiliyor")
+    credits.guard(con, "video", rate_model, seconds, approved, account)
+    where = f' on flow_id "{flow_id}"' if flow_id else " (it creates a flow)"
+    wire = (f", connect_from {json.dumps(list(inputs))} ("
+            + "; ".join(f"{n} is {what}" for n, what in inputs.items()) + ")") if inputs else ""
+    prompt = f"""Use the ElevenLabs tools, in this order, exactly once each:
+1. Call creative_generate_video{where} with model_id "{model}"{wire}, generations_count 1, estimate_only true and
+   this prompt: <<<{prompt_text}>>>
+   This only creates the node (nothing is generated or charged); note its flow_id and node_id.
+2. Call creative_get_model_schema(node_type="video-generation", model_id="{model}") and creative_get_flow_node on
+   that node, then creative_update_node with only plain settings the schema lists: duration {seconds} s (the nearest
+   value the schema allows), {"no aspect_ratio (the start frame sets it)" if frame_aspect else f'"aspect_ratio": "{aspect}"'},
+   {f'"resolution": "{resolution}"' if resolution else "the lowest resolution of 720p or above"}, and audio generation
+   {"on" if audio else "off"} (when the schema has such a setting). Leave out every field that holds node references (input ports, already wired by step 1).
+3. creative_run_flow_nodes on that one node with generations_count 1.
+4. Poll creative_get_flow_run_status until finished, then read the signed video URL.
+Reply ONLY JSON: {{"url": "<signed video url>", "credit_cost": <number>, "flow_id": "<flow id>", "node_id": "<the
+video node id>"}}
+{ERROR_REPLY}"""
+    tools = (T + "creative_generate_video", T + "creative_get_flow_node", T + "creative_update_node",
+             T + "creative_run_flow_nodes", T + "creative_get_model_schema") + POLL_TOOLS
+    with _connector_context(account):
+        data, _ = _run(prompt, tools, timeout=1800, model=model, flow_id=flow_id)
+    path = _download(data["url"], "mp4", key)
+    cost = float(data.get("credit_cost") or 0)
+    json.dump({"flow_id": data.get("flow_id") or flow_id, "node_id": data.get("node_id"), "prompt": prompt_text,
+               "inputs": inputs}, open(meta_path, "w"))
+    credits.record(con, "video", rate_model, seconds, "s", cost, idea_id, prompt_text[:60], account)
+    return path, cost, data.get("flow_id") or flow_id, data.get("node_id")
+
+
+AVATAR_MODEL = "creatify-aurora"
+
+
+def avatar(con, image_node, audio_node, flow_id, seconds, approved, account=None, aspect="9:16", model=None,
+           prompt_text="The presenter speaks to camera, natural head movement and blinking, steady framing."):
+    """A talking presenter: the image node speaks the audio node (both on `flow_id`). Returns (path, cost)."""
+    path, cost, _, _ = video(con, prompt_text, approved, seconds, account, aspect, flow_id, model=model or AVATAR_MODEL,
+                             inputs={image_node: "the presenter image", audio_node: "the speech audio to lip-sync"})
+    return path, cost
+
+
+def new_flow(account=None, name="factory"):
+    """An empty flow (free) so nodes that feed each other can live together."""
+    prompt = f"""Call creative_create_flow once with name "{name}". Reply ONLY JSON: {{"flow_id": "<id>"}}"""
+    with _connector_context(account):
+        data, _ = llm.ask(prompt, tools=(T + "creative_create_flow",), timeout=300, mcp=True, model=CONNECTOR_MODEL)
+    if not isinstance(data, dict) or not data.get("flow_id"):
+        raise ElevenError(f"no flow created: {json.dumps(data)[:200]}")
+    return data["flow_id"]
+
+
+MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".mp3": "audio/mpeg",
+        ".wav": "audio/wav", ".m4a": "audio/mp4", ".mp4": "video/mp4", ".mov": "video/quicktime"}
+
+
+def upload(path, flow_id, account=None, put=None):
+    """Put a local file on flow `flow_id` as a reference node (free): the connector hands out an upload URL, the bytes
+    go there with one PUT from here (never through the model), then the upload is finalized onto the flow.
+    Returns the node id. Cached per (file content, flow)."""
+    mime = MIME.get(os.path.splitext(path)[1].lower())
+    if not mime:
+        raise ElevenError(f"unsupported file type: {os.path.basename(path)}")
+    digest = hashlib.sha1(open(path, "rb").read()).hexdigest()[:16]
+    meta_path = os.path.join(OUT, f"up_{digest}_{flow_id}.json")
+    if os.path.exists(meta_path):
+        return json.load(open(meta_path))["node_id"]
+    size = os.path.getsize(path)
+    with _connector_context(account):
+        data, _ = llm.ask(f"""Call creative_create_asset_upload once with name "{os.path.basename(path)}", mime_type
+"{mime}" and file_size {size}. Do not upload anything yourself. Reply ONLY JSON: {{"upload_url": "<url>", "asset_id": "<id>"}}
+{ERROR_REPLY}""", tools=(T + "creative_create_asset_upload",), timeout=300, mcp=True, model=CONNECTOR_MODEL)
+        if not isinstance(data, dict) or not data.get("upload_url") or not data.get("asset_id"):
+            raise ElevenError(explain((data or {}).get("error") if isinstance(data, dict) else data) or "no upload url")
+        (put or _put)(data["upload_url"], path, mime)
+        fin, _ = llm.ask(f"""Call creative_finalize_asset_upload once with asset_id "{data['asset_id']}" and flow_id
+"{flow_id}". Reply ONLY JSON: {{"node_id": "<the reference node id on the flow>"}}
+{ERROR_REPLY}""", tools=(T + "creative_finalize_asset_upload",), timeout=300, mcp=True, model=CONNECTOR_MODEL)
+    if not isinstance(fin, dict) or not fin.get("node_id"):
+        raise ElevenError(f"upload not finalized: {json.dumps(fin)[:200]}")
+    os.makedirs(OUT, exist_ok=True)
+    json.dump({"node_id": fin["node_id"], "asset_id": data["asset_id"], "file": os.path.basename(path)}, open(meta_path, "w"))
+    return fin["node_id"]
+
+
+def _put(url, path, mime):
+    req = urllib.request.Request(url, data=open(path, "rb").read(), method="PUT", headers={"Content-Type": mime})
+    with urllib.request.urlopen(req, timeout=600) as r:
+        if r.status >= 300:
+            raise ElevenError(f"upload PUT failed: HTTP {r.status}")
+
+
+def asset_node(asset_id, flow_id, modality="image", account=None):
+    """An asset already in the account (a saved presenter photo) placed on `flow_id` as a node (free)."""
+    with _connector_context(account):
+        data, _ = llm.ask(f"""Call creative_add_flow_asset_node once with flow_id "{flow_id}", modality "{modality}" and
+content_asset_id "{asset_id}". Reply ONLY JSON: {{"node_id": "<the returned node id>"}}
+{ERROR_REPLY}""", tools=(T + "creative_add_flow_asset_node",), timeout=300, mcp=True, model=CONNECTOR_MODEL)
+    if not isinstance(data, dict) or not data.get("node_id"):
+        raise ElevenError(explain((data or {}).get("error") if isinstance(data, dict) else data) or "no node")
+    return data["node_id"]
+
+
 def media_duration(path):
     out = subprocess.run([FFPROBE, "-v", "error", "-show_entries",
                           "format=duration", "-of", "csv=p=0", path], capture_output=True, text=True).stdout

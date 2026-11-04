@@ -1,0 +1,201 @@
+# Text recipes: how words arrive, stay and leave. Our own cards (t510).
+- id: text.blur_in
+  name: {tr: "Bulanıktan netleşen kelimeler", en: "Words out of blur"}
+  use: {tr: "Sakin, düşünceli bir cümle; bir fikrin yavaşça belirmesi.", en: "A calm, thoughtful line; an idea coming into focus."}
+  call: "FX.blurWords(tl, el, at, {stagger, dur})"
+  timing: {tr: "Kelime başına 0.06-0.12 s; seslendirmedeki ilk kelimeden 0.1 s önce başlat.", en: "0.06-0.12 s per word; start 0.1 s before the first spoken word."}
+  pitfalls:
+    tr: ["Uzun paragrafta yorucu olur: en çok 8 kelime.", "Arka plan da bulanıksa netlik farkı kaybolur."]
+    en: ["Tiring on a long paragraph: 8 words at most.", "On a blurred background the focus change is lost."]
+  seconds: 3
+  demo: |
+    const h = D('Ideas need a quiet room', 'left:90px;right:90px;top:760px;font:800 104px/1.05 Inter Tight;color:var(--ink)');
+    FX.blurWords(tl, h, 0.3, {stagger: 0.1});
+- id: text.rise_mask
+  name: {tr: "Maskeden yükselen satır", en: "Line rising from a mask"}
+  use: {tr: "Başlık, bölüm adı, güçlü bir iddia: temiz ve kendinden emin giriş.", en: "A title, a chapter name, a bold claim: a clean, confident entrance."}
+  call: "FX.rise(tl, el, at, {stagger, dur})"
+  timing: {tr: "0.5-0.7 s; vurgulu kelimeye denk gelsin.", en: "0.5-0.7 s; land it on the stressed word."}
+  pitfalls:
+    tr: ["Satır yüksekliği dar olursa harflerin altı kesilir: line-height en az 1.05.", "Kelimelere böler: <br> kaybolur, satırları ayrı öğe yap.", "Aynı sahnede her satır rise ile gelirse ritim düzleşir."]
+    en: ["A tight line-height clips descenders: keep it at 1.05 or more.", "It splits into words: a <br> is lost, make each line its own element.", "If every line in a scene rises, the rhythm goes flat."]
+  seconds: 3
+  demo: |
+    const h = D('Chapter two: the money', 'left:90px;right:90px;top:760px;font:900 120px/1.08 Inter Tight;color:var(--ink)');
+    FX.rise(tl, h, 0.3);
+- id: text.pop_word
+  name: {tr: "Zıplayarak gelen kelime", en: "Popping word"}
+  use: {tr: "Tek kelimelik vurgu, eğlenceli ton, çocuk ve oyun içerikleri.", en: "A one-word punch, a playful tone, kids and game content."}
+  call: "FX.pop(tl, el, at)"
+  timing: {tr: "0.3-0.4 s; sesin vurgusuna tam otursun.", en: "0.3-0.4 s; exactly on the spoken stress."}
+  pitfalls:
+    tr: ["Ciddi konularda ucuz durur.", "Art arda üç pop'tan fazlası göz yorar."]
+    en: ["Looks cheap on serious topics.", "More than three pops in a row tires the eye."]
+  seconds: 2.5
+  demo: |
+    const h = D('BOOM', 'left:0;right:0;top:800px;text-align:center;font:900 220px Inter Tight;color:var(--accent)');
+    FX.pop(tl, h, 0.4);
+- id: text.typewriter
+  name: {tr: "Daktilo", en: "Typewriter"}
+  use: {tr: "Bir mesaj, arama sorgusu, kod, gizli bir not: yazılıyormuş hissi.", en: "A message, a search query, code, a secret note: the feeling of being typed."}
+  call: "FX.typewriter(tl, el, at, {cps})"
+  timing: {tr: "Saniyede 18-30 harf; okunacak kadar yavaş, seslendirmeden geri kalmayacak kadar hızlı.", en: "18-30 characters a second; slow enough to read, fast enough to keep up with the voice."}
+  pitfalls:
+    tr: ["40 harften uzun metin sahneyi uzatır.", "Orantılı fontta satır zıplar: mono font tercih et."]
+    en: ["Text over 40 characters drags the scene.", "Proportional fonts make the line jump: prefer a mono font."]
+  seconds: 3
+  demo: |
+    const h = D('how do bees count?', 'left:90px;top:840px;font:500 76px JetBrains Mono, monospace;color:var(--ink)');
+    FX.typewriter(tl, h, 0.3, {cps: 14});
+- id: text.scramble
+  name: {tr: "Karışıp çözülen harfler", en: "Scramble decode"}
+  use: {tr: "Şifre, gizem, teknoloji, bir sırrın çözülmesi.", en: "A password, a mystery, tech, a secret being decoded."}
+  call: "FX.scramble(tl, el, at, {dur})"
+  timing: {tr: "0.6-1.0 s; çözülme anı cümlenin vurgusuna denk gelsin.", en: "0.6-1.0 s; the decode lands on the stress."}
+  pitfalls:
+    tr: ["Kısa kelimede (3 harf) etkisiz kalır.", "Büyük harf ve mono font en iyi sonucu verir."]
+    en: ["Weak on short words (3 letters).", "Capitals in a mono font look best."]
+  seconds: 2.5
+  demo: |
+    const h = D('ACCESS GRANTED', 'left:0;right:0;top:820px;text-align:center;font:700 96px JetBrains Mono, monospace;color:var(--accent)');
+    FX.scramble(tl, h, 0.3, {dur: 1.2});
+- id: text.shine
+  name: {tr: "Parlama süpürmesi", en: "Shine sweep"}
+  use: {tr: "Logo, ödül, premium bir ürün adı: yazının üzerinden ışık geçer.", en: "A logo, an award, a premium product name: light passes over the text."}
+  call: "FX.shine(tl, el, at, {dur})"
+  timing: {tr: "Yazı oturduktan 0.3 s sonra, 1.0-1.4 s.", en: "0.3 s after the text settles, 1.0-1.4 s."}
+  pitfalls:
+    tr: ["Açık zeminde parlama görünmez.", "Sahne başına bir kez."]
+    en: ["Invisible on a light background.", "Once per scene."]
+  seconds: 2.5
+  demo: |
+    const h = D('GOLD TIER', 'left:0;right:0;top:820px;text-align:center;font:900 170px Inter Tight;color:var(--accent)');
+    tl.from(h, {opacity: 0, scale: 0.9, duration: 0.4}, 0.1); FX.shine(tl, h, 0.7);
+- id: text.marker_highlight
+  name: {tr: "Fosforlu kalem", en: "Marker highlight"}
+  use: {tr: "Cümledeki tek anahtar kelimeyi işaretlemek.", en: "Marking the one key word in a sentence."}
+  call: "FX.highlight(tl, span, at, {color, dur})"
+  timing: {tr: "Anahtar kelime söylenirken, 0.4-0.5 s.", en: "While the key word is spoken, 0.4-0.5 s."}
+  pitfalls:
+    tr: ["Bir SPAN'a uygula, bütün başlığa değil.", "Renk yazıyla çok yakınsa okunmaz."]
+    en: ["Apply it to a SPAN, not the whole headline.", "A colour close to the text kills legibility."]
+  seconds: 3
+  demo: |
+    const h = D('Sleep is when your brain <span id="k">cleans</span> itself', 'left:90px;right:90px;top:760px;font:800 96px/1.1 Inter Tight;color:var(--ink)');
+    FX.highlight(tl, h.querySelector('#k'), 1.0, {color: 'var(--accent2)'});
+- id: text.gradient_word
+  name: {tr: "Renk geçişli kelime", en: "Gradient word"}
+  use: {tr: "Marka ve teknoloji tonu; başlıkta tek bir sıcak kelime.", en: "Brand and tech tone; one warm word in a headline."}
+  call: "FX.gradientText(el, [c1, c2])"
+  timing: {tr: "Statik bir stil; giriş animasyonuyla birleştir (rise, blurWords).", en: "A static style; pair it with an entrance (rise, blurWords)."}
+  pitfalls:
+    tr: ["Koyu iki renk seçme: kontrast düşer.", "Kelimelere bölen girişler (rise, pop, blurWords) gradyanı siler: öğeyi bütün olarak canlandır."]
+    en: ["Two dark colours lose contrast.", "Entrances that split words (rise, pop, blurWords) drop the gradient: animate the whole element."]
+  seconds: 2.5
+  demo: |
+    const h = D('FUTURE', 'left:0;right:0;top:800px;text-align:center;font:900 200px Inter Tight');
+    FX.gradientText(h, ['#ffb347', '#7c5cff']); tl.from(h, {opacity: 0, y: 60, duration: 0.6, ease: 'expo.out'}, 0.3);
+- id: text.count_up
+  name: {tr: "Sayan sayı", en: "Counting number"}
+  use: {tr: "Bir istatistik, fiyat, yüzde: rakam büyüdükçe önemi hissedilir.", en: "A statistic, a price, a percentage: the size is felt as it climbs."}
+  call: "FX.countUp(tl, el, at, to, {prefix, suffix, decimals, dur})"
+  timing: {tr: "0.8-1.5 s; son rakam seslendirmedeki sayıyla aynı anda dursun.", en: "0.8-1.5 s; stop on the final value as the voice says it."}
+  pitfalls:
+    tr: ["Sabit genişlikli rakam kullan (font-variant-numeric: tabular-nums), yoksa sayı titrer.", "Ondalık sayıda decimals ver."]
+    en: ["Use tabular numerals (font-variant-numeric: tabular-nums) or the number wobbles.", "Give decimals for fractional values."]
+  seconds: 3
+  demo: |
+    const n = D('0', 'left:0;right:0;top:700px;text-align:center;font:900 260px Inter Tight;color:var(--accent);font-variant-numeric:tabular-nums');
+    D('people a day', 'left:0;right:0;top:1000px;text-align:center;font:600 80px Inter Tight;color:var(--muted)');
+    FX.countUp(tl, n, 0.3, 48000, {dur: 1.4});
+- id: text.headline_stagger
+  name: {tr: "Kelime kelime başlık", en: "Word-by-word headline"}
+  use: {tr: "Seslendirmeyle senkron giden başlık; her kelime söylendiğinde gelir.", en: "A headline synced to the voice; each word arrives as it is said."}
+  call: "tl.fromTo(words, {opacity:0, y:18, filter:'blur(14px)'}, {opacity:1, y:0, filter:'blur(0px)', stagger}, at)"
+  timing: {tr: "stagger = kelimelerin konuşma aralığı (0.18-0.3 s).", en: "stagger = the spoken gap between words (0.18-0.3 s)."}
+  pitfalls:
+    tr: ["Kelimeleri inline-block span yap, yoksa y çalışmaz.", "Boşlukları ayrı span bırak, animasyona katma."]
+    en: ["Wrap words in inline-block spans or y does nothing.", "Keep spaces as separate spans outside the animation."]
+  seconds: 3
+  demo: |
+    const h = D(['Your', '<i style="font-family:Instrument Serif;font-weight:400;color:var(--accent)">brain</i>', 'deletes', 'this'].map((w) => `<span style="display:inline-block">${w}</span>`).join('<span> </span>'),
+      'left:90px;right:90px;top:780px;font:800 104px/1.05 Inter Tight;color:var(--ink)');
+    tl.fromTo([...h.children].filter((c) => c.textContent.trim()), {opacity: 0, y: 18, filter: 'blur(14px)'}, {opacity: 1, y: 0, filter: 'blur(0px)', duration: 0.5, stagger: 0.24}, 0.3);
+- id: text.word_swap
+  name: {tr: "Kelime değiştirme", en: "Word swap"}
+  use: {tr: "Bir kelimeyi düzeltmek, karşılaştırmak: 'yavaş' yerine 'hızlı'.", en: "Correcting or contrasting one word: 'slow' becomes 'fast'."}
+  call: "tl.to(old, {yPercent:-100, opacity:0}); tl.fromTo(new, {yPercent:100, opacity:0}, {yPercent:0, opacity:1})"
+  timing: {tr: "Çıkış 0.25 s, giriş 0.3 s, aynı anda; yeni kelime söylenirken.", en: "Out 0.25 s, in 0.3 s, together; as the new word is said."}
+  pitfalls:
+    tr: ["Kutuyu overflow:hidden yap, yoksa kelimeler üst üste görünür.", "İki kelimenin genişliği çok farklıysa cümle kayar: sabit genişlik ver."]
+    en: ["Make the slot overflow:hidden or the words overlap.", "Very different widths shift the line: give the slot a fixed width."]
+  seconds: 3
+  demo: |
+    D('It is not', 'left:0;right:0;top:700px;text-align:center;font:700 90px Inter Tight;color:var(--muted)');
+    const slot = D('<div id="a">SLOW</div><div id="b" style="position:absolute;inset:0;color:var(--accent)">FAST</div>', 'left:0;right:0;top:820px;height:200px;overflow:hidden;text-align:center;font:900 180px/200px Inter Tight;color:var(--ink)');
+    const a = slot.querySelector('#a'), b = slot.querySelector('#b');
+    gsap.set(b, {yPercent: 100}); tl.to(a, {yPercent: -100, opacity: 0, duration: 0.25, ease: 'power3.in'}, 1.3); tl.to(b, {yPercent: 0, duration: 0.3, ease: 'power3.out'}, 1.35);
+- id: text.stat_unit
+  name: {tr: "Büyük sayı + birim", en: "Big number with a unit"}
+  use: {tr: "Tek bir çarpıcı rakamı açıklamasıyla vermek: '3x daha hızlı'.", en: "One striking figure with its meaning: '3x faster replies'."}
+  call: "FX.countUp(tl, num, at, to, {suffix}); FX.rise(tl, unit, at + 0.5)"
+  timing: {tr: "Sayı önce, birim 0.4-0.6 s sonra.", en: "Number first, the unit 0.4-0.6 s later."}
+  pitfalls:
+    tr: ["Birim sayıdan büyük olmasın: hiyerarşi bozulur.", "Kaynak gerekiyorsa küçük bir satır ekle."]
+    en: ["The unit must not outgrow the number: hierarchy breaks.", "Add a small source line when the claim needs one."]
+  seconds: 3
+  demo: |
+    const n = D('0', 'left:0;right:0;top:640px;text-align:center;font:900 280px Inter Tight;color:var(--accent)');
+    const w = D('<i style="font-family:Instrument Serif">faster</i> replies', 'left:0;right:0;top:1000px;text-align:center;font:500 110px Inter Tight;color:var(--ink)');
+    FX.countUp(tl, n, 0.2, 3, {suffix: 'x', dur: 0.8}); FX.rise(tl, w, 0.8);
+- id: text.quote_card
+  name: {tr: "Alıntı kartı", en: "Quote card"}
+  use: {tr: "Bir kişinin sözü, bir kitaptan cümle: tırnak, metin, isim.", en: "Someone's words, a line from a book: marks, text, name."}
+  call: "D(quote); FX.blurWords(tl, quote, at); tl.from(name, {opacity:0, x:-30}, at + n*stagger)"
+  timing: {tr: "Okuma süresi: kelime başına 0.3 s bırak; isim en son.", en: "Leave 0.3 s per word to read; the name comes last."}
+  pitfalls:
+    tr: ["Alıntıyı uydurma: araştırmadaki kaynakla aynı olmalı.", "Serif font alıntıyı anlatıcıdan ayırır."]
+    en: ["Never invent a quote: it must match the research source.", "A serif face sets the quote apart from the narrator."]
+  seconds: 4
+  demo: |
+    D('“', 'left:80px;top:520px;font:400 300px Instrument Serif;color:var(--accent)');
+    const q = D('The best way out is always through.', 'left:110px;right:110px;top:760px;font:400 104px/1.1 Instrument Serif;color:var(--ink)');
+    const n = D('— Robert Frost', 'left:110px;top:1150px;font:600 54px Inter Tight;color:var(--muted)');
+    FX.blurWords(tl, q, 0.3, {stagger: 0.12}); tl.from(n, {opacity: 0, x: -30, duration: 0.5}, 1.6);
+- id: text.lower_third
+  name: {tr: "Alt bant", en: "Lower third"}
+  use: {tr: "Konuşan kişinin adı ve unvanı, yer ve tarih bilgisi.", en: "A speaker's name and role, a place and a date."}
+  call: "bar = D(...); tl.fromTo(bar, {clipPath:'inset(0 100% 0 0)'}, {clipPath:'inset(0 0% 0 0)'}, at)"
+  timing: {tr: "0.4 s giriş, en az 2.5 s kalış, 0.3 s çıkış.", en: "0.4 s in, at least 2.5 s on screen, 0.3 s out."}
+  pitfalls:
+    tr: ["Altyazıyla çakışmasın: altyazı yüksekliğinin üstüne koy.", "TikTok arayüzü alt 300 piksele biner."]
+    en: ["Keep clear of captions: sit above the caption band.", "The TikTok UI covers the bottom 300 px."]
+  seconds: 3.5
+  demo: |
+    const bar = D('<div style="font:800 64px Inter Tight;color:var(--bg)">Dr. Ada Kaya</div><div style="font:500 40px Inter Tight;color:var(--bg);opacity:.75">Sleep researcher</div>', 'left:70px;top:1300px;padding:28px 44px;background:var(--accent);border-radius:14px');
+    tl.fromTo(bar, {clipPath: 'inset(0 100% 0 0)'}, {clipPath: 'inset(0 0% 0 0)', duration: 0.45, ease: 'power3.out'}, 0.3);
+    tl.to(bar, {clipPath: 'inset(0 0 0 100%)', duration: 0.3, ease: 'power3.in'}, 3);
+- id: text.split_lines
+  name: {tr: "İki satırın karşılaşması", en: "Two lines meeting"}
+  use: {tr: "Karşıtlık: 'eski / yeni', 'onlar / biz'; satırlar iki yandan gelir.", en: "A contrast: 'old / new', 'them / us'; the lines come from both sides."}
+  call: "tl.from(a, {xPercent:-110}); tl.from(b, {xPercent:110}, '<')"
+  timing: {tr: "0.5 s, aynı anda; ardından 1 s duruş.", en: "0.5 s, together; then hold 1 s."}
+  pitfalls:
+    tr: ["Satırlar ekran dışına taşmasın; yan boşluk en az 80 px.", "İkiden fazla satırda karışır."]
+    en: ["Keep both lines inside the frame; at least 80 px side margin.", "Confusing with more than two lines."]
+  seconds: 2.5
+  demo: |
+    const a = D('THEY WAIT', 'left:80px;top:760px;font:900 130px Inter Tight;color:var(--muted)');
+    const b = D('WE BUILD', 'right:80px;top:920px;font:900 130px Inter Tight;color:var(--accent)');
+    tl.from(a, {xPercent: -110, duration: 0.5, ease: 'expo.out'}, 0.3); tl.from(b, {xPercent: 110, duration: 0.5, ease: 'expo.out'}, 0.3);
+- id: text.checklist
+  name: {tr: "İşaretlenen liste", en: "Ticking checklist"}
+  use: {tr: "Adımlar, şartlar, 'ihtiyacın olan üç şey'.", en: "Steps, conditions, 'the three things you need'."}
+  call: "FX.checklist(tl, root, at, ['item', ...], {every, strike, size, y})"
+  timing: {tr: "every = maddelerin söylenme aralığı (0.6-1.0 s).", en: "every = the gap between spoken items (0.6-1.0 s)."}
+  pitfalls:
+    tr: ["En çok 5 madde; fazlası sıkışır.", "Maddeler kısa olsun: 3-4 kelime."]
+    en: ["5 items at most; more gets cramped.", "Keep items short: 3-4 words."]
+  seconds: 3.5
+  demo: |
+    FX.checklist(tl, root, 0.3, ['Names', 'Faces', 'Why you walked in'], {y: 700, size: 84, every: 0.8});

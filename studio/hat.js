@@ -1,0 +1,875 @@
+/* v2 production lines in the Studio (factory/hat, studio/hat_api.py).
+   Pages: #/uret (the 14 lines, start one), #/uretimler (every v2 production), #/receteler (the recipe shotbook), #/u/<project> (one production as a flow:
+   stages left to right, the selected stage's output, and at a gate one decision: continue, feedback, or go back).
+   Every word on these pages comes from TX in the user's interface language (S.me.ui_lang). */
+(() => {
+const LANGS = { tr: "Türkçe", en: "English" };
+const L = () => ((S.me && S.me.ui_lang) || "tr");
+const TX = {
+  tr: {
+    nav_make: "Üret", nav_prods: "Üretimler", nav_fstyles: "Film stilleri", rc_nav: "Reçeteler", rc_lead: "Sahne planlayıcının kullandığı hareket reçeteleri: her kart bir FX çağrısı, zamanlaması, tuzakları ve çalışan bir örnek. Planlayıcı bir sahnenin reçetelerini adıyla seçer, tasarımcı kartın tamamını alır.", rc_all: "Hepsi", rc_search: "Ara: grafik, kamera, yağmur…", rc_render: "{0} örnek klibi üret (ücretsiz)", rc_rendering: "Klipler üretiliyor", rc_queued: "Örnek klipler üretiliyor (birkaç dakika, kredi harcamaz)", rc_noclip: "Örnek klip henüz üretilmedi.", rc_call: "Çağrı", rc_timing: "Zamanlama", rc_pitfalls: "Tuzaklar", rc_code: "Örnek kod", rc_more: "Ayrıntı", rc_none: "Bu filtrede reçete yok", rc_job: "reçete örnek klipleri", rc_count: "{0} reçete", cm_title: "Kareye yorum", cm_on: "Yorum modu", cm_off: "Yorumu bitir", cm_hint: "Yorum modunu aç, karede ya da durdurulmuş önizlemede bir noktaya tıkla, ne değişmeli yaz. Yorumlar birlikte tasarımcıya gider; yalnız yorumlanan sahneler değişir.", cm_hint_on: "Karede ya da önizlemede bir noktaya tıkla. Tıkladığın yazı ve onun kaynak satırı yoruma eklenir.", cm_note: "Yorum", cm_ph: "Ne değişmeli? Örn. bu sayı daha büyük ve kırmızı olsun", cm_add: "Yorumu ekle", cm_cancel: "Vazgeç", cm_added: "Yorum eklendi", cm_empty: "Yorumu yaz.", cm_del: "Sil", cm_none: "Henüz yorum yok.", cm_send: "{0} yorumu tasarımcıya gönder", cm_send_hint: "Tasarımcı ajan yalnız yorumlanan sahneleri düzeltir; diğer sahneler, renkler ve ortak CSS olduğu gibi geri konur. Sahne planı kapısında yeniden onayın beklenir.", cm_send_q: "Yorumlar tasarımcıya gönderilsin mi? Sahne planı yeniden çalışır ve kapısında durur (kredi harcamaz).", cm_sent: "{0} yorum gönderildi", cm_running: "Tasarımcı yorumları uyguluyor…", cm_done: "Son revizyon: {0} sahnesi düzeltildi.", cm_restored: "Dokunulmaması gerekenler geri kondu: {0}.", cm_line: "satır {0}", cm_video: "Önizlemeye yorum", cm_video_hint: "Videoyu istediğin anda durdur, sonra görüntüde bir noktaya tıkla.", cm_at: "{0} sn anı seçildi", cm_st_open: "açık", cm_st_sent: "gönderildi", cm_st_done: "uygulandı", mu_composer: "kendi bestecimiz, kredisiz", mu_composed: "Özgün beste, {0} BPM, kredisiz", mu_plain: "Basit beste (ajan yazamadı), {0} BPM, kredisiz", pt_label: "Ön-kırpma", pt_cut: "Metinde olmayan {0} dolgu/takılma kesildi ({1} sn)", parts_reused: "Yalnız değişen sahneler yeniden çizildi: {0}/{1} parça.", fs_lead: "Kütüphanedeki 12 stil ve senin kendi stillerin. Bir stili değiştirerek ya da boş sayfadan kendi stilini yap; onaylanınca öneri kapılarında seçilebilir.", fs_lib: "Kütüphane", fs_own: "Senin stillerin", fs_new: "Kendi stilini yap", fs_name: "Stilin adı", fs_base: "Nereden başlayalım?", fs_blank: "Boş sayfa", fs_create: "Başla", fs_change: "Bunu değiştir", fs_st_start: "Başlangıç", fs_st_plan: "Plan", fs_st_brand: "Marka", fs_st_sample: "Örnek kare", fs_st_approve: "Onay", fs_next: "İleri", fs_prev: "Geri", fs_save: "Kaydet", fs_skip: "Atla", fs_draw: "Örnek kareyi çiz", fs_drawing: "Çiziliyor (yaklaşık 1 dk)…", fs_redraw: "Yeniden çiz", fs_approve: "Onayla, kütüphaneye ekle", fs_draft: "taslak", fs_sampled: "kare hazır", fs_approved: "onaylı", fs_stale: "Değişiklikten sonra örnek kareyi yeniden çiz.", fs_need: "Yanıtlanmamış: {0}", fs_logo_up: "Logo yükle", fs_logo_ok: "Logo yüklü", fs_delete: "Sil", fs_del_q: "Bu stil silinsin mi?", fs_saved: "Kaydedildi", fs_in_lib: "Bu stil kütüphanede; öneri kapılarında seçilebilir.", fs_no_cost: "Kredi harcanmaz: kare stüdyonun kendi motoruyla çizilir.", fs_based: "Temel: {0}", lang: "Arayüz dili",
+    make_title: "Ne üretelim?", make_lead: "Bir üretim hattı seç. Her hat videoyu aynı sırayla, adım adım üretir ve her kapıda senin kararını bekler.",
+    status_ready: "Hazır", status_partial: "Kısmen hazır", status_planned: "Yakında",
+    makes: "Ne üretir", good: "İyi olduğu", not: "Uygun değil", needs: "Ne ister", cost: "Maliyet", duration: "Tipik süre",
+    stages: "Aşamalar", gate: "kapı", sec: "sn",
+    start_with: "Bu hatla başla", not_ready: "Bu hat henüz hazır değil; aşamaları yazıldıkça açılacak.",
+    brief: "Ne anlatsın?", brief_ph: "Konu, haber linki ya da istediğin açı. Örn: Avrupa'da doğal gaz 100 avroyu aştı; nedenleri ve faturalara etkisi.",
+    title: "Başlık (isteğe bağlı)", video_lang: "Video dili", aspect: "Kadraj", channel: "Kanal", none: "Seçme",
+    create: "Başlat", cancel: "Vazgeç", started: "Başladı: ilk aşama çalışıyor",
+    prods_title: "Üretimler", prods_lead: "Yeni hatlardaki videolar. Kartı açınca akışı ve senden beklenen kararı görürsün.",
+    prods_empty: "Henüz yeni hatta bir üretim yok.", new_prod: "Yeni üretim",
+    state_busy: "Çalışıyor", state_gate: "Kararını bekliyor", state_failed: "Hata", state_done: "Bitti", state_run: "Sırada", state_archived: "Arşiv", series: "Seri", episode: "Bölüm", no_series: "Kitabı ve karakterleri hazır bir serin yok.", to_series: "Seriler sayfasına git",  video_file: "Videon (MP4/MOV, en fazla 600 MB)", need_video: "Önce videonu seç", media_file: "Video ya da ses dosyan (MP4/MOV/MP3/M4A/WAV)", page_url: "Sayfa adresi", page_url_hint: "Herkese açık, giriş istemeyen bir sayfa. Tarayıcı adımları kendisi oynatır.", source_lang: "Videonun şimdiki dili (video dili = dublaj dili)", portrait_file: "Sunucu portresi (isteğe bağlı, JPG/PNG)", portrait_hint: "Önden, omuzdan yukarı, ağız kapalı, iyi ışıkta. Yüklemezsen sunucu üretilir.", uploading: "Yükleniyor", style: "Kurgu tarzı", cut_word: "kesildi", fmt_cinematic_calm: "Sakin sinematik", fmt_story_vo: "Hikâye (kendi sesin)", fmt_unreal_places: "Gerçek gibi durmayan yerler", fmt_travel_facts: "Gezi bilgileri (kaynaklı)", fmt_long_compilation: "Uzun derleme (1 dk+)",  shots: "plan", warnings: "Uyarılar", gen_shot: "üretilecek", own_shot: "kendi görüntün", gen_clips: "Üretilen klipler", archived_note: "Eski sistemden arşivlendi; üzerinde iş yapılmaz.",
+    state_planned: "Bu hatta sıradaki aşama henüz yok",
+    st_pending: "Bekliyor", st_running: "Çalışıyor", st_awaiting_approval: "Kararını bekliyor", st_approved: "Onaylandı",
+    st_done: "Bitti", st_failed: "Hata", st_stale: "Yeniden yapılacak",
+    back_list: "Üretimler", continue: "Devam et", feedback: "Geri bildirim", fb_ph: "Neyi değiştirelim? Somut yaz: \"hook daha sert olsun\", \"3. sahnede rakam yanlış\"…",
+    redo: "Bu aşamayı yeniden yap", start_stage: "Bu aşamayı başlat", approved_ok_start: "Aşama başladı", revisions: "Revizyon {0}/3", go_back: "Bu aşamaya geri dön",
+    back_warn: "Sonraki aşamalar yeniden yapılacak olarak işaretlenir; yaptıkları silinmez.", retry: "Tekrar dene",
+    decision: "Karar", waiting_prev: "Önceki aşamalar bitince başlar.", not_built: "Bu aşama bu hatta henüz yazılmadı.",
+    working: "Çalışıyor…", live: "Canlı akış", spent: "Harcanan", credits: "kredi", note_sent: "Not gönderildi, aşama yeniden çalışıyor",
+    approved_ok: "Onaylandı, sıradaki aşama başladı", back_ok: "Aşama yeniden açıldı",
+    review: "Denetim", verdict_pass: "Denetimden geçti", verdict_fix: "Açık kritik bulgu var", verdict_unknown: "Denetim alınamadı", verdict_low: "Puan eşiğin altında", gl_title: "Denetim defteri", gl_counts: "{0} düzeldi · {1} açık · {2} düştü", gl_render: "Denetçi teslim edilen hâlin taze çizimine baktı ({0} kare)", gl_sheet: "kontak sayfası", gr_line: "Ölçülen derece: {0} · {1}/100", gr_slop: "Slop", gr_orta: "Orta", gr_maxxed: "Maxxed", rb_pass: "geçer ({0}+)", rb_low: "{0} altında: ajan düzeltti ama yetmedi",
+    sev_critical: "Kritik", sev_suggestion: "Öneri", sev_nitpick: "Ayrıntı", rounds: "{0} tur",
+    insight: "Ana fikir", misconception: "Yaygın yanlış", data: "Veriler", sources: "Kaynaklar", angles: "Açılar",
+    concepts: "Üç yaklaşım", chosen: "Seçilen", look: "Görünüm", music: "Müzik", yes: "Var", no: "Yok", total: "Toplam",
+    se_title: "Sahne editörü", se_open: "Sahneleri düzenle", se_hint: "Karede bir yazıya tıkla; sürükleyerek taşı, sağda metnini ve rengini değiştir. Değişiklik sahne planına yazılır, tasarımcı ajan yeniden çalışırsa onu korur.",
+    se_readonly: "Sahne planı kapıda beklemiyor; düzenleme kapalı.", se_stale: "Kareler son düzenlemeyi göstermiyor.", se_redraw: "Kareleri yeniden çiz", se_drawing: "Kareler çiziliyor…", se_noframes: "Henüz kutulu kare yok. Kareleri çiz, sonra yazılara tıkla.",
+    se_elements: "Yazılar", se_text: "Metin", se_color: "Renk", se_nocolor: "Sahnenin rengi", se_move: "Konum (px)", se_save: "Kaydet", se_saved: "Düzenleme kaydedildi", se_nested: "İçinde başka parçalar var: metnini parçalar üzerinden düzenle; renk ve konum burada.",
+    se_pick: "Düzenlemek için karede ya da listede bir yazı seç.", se_versions: "Sürümler", se_vname: "Sürüm adı", se_vsave: "Sürümü kaydet", se_vsaved: "Sürüm kaydedildi", se_restore: "Geri yükle", se_restored: "Sürüm geri yüklendi", mm_title: "MiniMax klipleri", mm_hint: "Önce ucuz bir 480p taslak; beğenirsen onaylarsın, final o zaman yapılır. Final aynı istemle yeni bir çekimdir: kompozisyon ve hareket aynı kalır, ayrıntılar değişebilir. Onaylı bütçeden harcar.", mm_prompt: "Çekim", mm_prompt_ph: "Ne görünüyor, kamera nasıl hareket ediyor, ses nasıl…", mm_secs: "Süre (sn)", mm_quality: "Final kalitesi", mm_start: "Başlangıç karesi (isteğe bağlı, proje klasöründen)", mm_draft: "Taslak üret", mm_redraft: "Yeni taslak", mm_approve: "Onayla, final üret", mm_approve_q: "Bu taslağı onaylıyor musun? Final yaklaşık {c} kredi harcar.", mm_discard: "Kaldır", mm_drafting: "Taslak yapılıyor…", mm_finishing: "Final yapılıyor…", mm_queued: "Sıraya alındı", mm_left: "Bütçede kalan: {c} kredi", mm_nobudget: "Önce teklifi onayla: onaylı bütçe yokken klip yapılmaz.", mm_final: "Final", mm_draftv: "Taslak", mm_st_draft: "Taslak hazır", mm_st_approved: "Onaylandı", mm_st_final: "Final hazır", mm_st_failed: "Olmadı", mm_st_new: "Bekliyor", mm_unknown: "fiyat bilinmiyor", mm_short: "Çekimi en az bir cümleyle anlat.", dv_title: "Platforma teslim", dv_hint: "Her platform için ayrı dosya: boyut, kare hızı, ses seviyesi ve süre sınırı kontrol edilir; platformun düğmeleri ve yazıları altında kalan yerler gösterilir. Kredi harcamaz.", dv_build: "Dosyaları hazırla", dv_building: "Platform dosyaları hazırlanıyor…", dv_queued: "Teslim sıraya alındı", dv_pick: "En az bir platform seç.", dv_fit: "kenarlar bulanık zeminle doldurulur", dv_ok: "Hazır", dv_check: "Kontrol et", dv_refused: "Çok uzun", dv_failed: "Tutmayan", dv_clear: "Platformun arayüzü altında yazı yok.", dv_under: "altında", dv_estimate: "tahmin: bu bölgede yoğun ayrıntı var", dv_measured: "yazılar sahneden ölçüldü", dv_estimated: "yazı ölçümü yok; görüntü ayrıntısından tahmin", dv_max: "en fazla {s} sn", ex_title: "Dışa aktar", ex_hint: "Videoyu başka araçlara taşı: altyazı, ses kanalları, kareler, GIF, kurgu dosyası. Kredi harcamaz.", ex_build: "Paketi hazırla", ex_building: "Paket hazırlanıyor…", ex_queued: "Paket sıraya alındı", ex_alpha_note: "tam bir render kadar sürer", ex_files: "dosya", ex_silent: "Sessiz video: altyazı yok.", ex_relink: "Kurgu dosyası medyayı bu klasörden okur; klasörü taşırsan programda yeniden bağla.", ex_pick: "En az bir şey seç.", se_edits: "Elle düzenlemeler", se_timeline: "Zaman çizelgesi", se_cut_hint: "Seçili sahnenin başını bir satır öne ya da geriye al; önceki sahne buna göre kısalır ya da uzar.", se_starts: "Başladığı satır", se_earlier: "Bir satır önce", se_later: "Bir satır sonra", se_w_cut: "kesme", se_count: "{n} elle düzenleme", se_none: "Henüz düzenleme yok.",
+    se_w_text: "metin", se_w_color: "renk", se_w_move: "konum", se_w_restore: "sürüm geri yüklendi", se_back: "Projeye dön",
+    proof_mode: "Kanıt modu", proof_hint: "Haber ve veri videoları için: ekrandaki ve senaryodaki her rakam kaynaklı bir veriyle eşleşmeli, kaynağı sahnede yazmalı. Eşleşmeyen rakam kapıyı geçemez.",
+    proof_t: "Kanıt kontrolü", proof_ok: "Her rakam kaynaklı", proof_bad: "{0} rakam kaynaksız", proof_none: "Bu adımda rakam yok", proof_block: "Kaynaksız rakamlar düzelmeden devam edilemez. Notla düzelttir.", proof_src: "kaynak",
+    style_lib: "Film stili", style_pick: "Bu stili kullan", style_now: "Seçili stil", style_avoid: "Kaçın",
+    style_type: "Yazı", style_motion: "Hareket", style_sound: "Ses", style_set: "Stil seçildi", render_time: "Render süresi", preview_t: "önizleme", final_t: "final", structure: "Yapı", key_frame: "Ana kare",
+    script: "Senaryo", claims: "İddialar", verified: "doğrulandı", unverified: "doğrulanmadı", caption: "Paylaşım metni",
+    words: "kelime", lines_n: "satır",
+    scenes: "Sahneler", concept: "Görsel fikir", palette: "Renkler", no_stills: "Henüz kare yok.", line_range: "satır {0}–{1}",
+    preview: "Önizleme", voice: "Ses", final: "Final video", qa: "Kalite kontrolü", covers: "Kapak adayları", download: "İndir",
+    no_problems: "Teknik sorun bulunmadı.", hashtags: "Etiketler", notes: "Notlar", copy: "Kopyala",
+    summary: "Özet", output_none: "Bu aşamanın çıktısı henüz yok.", error: "Hata",
+    ev_created: "Üretim açıldı", ev_stage_start: "{0} başladı", ev_stage_finish: "{0} bitti", ev_stage_fail: "{0} hata verdi",
+    ev_agent_start: "Ajan çalışıyor ({0})", ev_agent_end: "Ajan teslim etti", ev_review: "Denetçi baktı ({0})",
+    ev_review_fix: "Denetçi düzeltme istedi", ev_tool: "Araç: {0}", ev_approve: "{0} onaylandı", ev_feedback: "{0} için not",
+    ev_reopen: "{0} yeniden açıldı", ev_queued: "{0} sıraya alındı", ev_tool_error: "Araç hatası: {0}",
+  },
+  en: {
+    nav_make: "Make", nav_prods: "Productions", nav_fstyles: "Film styles", rc_nav: "Recipes", rc_lead: "The motion recipes the scene planner uses: each card is an FX call, its timing, its pitfalls and a working example. The planner names a scene's recipes by id and the designer gets the whole card.", rc_all: "All", rc_search: "Search: chart, camera, rain…", rc_render: "Render {0} demo clips (free)", rc_rendering: "Rendering clips", rc_queued: "Rendering the demo clips (a few minutes, no credits)", rc_noclip: "No demo clip rendered yet.", rc_call: "Call", rc_timing: "Timing", rc_pitfalls: "Pitfalls", rc_code: "Example code", rc_more: "Details", rc_none: "No recipes in this filter", rc_job: "recipe demo clips", rc_count: "{0} recipes", cm_title: "Frame comments", cm_on: "Comment mode", cm_off: "Done commenting", cm_hint: "Turn comment mode on, click a point on a frame or on the paused preview and write what should change. The comments go to the designer together; only the commented scenes change.", cm_hint_on: "Click a point on a frame or on the preview. The text you click and its source line are added to the comment.", cm_note: "Comment", cm_ph: "What should change? E.g. make this number bigger and red", cm_add: "Add comment", cm_cancel: "Cancel", cm_added: "Comment added", cm_empty: "Write the comment.", cm_del: "Delete", cm_none: "No comments yet.", cm_send: "Send {0} comments to the designer", cm_send_hint: "The designer agent fixes only the commented scenes; every other scene, the colours and the shared CSS are put back as they are. The scene plan gate then waits for your approval again.", cm_send_q: "Send the comments to the designer? The scene plan runs again and stops at its gate (no credits).", cm_sent: "{0} comments sent", cm_running: "The designer is applying the comments…", cm_done: "Last revision: scene {0} fixed.", cm_restored: "Put back what had to stay: {0}.", cm_line: "line {0}", cm_video: "Comment on the preview", cm_video_hint: "Pause the video at any moment, then click a point in the picture.", cm_at: "Moment {0} s picked", cm_st_open: "open", cm_st_sent: "sent", cm_st_done: "applied", mu_composer: "our own composer, no credits", mu_composed: "Original score, {0} BPM, no credits", mu_plain: "Plain score (the agent could not write one), {0} BPM, no credits", pt_label: "Pre-trim", pt_cut: "{0} fillers/restarts the script lacks were cut ({1} s)", parts_reused: "Only the changed scenes were re-rendered: {0} of {1} parts.", fs_lead: "The library's 12 styles and your own. Make your own by changing a style or from a blank page; once approved it can be picked at proposal gates.", fs_lib: "Library", fs_own: "Your styles", fs_new: "Make your own style", fs_name: "Style name", fs_base: "Where to start?", fs_blank: "Blank page", fs_create: "Start", fs_change: "Change this", fs_st_start: "Start", fs_st_plan: "Plan", fs_st_brand: "Brand", fs_st_sample: "Sample frame", fs_st_approve: "Approve", fs_next: "Next", fs_prev: "Back", fs_save: "Save", fs_skip: "Skip", fs_draw: "Draw the sample frame", fs_drawing: "Drawing (about 1 min)…", fs_redraw: "Draw again", fs_approve: "Approve, add to the library", fs_draft: "draft", fs_sampled: "frame ready", fs_approved: "approved", fs_stale: "Draw the sample frame again after a change.", fs_need: "Unanswered: {0}", fs_logo_up: "Upload logo", fs_logo_ok: "Logo uploaded", fs_delete: "Delete", fs_del_q: "Delete this style?", fs_saved: "Saved", fs_in_lib: "This style is in the library; proposal gates can pick it.", fs_no_cost: "No credits: the frame is drawn by the studio's own engine.", fs_based: "Based on: {0}", lang: "Interface language",
+    make_title: "What shall we make?", make_lead: "Pick a production line. Each line makes the video step by step in the same order and waits for your decision at every gate.",
+    status_ready: "Ready", status_partial: "Partly built", status_planned: "Coming soon",
+    makes: "What it makes", good: "Good for", not: "Not for", needs: "What it needs", cost: "Cost", duration: "Typical length",
+    stages: "Stages", gate: "gate", sec: "s",
+    start_with: "Start with this line", not_ready: "This line is not ready yet; it opens as its stages are written.",
+    brief: "What should it say?", brief_ph: "A topic, a news link or the angle you want. E.g.: European gas crossed 100 euros; why, and what it means for bills.",
+    title: "Title (optional)", video_lang: "Video language", aspect: "Aspect", channel: "Channel", none: "None",
+    create: "Start", cancel: "Cancel", started: "Started: the first stage is running",
+    prods_title: "Productions", prods_lead: "Videos on the new lines. Open one to see its flow and the decision waiting for you.",
+    prods_empty: "No production on the new lines yet.", new_prod: "New production",
+    state_busy: "Working", state_gate: "Waiting for you", state_failed: "Error", state_done: "Done", state_run: "Up next", state_archived: "Archive", series: "Series", episode: "Episode", no_series: "You have no series with its book and characters ready.", to_series: "Go to Series",  video_file: "Your video (MP4/MOV, up to 600 MB)", need_video: "Pick your video first", media_file: "Your video or audio file (MP4/MOV/MP3/M4A/WAV)", page_url: "Page address", page_url_hint: "A public page with no login. The browser plays the steps itself.", source_lang: "The video's current language (video language = dub language)", portrait_file: "Presenter portrait (optional, JPG/PNG)", portrait_hint: "Front-facing, head and shoulders, mouth closed, good light. Without one a presenter is generated.", uploading: "Uploading", style: "Edit style", cut_word: "cut", fmt_cinematic_calm: "Cinematic calm", fmt_story_vo: "Story (your own voice)", fmt_unreal_places: "Places that look unreal", fmt_travel_facts: "Travel facts (sourced)", fmt_long_compilation: "Long compilation (1 min+)",  shots: "shots", warnings: "Warnings", gen_shot: "generated", own_shot: "your footage", gen_clips: "Generated clips", archived_note: "Archived from the old system; no work is done on it.",
+    state_planned: "The next stage is not built on this line yet",
+    st_pending: "Waiting", st_running: "Working", st_awaiting_approval: "Waiting for you", st_approved: "Approved",
+    st_done: "Done", st_failed: "Error", st_stale: "To redo",
+    back_list: "Productions", continue: "Continue", feedback: "Feedback", fb_ph: "What should change? Be specific: \"a harder hook\", \"the figure in scene 3 is wrong\"…",
+    redo: "Redo this stage", start_stage: "Start this stage", approved_ok_start: "Stage started", revisions: "Revision {0}/3", go_back: "Go back to this stage",
+    back_warn: "Later stages are marked to redo; their work is kept.", retry: "Try again",
+    decision: "Decision", waiting_prev: "Starts when the earlier stages are done.", not_built: "This stage is not written on this line yet.",
+    working: "Working…", live: "Live feed", spent: "Spent", credits: "credits", note_sent: "Note sent; the stage runs again",
+    approved_ok: "Approved; the next stage started", back_ok: "Stage reopened",
+    review: "Review", verdict_pass: "Passed review", verdict_fix: "Open critical findings", verdict_unknown: "No review", verdict_low: "Score below the bar", gl_title: "Review ledger", gl_counts: "{0} fixed · {1} open · {2} dropped", gl_render: "The reviewer judged a fresh render of the submitted output ({0} frames)", gl_sheet: "contact sheet", gr_line: "Measured grade: {0} · {1}/100", gr_slop: "Slop", gr_orta: "Mid", gr_maxxed: "Maxxed", rb_pass: "passes ({0}+)", rb_low: "below {0}: the agent revised but not enough",
+    sev_critical: "Critical", sev_suggestion: "Suggestion", sev_nitpick: "Nitpick", rounds: "{0} rounds",
+    insight: "Insight", misconception: "Common misconception", data: "Data points", sources: "Sources", angles: "Angles",
+    concepts: "Three approaches", chosen: "Chosen", look: "Look", music: "Music", yes: "Yes", no: "No", total: "Total",
+    se_title: "Scene editor", se_open: "Edit scenes", se_hint: "Click a text on the frame; drag to move it, change its text and colour on the right. Edits go into the scene plan, and the designer agent keeps them if it runs again.",
+    se_readonly: "The scene plan is not waiting at its gate; editing is off.", se_stale: "The frames do not show the latest edit yet.", se_redraw: "Redraw frames", se_drawing: "Drawing frames…", se_noframes: "No frames with boxes yet. Draw them, then click a text.",
+    se_elements: "Texts", se_text: "Text", se_color: "Colour", se_nocolor: "Scene colour", se_move: "Position (px)", se_save: "Save", se_saved: "Edit saved", se_nested: "It holds other parts: edit its text through them; colour and position are here.",
+    se_pick: "Pick a text on the frame or in the list to edit it.", se_versions: "Versions", se_vname: "Version name", se_vsave: "Save version", se_vsaved: "Version saved", se_restore: "Restore", se_restored: "Version restored", se_count: "{n} hand edits", mm_title: "MiniMax clips", mm_hint: "A cheap 480p draft first; if you like it you approve it, and only then is the final made. The final is a new take with the same prompt: composition and motion stay, details can change. Spends from the approved budget.", mm_prompt: "Shot", mm_prompt_ph: "What is on screen, how the camera moves, what it sounds like…", mm_secs: "Length (s)", mm_quality: "Final quality", mm_start: "Start frame (optional, from the project folder)", mm_draft: "Make a draft", mm_redraft: "New draft", mm_approve: "Approve, make the final", mm_approve_q: "Approve this draft? The final spends about {c} credits.", mm_discard: "Remove", mm_drafting: "Making the draft…", mm_finishing: "Making the final…", mm_queued: "Queued", mm_left: "Left in the budget: {c} credits", mm_nobudget: "Approve the proposal first: no clips without an approved budget.", mm_final: "Final", mm_draftv: "Draft", mm_st_draft: "Draft ready", mm_st_approved: "Approved", mm_st_final: "Final ready", mm_st_failed: "Failed", mm_st_new: "Waiting", mm_unknown: "price unknown", mm_short: "Describe the shot in at least a sentence.", dv_title: "Deliver to platforms", dv_hint: "A separate file per platform: size, frame rate, loudness and length limit are checked; the places under the platform's buttons and text are shown. Spends no credits.", dv_build: "Make the files", dv_building: "Making the platform files…", dv_queued: "Delivery queued", dv_pick: "Pick at least one platform.", dv_fit: "the edges are filled with a blurred background", dv_ok: "Ready", dv_check: "Check", dv_refused: "Too long", dv_failed: "Failed", dv_clear: "No text under the platform's interface.", dv_under: "under", dv_estimate: "estimate: dense detail in this area", dv_measured: "texts measured from the scenes", dv_estimated: "no text measurements; estimated from picture detail", dv_max: "at most {s} s", ex_title: "Export", ex_hint: "Take the video to other tools: subtitles, audio stems, frames, GIF, an edit timeline. Spends no credits.", ex_build: "Build the package", ex_building: "Building the package…", ex_queued: "Package queued", ex_alpha_note: "takes as long as a full render", ex_files: "files", ex_silent: "Silent video: no subtitles.", ex_relink: "The timeline reads its media from this folder; relink in your editor if you move it.", ex_pick: "Pick at least one.", se_edits: "Hand edits", se_timeline: "Timeline", se_cut_hint: "Move the selected scene's start one line earlier or later; the scene before it gets shorter or longer.", se_starts: "Starts at line", se_earlier: "One line earlier", se_later: "One line later", se_w_cut: "cut", se_none: "No edits yet.",
+    se_w_text: "text", se_w_color: "colour", se_w_move: "position", se_w_restore: "version restored", se_back: "Back to project",
+    proof_mode: "Proof mode", proof_hint: "For news and data videos: every number on screen and in the script must match a sourced figure, and its source is shown in the scene. An unmatched number cannot pass a gate.",
+    proof_t: "Proof check", proof_ok: "Every number is sourced", proof_bad: "{0} number(s) without a source", proof_none: "No numbers at this step", proof_block: "You cannot continue until the unsourced numbers are fixed. Ask for a fix with a note.", proof_src: "source",
+    style_lib: "Film style", style_pick: "Use this style", style_now: "Chosen style", style_avoid: "Avoid",
+    style_type: "Type", style_motion: "Motion", style_sound: "Sound", style_set: "Style chosen", render_time: "Render time", preview_t: "preview", final_t: "final", structure: "Structure", key_frame: "Key frame",
+    script: "Script", claims: "Claims", verified: "verified", unverified: "not verified", caption: "Post caption",
+    words: "words", lines_n: "lines",
+    scenes: "Scenes", concept: "Visual idea", palette: "Colours", no_stills: "No frames yet.", line_range: "lines {0}–{1}",
+    preview: "Preview", voice: "Voice", final: "Final video", qa: "Quality check", covers: "Cover candidates", download: "Download",
+    no_problems: "No technical problems found.", hashtags: "Hashtags", notes: "Notes", copy: "Copy",
+    summary: "Summary", output_none: "This stage has no output yet.", error: "Error",
+    ev_created: "Production opened", ev_stage_start: "{0} started", ev_stage_finish: "{0} finished", ev_stage_fail: "{0} failed",
+    ev_agent_start: "Agent working ({0})", ev_agent_end: "Agent submitted", ev_review: "Reviewer checked ({0})",
+    ev_review_fix: "Reviewer asked for fixes", ev_tool: "Tool: {0}", ev_approve: "{0} approved", ev_feedback: "Note on {0}",
+    ev_reopen: "{0} reopened", ev_queued: "{0} queued", ev_tool_error: "Tool error: {0}",
+  },
+};
+const t = (k, ...a) => { let s = (TX[L()] || TX.tr)[k] ?? TX.tr[k] ?? k; a.forEach((v, i) => { s = s.replace("{" + i + "}", v); }); return s; };
+const STATUS_ICON = { pending: "○", running: "", awaiting_approval: "⏸", approved: "✓", done: "✓", failed: "!", stale: "↻" };
+const HS = { lines: null, open: null, sel: {}, fsQ: {} };
+
+// ---------------- shell: nav entries and the language switch ----------------
+NAV.unshift(["#/uret", "wand", ""], ["#/uretimler", "film", ""], ["#/film-stilleri", "palette", ""], ["#/receteler", "layers", ""]);
+// One way in: the planner home and the old board send you to the productions list (t206); their pages stay reachable
+// from old links until go-live removes them.
+for (const old of ["#/", "#/hat"]) ROUTES[old] = () => { location.replace("#/uretimler"); return { poll: 0 }; };
+// The old shell (app.js) is written in Turkish. In EN the visible chrome is translated here, after it renders,
+// so app.js stays untouched. Page bodies of the old pages are not covered (tracker follow-up).
+const SHELL_EN = {
+  "Üretim": "Produce", "Kütüphane": "Library", "Sistem": "System", "Kanallar": "Channels",
+  "Stüdyo": "Studio", "Üretim panosu": "Production board", "Teknik kataloğu": "Technique catalogue", "Seriler": "Series",
+  "Keşif": "Discover", "Takip": "Tracking", "Videolar": "Videos", "Stiller": "Styles", "Referanslar": "References",
+  "Yerler & çekimler": "Places & shoots", "Ses & avatar": "Voice & avatar", "Bütçe": "Budget", "Sinyaller": "Signals",
+  "Hesaplar": "Accounts", "Ayarlar": "Settings", "Üretimler": "Productions", "Üret": "Make", "Pano": "Board", "Menü": "Menu", "Ara ya da git…": "Search or go to…", "işler boşta": "no jobs running",
+  "Tema": "Theme", "Yeni kanal": "New channel", "Kanal yok": "No channel", "🌙 Koyu tema": "🌙 Dark theme", "☀️ Açık tema": "☀️ Light theme",
+};
+const SHELL_RE = [[/^(\d+) iş sürüyor$/, "$1 jobs running"], [/^çekimli\b/, "footage"], [/^çekimsiz\b/, "topic only"], [/^karışık\b/, "mixed"]];
+const trText = (x) => { const k = x.trim(); if (!k) return x; let v = SHELL_EN[k]; for (const [re, to] of SHELL_RE) if (v == null && re.test(k)) v = k.replace(re, to); return v == null ? x : x.replace(k, v); };
+function translateShell() {
+  if (L() === "tr") return;
+  for (const sel of ["#rail", "#side", "#top", "#mtop", "#tabbar", "#drawerPanel"]) {
+    const root = $(sel); if (!root) continue;
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) { const v = trText(n.nodeValue); if (v !== n.nodeValue) n.nodeValue = v; }
+    root.querySelectorAll("[data-tip],[title]").forEach((e) => { for (const a of ["data-tip", "title"]) if (e.hasAttribute(a)) e.setAttribute(a, trText(e.getAttribute(a))); });
+  }
+}
+const _renderShell = renderShell;
+renderShell = function () {
+  NAV[0][2] = t("nav_make"); NAV[1][2] = t("nav_prods"); NAV[2][2] = t("nav_fstyles"); NAV[3][2] = t("rc_nav"); JOBTR.recipe_demos = t("rc_job");
+  document.documentElement.lang = L();   // text-transform: uppercase needs the right language (tr: i→İ, en: i→I)
+  _renderShell();
+  translateShell();
+  const top = $("#top");
+  if (top && !top.querySelector(".langsw")) {
+    top.insertAdjacentHTML("beforeend", `<div class="seg langsw" title="${esc(t("lang"))}">${Object.keys(LANGS).map((k) =>
+      `<button class="${L() === k ? "on" : ""}" data-act="hatLang" data-v="${k}">${k.toUpperCase()}</button>`).join("")}</div>`);
+  }
+};
+const _jobsTick = jobsTick;
+jobsTick = async function () { await _jobsTick(); const el = $(".jobs-ind"); if (el && L() !== "tr") el.childNodes.forEach((n) => { if (n.nodeType === 3) n.nodeValue = trText(n.nodeValue); }); };
+const _dt = dt;
+dt = function (iso) { return L() === "tr" ? _dt(iso) : (iso ? new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : ""); };
+ACT.hatLang = async (el) => {
+  const r = await post("/api/hat/lang", { lang: el.dataset.v });
+  if (S.me) S.me.ui_lang = r.ui_lang;
+  HS.lines = null; S.sig = null; route();
+};
+
+// ---------------- #/uret: the lines ----------------
+function lineCard(l) {
+  const st = { ready: "ok", partial: "warn", planned: "" }[l.status];
+  return `<article class="hl-card ${l.status}" data-line="${esc(l.id)}">
+    <div class="row"><h3>${esc(l.name)}</h3><span class="sp"></span><span class="badge hl-st ${st}">${esc(t("status_" + l.status))}</span></div>
+    <p class="hl-tag">${esc(l.tagline)}</p>
+    <details><summary class="small muted">${esc(t("makes"))} · ${esc(t("stages"))}</summary>
+      <p class="small">${esc(l.makes)}</p>
+      <div class="hl-kv small"><b>${esc(t("good"))}</b><ul>${l.good_for.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+        <b>${esc(t("not"))}</b><ul>${l.not_for.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+        <b>${esc(t("needs"))}</b><div>${esc(l.needs)}</div>
+        <b>${esc(t("duration"))}</b><div>${l.duration ? `${l.duration[0]}–${l.duration[1]} ${esc(t("sec"))}` : "—"}</div>
+        <b>${esc(t("cost"))}</b><div>${esc(l.cost)}</div></div>
+      <ol class="hl-stages">${l.stages.map((s) => `<li>${esc(s.name)}${s.gate ? ` <span class="tiny faint">🔒 ${esc(t("gate"))}</span>` : ""}</li>`).join("")}</ol>
+    </details>
+    ${l.status === "ready" ? `<button class="btn accent block mt12" data-act="hatOpen" data-id="${esc(l.id)}">${esc(t("start_with"))}</button>`
+      : `<div class="tiny faint mt12">${esc(t("not_ready"))}</div>`}
+    ${HS.open === l.id ? startForm(l) : ""}
+  </article>`;
+}
+function startForm(l) {
+  const vl = L();
+  return `<div class="hl-form mt12">
+    <label class="field"><span>${esc(t("brief"))}</span><textarea id="hlBrief" data-keep="hl-brief" placeholder="${esc(t("brief_ph"))}"></textarea></label>
+    <label class="field mt8"><span>${esc(t("title"))}</span><input id="hlTitle" data-keep="hl-title" maxlength="80"></label>
+    <div class="row mt8" style="gap:12px;align-items:flex-end">
+      <label class="field"><span>${esc(t("video_lang"))}</span><select id="hlVlang">${Object.entries(LANGS).map(([k, v]) => `<option value="${k}" ${k === vl ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+      <label class="field"><span>${esc(t("aspect"))}</span><select id="hlAspect" ${l.aspect ? "disabled" : ""}>${["9:16", "16:9"].map((x) => `<option ${x === l.aspect ? "selected" : ""}>${x}</option>`).join("")}</select></label>
+      <label class="field"><span>${esc(t("channel"))}</span><select id="hlChan"><option value="">${esc(t("none"))}</option>${S.channels.map((c) => `<option value="${esc(c.id)}" ${c.id === S.ch ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
+    </div>
+    ${(l.inputs || []).includes("url") ? `<label class="field mt8"><span>${esc(t("page_url"))}</span><input type="url" id="hlUrl" placeholder="https://"></label><div class="tiny faint">${esc(t("page_url_hint"))}</div>` : ""}
+    ${(l.inputs || []).includes("source_lang") ? `<label class="field mt8"><span>${esc(t("source_lang"))}</span><select id="hlSrcLang"><option value="tr">Türkçe</option><option value="en">English</option></select></label>` : ""}
+    ${(l.inputs || []).includes("portrait") ? `<label class="field mt8"><span>${esc(t("portrait_file"))}</span><input type="file" id="hlPortrait" accept="image/jpeg,image/png,image/webp"></label><div class="tiny faint">${esc(t("portrait_hint"))}</div>` : ""}
+    ${(l.inputs || []).includes("video") ? `<label class="field mt8"><span>${esc(t((l.inputs || []).includes("audio") ? "media_file" : "video_file"))}</span><input type="file" id="hlVideo" accept="video/mp4,video/quicktime,.mov,.m4v${(l.inputs || []).includes("audio") ? ",audio/*,.mp3,.m4a,.wav" : ""}"></label><div id="hlProg" class="tiny faint"></div>` : ""}
+    ${(l.inputs || []).includes("series") ? ((HS.series || []).length ? `<div class="row mt8" style="gap:12px;align-items:flex-end">
+      <label class="field"><span>${esc(t("series"))}</span><select id="hlSeries">${HS.series.map((x) => `<option value="${x.id}" data-next="${Math.min(x.made + 1, x.episodes)}">${esc(x.title)} (${x.made}/${x.episodes})</option>`).join("")}</select></label>
+      <label class="field"><span>${esc(t("episode"))}</span><input id="hlEp" type="number" min="1" value="${Math.min(HS.series[0].made + 1, HS.series[0].episodes)}" style="width:90px"></label></div>`
+      : `<div class="note mt8 small">${esc(t("no_series"))} <a href="#/seriler">${esc(t("to_series"))}</a></div>`) : ""}
+    ${l.proof ? `<label class="mt12" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="hlProof" style="width:auto;margin-top:3px"><span><b>${esc(t("proof_mode"))}</b><div class="tiny faint">${esc(t("proof_hint"))}</div></span></label>` : ""}
+    ${l.id === "travel_vlog" ? `<label class="field mt8"><span>${esc(t("style"))}</span><select id="hlFormat">${["cinematic_calm", "story_vo", "unreal_places", "travel_facts", "long_compilation"].map((f) => `<option value="${f}">${esc(t("fmt_" + f))}</option>`).join("")}</select></label>` : ""}
+    <div class="row mt12"><button class="btn accent" data-act="hatCreate" data-id="${esc(l.id)}">${esc(t("create"))}</button>
+      <button class="btn ghost" data-act="hatClose">${esc(t("cancel"))}</button></div>
+  </div>`;
+}
+ROUTES["#/uret"] = async () => {
+  crumb([t("nav_make")]);
+  HS.lines = HS.lines || await api("/api/hat/lines");
+  if (HS.open === "series_episode") HS.series = await api("/api/hat/series");
+  paint(`<h1>${esc(t("make_title"))}</h1><p class="lead">${esc(t("make_lead"))}</p>
+    <div class="hl-grid mt16">${HS.lines.map(lineCard).join("")}</div>`, JSON.stringify([L(), HS.open]));
+  return {};
+};
+ACT.hatOpen = (el) => { HS.open = el.dataset.id; S.sig = null; route({ poll: true }); setTimeout(() => $("#hlBrief") && $("#hlBrief").focus(), 60); };
+ACT.hatClose = () => { HS.open = null; S.sig = null; route({ poll: true }); };
+ACT.hatCreate = async (el) => {
+  el.disabled = true;
+  try {
+    let source = null;
+    if ($("#hlVideo")) {          // a line that edits the creator's own video: upload it first (kept as is in raw/talk/)
+      const f = $("#hlVideo").files[0];
+      if (!f) { toast(t("need_video"), 1); return; }
+      source = (await upload("/api/refs/upload", f, { "X-Talk": "1" }, (k) => ($("#hlProg").textContent = t("uploading") + " %" + Math.round(k * 100)))).file;
+    }
+    let portrait = null;
+    if ($("#hlPortrait") && $("#hlPortrait").files[0]) {     // optional: without one the line generates a presenter
+      portrait = (await upload("/api/refs/upload", $("#hlPortrait").files[0], { "X-Avatar": "1" }, () => {})).file;
+    }
+    const r = await post("/api/hat/projects", { portrait, url: $("#hlUrl") ? $("#hlUrl").value.trim() : null, source_lang: $("#hlSrcLang") ? $("#hlSrcLang").value : null, line: el.dataset.id, brief: $("#hlBrief").value, title: $("#hlTitle").value,
+      video_lang: $("#hlVlang").value, aspect: $("#hlAspect").value, channel: $("#hlChan").value || null, source,
+      format: $("#hlFormat") ? $("#hlFormat").value : null, proof: $("#hlProof") ? $("#hlProof").checked : false,
+      series: $("#hlSeries") ? $("#hlSeries").value : null, episode: $("#hlEp") ? $("#hlEp").value : null });
+    HS.open = null; S.drafts = {}; toast(t("started"));
+    location.hash = "#/u/" + r.id;
+  } finally { el.disabled = false; }
+};
+
+// ---------------- #/uretimler: the list ----------------
+const stateBadge = (state) => `<span class="badge hl-state s-${esc(state)}">${state === "busy" ? '<span class="spin"></span>' : ""}${esc(t("state_" + state))}</span>`;
+ROUTES["#/uretimler"] = async () => {
+  crumb([t("nav_prods")]);
+  const ps = await api("/api/hat/projects");
+  paint(`<div class="row"><div><h1>${esc(t("prods_title"))}</h1><p class="lead">${esc(t("prods_lead"))}</p></div><span class="sp"></span>
+      <a class="btn accent" href="#/uret">${ICON.plus}${esc(t("new_prod"))}</a></div>
+    <div class="hl-list mt16">${ps.map((p) => `<a class="hl-row" href="#/u/${esc(p.id)}">
+        <span class="mono tiny faint">${esc(p.id.slice(0, 3))}</span>
+        <span class="hl-row-t"><b>${esc(p.title)}</b><span class="tiny muted">${esc(p.line_name)} · ${esc((p.video_lang || "").toUpperCase())} · ${esc(p.aspect || "")}</span></span>
+        <span class="small muted">${esc(p.stage_name || "")}</span>${stateBadge(p.state)}</a>`).join("") || `<div class="empty">${esc(t("prods_empty"))}</div>`}</div>`,
+    JSON.stringify([L(), ps.map((p) => [p.id, p.state, p.stage])]));
+  return { poll: ps.some((p) => p.state === "busy") ? 5000 : 0 };
+};
+
+// ---------------- #/u/<id>: one production as a flow ----------------
+function flowRail(f, sel) {
+  return `<ol class="hl-flow">${f.stages.map((s, i) => `<li class="hl-node st-${esc(s.status)} ${s.id === sel ? "sel" : ""}" data-act="hatSel" data-id="${esc(s.id)}">
+      <span class="ic">${s.status === "running" ? '<span class="spin"></span>' : STATUS_ICON[s.status] || ""}</span>
+      <span class="nm">${esc(s.name)}${s.gate ? ' <span class="lock" aria-hidden="true">🔒</span>' : ""}</span>
+      <span class="tiny faint">${esc(t("st_" + s.status))}</span></li>${i < f.stages.length - 1 ? '<li class="hl-link" aria-hidden="true"></li>' : ""}`).join("")}</ol>`;
+}
+const link = (u) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(String(u).replace(/^https?:\/\/(www\.)?/, "").slice(0, 60))}</a>`;
+function outResearch(o) {
+  return `${o.insight ? `<div class="hl-big">${esc(o.insight)}</div>` : ""}
+    ${o.misconception ? `<div class="note mt12"><b>${esc(t("misconception"))}:</b> ${esc(o.misconception)}</div>` : ""}
+    ${(o.data_points || []).length ? `<h3 class="mt16">${esc(t("data"))}</h3><ul class="hl-ul">${o.data_points.map((x) => `<li>${esc(x.claim)}${x.value ? ` <span class="muted">— ${esc(x.value)}</span>` : ""}${x.source && /^https?:/.test(x.source) ? ` <span class="tiny">${link(x.source)}</span>` : ""}</li>`).join("")}</ul>` : ""}
+    ${(o.angles || []).length ? `<h3 class="mt16">${esc(t("angles"))}</h3><ul class="hl-ul">${o.angles.map((x) => `<li><b>${esc(x.title)}</b> <span class="muted small">${esc(x.grounded_in || "")}</span></li>`).join("")}</ul>` : ""}
+    ${(o.sources || []).length ? `<h3 class="mt16">${esc(t("sources"))}</h3><ol class="hl-ul small">${o.sources.map((x) => `<li>${esc(x.title || "")} ${link(x.url)}</li>`).join("")}</ol>` : ""}`;
+}
+function outProposal(o) {
+  const c = o.cost || {};
+  return `<h3>${esc(t("concepts"))}</h3><div class="hl-concepts">${(o.concepts || []).map((x) => `<div class="hl-concept ${x.id === o.chosen ? "on" : ""}">
+      ${x.id === o.chosen ? `<span class="badge ok">${esc(t("chosen"))}</span>` : ""}<h4>${esc(x.title)}</h4>
+      <div class="hl-hook">“${esc(x.hook)}”</div><div class="small mt8"><b>${esc(t("structure"))}:</b> ${esc(x.structure)}</div>
+      <div class="small mt8"><b>${esc(t("look"))}:</b> ${esc(x.look)}</div>${x.key_frame ? `<div class="small mt8 muted"><b>${esc(t("key_frame"))}:</b> ${esc(x.key_frame)}</div>` : ""}</div>`).join("")}</div>
+    <div class="kv mt16"><div>${esc(t("duration"))}</div><div>${esc(o.seconds)} ${esc(t("sec"))}</div><div>${esc(t("look"))}</div><div>${esc(o.look || "")}</div>
+      <div>${esc(t("music"))}</div><div>${(o.music || {}).use ? esc(t("yes")) + ((o.music || {}).source === "composer" ? " · " + esc(t("mu_composer")) : "") + " · " + esc((o.music || {}).prompt || "") : esc(t("no"))}</div>
+      ${o.render_time ? `<div>${esc(t("render_time"))}</div><div>${esc(t("preview_t"))} ~${Math.round((o.render_time.preview_s || 0) / 60)} dk · ${esc(t("final_t"))} ~${Math.round((o.render_time.final_s || 0) / 60)} dk</div>` : ""}</div>
+    <div class="costs mt12">${(c.lines || []).map((l) => `<div class="ln"><span class="muted">${esc(l.label || l.kind)}</span><b>~${num(l.credits)} ${esc(t("credits"))}</b></div>`).join("")}
+      <div class="ln"><span>${esc(t("total"))}</span><b>~${num(c.credits)} ${esc(t("credits"))}</b></div></div>`;
+}
+function outScript(o) {
+  const n = (o.lines || []).join(" ").split(/\s+/).filter(Boolean).length;
+  return `<div class="tiny muted">${o.lines.length} ${esc(t("lines_n"))} · ${n} ${esc(t("words"))}</div>
+    <ol class="hl-script">${(o.lines || []).map((l) => `<li>${esc(l)}</li>`).join("")}</ol>
+    ${(o.claims || []).length ? `<h3 class="mt16">${esc(t("claims"))}</h3><ul class="hl-ul small">${o.claims.map((c) => `<li><span class="${c.verified ? "ok" : "bad"}">${c.verified ? "✓" : "✕"}</span> ${esc(c.text)}${c.source && /^https?:/.test(c.source) ? ` ${link(c.source)}` : ""}</li>`).join("")}</ul>` : ""}
+    ${o.caption ? `<div class="mt12 small"><b>${esc(t("caption"))}:</b> ${esc(o.caption)}</div>` : ""}`;
+}
+function outScenes(o, s) {
+  const pal = o.palette || {};
+  return `${o.concept ? `<div class="hl-big small">${esc(o.concept)}</div>` : ""}
+    <div class="hl-swatch mt8">${Object.entries(pal).map(([k, v]) => `<span title="${esc(k)}" style="background:${esc(v)}"></span>`).join("")}</div>
+    ${(s.stills || []).length ? `<div class="hl-stills mt12">${s.stills.map((u, i) => `<figure><img loading="lazy" src="${esc(u)}" data-act="hatZoom" data-src="${esc(u)}" alt="">
+      <figcaption class="tiny muted">${esc(((o.scenes || [])[i] || {}).id || "")} · ${esc(t("line_range", ...(((o.scenes || [])[i] || {}).lines || [0, 0]).map((x) => x + 1)))}</figcaption></figure>`).join("")}</div>`
+      : `<div class="tiny faint mt12">${esc(t("no_stills"))}</div>`}
+    ${s.scene_edit && HS.pid ? `<a class="btn mt12" href="#/u/${esc(HS.pid)}/sahneler">✎ ${esc(t("se_open"))}</a>` : ""}`;
+}
+function player(u, wide) { return u ? `<div class="player ${wide ? "wide" : ""}"><video src="${esc(u)}" controls playsinline preload="metadata"></video></div>` : ""; }
+function outAssets(o, s, f) {
+  return `${player(o.preview_url, f.project.aspect === "16:9")}
+    <div class="kv mt12"><div>${esc(t("voice"))}</div><div>${o.voice ? `${esc(o.voice.duration)} ${esc(t("sec"))} · ${num(o.voice.credits)} ${esc(t("credits"))}` : "—"}</div>
+      ${(o.voice || {}).pretrim ? `<div>${esc(t("pt_label"))}</div><div title="${esc(o.voice.pretrim.cuts.map(c => c[2]).join(" · "))}">${esc(t("pt_cut", o.voice.pretrim.cuts.length, o.voice.pretrim.seconds))}</div>` : ""}
+      <div>${esc(t("music"))}</div><div>${o.music ? (o.music.source === "composer" ? esc(t(o.music.agent ? "mu_composed" : "mu_plain", o.music.bpm)) + " · " : "") + esc(o.music.prompt || t("yes")) : esc(t("no"))}</div></div>`;
+}
+function outRender(o, s, f) {
+  const tq = ((o.qa || {}).technical) || {};
+  return `${player(o.final_url, f.project.aspect === "16:9")}
+    ${o.final_url ? `<div class="row mt8"><a class="btn sm" href="${esc(o.final_url)}?dl=1">${ICON.download}${esc(t("download"))}</a></div>` : ""}
+    <h3 class="mt16">${esc(t("qa"))}</h3><div class="small">${(tq.problems || []).length ? `<ul class="hl-ul">${tq.problems.map((p) => `<li class="warn">${esc(p)}</li>`).join("")}</ul>` : esc(t("no_problems"))}
+      <div class="tiny muted mt8">${esc(tq.duration ?? "")} ${esc(t("sec"))} · ${esc(tq.lufs ?? "—")} LUFS · ${esc(tq.true_peak_db ?? "—")} dBTP</div>
+      ${((o.render || {}).parts || {}).rendered < ((o.render || {}).parts || {}).parts ? `<div class="tiny muted mt8">${esc(t("parts_reused", o.render.parts.rendered, o.render.parts.parts))}</div>` : ""}</div>
+    ${(o.cover_urls || []).length ? `<h3 class="mt16">${esc(t("covers"))}</h3><div class="hl-stills">${o.cover_urls.map((u) => `<figure><img src="${esc(u)}" alt=""></figure>`).join("")}</div>` : ""}`;
+}
+function outPublish(o, s, f) {
+  const text = [o.caption, (o.hashtags || []).join(" ")].filter(Boolean).join("\n\n");
+  const fin = (f.stages.find((x) => x.id === "compose") || {}).output || {};
+  return `${player(fin.final_url, f.project.aspect === "16:9")}
+    <div class="hl-big mt12">${esc(o.caption || "")}</div><div class="mt8">${(o.hashtags || []).map((h) => `<span class="chip">${esc(h)}</span>`).join(" ")}</div>
+    <div class="row mt12"><button class="btn sm" data-act="copy" data-text="${esc(text)}">${ICON.copy}${esc(t("copy"))}</button>
+      ${fin.final_url ? `<a class="btn sm" href="${esc(fin.final_url)}?dl=1">${ICON.download}${esc(t("download"))}</a>` : ""}</div>
+    ${o.notes ? `<h3 class="mt16">${esc(t("notes"))}</h3><div class="small" style="white-space:pre-wrap">${esc(o.notes)}</div>` : ""}`;
+}
+function outCut(o) {
+  return `${o.hook ? `<div class="hl-big">“${esc(o.hook)}”</div>` : ""}
+    <div class="tiny muted mt8">${esc(o.raw_s)} → ${esc(o.kept_s)} ${esc(t("sec"))}</div>
+    <ol class="hl-ul small mt8">${(o.phrases || []).map((x) => `<li class="${x.kept ? "" : "faint"}" style="${x.kept ? "" : "text-decoration:line-through"}">
+      ${x.kept ? `<span class="badge ok">${esc(x.pos)}</span>` : `<span class="badge">${esc(t("cut_word"))}</span>`} ${esc(x.text)}
+      ${(x.flags || []).length ? `<span class="tiny warn">${esc(x.flags.join(", "))}</span>` : ""}</li>`).join("")}</ol>
+    ${(o.broll || []).length ? `<h3 class="mt16">B-roll</h3><ul class="hl-ul small">${o.broll.map((b) => `<li>${esc(b.kind)} · ${esc(b.text || "")}</li>`).join("")}</ul>` : ""}`;
+}
+function outPlates(o) {
+  return `${o.concept ? `<div class="hl-big small">${esc(o.concept)}</div>` : ""}
+    <div class="hl-stills mt12">${(o.plate_urls || []).map((u) => `<figure><img loading="lazy" src="${esc(u)}" data-act="hatZoom" data-src="${esc(u)}" alt=""></figure>`).join("")}</div>`;
+}
+function outCutPlan(o, s, f) {
+  return `${player(o.preview_url, f.project.aspect === "16:9")}
+    ${o.concept ? `<div class="hl-big small mt12">${esc(o.concept)}</div>` : ""}
+    <div class="tiny muted mt8">${(o.shots || []).length} ${esc(t("shots"))} · ${esc(o.duration ?? "")} ${esc(t("sec"))}</div>
+    <ol class="hl-ul small mt8">${(o.shots || []).map((x) => `<li><span class="mono tiny">${esc(x.clip || "")} ${esc(x.in ?? "")}–${esc(x.out ?? "")}</span>
+      ${x.text ? ` <b>“${esc(x.text)}”</b>` : ""} <span class="muted">${esc(x.shows || "")}</span></li>`).join("")}</ol>
+    ${(o.warnings || []).length ? `<h3 class="mt16">${esc(t("warnings"))}</h3><ul class="hl-ul small">${o.warnings.map((w) => `<li class="warn">${esc(w)}</li>`).join("")}</ul>` : ""}`;
+}
+function outShotList(o) {
+  const c = o.cost || {};
+  return `<div class="tiny muted">${(o.shots || []).length} ${esc(t("shots"))} · ${esc(o.seconds ?? "")} ${esc(t("sec"))}</div>
+    <ol class="hl-ul small mt8">${(o.shots || []).map((x) => `<li>${x.kind === "gen"
+      ? `<span class="badge warn">${esc(t("gen_shot"))} · ${esc(x.seconds)} ${esc(t("sec"))}</span> ${esc(x.frame || "")} <span class="muted">→ ${esc(x.prompt || "")}</span>`
+      : `<span class="badge">${esc(t("own_shot"))}</span> <span class="mono tiny">${esc(x.clip_id || "")} ${esc(x.in ?? "")}–${esc(x.out ?? "")}</span> <span class="muted">${esc(x.shows || "")}</span>`}
+      ${x.text ? ` <b>“${esc(x.text)}”</b>` : ""}</li>`).join("")}</ol>
+    ${(c.lines || []).length ? `<div class="costs mt12">${c.lines.map((l) => `<div class="ln"><span class="muted">${esc(l.label)}</span><b>${l.credits == null ? "?" : "~" + num(l.credits)} ${esc(t("credits"))}</b></div>`).join("")}
+      <div class="ln"><span>${esc(t("total"))}</span><b>~${num(c.credits)} ${esc(t("credits"))}</b></div></div>` : ""}`;
+}
+function styleCard(c) {
+  return `<div class="hl-style on">${c.preview ? `<img src="${esc(c.preview)}" alt="">` : ""}<div><h4>${esc(t("style_now"))}: ${esc(c.name)}</h4>
+      <div class="small">${esc(c.look)}</div><div class="hl-pal mt8">${(c.palette || []).map((h) => `<i style="background:${esc(h)}"></i>`).join("")}</div>
+      <div class="tiny mt8"><b>${esc(t("style_type"))}:</b> ${esc(c.type)}</div><div class="tiny"><b>${esc(t("style_motion"))}:</b> ${esc(c.motion)}</div>
+      <div class="tiny"><b>${esc(t("style_sound"))}:</b> ${esc(c.sound)}</div><div class="tiny muted"><b>${esc(t("style_avoid"))}:</b> ${esc(c.avoid)}</div></div></div>`;
+}
+function styleLib(s) {
+  const now = (s.style || {}).id;
+  const gate = s.status === "awaiting_approval";
+  return `<h3 class="mt16">${esc(t("style_lib"))}</h3>${s.style ? styleCard(s.style) : ""}
+    <div class="hl-styles mt12">${(HS.styles || []).map((c) => `<div class="hl-style-t ${c.id === now ? "on" : ""}" title="${esc(c.look)}">
+      ${c.preview ? `<img src="${esc(c.preview)}" alt="">` : ""}<div class="tiny"><b>${esc(c.name)}</b></div>
+      ${gate && c.id !== now ? `<button class="btn sm block mt8" data-act="hatStyle" data-style="${esc(c.id)}" data-stage="${esc(s.id)}">${esc(t("style_pick"))}</button>` : ""}</div>`).join("")}</div>`;
+}
+const OUT = { research: outResearch, proposal: outProposal, script: outScript, scene_plan: outScenes, assets: outAssets,
+  render: outRender, publish: outPublish, cut_plan: outCutPlan, cut: outCut, plates: outPlates, shot_list: outShotList };
+function outputHtml(s, f) {
+  const o = s.output;
+  if (!o) return `<div class="tiny faint">${esc(s.status === "pending" ? t("waiting_prev") : t("output_none"))}</div>`;
+  const fn = OUT[s.artifact];
+  if (fn && s.style_pick) return fn(o, s, f) + styleLib(s);
+  return fn ? fn(o, s, f) : `<pre class="log">${esc(JSON.stringify(o, null, 1).slice(0, 4000))}</pre>`;
+}
+function proofHtml(r) {
+  if (!r) return "";
+  const head = !r.checked ? t("proof_none") : r.ok ? t("proof_ok") : t("proof_bad", r.unmatched);
+  return `<div class="card hl-proof"><h3>${esc(t("proof_t"))} <span class="badge ${r.ok ? "ok" : "bad"}">${esc(head)}</span></h3>
+    ${(r.problems || []).map((x) => `<div class="hl-find sev-critical mt8"><div class="small">${esc(x)}</div></div>`).join("")}
+    ${(r.items || []).filter((x) => x.ok).slice(0, 30).map((x) => `<div class="tiny muted mt8">✓ ${esc(x.where)}: <b>${esc(x.text)}</b> · ${esc(t("proof_src"))} ${esc(x.source || "")}</div>`).join("")}</div>`;
+}
+function reviewHtml(r) {
+  if (!r) return "";
+  const v = r.verdict === "pass" ? "ok" : r.verdict === "fix" ? "bad" : "";
+  return `<div class="card"><h3>${esc(t("review"))} <span class="badge ${v}">${esc(t(r.verdict === "fix" && !r.open_critical && r.score != null ? "verdict_low" : "verdict_" + (r.verdict || "unknown")))}</span>
+      ${r.rounds ? `<span class="tiny faint">${esc(t("rounds", r.rounds))}</span>` : ""}</h3>
+    ${r.score != null ? `<div class="row mt8" style="gap:8px;align-items:baseline"><b style="font-size:22px">${r.score}</b><span class="small muted">/100</span>
+      <span class="badge ${r.score >= r.pass_score ? "ok" : "bad"}">${esc(t(r.score >= r.pass_score ? "rb_pass" : "rb_low", r.pass_score))}</span></div>
+      <div class="hl-rb mt8">${(r.rubric || []).map((x) => `<div class="tiny"><span class="hl-rb-bar"><i style="width:${x.score * 10}%"></i></span> ${x.score}/10 · ${esc(x.item)}</div>`).join("")}</div>` : ""}
+    ${r.summary ? `<div class="small mt8">${esc(r.summary)}</div>` : ""}
+    ${(r.findings || []).map((x) => `<div class="hl-find sev-${esc(x.severity)} mt8"><span class="badge">${esc(t("sev_" + x.severity))}</span>
+      <div class="small"><b>${esc(x.item || "")}</b> ${esc(x.problem || "")}</div>${x.fix ? `<div class="tiny muted">→ ${esc(x.fix)}</div>` : ""}</div>`).join("")}
+    ${r.ledger ? ledgerHtml(r.ledger) : ""}
+    ${r.render ? `<div class="tiny faint mt8">${esc(t("gl_render", r.render.stills))}${r.render.sheet_url ? ` · <a href="${esc(r.render.sheet_url)}" target="_blank">${esc(t("gl_sheet"))}</a>` : ""}</div>` : ""}
+    ${r.render && r.render.grade ? `<div class="tiny mt4"><span class="hl-grade hl-grade-${esc(r.render.grade.grade)}">${esc(t("gr_line", t("gr_" + r.render.grade.grade), r.render.grade.score))}</span></div>` : ""}
+    ${r.error ? `<div class="tiny faint">${esc(r.error)}</div>` : ""}</div>`;
+}
+// the review ledger (factory/hat/gauntlet.py, t516): every finding of every round, closed only by a later review
+function ledgerHtml(l) {
+  const open = (l.entries || []).filter((e) => e.status === "open");
+  return `<div class="tiny muted mt12"><b>${esc(t("gl_title"))}</b> · ${esc(t("gl_counts", l.fixed || 0, l.open || 0, l.dropped || 0))}</div>
+    ${open.map((e) => `<div class="tiny mt4"><span class="badge ${e.severity === "critical" ? "bad" : ""}">${esc(e.id)}</span> ${esc(e.item || "")}: ${esc(e.problem || "")}</div>`).join("")}`;
+}
+function decisionHtml(s, f) {
+  const id = esc(s.id);
+  if (f.state === "archived") return `<div class="card hl-dec"><h3>${esc(t("state_archived"))}</h3><div class="small muted">${esc(t("archived_note"))}</div></div>`;
+  if (s.status === "running") return `<div class="card hl-dec"><h3><span class="spin"></span> ${esc(t("working"))}</h3><div class="small muted">${esc(s.says)}</div></div>`;
+  if (s.status === "awaiting_approval") return `<div class="card hl-dec gate"><h3>🔒 ${esc(t("decision"))}</h3>
+      ${s.summary ? `<div class="small">${esc(s.summary)}</div>` : ""}${s.gate_says ? `<div class="tiny muted mt8">${esc(s.gate_says)}</div>` : ""}
+      ${s.proof && !s.proof.ok ? `<div class="note bad mt12 small">${esc(t("proof_block"))}</div>` : ""}
+      <button class="btn accent block mt12" data-act="hatAct" data-a="approve" data-stage="${id}" ${s.proof && !s.proof.ok ? "disabled" : ""}>${ICON.check}${esc(t("continue"))}</button>
+      <label class="field mt16"><span>${esc(t("feedback"))} · <span class="faint">${esc(t("revisions", s.revisions || 0))}</span></span>
+        <textarea id="hlNote" data-keep="hl-note-${id}" placeholder="${esc(t("fb_ph"))}"></textarea></label>
+      <button class="btn block mt8" data-act="hatAct" data-a="feedback" data-stage="${id}" ${(s.revisions || 0) >= 3 ? "disabled" : ""}>${esc(t("redo"))}</button></div>`;
+  if (s.status === "failed") return `<div class="card hl-dec bad"><h3>${esc(t("error"))}</h3><pre class="log">${esc(s.error || "")}</pre>
+      <button class="btn accent block mt12" data-act="hatAct" data-a="retry" data-stage="${id}">${esc(t("retry"))}</button>
+      <textarea id="hlNote" class="mt12" data-keep="hl-note-${id}" placeholder="${esc(t("fb_ph"))}"></textarea>
+      <button class="btn block mt8" data-act="hatAct" data-a="feedback" data-stage="${id}">${esc(t("redo"))}</button></div>`;
+  if (s.status === "approved" || s.status === "done") {
+    const busy = f.stages.some((x) => x.status === "running");
+    return `<div class="card hl-dec"><h3>${esc(t("st_" + s.status))}</h3>${s.summary ? `<div class="small">${esc(s.summary)}</div>` : ""}
+      ${busy ? "" : `<button class="btn ghost block mt12" data-act="hatAct" data-a="back" data-stage="${id}">${ICON.back}${esc(t("go_back"))}</button><div class="tiny faint mt8">${esc(t("back_warn"))}</div>`}</div>`;
+  }
+  if (f.state === "run" && f.current === s.id && s.run !== "planned") return `<div class="card hl-dec"><button class="btn accent block" data-act="hatAct" data-a="advance" data-stage="${id}">${esc(t("start_stage"))}</button></div>`;
+  return `<div class="card hl-dec"><div class="small muted">${esc(s.run === "planned" ? t("not_built") : t("waiting_prev"))}</div></div>`;
+}
+function eventText(e, f) {
+  const nm = (sid) => ((f.stages.find((x) => x.id === sid) || {}).name || sid || "");
+  const k = "ev_" + e.kind;
+  if (!(k in TX.tr)) return "";
+  if (e.kind === "tool" || e.kind === "tool_error") return t(k, e.tool || "");
+  if (e.kind === "agent_start" || e.kind === "review") return t(k, e.model || "");
+  return t(k, nm(e.stage));
+}
+function eventsHtml(f) {
+  const rows = f.events.slice().reverse().map((e) => [e, eventText(e, f)]).filter(([, x]) => x).slice(0, 18);
+  return `<div class="card"><h3>${esc(t("live"))}</h3><div class="hl-ev">${rows.map(([e, x]) => `<div><time>${esc(dt(e.at))}</time><span>${esc(x)}${e.seconds != null && e.kind !== "tool" ? ` <span class="faint">${e.seconds}s</span>` : ""}</span></div>`).join("")}</div>
+    <div class="tiny muted mt8">${esc(t("spent"))}: ${num(f.spent.credits)} ${esc(t("credits"))} · $${(f.spent.usd || 0).toFixed(2)}</div></div>`;
+}
+async function viewProject(pid) {
+  const f = await api("/api/hat/project/" + encodeURIComponent(pid));
+  HS.pid = pid;
+  if (f.stages.some((x) => x.style_pick) && (!HS.styles || HS.styles_lang !== L())) {
+    HS.styles = await api("/api/hat/styles"); HS.styles_lang = L();
+  }
+  const p = f.project;
+  crumb([t("nav_prods"), p.title]);
+  const nex = f.export ? f.export.exports.length : 0;
+  if (HS.exporting && HS.exporting.pid === pid && (nex > HS.exporting.had || HS.exporting.polls > 200)) HS.exporting = null;
+  const exporting = HS.exporting && HS.exporting.pid === pid;
+  if (exporting) HS.exporting.polls++;
+  const ndv = f.deliver ? f.deliver.deliveries.length + (f.deliver.deliveries[0] ? f.deliver.deliveries[0].at : "") : 0;
+  if (HS.delivering && HS.delivering.pid === pid && (ndv !== HS.delivering.had || HS.delivering.polls > 300)) HS.delivering = null;
+  const delivering = HS.delivering && HS.delivering.pid === pid;
+  if (delivering) HS.delivering.polls++;
+  const sel = HS.sel[pid] && f.stages.some((x) => x.id === HS.sel[pid]) ? HS.sel[pid] : (f.current || f.stages[f.stages.length - 1].id);
+  const s = f.stages.find((x) => x.id === sel);
+  const html = `<div class="row"><a class="btn ghost sm" href="#/uretimler">${ICON.back}${esc(t("back_list"))}</a><span class="sp"></span>
+      <span class="badge">${esc(f.line.name)}</span><span class="badge">${esc((p.video_lang || "").toUpperCase())}</span><span class="badge">${esc(p.aspect || "")}</span>${p.proof ? `<span class="badge ok">${esc(t("proof_mode"))}</span>` : ""}${stateBadge(f.state)}</div>
+    <h1 class="mt12">${esc(p.title)}</h1>${p.brief ? `<div class="lead hl-brief">${esc(p.brief)}</div>` : ""}
+    ${flowRail(f, sel)}
+    <div class="split mt16"><div class="col" style="gap:14px"><div class="card"><div class="row"><h2 style="margin:0">${esc(s.name)}</h2><span class="sp"></span>
+        <span class="badge hl-sb st-${esc(s.status)}">${esc(t("st_" + s.status))}</span></div><div class="small muted mt8">${esc(s.says)}</div>
+        ${s.note ? `<div class="note mt12 small"><b>${esc(t("feedback"))}:</b> ${esc(s.note)}</div>` : ""}<div class="mt16">${outputHtml(s, f)}</div></div></div>
+      <div class="col sticky" style="gap:14px">${decisionHtml(s, f)}${proofHtml(s.proof)}${exportHtml(f)}${deliverHtml(f)}${clipsHtml(f)}${reviewHtml(s.review)}${eventsHtml(f)}</div></div>`;
+  const busy = f.state === "busy" || f.stages.some((x) => x.status === "running");
+  paint(html, JSON.stringify([L(), sel, f.state, f.current, f.stages.map((x) => [x.status, x.revisions, x.proof ? x.proof.unmatched : null]), f.events.length, nex, !!exporting, ndv, !!delivering, f.clips ? f.clips.clips.map((c) => [c.id, c.status, c.busy]) : 0]));
+  const clipping = f.clips && f.clips.clips.some((c) => c.busy);
+  return { poll: busy || exporting || delivering || clipping ? 4000 : 0 };
+}
+ROUTE_RX.push([/^#\/u\/([\w-]+)/, viewProject]);
+// the export package (factory/export.py): SRT, stems, frames, GIF, FCPXML/EDL, alpha; a free background job
+function exportHtml(f) {
+  const x = f.export;
+  if (!x || !x.ready) return "";
+  const busy = HS.exporting && HS.exporting.pid === HS.pid;
+  const size = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
+  return `<div class="card"><h3>${esc(t("ex_title"))}</h3><div class="tiny muted">${esc(t("ex_hint"))}</div>
+    <div class="mt12">${x.items.map((i) => `<label class="row small mt8" style="gap:8px;align-items:center"><input type="checkbox" class="exItem" value="${esc(i.id)}" ${(HS.exSel ? HS.exSel.includes(i.id) : i.default) ? "checked" : ""} ${busy || x.archived ? "disabled" : ""} style="width:auto">
+      <span>${esc(i.name)}${i.id === "alpha" ? ` <span class="tiny faint">· ${esc(t("ex_alpha_note"))}</span>` : ""}</span></label>`).join("")}</div>
+    ${x.archived ? "" : busy ? `<div class="row mt12" style="gap:10px;align-items:center"><span class="spin"></span><span class="small muted">${esc(t("ex_building"))}</span></div>`
+      : `<button class="btn block mt12" data-act="exBuild">${esc(t("ex_build"))}</button>`}
+    ${x.exports.map((e) => `<div class="row mt12" style="gap:8px;align-items:center"><span class="small">${esc(dt(e.at))} <span class="tiny faint">· ${e.files.length} ${esc(t("ex_files"))} · ${size(e.size)}</span>
+        ${e.notes.includes("silent") ? `<div class="tiny faint">${esc(t("ex_silent"))}</div>` : ""}</span><span class="sp"></span>
+      ${e.zip ? `<a class="btn ghost sm" href="${esc(e.zip)}" download="${esc(e.name)}">${ICON.download}${esc(t("download"))}</a>` : ""}</div>`).join("")}
+    ${x.exports.some((e) => e.items.includes("timeline")) ? `<div class="tiny faint mt8">${esc(t("ex_relink"))}</div>` : ""}</div>`;
+}
+ACT.exBuild = async (el) => {
+  const items = [...document.querySelectorAll(".exItem:checked")].map((x) => x.value);
+  if (!items.length) { toast(t("ex_pick"), 1); return; }
+  HS.exSel = items; el.disabled = true;
+  try {
+    const f = await api("/api/hat/project/" + encodeURIComponent(HS.pid));
+    await post("/api/hat/project/" + encodeURIComponent(HS.pid) + "/export", { items });
+    HS.exporting = { pid: HS.pid, had: f.export ? f.export.exports.length : 0, polls: 0 };
+    toast(t("ex_queued"));
+  } finally { el.disabled = false; S.sig = null; route({ poll: true }); }
+};
+// platform delivery (factory/delivery.py): one verified file per platform + what sits under its interface
+function deliverHtml(f) {
+  const x = f.deliver;
+  if (!x || !x.ready) return "";
+  const busy = HS.delivering && HS.delivering.pid === HS.pid;
+  const size = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
+  const last = x.deliveries[0];
+  const res = (r) => {
+    const st = r.refused ? `<span class="badge bad">${esc(t("dv_refused"))}</span>` : r.ok && !r.findings.length ? `<span class="badge ok">${esc(t("dv_ok"))}</span>` : `<span class="badge warn">${esc(t("dv_check"))}</span>`;
+    const fd = r.findings.map((z) => `<div class="tiny mt4">${z.how === "text" ? `“${esc(z.text)}” ${esc(t("dv_under"))}: ${esc(z.zone_name)} <span class="faint">· ${z.t}s</span>` : `${esc(z.zone_name)}: ${esc(t("dv_estimate"))}`}</div>`).join("");
+    return `<div class="hl-dv mt12"><div class="row" style="gap:8px;align-items:center"><b class="small">${esc(r.name)}</b>${st}<span class="sp"></span>
+        ${r.file ? `<a class="btn ghost sm" href="${esc(r.file)}" download="${esc(r.platform)}.mp4">${ICON.download}${size(r.size || 0)}</a>` : ""}</div>
+      ${r.refused ? `<div class="tiny muted mt4">${esc(r.refused)}</div>` : ""}${r.failed.length ? `<div class="tiny mt4">${esc(t("dv_failed"))}: ${esc(r.failed.join(", "))}</div>` : ""}
+      ${r.findings.length ? fd : r.file ? `<div class="tiny muted mt4">${esc(t("dv_clear"))}</div>` : ""}
+      ${r.preview ? `<a href="${esc(r.preview)}" target="_blank"><img class="hl-dv-prev mt8" src="${esc(r.preview)}" alt=""></a>` : ""}</div>`;
+  };
+  return `<div class="card"><h3>${esc(t("dv_title"))}</h3><div class="tiny muted">${esc(t("dv_hint"))}</div>
+    <div class="mt12">${x.platforms.map((p) => `<label class="row small mt8" style="gap:8px;align-items:flex-start;flex-wrap:nowrap"><input type="checkbox" class="dvItem" value="${esc(p.id)}" ${(HS.dvSel ? HS.dvSel.includes(p.id) : p.fits) ? "checked" : ""} ${busy || x.archived ? "disabled" : ""} style="width:auto;flex:none;margin-top:3px">
+      <span>${esc(p.name)} <span class="tiny faint">· ${esc(p.size)} · ${esc(t("dv_max").replace("{s}", p.max_s))}${p.fits ? "" : " · " + esc(t("dv_fit"))}</span></span></label>`).join("")}</div>
+    ${x.archived ? "" : busy ? `<div class="row mt12" style="gap:10px;align-items:center"><span class="spin"></span><span class="small muted">${esc(t("dv_building"))}</span></div>`
+      : `<button class="btn block mt12" data-act="dvBuild">${esc(t("dv_build"))}</button>`}
+    ${last ? `<div class="tiny faint mt12">${esc(dt(last.at))} · ${esc(t(last.results.some((r) => r.measured === "estimate") ? "dv_estimated" : "dv_measured"))}</div>${last.results.map(res).join("")}` : ""}</div>`;
+}
+ACT.dvBuild = async (el) => {
+  const platforms = [...document.querySelectorAll(".dvItem:checked")].map((x) => x.value);
+  if (!platforms.length) { toast(t("dv_pick"), 1); return; }
+  HS.dvSel = platforms; el.disabled = true;
+  try {
+    const f = await api("/api/hat/project/" + encodeURIComponent(HS.pid));
+    await post("/api/hat/project/" + encodeURIComponent(HS.pid) + "/deliver", { platforms });
+    const d = f.deliver ? f.deliver.deliveries : [];
+    HS.delivering = { pid: HS.pid, had: d.length + (d[0] ? d[0].at : ""), polls: 0 };
+    toast(t("dv_queued"));
+  } finally { el.disabled = false; S.sig = null; route({ poll: true }); }
+};
+// MiniMax clips (factory/hat/minimax.py): a 480p draft, then the final only for a draft the creator approves
+function clipsHtml(f) {
+  const x = f.clips;
+  if (!x) return "";
+  const wide = f.project.aspect === "16:9";
+  const cr = (n) => n == null ? t("mm_unknown") : "~" + num(Math.round(n)) + " " + t("credits");
+  const secs = Math.max(5, Math.min(15, Math.round(+(HS.mmSecs || 5))));
+  const q = HS.mmQ || "768p";
+  const busyRow = (k) => `<div class="row mt8" style="gap:10px;align-items:center"><span class="spin"></span><span class="small muted">${esc(t(k))}</span></div>`;
+  const clip = (c) => {
+    const est = c.estimate;
+    return `<div class="hl-dv mt12"><div class="row" style="gap:8px;align-items:center"><span class="badge ${c.status === "final" ? "ok" : c.status === "failed" ? "bad" : ""}">${esc(t("mm_st_" + c.status))}</span>
+        <span class="tiny faint">${c.seconds} ${esc(t("sec"))} · ${esc(c.quality)}</span><span class="sp"></span>
+        ${!c.busy && !x.archived ? `<button class="btn ghost sm" data-act="mmDiscard" data-id="${esc(c.id)}">${esc(t("mm_discard"))}</button>` : ""}</div>
+      <div class="small mt8">${esc(c.prompt)}</div>
+      ${c.final ? `<div class="tiny muted mt8">${esc(t("mm_final"))} · ${esc(c.final.resolution)} · ${num(c.final.credits)} ${esc(t("credits"))}</div>${player(c.final.url, wide)}` : ""}
+      ${c.draft ? `<div class="tiny muted mt8">${esc(t("mm_draftv"))} · 480p · ${num(c.draft.credits)} ${esc(t("credits"))}</div>${c.final ? "" : player(c.draft.url, wide)}` : ""}
+      ${c.error ? `<div class="tiny mt8">${esc(c.error)}</div>` : ""}
+      ${c.busy ? busyRow(c.busy === "final" ? "mm_finishing" : "mm_drafting") : x.archived ? "" : `<div class="row mt8" style="gap:8px">
+        ${c.status === "draft" ? `<button class="btn accent sm" data-act="mmApprove" data-id="${esc(c.id)}" data-c="${est.final.credits == null ? "" : Math.round(est.final.credits)}">${esc(t("mm_approve"))} · ${esc(cr(est.final.credits))}</button>` : ""}
+        ${["draft", "failed", "new"].includes(c.status) ? `<button class="btn ghost sm" data-act="mmRedraft" data-id="${esc(c.id)}">${esc(t("mm_redraft"))} · ${esc(cr(est.draft.credits))}</button>` : ""}
+        ${c.status === "approved" && c.error ? `<button class="btn accent sm" data-act="mmApprove" data-id="${esc(c.id)}" data-retry="1">${esc(t("mm_approve"))}</button>` : ""}</div>`}</div>`;
+  };
+  const form = x.archived ? "" : x.left == null ? `<div class="note small mt12">${esc(t("mm_nobudget"))}</div>` : `<div class="mt12">
+      <label class="field"><span>${esc(t("mm_prompt"))}</span><textarea id="mmPrompt" data-keep="mm-prompt" placeholder="${esc(t("mm_prompt_ph"))}"></textarea></label>
+      <div class="row mt8" style="gap:12px;align-items:flex-end">
+        <label class="field"><span>${esc(t("mm_secs"))}</span><input id="mmSecs" type="number" min="5" max="15" value="${secs}" style="width:90px" data-change="mmEst"></label>
+        <label class="field"><span>${esc(t("mm_quality"))}</span><select id="mmQ" data-change="mmEst">${x.qualities.map((v) => `<option ${v === q ? "selected" : ""}>${v}</option>`).join("")}</select></label></div>
+      <label class="field mt8"><span>${esc(t("mm_start"))}</span><input id="mmStart" data-keep="mm-start" placeholder="refs/frame.png"></label>
+      <button class="btn block mt12" data-act="mmDraft">${esc(t("mm_draft"))} · ${esc(cr(x.rates["480p"] == null ? null : x.rates["480p"] * secs))}</button>
+      <div class="tiny faint mt8">${esc(t("mm_final"))} ${esc(q)}: ${esc(cr(x.rates[q] == null ? null : x.rates[q] * secs))} · ${esc(t("mm_left").replace("{c}", num(x.left)))}</div></div>`;
+  return `<div class="card"><h3>${esc(t("mm_title"))}</h3><div class="tiny muted">${esc(t("mm_hint"))}</div>${form}${x.clips.map(clip).join("")}</div>`;
+}
+async function mmPost(body) {
+  try { await post("/api/hat/project/" + encodeURIComponent(HS.pid) + "/clips", body); toast(t("mm_queued")); }
+  finally { S.sig = null; route({ poll: true }); }
+}
+ACT.mmEst = () => { HS.mmSecs = $("#mmSecs").value; HS.mmQ = $("#mmQ").value; S.sig = null; route({ poll: true }); };
+ACT.mmDraft = async (el) => {
+  const prompt = $("#mmPrompt").value.trim();
+  if (prompt.length < 12) { toast(t("mm_short"), 1); return; }
+  el.disabled = true;
+  const body = { action: "draft", prompt, seconds: +$("#mmSecs").value, quality: $("#mmQ").value, start: $("#mmStart").value.trim() || null };
+  $("#mmPrompt").value = ""; S.drafts["mm-prompt"] = "";
+  await mmPost(body);
+};
+ACT.mmRedraft = (el) => { el.disabled = true; return mmPost({ action: "redraft", clip: el.dataset.id }); };
+ACT.mmApprove = (el) => {
+  if (!el.dataset.retry && !confirm(t("mm_approve_q").replace("{c}", el.dataset.c ? num(+el.dataset.c) : "?"))) return;
+  el.disabled = true; return mmPost({ action: el.dataset.retry ? "retry_final" : "approve", clip: el.dataset.id });
+};
+ACT.mmDiscard = (el) => { el.disabled = true; return mmPost({ action: "discard", clip: el.dataset.id }); };
+// ---------------- the scene editor (factory/sceneedit.py): hand edits on the scene plan's frames ----------------
+HS.se = { scene: null, e: null, drawing: 0 };
+async function viewScenes(pid) {
+  const v = await api("/api/hat/project/" + encodeURIComponent(pid) + "/scenes");
+  HS.pid = pid; HS.seV = v;
+  const se = HS.se;
+  if (!v.scenes.some((x) => x.id === se.scene)) { se.scene = v.scenes[0].id; se.e = null; }
+  const sc = v.scenes.find((x) => x.id === se.scene);
+  const el = sc.elements.find((x) => x.e === se.e);
+  const on = v.gate && !v.archived;
+  if (v.fresh) se.drawing = 0;
+  const [W, H] = v.size;
+  const pct = (a, b) => (100 * a / b).toFixed(3) + "%";
+  const boxes = sc.boxes.map((b) => `<div class="hl-se-box ${b.e === se.e ? "on" : ""}" data-act="seSel" data-e="${esc(b.e)}" title="${esc(b.text)}"
+      style="left:${pct(b.x, W)};top:${pct(b.y, H)};width:${pct(b.w, W)};height:${pct(b.h, H)}"></div>`).join("");
+  const cm = HS.se.mode === "comment", cv = v.comments || { notes: [], batches: [] };
+  const pin = (x, cls, label) => x.x == null ? "" : `<div class="hl-cm-pin ${cls}" style="left:${pct(x.x, W)};top:${pct(x.y, H)}" title="${esc(label || "")}"></div>`;
+  const pins = cv.notes.filter((n) => n.scene === sc.id && n.status !== "done").map((n) => pin(n, n.status, n.text)).join("")
+    + (se.pin && se.pin.origin === "frame" && se.pin.scene === sc.id ? pin(se.pin, "new", "") : "");
+  const frame = sc.frame ? `<div class="hl-se-frame ${W > H ? "wide" : ""} ${cm ? "hl-cm-on" : ""}" id="seFrame" data-w="${W}" data-h="${H}"><img src="${esc(sc.frame)}" alt="">${on && !cm ? boxes : ""}${cm ? pins : ""}</div>`
+    : `<div class="note small">${esc(t("se_noframes"))}</div>`;
+  const panel = !el ? `<div class="small muted">${esc(t("se_pick"))}</div>` : `
+    <label class="field"><span>${esc(t("se_text"))}</span><textarea id="seText" ${el.nested || !on ? "disabled" : ""}>${esc(el.text)}</textarea></label>
+    ${el.nested ? `<div class="tiny faint">${esc(t("se_nested"))}</div>` : ""}
+    <div class="row mt8" style="gap:12px;align-items:flex-end">
+      <label class="field"><span>${esc(t("se_color"))}</span><input type="color" id="seColor" value="${esc(el.color || "#ffffff")}" ${on ? "" : "disabled"} style="width:64px;height:38px;padding:2px"></label>
+      <label class="row tiny" style="gap:6px;align-items:center"><input type="checkbox" id="seNoColor" ${el.color ? "" : "checked"} ${on ? "" : "disabled"} style="width:auto">${esc(t("se_nocolor"))}</label></div>
+    <div class="row mt8" style="gap:8px;align-items:flex-end"><label class="field"><span>${esc(t("se_move"))} x</span><input type="number" id="seDx" value="${el.dx}" step="10" style="width:90px" ${on ? "" : "disabled"}></label>
+      <label class="field"><span>y</span><input type="number" id="seDy" value="${el.dy}" step="10" style="width:90px" ${on ? "" : "disabled"}></label></div>
+    ${on ? `<button class="btn accent block mt12" data-act="seSave">${esc(t("se_save"))}</button>` : ""}`;
+  const tl = v.timeline || [], ti = tl.findIndex((x) => x.id === se.scene), cur = tl[ti], total = tl.length ? tl[tl.length - 1].end : 0;
+  const prevA = ti > 0 ? tl[ti - 1].lines[0] : 0;
+  const timeline = !tl.length ? "" : `<div class="card"><h3>${esc(t("se_timeline"))}</h3>
+      <div class="hl-se-tl">${tl.map((x) => `<div class="hl-se-seg ${x.id === se.scene ? "on" : ""}" data-act="seScene" data-id="${esc(x.id)}" style="flex:${Math.max(0.05, x.end - x.start).toFixed(3)}"
+        title="${esc(x.id)} · ${x.start.toFixed(1)}–${x.end.toFixed(1)} s"><span>${esc(x.id)}</span><span class="tiny faint">${(x.end - x.start).toFixed(1)} s</span></div>`).join("")}</div>
+      <div class="row tiny faint mt8"><span>0 s</span><span class="sp"></span><span>${total.toFixed(1)} s</span></div>
+      ${ti > 0 ? `<div class="mt12 small">${esc(t("se_starts"))} ${cur.lines[0] + 1}: <span class="muted">“${esc((v.line_texts[cur.lines[0]] || "").slice(0, 90))}”</span></div>
+        ${on ? `<div class="row mt8" style="gap:8px"><button class="btn sm" data-act="seCut" data-start="${cur.lines[0] - 1}" ${cur.lines[0] - 1 <= prevA ? "disabled" : ""}>◀ ${esc(t("se_earlier"))}</button>
+          <button class="btn sm" data-act="seCut" data-start="${cur.lines[0] + 1}" ${cur.lines[0] + 1 > cur.lines[1] ? "disabled" : ""}>${esc(t("se_later"))} ▶</button></div>
+          <div class="tiny faint mt8">${esc(t("se_cut_hint"))}</div>` : ""}` : ""}</div>`;
+  const what = (x) => x.what === "restore" ? `${t("se_w_restore")}: ${x.after}` : x.what === "cut" ? `${x.scene} · ${t("se_w_cut")}: ${t("se_starts").toLowerCase()} ${x.before + 1} → ${x.after + 1}` : `${x.scene} · “${x.label || ""}” · ${t("se_w_" + x.what)}${x.what === "move" ? " " + x.after.join(", ") : x.what === "text" || x.what === "color" ? ": " + (x.after || "—") : ""}`;
+  const html = `<div class="row"><a class="btn ghost sm" href="#/u/${esc(pid)}">${ICON.back}${esc(t("se_back"))}</a></div>
+    <h1 class="mt12">${esc(t("se_title"))}</h1><p class="lead">${esc(on ? t("se_hint") : t("se_readonly"))}</p>
+    <div class="chips mt12">${v.scenes.map((x) => `<span class="chip ${x.id === se.scene ? "on" : ""}" data-act="seScene" data-id="${esc(x.id)}">${esc(x.id)}</span>`).join("")}</div>
+    <div class="split mt16"><div class="col" style="gap:12px">${frame}
+        ${!v.fresh || !sc.frame ? `<div class="row" style="gap:10px;align-items:center">${se.drawing ? `<span class="spin"></span><span class="small muted">${esc(t("se_drawing"))}</span>`
+          : `${sc.frame ? `<span class="small muted">${esc(t("se_stale"))}</span>` : ""}<button class="btn sm" data-act="seFrames" ${v.archived ? "disabled" : ""}>${esc(t("se_redraw"))}</button>`}</div>` : ""}${cm && v.preview ? `<div class="card"><h3>${esc(t("cm_video"))}</h3><div class="tiny muted">${esc(t("cm_video_hint"))}</div>
+          <div class="hl-cm-vid mt8" id="cmVid" data-w="${W}" data-h="${H}"><video src="${esc(v.preview)}" controls playsinline preload="metadata"></video><div class="hl-cm-ov" id="cmOv"></div>${se.pin && se.pin.origin === "video" ? pin(se.pin, "new", "") : ""}</div>
+          ${se.pin && se.pin.origin === "video" ? `<div class="tiny faint mt8">${esc(t("cm_at", se.pin.t.toFixed(2)))}</div>` : ""}</div>` : ""}${timeline}</div>
+      <div class="col sticky" style="gap:14px">${cmCard(v, se)}<div class="card"><h3>${esc(t("se_elements"))}</h3>
+          <div class="hl-se-list">${sc.elements.map((x) => `<div class="hl-se-row ${x.e === se.e ? "on" : ""}" data-act="seSel" data-e="${esc(x.e)}"><span class="badge">${esc(x.tag)}</span><span class="small">${esc(x.text.slice(0, 60))}</span></div>`).join("")}</div>
+          <div class="mt12">${panel}</div></div>
+        <div class="card"><h3>${esc(t("se_versions"))}</h3>
+          <div class="row" style="gap:8px"><input type="text" id="seVname" data-keep="se-vname-${esc(pid)}" placeholder="${esc(t("se_vname"))}" maxlength="60" style="flex:1"><button class="btn sm" data-act="seVsave">${esc(t("se_vsave"))}</button></div>
+          ${v.versions.slice().reverse().map((x) => `<div class="row mt8" style="gap:8px;align-items:center"><span class="small"><b>${esc(x.name)}</b> <span class="tiny faint">${esc(dt(x.at))} · ${esc(t("se_count").replace("{n}", x.edits))}</span></span><span class="sp"></span>
+            ${on ? `<button class="btn ghost sm" data-act="seRestore" data-n="${x.n}">${esc(t("se_restore"))}</button>` : ""}</div>`).join("")}</div>
+        <div class="card"><h3>${esc(t("se_edits"))}</h3>${v.edits.length ? v.edits.slice().reverse().slice(0, 14).map((x) => `<div class="tiny muted mt8">${esc(dt(x.at))} · ${esc(what(x))}</div>`).join("") : `<div class="tiny faint">${esc(t("se_none"))}</div>`}</div></div></div>`;
+  crumb([t("nav_prods"), t("se_title")]);
+  paint(html, JSON.stringify([L(), se, v.fresh, v.edits.length, v.versions.length, sc.frame, v.gate, cv, v.busy]));
+  return { poll: se.drawing && !v.fresh && se.drawing < 60 ? (se.drawing++, 3000) : v.busy ? 5000 : 0 };
+}
+// frame comments (factory/framenotes.py, t514): click a frame or the paused preview, write a note, send them as one
+// targeted revision; the scenes no comment names stay exactly as they are
+function cmCard(v, se) {
+  const cv = v.comments || { notes: [], batches: [] }, open = cv.notes.filter((n) => n.status !== "done");
+  const can = !v.archived && !v.busy;
+  const row = (n) => `<div class="hl-cm-row mt8"><div class="row" style="gap:6px;align-items:center"><span class="badge ${n.status === "done" ? "ok" : n.status === "sent" ? "" : "warn"}">${esc(t("cm_st_" + n.status))}</span>
+      <span class="tiny faint">${esc(n.scene)}${n.t != null ? " · " + n.t.toFixed(1) + " s" : ""}${n.label ? " · “" + esc(n.label.slice(0, 40)) + "”" : ""}${n.src ? " · " + esc(t("cm_line", n.src.line)) : ""}</span><span class="sp"></span>
+      ${n.status === "open" && can ? `<button class="btn ghost sm" data-act="cmDel" data-id="${esc(n.id)}">${esc(t("cm_del"))}</button>` : ""}</div>
+    <div class="small mt4">${esc(n.text)}</div></div>`;
+  const last = cv.batches[cv.batches.length - 1];
+  return `<div class="card"><div class="row" style="align-items:center"><h3 style="margin:0">${esc(t("cm_title"))}</h3><span class="sp"></span>
+      ${can ? `<button class="btn ${se.mode === "comment" ? "accent" : ""} sm" data-act="cmMode">${esc(t(se.mode === "comment" ? "cm_off" : "cm_on"))}</button>` : ""}</div>
+    <div class="tiny muted mt8">${esc(t(se.mode === "comment" ? "cm_hint_on" : "cm_hint"))}</div>
+    ${se.pin ? `<label class="field mt12"><span>${esc(t("cm_note"))}${se.pin.t != null ? " · " + se.pin.t.toFixed(2) + " s" : " · " + esc(se.pin.scene || "")}</span><textarea id="cmText" data-keep="cm-text-${esc(HS.pid)}" placeholder="${esc(t("cm_ph"))}"></textarea></label>
+      <div class="row mt8" style="gap:8px"><button class="btn accent sm" data-act="cmAdd">${esc(t("cm_add"))}</button><button class="btn ghost sm" data-act="cmCancel">${esc(t("cm_cancel"))}</button></div>` : ""}
+    ${v.busy ? `<div class="row mt12" style="gap:10px;align-items:center"><span class="spin"></span><span class="small muted">${esc(t("cm_running"))}</span></div>` : ""}
+    ${open.filter((n) => n.status === "open").length && can ? `<button class="btn accent block mt12" data-act="cmSend">${esc(t("cm_send", open.length))}</button><div class="tiny faint mt8">${esc(t("cm_send_hint"))}</div>` : ""}
+    ${last && last.status === "done" ? `<div class="tiny muted mt12">${esc(t("cm_done", last.scenes.join(", ")))}${(last.restored || []).length ? " " + esc(t("cm_restored", last.restored.join(", "))) : ""}</div>` : ""}
+    ${cv.notes.slice().reverse().slice(0, 20).map(row).join("") || `<div class="tiny faint mt8">${esc(t("cm_none"))}</div>`}</div>`;
+}
+const cmFrac = (box, ev) => { const r = box.getBoundingClientRect(); return [(ev.clientX - r.left) / r.width * +box.dataset.w, (ev.clientY - r.top) / r.height * +box.dataset.h]; };
+document.addEventListener("click", (ev) => {
+  if (HS.se.mode !== "comment" || !HS.seV) return;
+  const fr = ev.target.closest && ev.target.closest("#seFrame"), ov = ev.target.closest && ev.target.closest("#cmOv");
+  if (fr) { const [x, y] = cmFrac(fr, ev); HS.se.pin = { origin: "frame", scene: HS.se.scene, t: null, x, y }; route(); }
+  else if (ov) {
+    const box = $("#cmVid"), vid = box.querySelector("video"); vid.pause();
+    const [x, y] = cmFrac(box, ev); HS.se.pin = { origin: "video", scene: null, t: vid.currentTime, x, y }; HS.se.vt = vid.currentTime; route();
+  }
+});
+ACT.cmMode = () => { HS.se.mode = HS.se.mode === "comment" ? null : "comment"; HS.se.pin = null; route(); };
+ACT.cmCancel = () => { HS.se.pin = null; route(); };
+ACT.cmAdd = async (el) => {
+  const text = $("#cmText").value.trim(), p = HS.se.pin;
+  if (!text) { toast(t("cm_empty"), 1); return; }
+  el.disabled = true;
+  try {
+    await post(seUrl(), { action: "note", text, origin: p.origin, scene: p.scene, t: p.t, x: Math.round(p.x), y: Math.round(p.y) });
+    $("#cmText").value = ""; S.drafts["cm-text-" + HS.pid] = ""; HS.se.pin = null; toast(t("cm_added"));
+  } finally { el.disabled = false; S.sig = null; route(); }
+};
+ACT.cmDel = async (el) => { el.disabled = true; try { await post(seUrl(), { action: "unnote", id: el.dataset.id }); } finally { S.sig = null; route(); } };
+ACT.cmSend = async (el) => {
+  if (!confirm(t("cm_send_q"))) return;
+  el.disabled = true;
+  try { const r = await post(seUrl(), { action: "send_notes" }); toast(t("cm_sent", r.sent)); HS.se.mode = null; }
+  finally { S.sig = null; route({ poll: true }); }
+};
+ROUTE_RX.push([/^#\/u\/([\w-]+)\/sahneler/, viewScenes]);
+const seUrl = () => "/api/hat/project/" + encodeURIComponent(HS.pid) + "/scenes";
+ACT.seScene = (el) => { HS.se.scene = el.dataset.id; HS.se.e = null; route(); };
+ACT.seSel = (el) => { if (HS.seDragged) { HS.seDragged = false; return; } HS.se.e = el.dataset.e; route(); };
+ACT.seFrames = async () => { HS.se.drawing = 1; await post(seUrl(), { action: "frames" }); S.sig = null; route({ poll: true }); };
+ACT.seSave = async (el) => {
+  el.disabled = true;
+  try {
+    const b = { action: "edit", scene: HS.se.scene, e: HS.se.e, dx: +$("#seDx").value || 0, dy: +$("#seDy").value || 0, color: $("#seNoColor").checked ? "" : $("#seColor").value };
+    if (!$("#seText").disabled) b.text = $("#seText").value;
+    await post(seUrl(), b); toast(t("se_saved")); S.sig = null; route();
+  } finally { el.disabled = false; }
+};
+ACT.seVsave = async () => { await post(seUrl(), { action: "save_version", name: $("#seVname").value }); $("#seVname").value = ""; S.drafts["se-vname-" + HS.pid] = ""; toast(t("se_vsaved")); S.sig = null; route(); };
+ACT.seCut = async (el) => { el.disabled = true; try { await post(seUrl(), { action: "cut", scene: HS.se.scene, start: +el.dataset.start }); toast(t("se_saved")); } finally { S.sig = null; route(); } };
+ACT.seRestore = async (el) => { await post(seUrl(), { action: "restore", n: +el.dataset.n }); toast(t("se_restored")); S.sig = null; route(); };
+// drag a text box on the frame: the move is saved in CSS px of the video frame
+document.addEventListener("pointerdown", (ev) => {
+  const box = ev.target.closest && ev.target.closest(".hl-se-box");
+  if (!box || !HS.seV) return;
+  const fr = $("#seFrame"), k = (+fr.dataset.w) / fr.getBoundingClientRect().width, x0 = ev.clientX, y0 = ev.clientY;
+  const sc = HS.seV.scenes.find((x) => x.id === HS.se.scene), el = sc.elements.find((x) => x.e === box.dataset.e);
+  if (!el) return;
+  box.setPointerCapture(ev.pointerId);
+  const move = (e) => { box.style.transform = `translate(${e.clientX - x0}px, ${e.clientY - y0}px)`; };
+  const up = async (e) => {
+    box.removeEventListener("pointermove", move); box.removeEventListener("pointerup", up);
+    const dx = Math.round((e.clientX - x0) * k), dy = Math.round((e.clientY - y0) * k);
+    if (Math.abs(dx) + Math.abs(dy) < 6) { box.style.transform = ""; return; }
+    HS.seDragged = true; HS.se.e = el.e;
+    try { await post(seUrl(), { action: "edit", scene: HS.se.scene, e: el.e, dx: el.dx + dx, dy: el.dy + dy }); toast(t("se_saved")); }
+    catch (err) { box.style.transform = ""; toast(err.message, 1); }
+    S.sig = null; route();
+  };
+  box.addEventListener("pointermove", move); box.addEventListener("pointerup", up);
+});
+// ---------------- film styles: the library and the creator's own (factory/filmstyles.py, factory/ownstyles.py) ----------------
+async function viewStyles() {
+  crumb([t("nav_fstyles")]);
+  const [lib, own] = await Promise.all([api("/api/hat/styles"), api("/api/hat/ownstyles")]);
+  const mine = own.filter((x) => x.status !== "approved");
+  const tile = (c) => `<div class="hl-style-t">${c.preview ? `<img src="${esc(c.preview)}" alt="" data-act="open" data-src="${esc(c.preview)}" data-photo="1">` : ""}
+      <div class="tiny"><b>${esc(c.name)}</b></div><div class="tiny muted">${esc(c.look)}</div><div class="hl-pal mt8">${(c.palette || []).map((h) => `<i style="background:${esc(h)}"></i>`).join("")}</div>
+      <button class="btn sm block mt8" data-act="fsBase" data-id="${esc(c.id)}">${esc(t("fs_change"))}</button></div>`;
+  const ownTile = (s) => `<a class="hl-style-t" href="#/film-stilleri/${esc(s.id)}">${s.sample ? `<img src="${esc(s.sample)}" alt="">` : `<div class="hl-pal">${(s.palette || []).map((h) => `<i style="background:${esc(h)}"></i>`).join("")}</div>`}
+      <div class="tiny"><b>${esc(s.name)}</b></div><span class="badge ${s.status === "approved" ? "ok" : "warn"}">${esc(t("fs_" + s.status))}</span></a>`;
+  paint(`<h1>${esc(t("nav_fstyles"))}</h1><p class="lead">${esc(t("fs_lead"))}</p>
+    <div class="card mt16"><h3>${esc(t("fs_new"))}</h3><div class="row">
+      <label class="field" style="flex:1;min-width:200px"><span>${esc(t("fs_name"))}</span><input id="fsName" data-keep="fs-name" type="text" maxlength="40"></label>
+      <label class="field" style="flex:1;min-width:200px"><span>${esc(t("fs_base"))}</span><select id="fsBase"><option value="blank">${esc(t("fs_blank"))}</option>
+        ${lib.map((c) => `<option value="${esc(c.id)}" ${HS.fsBase === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label></div>
+      <button class="btn accent mt12" data-act="fsCreate">${esc(t("fs_create"))}</button><div class="tiny faint mt8">${esc(t("fs_no_cost"))}</div></div>
+    ${mine.length ? `<h2>${esc(t("fs_own"))}</h2><div class="hl-styles">${mine.map(ownTile).join("")}</div>` : ""}
+    <h2>${esc(t("fs_lib"))}</h2><div class="hl-styles wide">${lib.map((c) => c.id.startsWith("own_") ? ownTile(own.find((x) => x.id === c.id) || c) : tile(c)).join("")}</div>`,
+    JSON.stringify([L(), lib.length, own.map((x) => [x.id, x.status, x.sample])]));
+  return { poll: 0 };
+}
+function fsQuestion(st, q) {
+  const v = q.value;
+  if (q.kind === "text") return `<textarea id="fsVal" rows="3">${esc(v || "")}</textarea>`;
+  if (q.kind === "colors") return `<input id="fsVal" type="text" value="${esc((v || []).join(", "))}" placeholder="#f4eee2, #0078bf, #ff48b0">
+      <div class="hl-pal mt8">${(v || []).map((h) => `<i style="background:${esc(h)}"></i>`).join("")}</div>`;
+  if (q.kind === "font") return `<select id="fsVal">${st.fonts.map((f) => `<option ${f === v ? "selected" : ""} style="font-family:'${esc(f)}'">${esc(f)}</option>`).join("")}</select>
+      <div class="mt8" style="font:400 34px '${esc(v)}'">Aa Ğğ Şş İı 123</div>`;
+  if (q.kind === "texture") return `<div class="chips">${st.textures.map((x) => `<span class="chip ${x.id === v ? "on" : ""}" data-act="fsPick" data-v="${esc(x.id)}">${esc(x.name)}</span>`).join("")}</div>`;
+  if (q.kind === "logo") return `<label class="drop">${esc(st.logo ? t("fs_logo_ok") : t("fs_logo_up"))}<input type="file" id="fsLogo" accept="image/png,image/jpeg,image/webp" style="display:none"></label>`;
+  return `<textarea id="fsVal" rows="4" placeholder="Mira: kısa kızıl saç, sarı yağmurluk">${esc((v || []).map((c) => c.name + ": " + c.look).join("\n"))}</textarea>`;
+}
+async function viewOwnStyle(sid) {
+  const st = await api("/api/hat/ownstyle/" + encodeURIComponent(sid));
+  crumb([t("nav_fstyles"), st.name]);
+  const qs = st.questions.filter((q) => q.step === "plan" || q.step === "brand");
+  const at = Math.min(HS.fsQ[sid] ?? Math.max(0, qs.findIndex((q) => st.missing.includes(q.id))), qs.length);
+  const step = at < qs.length ? qs[at].step : (st.status === "draft" ? "sample" : "approve");
+  const base = (st.bases.find((b) => b.id === st.base) || {}).name || t("fs_blank");
+  const rail = `<div class="chips mt12">${st.steps.map((s, i) => `<span class="chip ${s === step ? "on" : ""}">${st.steps.indexOf(step) > i ? "✓" : i + 1} · ${esc(t("fs_st_" + s))}</span>`).join("")}</div>`;
+  let body;
+  if (at < qs.length) {
+    const q = qs[at];
+    body = `<div class="card"><div class="tiny muted">${at + 1} / ${qs.length}</div><h3>${esc(q.q)}</h3>${fsQuestion(st, q)}
+      <div class="row mt12">${at ? `<button class="btn ghost" data-act="fsGo" data-to="${at - 1}">${esc(t("fs_prev"))}</button>` : ""}<span class="sp"></span>
+        ${q.optional ? `<button class="btn ghost" data-act="fsGo" data-to="${at + 1}">${esc(t("fs_skip"))}</button>` : ""}
+        ${q.kind === "logo" || q.kind === "texture" ? `<button class="btn accent" data-act="fsGo" data-to="${at + 1}">${esc(t("fs_next"))}</button>`
+          : `<button class="btn accent" data-act="fsAnswer" data-q="${esc(q.id)}" data-to="${at + 1}">${esc(t("fs_next"))}</button>`}</div></div>`;
+  } else {
+    const busy = HS.fsBusy === sid && st.status === "draft";
+    body = `<div class="card"><h3>${esc(t("fs_st_sample"))}</h3>
+      ${st.sample ? `<img class="hl-sample" src="${esc(st.sample)}" alt="">` : ""}
+      ${st.missing.length ? `<div class="small bad">${esc(t("fs_need", st.missing.join(", ")))}</div>` : ""}
+      ${st.sample && st.status === "draft" ? `<div class="tiny muted mt8">${esc(t("fs_stale"))}</div>` : ""}
+      ${st.status === "approved" ? `<div class="small mt8">${esc(t("fs_in_lib"))}</div>` : ""}
+      <div class="row mt12"><button class="btn ghost" data-act="fsGo" data-to="0">${esc(t("fs_prev"))}</button><span class="sp"></span>
+        ${busy ? `<span class="small"><span class="spin"></span> ${esc(t("fs_drawing"))}</span>` : st.missing.length ? "" : `<button class="btn ${st.status === "draft" ? "accent" : ""}" data-act="fsSample">${esc(st.sample ? t("fs_redraw") : t("fs_draw"))}</button>`}
+        ${st.status === "sampled" ? `<button class="btn accent" data-act="fsApprove">${ICON.check}${esc(t("fs_approve"))}</button>` : ""}</div>
+      <div class="tiny faint mt8">${esc(t("fs_no_cost"))}</div></div>`;
+  }
+  paint(`<div class="row"><a class="btn ghost sm" href="#/film-stilleri">${ICON.back}${esc(t("nav_fstyles"))}</a><span class="sp"></span>
+      <span class="badge ${st.status === "approved" ? "ok" : "warn"}">${esc(t("fs_" + st.status))}</span>
+      <button class="btn sm ghost danger" data-act="fsDelete">${ICON.trash}${esc(t("fs_delete"))}</button></div>
+    <h1 class="mt12">${esc(st.name)}</h1><div class="small muted">${esc(t("fs_based", base))}</div>${rail}
+    <div class="split mt16"><div class="col">${body}</div><div class="col sticky"><div class="card"><div class="hl-pal">${st.palette.map((h) => `<i style="background:${esc(h)}"></i>`).join("")}</div>
+      ${st.questions.filter((q) => q.kind === "text" && q.value).map((q) => `<div class="tiny mt8"><b>${esc(q.q.split(/[?:.]/)[0])}:</b> ${esc(q.value)}</div>`).join("")}</div></div></div>`,
+    JSON.stringify([L(), at, st.status, st.sample, st.updated, HS.fsBusy]));
+  return { poll: HS.fsBusy === sid && st.status === "draft" ? 4000 : 0 };
+}
+ROUTE_RX.push([/^#\/film-stilleri\/(own_[\w]+)/, viewOwnStyle]);
+// ---------------- #/receteler: the shotbook (t510) ----------------
+const rcCard = (c) => `<div class="card rccard" style="padding:10px" data-id="${esc(c.id)}" data-fam="${esc(c.family)}" data-q="${esc((c.id + " " + c.name + " " + c.use).toLowerCase())}">
+    ${c.demo ? `<video src="${esc(c.demo)}" data-auto muted loop playsinline preload="none" style="width:100%;aspect-ratio:9/16;border-radius:10px;background:#000"></video>`
+      : `<div class="tiny muted" style="aspect-ratio:9/16;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;padding:14px;text-align:center">${esc(t("rc_noclip"))}</div>`}
+    <div class="mt8" style="font-weight:680">${esc(c.name)}</div><div class="tiny faint">${esc(c.family_name)} · <code>${esc(c.id)}</code></div>
+    <div class="small muted mt8">${esc(c.use)}</div>
+    <details class="mt8"><summary class="small muted" style="cursor:pointer">${esc(t("rc_more"))}</summary>
+      <div class="tiny mt8"><b>${esc(t("rc_call"))}</b><pre class="log" style="white-space:pre-wrap">${esc(c.call)}</pre></div>
+      <div class="tiny mt8"><b>${esc(t("rc_timing"))}</b> ${esc(c.timing)}</div>
+      <div class="tiny mt8"><b>${esc(t("rc_pitfalls"))}</b><ul style="margin:4px 0 0 16px;padding:0">${c.pitfalls.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
+      <div class="tiny mt8"><b>${esc(t("rc_code"))}</b> <span class="faint">${c.seconds} ${esc(t("sec"))}</span><pre class="log" style="white-space:pre-wrap">${esc(c.demo_js)}</pre></div></details></div>`;
+function rcFilter() {
+  const fam = HS.rcFam || "all", q = (HS.rcQ || "").trim().toLowerCase();
+  let n = 0;
+  $$(".rccard").forEach((el) => { const on = (fam === "all" || el.dataset.fam === fam) && (!q || el.dataset.q.includes(q)); el.style.display = on ? "" : "none"; n += on; });
+  const e = $("#rcNone"); if (e) e.style.display = n ? "none" : "";
+}
+ROUTES["#/receteler"] = async () => {
+  crumb([t("rc_nav")]);
+  const d = await api("/api/hat/recipes"), fam = HS.rcFam || "all";
+  const busy = S.jobs.some((j) => j.kind === "recipe_demos" && (j.status === "running" || j.status === "queued"));
+  const html = `<div class="row"><div><h1>${esc(t("rc_nav"))}</h1><p class="lead">${esc(t("rc_lead"))}</p></div></div>
+    <div class="row mt16" style="gap:8px;align-items:center"><input id="rcQ" type="search" placeholder="${esc(t("rc_search"))}" value="${esc(HS.rcQ || "")}" style="flex:1;min-width:180px">
+      <span class="tiny faint">${esc(t("rc_count", d.cards.length))}</span>
+      ${d.missing ? `<button class="btn sm" data-act="rcDemos" ${busy ? "disabled" : ""}>${busy ? `<span class="spin"></span> ${esc(t("rc_rendering"))}` : `🎬 ${esc(t("rc_render", d.missing))}`}</button>` : ""}</div>
+    <div class="chips mt8"><span class="chip ${fam === "all" ? "on" : ""}" data-act="rcFam" data-v="all">${esc(t("rc_all"))}</span>${d.families.map((f) => `<span class="chip ${fam === f.id ? "on" : ""}" data-act="rcFam" data-v="${esc(f.id)}">${esc(f.name)}</span>`).join("")}</div>
+    <div class="grid mt16" style="grid-template-columns:repeat(auto-fill,minmax(min(190px,44vw),1fr))">${d.cards.map(rcCard).join("")}</div>
+    <div class="empty" id="rcNone" style="display:none">${esc(t("rc_none"))}</div>`;
+  if (paint(html, JSON.stringify([d.cards.map((c) => c.demo), d.missing, busy, L()]))) {
+    wireAutoplay();
+    const inp = $("#rcQ"); if (inp) inp.addEventListener("input", () => { HS.rcQ = inp.value; rcFilter(); });
+  }
+  rcFilter();
+  return { poll: busy ? 8000 : 0 };
+};
+ACT.rcFam = (el) => { HS.rcFam = el.dataset.v; $$("[data-act=rcFam]").forEach((c) => c.classList.toggle("on", c.dataset.v === HS.rcFam)); rcFilter(); };
+ACT.rcDemos = async () => { await post("/api/hat/recipes", {}); toast(t("rc_queued")); setTimeout(() => route({ poll: true }), 1500); };
+
+ROUTES["#/film-stilleri"] = viewStyles;
+const fsId = () => location.hash.split("/")[2];
+const fsPost = (b) => post("/api/hat/ownstyle/" + encodeURIComponent(fsId()), b);
+const fsRedraw = () => { S.sig = null; route({ poll: true }); };
+ACT.fsBase = (el) => { HS.fsBase = el.dataset.id; const s = $("#fsBase"); if (s) s.value = el.dataset.id; const n = $("#fsName"); if (n) { n.focus(); n.scrollIntoView({ block: "center" }); } };
+ACT.fsCreate = async () => {
+  const st = await post("/api/hat/ownstyles", { name: ($("#fsName") || {}).value || "", base: ($("#fsBase") || {}).value || "blank" });
+  S.drafts = {}; location.hash = "#/film-stilleri/" + st.id;
+};
+ACT.fsGo = (el) => { HS.fsQ[fsId()] = +el.dataset.to; fsRedraw(); };
+ACT.fsAnswer = async (el) => {
+  await fsPost({ action: "answer", q: el.dataset.q, value: ($("#fsVal") || {}).value || "" });
+  HS.fsQ[fsId()] = +el.dataset.to; fsRedraw();
+};
+ACT.fsPick = async (el) => { await fsPost({ action: "answer", q: "texture", value: el.dataset.v }); fsRedraw(); };
+ACT.fsSample = async () => { await fsPost({ action: "sample" }); HS.fsBusy = fsId(); toast(t("fs_drawing")); fsRedraw(); };
+ACT.fsApprove = async () => { await fsPost({ action: "approve" }); HS.fsBusy = null; toast(t("fs_saved")); fsRedraw(); };
+ACT.fsDelete = async () => { if (!confirm(t("fs_del_q"))) return; await fsPost({ action: "delete" }); location.hash = "#/film-stilleri"; };
+document.addEventListener("change", async (e) => {
+  if (e.target.id !== "fsLogo" || !e.target.files[0]) return;
+  const r = await upload("/api/refs/upload", e.target.files[0], { "X-Logo": "1" }, () => {});
+  await fsPost({ action: "answer", q: "logo", value: r.file }); toast(t("fs_logo_ok")); fsRedraw();
+});
+
+ACT.hatSel = (el) => { const pid = location.hash.split("/")[2]; HS.sel[pid] = el.dataset.id; S.sig = null; route({ poll: true }); };
+ACT.hatZoom = (el) => openVideo(el.dataset.src, true);
+ACT.hatStyle = async (el) => {
+  const pid = location.hash.split("/")[2];
+  el.disabled = true;
+  try {
+    await post("/api/hat/project/" + encodeURIComponent(pid), { action: "feedback", stage: el.dataset.stage, note: "style: " + el.dataset.style });
+    toast(t("style_set")); S.sig = null; route({ poll: true });
+  } finally { el.disabled = false; }
+};
+ACT.hatAct = async (el) => {
+  const pid = location.hash.split("/")[2], a = el.dataset.a, stage = el.dataset.stage;
+  const note = ($("#hlNote") || {}).value || "";
+  el.disabled = true;
+  try {
+    await post("/api/hat/project/" + encodeURIComponent(pid), { action: a, stage, note });
+    toast(t({ approve: "approved_ok", feedback: "note_sent", back: "back_ok", retry: "working", advance: "approved_ok_start" }[a]));
+    if (a !== "back") delete HS.sel[pid];
+    S.drafts = {}; S.sig = null; route({ poll: true });
+  } finally { el.disabled = false; }
+};
+})();

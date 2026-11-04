@@ -1,0 +1,113 @@
+id: long_explainer
+order: 1.5
+status: ready            # ready | partial | planned
+category: generated
+inputs: [topic]
+duration: [120, 480]     # seconds a typical video runs
+aspect: "16:9"           # fixed: a regular YouTube video
+
+name: {tr: Uzun anlatım, en: Long explainer}
+tagline:
+  tr: "Bir konu ver, bölümlere ayrılmış 2–8 dakikalık bir YouTube anlatımı al."
+  en: "Give a topic, get a 2–8 minute YouTube explainer in chapters."
+makes:
+  tr: "Yatay (16:9), kaynaklara dayalı 2–8 dakikalık anlatım: bölüm kartları, altta bölümlere ayrılmış ilerleme çubuğu, kodla çizilmiş hareketli sahneler, seslendirme, müzik ve YouTube açıklaması için bölüm zamanları."
+  en: "A horizontal (16:9), source-backed 2–8 minute explainer: chapter cards, a progress bar in chapter segments along the bottom, code-drawn animated scenes, narration, music and chapter marks for the YouTube description."
+good_for:
+  tr: ["Bir konuyu baştan sona anlatan YouTube videoları", "Birkaç bölümlü \"nasıl çalışır\" anlatımları", "Kısa anlatımın sığmadığı veri hikâyeleri"]
+  en: ["YouTube videos that explain a subject end to end", "\"How it works\" pieces in several parts", "Data stories too big for a short"]
+not_for:
+  tr: ["TikTok / Reels / Shorts (dikey kısa videolar için Konu anlatımı)", "Gerçek mekân ya da kişi görüntüsü gereken hikâyeler"]
+  en: ["TikTok / Reels / Shorts (use Explainer for vertical shorts)", "Stories that need real places or people on screen"]
+needs:
+  tr: "Bir konu cümlesi. İstersen kaynak linkleri ve istediğin bölümler."
+  en: "A topic sentence. Source links and the chapters you want, if you have them."
+cost:
+  tr: "Seslendirme dakika başına ~2.000–2.500 ElevenLabs kredisi; müzik istenirse ek. Sahneler birkaç tasarımcı ajanla aynı anda çizilir."
+  en: "Narration ~2,000–2,500 ElevenLabs credits per minute; music extra if wanted. Scenes are drawn by several designer agents at once."
+
+stages:
+  - id: research
+    run: agent
+    model: sonnet
+    tools: [web_search, web_fetch]
+    review:
+      - "At least 8 sources with URLs; every data point names its source"
+      - "Numbers carry their unit, date and the exact figure (no rounding without saying so)"
+      - "Enough distinct sub-topics for 3-9 chapters, each grounded in findings"
+      - "States the one insight the video must land and the common misconception"
+
+  - id: proposal
+    gate: true
+    run: agent
+    model: opus
+    tools: [read_artifact, catalog, memory, estimate_cost, render_time]
+    review:
+      - "Three concepts that differ in structure, chapter plan and look, not just wording"
+      - "The chosen concept names its chapters (3-9), duration (120-480 s), look, voice and music plan"
+      - "Cost is itemised from the estimate tool (narration by characters, music), never guessed"
+      - "Render time comes from the render_time tool"
+
+  - id: script
+    gate: true
+    run: agent
+    model: opus
+    schema: long_script
+    tools: [read_artifact, web_search, web_fetch, proof_check]
+    review:
+      - "Word count fits the approved duration within 10% (Turkish ~2.4 words/s, English ~2.6)"
+      - "A cold open before chapter 1; every chapter opens on a short title line and ends on a turn into the next"
+      - "Every factual claim is marked verified with a source, or removed"
+      - "Numbers are written the way the narrator should say them"
+
+  - id: outline
+    gate: true
+    run: agent
+    model: opus
+    tools: [read_artifact, catalog, recipes, stock_search]
+    review:
+      - "Scenes cover every script line except the chapter title lines, in order, none crossing a chapter"
+      - "No two consecutive scenes use the same visual device; each chapter has its own centrepiece"
+      - "The kit is concrete enough that several designers drawing at once produce one consistent film"
+      - "Every brief names what is on screen and which number or source it shows"
+
+  - id: scene_plan
+    gate: true
+    run: code
+    call: factory.hat.longform:build_scenes
+    model: opus
+    tools: [read_artifact, recipes, stock_search, render_stills, layout_lint, contact_sheet, proof_check]
+    review:
+      - "Every scene follows the outline's brief and the shared kit"
+      - "Each scene's motion follows the beats of its named mechanism, and every motion verb keeps one meaning (motion grammar)"
+      - "Layout lint has no errors; no text sits under the caption band"
+      - "Every on-screen number matches the script and the research"
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.explainer:assets
+    tools: [tts, align_words, music, preview_render]
+    review:
+      - "Voice duration fits the plan; alignment found every trigger word"
+      - "Spend stays inside the approved budget"
+
+  - id: edit
+    run: code
+    call: factory.hat.explainer:edit
+    tools: [compile_bundle]
+
+  - id: compose
+    run: code
+    call: factory.hat.longform:compose
+    tools: [final_render, qa_technical, qa_sound, thumbnails, deliver]
+
+  - id: publish
+    gate: true
+    run: agent
+    model: sonnet
+    tools: [read_artifact, proof_check, chapter_marks, safe_area]
+    review:
+      - "Title in the video's language, under 70 characters, makes a promise the video keeps"
+      - "Description opens with two plain sentences, then the chapter marks exactly as chapter_marks gives them, then the sources"
+      - "3-5 hashtags that match the topic"

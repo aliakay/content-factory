@@ -148,6 +148,84 @@ def test_readcheck_flags_lines_too_short_to_read_and_passes_motion_findings():
     assert ("dead", "") in kinds and layoutlint.hold_needed("one two") == 1.2
 
 
+def _deck(tmp_path, sloppy):
+    """Four scenes, one still each: a slide deck (flat grounds, a corner label, a counter, the headline in one slot,
+    a typed headline) or a varied video."""
+    from PIL import Image
+    rng = np.random.default_rng(3)
+    scenes, lint = [], {}
+    for i in range(4):
+        sid = f"s{i}"
+        scenes.append({"id": sid, "start": i * 3.0, "end": i * 3.0 + 3, "html": "",
+                       "js": "FX.typewriter(tl, $('h1')[0], T.start)" if sloppy and i == 1 else "tl.from($('h1'), {y: 40})"})
+        f = tmp_path / f"{sid}.png"
+        if sloppy:
+            Image.new("RGB", (1080, 1920), (18, 22, 40)).save(f)
+            boxes = [{"scene": sid, "text": f"Headline number {i}", "x": 90, "y": 420, "w": 700, "h": 90, "size": 72},
+                     {"scene": sid, "text": "EXPLAINED", "x": 70, "y": 200, "w": 180, "h": 30, "size": 26},
+                     {"scene": sid, "text": f"0{i + 1} / 04", "x": 880, "y": 1450, "w": 120, "h": 30, "size": 28}]
+        else:
+            a = np.zeros((1920, 1080, 3), np.uint8)
+            a[..., 0] = np.linspace(20, 200, 1920)[:, None]
+            a[..., 1] = np.linspace(40, 120, 1080)[None, :]
+            a[..., 2] = rng.integers(0, 90, (1920, 1080))
+            Image.fromarray(a).save(f)
+            boxes = [{"scene": sid, "text": f"Headline number {i}", "x": [90, 300, 160, 420][i], "y": [300, 900, 1300, 600][i],
+                      "w": 500, "h": 90, "size": 72}]
+        lint[str(i * 3.0 + 1.5)] = {"file": str(f), "boxes": boxes, "cap": None}
+    entries = [{"kind": "entry", "scene": f"s{i}", "t": i * 3.0, "detail": "fade" if sloppy else ["move", "cut", "fade"][i - 1]}
+               for i in range(1, 4)]
+    return {"scenes": scenes}, lint, entries
+
+
+def test_slop_lint_catches_the_slide_deck_patterns(tmp_path):
+    bundle, lint, entries = _deck(tmp_path, True)
+    found = layoutlint.slop(bundle, lint, "9:16", entries)
+    kinds = {f["kind"] for f in found}
+    assert kinds == {"corner", "counter", "template", "typed", "flat", "fades"}
+    assert [f["scene"] for f in found if f["kind"] == "counter"] == ["s0", "s1", "s2", "s3"]
+    assert [f["scene"] for f in found if f["kind"] == "typed"] == ["s1"]
+    assert sum(f["kind"] in ("corner", "template", "flat", "fades") for f in found) == 4   # once for the video
+    assert all(x.startswith("slop ") for x in layoutlint.as_text(found))
+    bundle, lint, entries = _deck(tmp_path, False)
+    assert layoutlint.slop(bundle, lint, "9:16", entries) == []
+    # an empty frame: one flat colour and nothing on it
+    from PIL import Image
+    Image.new("RGB", (1080, 1920), (0, 0, 0)).save(tmp_path / "s2.png")
+    lint["7.5"]["boxes"] = []
+    assert [(f["kind"], f["scene"]) for f in layoutlint.slop(bundle, lint, "9:16", entries)] == [("empty", "s2")]
+    for tx, hit in (("01 / 05", True), ("Adım 2", True), ("3 of 7", True), ("Step 4", True), ("2025", False),
+                    ("10x faster", False), ("03", True)):
+        assert bool(layoutlint.COUNTER.match(tx)) == hit, tx
+    # the motion lint's scene entries feed the slop lint and are not findings of their own
+    assert layoutlint.readcheck({"step": 0.2, "samples": [], "motion": entries}) == []
+
+
+def test_measured_easing_and_the_grade(tmp_path):
+    ease = lambda names, d=0.6: [{"kind": "ease", "scene": "s0", "t": i * 0.5, "detail": e, "d": d} for i, e in enumerate(names)]
+    e = layoutlint.easing(ease(["default", "power1.out", "sine.inOut", "none", "expo.out", "back.out(2)"]))
+    assert e == {"moves": 6, "generic": 0.67, "intent": 0.33, "kinds": 6, "quick": 0.0, "long": 0.0}
+    assert layoutlint.easing([]) ["moves"] == 0
+    flat = ease(["power1.out"] * 8)
+    assert {f["detail"].split(" ")[0] for f in layoutlint.easing_findings(layoutlint.easing(flat))} == {"100", "one"}
+    assert layoutlint.easing_findings(layoutlint.easing(ease(["expo.out", "power3.out", "back.out(1.7)", "custom"]))) == []
+    # a slide deck with soft default eases: Slop
+    bundle, lint, entries = _deck(tmp_path, True)
+    found = layoutlint.slop(bundle, lint, "9:16", entries) + layoutlint.easing_findings(layoutlint.easing(flat))
+    g = layoutlint.grade(found, entries + flat, 4)
+    assert g["grade"] == "slop" and g["score"] < 55 and g["parts"]["slop"] == -40
+    # varied, moves with intent, no findings: Maxxed
+    good = ease(["expo.out", "power3.out", "back.out(1.7)", "power2.inOut", "expo.inOut", "circ.out"])
+    g = layoutlint.grade([], good, 4)
+    assert g["grade"] == "maxxed" and g["score"] == 100 and g["easing"]["intent"] == 1.0
+    # fine moves, but a counter on screen and two layout slips: Orta, never Maxxed with a slop pattern
+    found = [{"kind": "counter"}, {"kind": "safe"}, {"kind": "tiny"}]
+    g = layoutlint.grade(found, good, 4)
+    assert g["grade"] == "orta" and 55 <= g["score"] < 100
+    assert layoutlint.grade([{"kind": "counter"}], good, 4)["grade"] == "orta"   # score 95, capped by the pattern
+    assert layoutlint.grade([], ease(["expo.out"]), 4)["parts"]["motion"] == -15  # one move for four scenes
+
+
 def test_review_sheet_times_and_tiling(tmp_path):
     from PIL import Image
     times, labels = sheets.review_times([{"id": "a", "start": 0, "end": 4}, {"id": "b", "start": 4, "end": 8}])

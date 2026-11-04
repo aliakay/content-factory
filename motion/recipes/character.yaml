@@ -1,0 +1,140 @@
+# Character recipes: code-drawn people and animals that act. Our own cards (t510).
+- id: character.stickman_walk
+  name: {tr: "Yürüyen çöp adam", en: "Walking stickman"}
+  use: {tr: "Bir yerden bir yere gitmek, yolculuk, 'işe giderken'.", en: "Going somewhere, a journey, 'on the way to work'."}
+  call: "m = FX.stickman(root, {x, y (feet), h, color}); m.walk(at, dur, dx)"
+  timing: {tr: "Adım hızı otomatik; dx / dur ≈ 100-150 px/s doğal.", en: "Steps are automatic; dx / dur ≈ 100-150 px/s looks natural."}
+  pitfalls:
+    tr: ["Yürüdükten sonra FX.act ile durdur, donmuş kalmasın.", "y ayakların yeri, başın değil."]
+    en: ["After the walk, settle him with FX.act so he does not freeze.", "y is where the feet are, not the head."]
+  seconds: 3.5
+  demo: |
+    const m = FX.stickman(root, {x: 260, y: 1350, h: 460, color: '#f4efe6'}); FX.alive(m);
+    m.walk(0.2, 2.4, 500); FX.act(m, [[2.7, 'stand'], [3.0, 'wave']]);
+    D('', 'left:0;right:0;top:1350px;height:6px;background:#ffffff33');
+- id: character.pose_chain
+  name: {tr: "Akan poz zinciri", en: "Flowing pose chain"}
+  use: {tr: "Bir karakterin bir cümle boyunca oynaması: gösterir, omuz silker, sevinir.", en: "A character acting through a line: points, shrugs, cheers."}
+  call: "FX.act(man, [[t, 'pose' | {sR: -90, ...}], ...])  (poses: stand wave point scared shrug knock hold crouch cheer sad run)"
+  timing: {tr: "Her poz bir fikre; aralar en az 0.5 s.", en: "One pose per idea; at least 0.5 s apart."}
+  pitfalls:
+    tr: ["Birkaç FX.pose yerine FX.act kullan: hareketler akar.", "Her kelimeye poz verme; sadece vurgulara."]
+    en: ["Use FX.act instead of several FX.pose: the moves flow.", "Do not pose on every word; only on stresses."]
+  seconds: 4
+  demo: |
+    const m = FX.stickman(root, {x: 540, y: 1350, h: 520, color: '#f4efe6'}); FX.alive(m);
+    FX.act(m, [[0, 'stand'], [0.6, 'point'], [1.6, 'shrug'], [2.6, 'cheer'], [4, 'cheer']]);
+- id: character.wave_hello
+  name: {tr: "El sallama", en: "Wave hello"}
+  use: {tr: "Selam, hoşça kal, izleyiciye doğrudan seslenme.", en: "Hello, goodbye, talking straight to the viewer."}
+  call: "FX.wave(tl, man, at, dur)  (rides on FX.act)"
+  timing: {tr: "1-1.6 s; 'merhaba' kelimesiyle başlasın.", en: "1-1.6 s; start on 'hi'."}
+  pitfalls:
+    tr: ["El sallarken bakış izleyiciye (FX.alive look 0,0).", "Uzun sallamak sıkar."]
+    en: ["Look at the viewer while waving (FX.alive look 0,0).", "A long wave gets dull."]
+  seconds: 3
+  demo: |
+    const m = FX.stickman(root, {x: 540, y: 1350, h: 520, color: '#ffb347', pose: 'wave'}); FX.alive(m, {look: [[0, 0, 0]]});
+    FX.wave(tl, m, 0.4, 1.6);
+- id: character.emotions
+  name: {tr: "Duygu geçişleri", en: "Emotion beats"}
+  use: {tr: "Bir karakterin hissi değişir: şaşırır, düşünür, fikir bulur.", en: "A character's feeling changes: surprised, thinking, an idea."}
+  call: "FX.emotions(tl, man, [[t, 'neutral|happy|excited|proud|relieved|sad|scared|nervous|surprised|confused|thinking|idea|angry|determined|sleepy|suspicious|love|sly'], ...])"
+  timing: {tr: "Her duygu en az 1 s; geçiş anı cümlenin dönüm kelimesinde.", en: "Each emotion 1 s or more; switch on the turning word."}
+  pitfalls:
+    tr: ["Duygu yüz + beden birlikte; ayrıca FX.pose verme.", "Ardışık zıt duygular (mutlu -> üzgün) bir neden ister."]
+    en: ["An emotion drives face and body; do not add FX.pose on top.", "Opposite emotions back to back (happy -> sad) need a cause."]
+  seconds: 4.5
+  demo: |
+    const m = FX.stickman(root, {x: 540, y: 1300, h: 520, color: '#f4efe6'});
+    FX.emotions(tl, m, [[0, 'neutral'], [1.0, 'surprised'], [2.2, 'thinking'], [3.4, 'idea']]);
+- id: character.kid
+  name: {tr: "Çizilmiş karakter", en: "Illustrated character"}
+  use: {tr: "İzleyicinin bağ kuracağı baş karakter: çocuk, müşteri, maskot.", en: "A lead people care about: a kid, a customer, a mascot."}
+  call: "c = FX.character(root, {x, y, h, skin, hair, style: pigtails|bob|short|bald, hat, shirt, pants, shoes, bow, prop})"
+  timing: {tr: "FX.alive ile her zaman canlı tut; konuşurken talk aralıkları ver.", en: "Always keep it alive with FX.alive; give talk ranges while it speaks."}
+  pitfalls:
+    tr: ["Kalabalık için değil: çöp adam kullan.", "Renkleri paletten seç."]
+    en: ["Not for crowds: use stickmen.", "Pick colours from the palette."]
+  seconds: 4
+  demo: |
+    const kid = FX.character(root, {x: 540, y: 1450, h: 700, hat: '#f4a6b8', style: 'pigtails'});
+    FX.alive(kid, {look: [[0.4, 1, 0.2], [2, -0.6, 0]], cheek: [[2.4, 0], [2.7, 1]], talk: [[2.8, 3.8]]});
+    FX.act(kid, [[0, 'stand'], [1.2, 'point'], [2.4, 'wave'], [4, 'wave']]); FX.wave(tl, kid, 2.5, 1.4);
+- id: character.dog
+  name: {tr: "Köpek karakter", en: "Dog character"}
+  use: {tr: "Evcil hayvan konuları, sadakat, eğlenceli anlatıcı.", en: "Pet topics, loyalty, a playful narrator."}
+  call: "FX.character(root, {species: 'dog', skin, belly, ear, nose, collar, ...})"
+  timing: {tr: "Kuyruk kendiliğinden sallanır; cheek ile daha hızlı.", en: "The tail wags by itself; harder with cheek."}
+  pitfalls:
+    tr: ["Kulak ve gövde renkleri ayrışsın.", "Pozlar insanla aynı; 'run' ile koşar."]
+    en: ["Let ears and body differ in colour.", "Same poses as people; 'run' runs."]
+  seconds: 3.5
+  demo: |
+    const d = FX.character(root, {species: 'dog', x: 540, y: 1450, h: 640, skin: '#c98a4b', belly: '#f1d3a8', ear: '#7a4a24', collar: '#ff5a5f'});
+    FX.alive(d, {look: [[0.5, 0.6, 0], [2, -0.5, 0]], cheek: [[1.2, 0], [1.5, 1]]}); FX.act(d, [[0, 'stand'], [1.4, 'cheer'], [3.5, 'cheer']]);
+- id: character.cat
+  name: {tr: "Kedi karakter", en: "Cat character"}
+  use: {tr: "Meraklı, kibirli ya da tembel bir anlatıcı; kedi içerikleri.", en: "A curious, smug or lazy narrator; cat content."}
+  call: "FX.character(root, {species: 'cat', skin, belly, ear, nose, stripe, whisker})"
+  timing: {tr: "Kuyruk yavaş sallanır; 'suspicious' ve 'sly' kediye çok yakışır.", en: "The tail sways slowly; 'suspicious' and 'sly' suit a cat."}
+  pitfalls:
+    tr: ["Çizgi (stripe) rengi gövdeden koyu olsun.", "Bıyıklar küçük boyda kaybolur: h en az 400."]
+    en: ["Make the stripes darker than the body.", "Whiskers vanish when small: h 400 or more."]
+  seconds: 3.5
+  demo: |
+    const c = FX.character(root, {species: 'cat', x: 540, y: 1450, h: 640, skin: '#9aa3b5', belly: '#e9ecf2', stripe: '#5d6578'});
+    FX.alive(c); FX.emotions(tl, c, [[0, 'neutral'], [1.4, 'suspicious'], [2.6, 'sly']]);
+- id: character.budgie
+  name: {tr: "Muhabbet kuşu", en: "Budgie"}
+  use: {tr: "Kuş bakımı, küçük ve neşeli bir anlatıcı.", en: "Bird care, a small cheerful narrator."}
+  call: "FX.character(root, {species: 'budgie', skin, belly, face, bars, cheek, beak, cere, tail, feet})"
+  timing: {tr: "Kanatlar kol: wave kanat çırpar; talk gagayı açar.", en: "Wings are the arms: wave flaps one; talk opens the beak."}
+  pitfalls:
+    tr: ["Mavi kuş: skin #6fb6e8, belly #9fd0f2, face #f4f4f4, tail #2f4fa8.", "Dişi kuşta cere #c9a27a."]
+    en: ["Blue budgie: skin #6fb6e8, belly #9fd0f2, face #f4f4f4, tail #2f4fa8.", "A hen's cere is #c9a27a."]
+  seconds: 3.5
+  demo: |
+    const b = FX.character(root, {species: 'budgie', x: 540, y: 1400, h: 560, skin: '#6fb6e8', belly: '#9fd0f2', face: '#f4f4f4', tail: '#2f4fa8'});
+    FX.alive(b, {talk: [[1.6, 2.8]]}); FX.act(b, [[0, 'stand'], [0.5, 'wave'], [3.5, 'wave']]); FX.wave(tl, b, 0.5, 1.2);
+- id: character.crowd
+  name: {tr: "Kalabalık", en: "Crowd"}
+  use: {tr: "'Herkes', 'insanların çoğu', bir sırayı ya da grubu göstermek.", en: "'Everyone', 'most people', a queue or a group."}
+  call: "several FX.stickman with seeded heights, colours and FX.alive phases; one in the accent"
+  timing: {tr: "Hepsi aynı anda değil, 0.05-0.1 s arayla girsin.", en: "Not all at once: enter 0.05-0.1 s apart."}
+  pitfalls:
+    tr: ["Hepsi aynı anda göz kırparsa robot gibi: FX.alive kendi fazını verir, aynı çağrıyı kopyalama.", "Vurgulanan kişi ortada ve renkli."]
+    en: ["Blinking in sync looks robotic: FX.alive gives each a phase, do not copy one timeline.", "The highlighted person sits in the middle, in colour."]
+  seconds: 3.5
+  demo: |
+    const r = FX.rand(4);
+    for (let i = 0; i < 9; i++) {
+      const m = FX.stickman(root, {x: 110 + i * 107, y: 1300 + (i % 2) * 60, h: 300 + r() * 90, color: i === 4 ? '#ffb347' : '#9aa3b5'}); FX.alive(m);
+      tl.from(m.svg, {opacity: 0, duration: 0.3}, 0.2 + i * 0.07);
+    }
+- id: character.land_hop
+  name: {tr: "İniş ve zıplama", en: "Land and hop"}
+  use: {tr: "Karakter sahneye düşer ya da sevinçle zıplar.", en: "A character drops into the scene or hops with joy."}
+  call: "FX.land(man, at, {from}); FX.hop(man, at, {h})"
+  timing: {tr: "İniş 0.4 s ve küçük çökme; zıplama 0.5 s.", en: "Landing 0.4 s with a small squash; a hop 0.5 s."}
+  pitfalls:
+    tr: ["Zemin çizgisi olsun, yoksa iniş havada kalır.", "İnişte ses ekle (FX.sfx('knock'))."]
+    en: ["Draw a ground line or the landing floats.", "Add a sound on landing (FX.sfx('knock'))."]
+  seconds: 3
+  demo: |
+    D('', 'left:0;right:0;top:1350px;height:6px;background:#ffffff33');
+    const m = FX.stickman(root, {x: 540, y: 1350, h: 480, color: '#f4efe6'}); FX.alive(m);
+    FX.land(m, 0.3); FX.sfx('knock', 0.6); FX.hop(m, 1.6, {h: 80}); FX.act(m, [[1.5, 'cheer'], [3, 'cheer']]);
+- id: character.float
+  name: {tr: "Süzülme", en: "Float"}
+  use: {tr: "Rüya, sihir, yerçekimsiz an; nesne ya da karakter havalanır.", en: "A dream, magic, a weightless moment; a thing or a character lifts off."}
+  call: "FX.float(el | man, {at, out, shadow: el})"
+  timing: {tr: "Kalkış 1.1 s, sonra yavaş salınım.", en: "Lift 1.1 s, then a slow bob."}
+  pitfalls:
+    tr: ["Altına gölge koy ve shadow ile bağla: yükseklik hissi gölgeden gelir.", "Çok yükseğe çıkarma."]
+    en: ["Put a shadow under it and pass it as shadow: height reads from the shadow.", "Do not lift it too high."]
+  seconds: 3.5
+  demo: |
+    const sh = D('', 'left:390px;top:1340px;width:300px;height:40px;border-radius:50%;background:#0006');
+    const g = D('<div style="width:260px;height:260px;border-radius:40px;background:var(--accent2);transform:rotate(12deg)"></div>', 'left:410px;top:1000px');
+    FX.float(g, {at: 0.3, shadow: sh});

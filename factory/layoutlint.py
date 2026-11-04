@@ -8,6 +8,10 @@ window.lintBoxes in the shell); this module turns that into findings the motion 
   contrast  text vs what is really behind it (measured on the still: a ring of pixels around the text box)
   tiny      text too small to read on a phone
 
+and the slop lint (t519): the patterns that make a video look like a slide deck put through a template --
+corner labels, counters ("01 / 05", "Step 2"), the same headline slot on the left in every scene, headlines typed
+letter by letter, a flat one-colour ground in every scene, empty frames and a fade on every transition.
+
 Free and deterministic (Pillow on the stills Chromium already made), so it runs on every design round.
 """
 import json, os, re
@@ -150,13 +154,183 @@ def readcheck(data, lang="en", min_chars=4):
             out.append({"t": round(ss[0][0], 2), "scene": sc, "kind": "unread", "text": tx,
                         "detail": f"readable for {best:.1f} s, needs ~{need:.1f} s"})
     for m in data.get("motion") or []:
+        if m.get("kind") in ("entry", "ease"):      # how a scene comes in, how each move eases: inputs, not findings
+            continue
         out.append({"t": m.get("t", 0), "scene": m.get("scene"), "kind": m.get("kind"), "text": "", "detail": m.get("detail")})
     return sorted(out, key=lambda f: f["t"])
 
 
-def run(bundle_path, times, outdir, aspect="9:16", hide_caps=(), timing=True):
+SLOP = ("corner", "counter", "template", "typed", "flat", "empty", "fades")
+SLOP_BRIEF = """SLOP LINT (measured on your stills; render_stills reports each hit as `slop <kind>` and you fix it):
+- corner: no small running labels pinned in a corner scene after scene (a deck's header).
+- counter: no "01 / 05", "Step 2", "Adım 3" on screen; show the order with the picture (a path, a stack).
+- template: the headline does not sit in the same slot on the left in every scene (title + card slide layout).
+- typed: no headline typed letter by letter (FX.typewriter); bring words in by word or line, on the voice.
+- flat: not every scene on a flat one-colour ground; give depth, texture or a picture.
+- empty: no frame with nothing drawn on it. Timing `dead` = > 3 s with nothing moving.
+- fades: not every scene change a fade; cut, push, match or wipe so the transition says something."""
+COUNTER = re.compile(r"^\s*(?:#?0?\d{1,2}\s*(?:/|\||of|z)\s*0?\d{1,2}|0\d|(?:step|part|scene|chapter|adım|bölüm|sahne|"
+                     r"kısım)\s*\d{1,2}(?:\s*(?:/|of)\s*\d{1,2})?|\d{1,2}\s*\.\s*(?:adım|bölüm))\s*[.:]?\s*$", re.I)
+TYPED = re.compile(r"FX\.typewriter\s*\(|\.textContent\s*=\s*[\w.$]+\.(?:slice|substring|substr)\(\s*0\s*,")
+FLAT = 0.85         # this share of a still in one colour = a flat ground
+EMPTY = 0.985       # ... and nothing drawn at all
+
+
+def _scene_of(t, scenes):
+    for sc in scenes:
+        if sc["start"] - 0.01 <= t < sc["end"]:
+            return sc["id"]
+    return scenes[-1]["id"] if scenes else None
+
+
+def flat_share(img):
+    """The share of the still within a few levels of its most common colour (1.0 = one flat colour)."""
+    import numpy as np
+    a = np.asarray(img.convert("RGB").resize((54, 96))).reshape(-1, 3).astype(int)
+    q = a // 12
+    keys, counts = np.unique(q[:, 0] * 10000 + q[:, 1] * 100 + q[:, 2], return_counts=True)
+    k = keys[counts.argmax()]
+    mode = a[(q[:, 0] * 10000 + q[:, 1] * 100 + q[:, 2]) == k].mean(axis=0)
+    return float((np.abs(a - mode).max(axis=1) <= 10).mean())
+
+
+def slop(bundle, lint, aspect="9:16", motion=()):
+    """Slop findings for a bundle (its scenes' html/js and timing), the --lint stills and the motion lint's scene
+    entries. Repeated patterns are reported once for the video; per-scene ones once per scene."""
+    from PIL import Image
+    z = SAFE.get(aspect, SAFE["9:16"])
+    W, H = z["size"]
+    scenes = [sc for sc in bundle.get("scenes") or [] if sc.get("id") is not None]
+    n = len(scenes)
+    out = []
+
+    def add(t, scene, kind, detail, text=""):
+        out.append({"t": round(float(t), 2), "scene": scene, "kind": kind, "text": text, "detail": detail})
+
+    boxes, shot_of = {}, {}                          # scene -> its text boxes; scene -> its first still
+    for t, shot in sorted(lint.items(), key=lambda kv: float(kv[0])):
+        sid = _scene_of(float(t), scenes)
+        for b in shot.get("boxes") or []:
+            boxes.setdefault(b.get("scene") or sid, []).append((float(t), b))
+        if sid is not None and sid not in shot_of and shot.get("file") and os.path.exists(shot["file"]):
+            shot_of[sid] = (float(t), shot)
+    seen = set()
+    for sid, bs in boxes.items():
+        for t, b in bs:
+            tx = (b.get("text") or "").strip()
+            if COUNTER.match(tx) and (sid, "counter") not in seen:
+                seen.add((sid, "counter"))
+                add(t, sid, "counter", "a counter / step number on screen reads as a slide template; say the order "
+                                       "with the picture (a path that grows, a stack that builds)", tx)
+    corners = {}
+    for sid, bs in boxes.items():
+        for t, b in bs:
+            tx = (b.get("text") or "").strip()
+            if not tx or len(tx) > 28 or b.get("size", 99) > 34:
+                continue
+            side = "left" if b["x"] < 0.25 * W else "right" if b["x"] + b["w"] > 0.75 * W else None
+            end = "top" if b["y"] < 0.2 * H else "bottom" if b["y"] + b["h"] > 0.8 * H else None
+            if side and end:
+                corners.setdefault(f"{end} {side}", {}).setdefault(sid, (t, tx))
+    for corner, hit in corners.items():
+        if n >= 2 and len(hit) >= 2 and len(hit) >= 0.5 * n:
+            t, tx = min(hit.values())
+            add(t, sorted(hit)[0], "corner", f"small labels pinned in the {corner} corner in {len(hit)} of {n} scenes "
+                                             "(a deck's running header); drop them or make the label part of the picture", tx)
+    heads = {}
+    for sid, bs in boxes.items():
+        t, b = max(bs, key=lambda tb: tb[1].get("size", 0))
+        if b["x"] < 0.18 * W:
+            heads[sid] = (t, b)
+    if n >= 3:
+        for sid, (t, b) in heads.items():
+            same = [k for k, (_, o) in heads.items() if abs(o["x"] - b["x"]) <= 30 and abs(o["y"] - b["y"]) <= 40]
+            if len(same) >= 3 and len(same) >= 0.6 * n:
+                add(t, sid, "template", f"the headline sits in the same slot on the left (x {b['x']}, y {b['y']}) in "
+                                        f"{len(same)} of {n} scenes, a title + card slide layout; let each scene's "
+                                        "picture decide where its words go", b.get("text") or "")
+                break
+    for sc in scenes:
+        if TYPED.search(sc.get("js") or ""):
+            add(sc["start"], sc["id"], "typed", "text typed letter by letter is a template move; bring the headline in "
+                                                "by word or line, on the voice")
+    flats = {}
+    for sid, (t, shot) in shot_of.items():
+        try:
+            f = flat_share(Image.open(shot["file"]))
+        except OSError:
+            continue
+        flats[sid] = f
+        if f >= EMPTY and not shot.get("boxes"):
+            add(t, sid, "empty", "an empty frame: one flat colour and nothing drawn")
+    if len(flats) >= 3 and all(f >= FLAT for f in flats.values()):
+        add(scenes[0]["start"], scenes[0]["id"], "flat", f"every scene stands on a flat one-colour ground ({len(flats)} "
+            "of them); give the ground depth, texture or a picture in at least some scenes")
+    entries = [m for m in motion or [] if m.get("kind") == "entry"]
+    if len(entries) >= 2 and all(m.get("detail") == "fade" for m in entries):
+        add(entries[0].get("t", 0), entries[0].get("scene"), "fades", f"all {len(entries)} scene changes are fades; cut, "
+            "push, match or wipe so the transition says something")
+    return out
+
+
+GENERIC = re.compile(r"^(default|none|linear|power0|power1|sine|quad)(\.|$)", re.I)
+INTENT = re.compile(r"^(power[234]|cubic|quart|quint|strong|expo|circ|back|elastic|bounce|custom|steps)(\.|\(|$)", re.I)
+LAYOUT = ("safe", "caption", "overlap", "contrast", "tiny")
+GRADES = ((80, "maxxed"), (55, "orta"), (0, "slop"))
+
+
+def easing(motion):
+    """The measured easing of the spatial moves: {moves, generic, intent, kinds, quick, long} (shares 0-1)."""
+    ms = [m for m in motion or [] if m.get("kind") == "ease"]
+    n = len(ms)
+    if not n:
+        return {"moves": 0, "generic": 0.0, "intent": 0.0, "kinds": 0, "quick": 0.0, "long": 0.0}
+    fam = lambda e: re.split(r"[.(]", str(e))[0].lower()
+    return {"moves": n, "generic": round(sum(bool(GENERIC.match(m["detail"])) for m in ms) / n, 2),
+            "intent": round(sum(bool(INTENT.match(m["detail"])) for m in ms) / n, 2),
+            "kinds": len({fam(m["detail"]) for m in ms}),
+            "quick": round(sum(m.get("d", 0) < 0.25 for m in ms) / n, 2),
+            "long": round(sum(m.get("d", 0) > 1.6 for m in ms) / n, 2)}
+
+
+def easing_findings(e, scene=None):
+    out = []
+    if e["moves"] >= 4 and e["generic"] >= 0.6:
+        out.append({"t": 0.0, "scene": scene, "kind": "easing", "text": "",
+                    "detail": f"{round(e['generic'] * 100)} % of the {e['moves']} moves use a generic soft ease (default /"
+                              " power1 / sine / linear); give moves intent: expo.out or power3.out to land, back.out to "
+                              "pop, power2.inOut to travel"})
+    if e["moves"] >= 6 and e["kinds"] < 2:
+        out.append({"t": 0.0, "scene": scene, "kind": "easing", "text": "",
+                    "detail": f"one ease for all {e['moves']} moves; vary it with what each move means"})
+    return out
+
+
+def grade(found, motion=(), scenes=1):
+    """The video's grade from its findings and measured easing -> {grade, score, parts}."""
+    k = [f["kind"] for f in found]
+    e = easing(motion)
+    parts = {"layout": -min(20, 4 * sum(x in LAYOUT for x in k)),
+             "timing": -min(18, 3 * sum(x not in LAYOUT and x not in SLOP and x != "easing" for x in k)),
+             "slop": -min(40, 12 * sum(x in ("corner", "template", "flat", "fades") for x in k)
+                          + 5 * sum(x in ("counter", "typed", "empty") for x in k)),
+             "easing": 0}
+    if e["moves"]:
+        parts["easing"] = round(10 * e["intent"] - (15 if e["generic"] >= 0.6 else 0) - (5 if e["moves"] >= 6 and
+                                e["kinds"] < 2 else 0) - (5 if e["long"] > 0.3 else 0))
+    if e["moves"] < max(1, scenes):                  # less than one move a scene: a slideshow
+        parts["motion"] = -15
+    score = max(0, min(100, 90 + sum(parts.values())))
+    g = next(name for bar, name in GRADES if score >= bar)
+    if g == "maxxed" and any(x in SLOP for x in k):
+        g = "orta"                                     # no slop pattern in a maxxed video
+    return {"grade": g, "score": score, "parts": parts, "easing": e}
+
+
+def run(bundle_path, times, outdir, aspect="9:16", hide_caps=(), timing=True, span=None, report=None):
     """Stills + findings for an HTML design: (paths, page errors, findings). timing=True also runs the readcheck /
-    motion lint pass over the whole video (no screenshots, a few seconds)."""
+    motion lint pass over the whole video, or over span=(a, b) seconds (no screenshots, a few seconds). A `report`
+    dict gets the grade (t520) when the timing pass ran."""
     import sys
     from .config import ROOT
     sys.path.insert(0, os.path.join(ROOT, "bin"))
@@ -166,17 +340,28 @@ def run(bundle_path, times, outdir, aspect="9:16", hide_caps=(), timing=True):
         lint = json.load(open(lint_path)) if lint_path and os.path.exists(lint_path) else {}
     except (OSError, ValueError):
         lint = {}
-    found = check(lint, aspect, hide_caps)
+    found, motion = check(lint, aspect, hide_caps), []
     if timing:
         try:
-            found += readcheck(htmlmotion.readcheck(bundle_path))
+            data = htmlmotion.readcheck(bundle_path, span)
+            motion = data.get("motion") or []
+            found += readcheck(data)
         except Exception as e:      # the timing pass must never stop a design round
             errs = errs + [f"readcheck failed: {type(e).__name__}"]
+    try:
+        bundle = json.load(open(bundle_path))
+        found += slop(bundle, lint, aspect, motion)
+        found += easing_findings(easing(motion))
+        if report is not None and timing:
+            report.update(grade(found, motion, len(bundle.get("scenes") or [])))
+    except Exception as e:          # nor the slop lint
+        errs = errs + [f"slop lint failed: {type(e).__name__}"]
     return paths, errs, found
 
 
 def as_text(findings, limit=14):
     """Short lines for the designer's self-check prompt."""
-    return [f"{'layout' if f['kind'] in ('safe', 'caption', 'overlap', 'contrast', 'tiny') else 'timing'} {f['kind']} @ "
+    kind = lambda k: "layout" if k in LAYOUT else "slop" if k in SLOP else "timing"
+    return [f"{kind(f['kind'])} {f['kind']} @ "
             f"{f['t']:.2f}s scene {f['scene']}: " + (f"'{f['text']}' " if f.get("text") else "") + f"{f['detail']}"
             for f in findings[:limit]]

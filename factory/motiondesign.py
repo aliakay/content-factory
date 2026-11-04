@@ -93,6 +93,12 @@ FX_DOC = """FX LIBRARY (available in every scene's JS as `FX`; deterministic, us
   surfaces/backgrounds: FX.glass(el) · FX.aurora(root, T, {colors, seed}) · FX.particles(root, T, {n, color, seed})
   3D (Three.js, rendered per frame): k = FX.three(root, T) -> {THREE, scene, camera, frame(fn(localT))} ·
           FX.globe(root, T, {color, grid, turn}) · per-frame canvas drawing: FX.onFrame(fn(t)) · seeded random: FX.rand(seed)
+  maths + science (Manim-style): FX.math(tl, root, at, "LaTeX", {x, y, size, mark}) (KaTeX, written term by term;
+          \\hl{...} lights a part at `mark`) · FX.eqSteps(tl, root, [{tex, at}], {y, size}) (a derivation, older lines move
+          up and dim) · FX.plot(tl, root, {box: [x, y, w, h], x: [min, max, step], y: [..], fns: [{f: (x) => .., at, dur,
+          label, area: [a, b]}], points: [{x, y, at, label}], tracer: {from, to, at, dur}, xlabel, ylabel}) ·
+          k = FX.space(root, T, {range, turn}) (turning 3D axes, z up): k.surface((x, y) => z, {at, dur}) · k.curve((t) =>
+          [x, y, z], {t: [a, b], at, dur}) · k.arrow([x, y, z], {at}) · k.dot(p, {at}) · k.label(p, "text", {at, tex})
   set pieces (pics = image URL | "<html>" | {img}|{html}; cutout = transparent PNG of the same picture, optional):
           orbit: FX.orbit(tl, el, T, {from: -35, turn: 70, tilt}) (CSS 3D turn + sheen) · k = FX.orbit3d(root, T, {radius, turn})
           screen wall: FX.screenWall(tl, root, at, pics, {cols, rows, focus: i, focusAt}) (grid of screens, flies into i)

@@ -33,6 +33,8 @@ def test_guard_unknown_model_capped_by_approval(con):
     assert credits.guard(con, "video", "some-new-model", 5, 3000) == 3000
     with pytest.raises(credits.BudgetError):
         credits.guard(con, "video", "some-new-model", 5, credits.MONTHLY_CAP + 1)
+    with pytest.raises(credits.BudgetError, match="no known price"):   # an unknown price never runs on an empty budget
+        credits.guard(con, "video", "some-new-model", 5, 0)
 
 
 def test_detect_links():

@@ -14,6 +14,7 @@ References are taste only: nothing is downloaded or copied (only page screenshot
 import json, os, shutil, subprocess, sys, time
 
 from . import capabilities, llm
+from .store import OWN_CLIPS
 
 from .config import ROOT, FFMPEG
 ART = os.path.join(ROOT, "data", "art")
@@ -126,10 +127,13 @@ def history(n=10):
     return rows[-n:]
 
 
-def _clips(con):
+def _clips(con, keep=()):
+    """The creator's usable clips, plus the generated clips in `keep` (the production's own shots)."""
     out = []
+    keep = list(keep)
     for c in con.execute("SELECT c.*, p.name AS place FROM clips c LEFT JOIN places p ON p.place_id=c.place_id "
-                         "WHERE c.usable=1 ORDER BY c.captured_at"):
+                         f"WHERE c.usable=1 AND ({OWN_CLIPS} OR c.clip_id IN ({','.join('?' * len(keep)) or 'NULL'})) "
+                         "ORDER BY c.captured_at", keep):
         item = {"clip_id": c["clip_id"], "kind": c["kind"], "place": c["place"], "captured_at": c["captured_at"],
                 "description": c["description"], "mood": c["mood"], "sheet": c["sheet"]}
         if c["kind"] == "video":
@@ -194,7 +198,7 @@ Your earlier directions (do NOT repeat their concept or signature moves; build a
 continuity of a series): {json.dumps(history(), ensure_ascii=False)}
 Skill library (learned techniques you can reuse by copying their spec; wishlist = things the renderer can't do yet):
 {json.dumps(sk, ensure_ascii=False)}
-Clips (JSON): {json.dumps(_clips(con), ensure_ascii=False)}
+Clips (JSON): {json.dumps(_clips(con, [s.get("clip_id") for s in d.get("shots") or []]), ensure_ascii=False)}
 
 Reply with ONLY JSON in this schema (after your research):
 {SCHEMA}"""

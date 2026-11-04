@@ -14,7 +14,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 from factory import accounts, channels, claudeauth, credits, discover, eleven_api, explainer, illustrate, planner, series, styles, formats, jobs, productions as P, refs, signals, tracking, usage, llm  # noqa: E402
-from factory.store import connect  # noqa: E402
+from factory.store import OWN_CLIPS, connect  # noqa: E402
+sys.path.insert(0, HERE)
+import hat_api  # noqa: E402  (v2 production lines: /api/hat/*, /media/projects/*)
 
 # the Shorts panel's module (caption parsing, out/ listing, thumbnails, range streaming), loaded by path because
 # both files are called server.py
@@ -728,7 +730,7 @@ def clip_search(con, text, k=24):
     from factory import embed
     text = (text or "").strip()
     rows = [dict(r) for r in con.execute("""SELECT c.clip_id, c.kind, c.description, c.tags, c.mood, c.duration, p.name place
-                                             FROM clips c LEFT JOIN places p ON p.place_id=c.place_id WHERE c.usable=1""")]
+                                             FROM clips c LEFT JOIN places p ON p.place_id=c.place_id WHERE c.usable=1 AND """ + OWN_CLIPS)]
     if not text or not rows:
         return []
     docs = [" ".join(x for x in (r["description"], r["place"], r["mood"], " ".join(json.loads(r["tags"] or "[]"))) if x) for r in rows]
@@ -825,7 +827,7 @@ def me(con):
            "llm_settings": accounts.llm_settings(uid), "codex_elevenlabs": codex_elevenlabs,
            "llm_models": {p: llm.model_options(p) for p in ("claude", "codex")},
            "llm_default_models": {p: {step: llm.default_model(step, p) for step in llm.AGENT_STEPS} for p in ("claude", "codex")},
-           "llm_agents": [{"id": k, "name": v} for k, v in llm.AGENT_STEPS.items()]}
+           "llm_agents": [{"id": k, "name": v} for k, v in llm.AGENT_STEPS.items()], "ui_lang": accounts.ui_lang(uid)}
     if accounts.is_owner(uid):
         out["users"] = [{"id": k, "name": v["name"], "role": v["role"], "claude": accounts.claude_status(k)}
                         for k, v in accounts.users()["users"].items()]
@@ -1108,7 +1110,7 @@ class Handler(shorts.Handler):
     def talk_upload(self, n, name):
         """The creator's raw talking video -> raw/talk/ (never modified); the composer attaches it to the next plan."""
         from factory import talk
-        if not name.lower().endswith(talk.VIDEO_EXT) or not 0 < n <= MAX_UPLOAD:
+        if not name.lower().endswith(talk.VIDEO_EXT + (".mp3", ".m4a", ".wav", ".aac")) or not 0 < n <= MAX_UPLOAD:
             self.rfile.read(min(n, 1 << 20))
             return self.json(400, {"error": "MP4/MOV video, en fazla 600 MB"})
         os.makedirs(talk.RAW, exist_ok=True)
@@ -1130,6 +1132,22 @@ class Handler(shorts.Handler):
         os.replace(part, dst)
         return self.json(200, {"ok": True, "file": os.path.relpath(dst, ROOT), "name": name})
 
+    def avatar_upload(self, n, name, folder="avatar"):
+        """The presenter portrait for the avatar line -> raw/avatar/; a brand logo for an own film style -> raw/logo/."""
+        ext = os.path.splitext(name)[1].lower()
+        if ext not in (".jpg", ".jpeg", ".png", ".webp") or not 0 < n <= 30 << 20:
+            self.rfile.read(min(n, 1 << 20))
+            return self.json(400, {"error": "JPG/PNG/WEBP, en fazla 30 MB"})
+        d = os.path.join(ROOT, "raw", folder)
+        os.makedirs(d, exist_ok=True)
+        safe = re.sub(r"[^\w-]", "_", os.path.splitext(name)[0])[:60]
+        dst = os.path.join(d, f"{safe}_{int(time.time())}{ext}")
+        data = self.rfile.read(n)
+        if len(data) != n:
+            return self.json(400, {"error": "yükleme yarıda kaldı"})
+        open(dst, "wb").write(data)
+        return self.json(200, {"ok": True, "file": os.path.relpath(dst, ROOT), "name": name})
+
     def upload(self):
         """A reference video sent as the raw request body (phone browser fetch with the File as body)."""
         n = int(self.headers.get("Content-Length") or 0)
@@ -1139,6 +1157,10 @@ class Handler(shorts.Handler):
             return self.style_upload(n, name)
         if self.headers.get("X-Talk") == "1":
             return self.talk_upload(n, name)
+        if self.headers.get("X-Avatar") == "1":
+            return self.avatar_upload(n, name)
+        if self.headers.get("X-Logo") == "1":
+            return self.avatar_upload(n, name, "logo")
         if not name.lower().endswith((".mp4", ".mov", ".m4v") + refs.REF_PHOTO_EXT) or not 0 < n <= MAX_UPLOAD:
             self.rfile.read(min(n, 1 << 20))
             return self.json(400, {"error": "MP4/MOV ya da JPG/PNG/WEBP fotoğraf, en fazla 600 MB"})
@@ -1178,6 +1200,8 @@ class Handler(shorts.Handler):
 
     def post(self, con, path, b):
         uid = accounts.current()
+        if path.startswith("/api/hat/"):
+            return hat_api.post(con, path, b, lambda kind, arg: jobs.queue(con, kind, arg))
         if path == "/api/llm/settings":
             provider, models = b.get("provider"), b.get("models", {})
             if provider not in ("claude", "codex") or not isinstance(models, dict):
@@ -1552,6 +1576,10 @@ class Handler(shorts.Handler):
                 return self.json(500, {"error": f"{type(e).__name__}: {e}"}, head)
             finally:
                 con.close()
+        if path.startswith("/media/projects/"):   # v2 project files: renders, stills, voice
+            hit = hat_api.media_file(path[len("/media/projects/"):])
+            if hit:
+                return self.send_file(hit[0], hit[1], head, download="dl" in q, cache="no-store")
         if path.startswith("/media/out/"):
             f = self.inside(OUT, path[len("/media/out/"):])
             if f and f.endswith(".mp4"):
@@ -1565,6 +1593,16 @@ class Handler(shorts.Handler):
                     "image/png" if f.endswith(".png") else None
                 if ctype:
                     return self.send_file(f, ctype, head, cache="no-store")
+        if path.startswith("/media/filmstyles/"):   # film style frames: styles/previews/<id>.jpg, own styles' samples
+            m = re.fullmatch(r"([a-z0-9_]{1,48})\.jpg", path[len("/media/filmstyles/"):])
+            if m:
+                from factory import filmstyles
+                try:
+                    f = filmstyles.preview_file(m.group(1))
+                except ValueError:
+                    f = None
+                if f and os.path.isfile(f):
+                    return self.send_file(f, "image/jpeg", head, cache="no-store")
         if path.startswith("/media/art/"):  # stills of the auto art directions
             f = self.inside(os.path.join(ROOT, "work", "explainer"), path[len("/media/art/"):])
             if f and f.endswith(".png"):
@@ -1633,6 +1671,8 @@ class Handler(shorts.Handler):
 
     def get_api(self, con, path, q):
         ch = (q.get("channel") or [None])[0]
+        if path.startswith("/api/hat/"):
+            return hat_api.get(con, path, q)
         if path == "/api/overview":
             return overview(con, ch)
         if path == "/api/formats":

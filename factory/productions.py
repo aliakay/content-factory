@@ -14,7 +14,7 @@ hand-written ffmpeg.
 import difflib, json, os, re, subprocess
 
 from . import credits, engines, explainer, formats, ideas, llm, qa, refs, styled, talk, tracking
-from .store import ROOT, jload, now
+from .store import OWN_CLIPS, ROOT, jload, now
 
 from .config import FFMPEG
 STAGES = ("idea", "voice", "preview", "ready", "published", "rejected")
@@ -129,7 +129,8 @@ def create(con, fmt_id, data, brief="", channel_id=None):
 
 # ---------- context for Claude ----------
 def inventory(con, place_ids=None):
-    q = ("SELECT c.*, p.name AS place FROM clips c LEFT JOIN places p ON p.place_id=c.place_id WHERE c.usable=1")
+    q = ("SELECT c.*, p.name AS place FROM clips c LEFT JOIN places p ON p.place_id=c.place_id WHERE c.usable=1 "
+         f"AND {OWN_CLIPS}")
     args = []
     if place_ids:
         q += f" AND c.place_id IN ({','.join('?' * len(place_ids))})"

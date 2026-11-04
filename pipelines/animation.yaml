@@ -1,0 +1,94 @@
+id: animation
+order: 2
+status: ready
+category: generated
+inputs: [topic, message]
+duration: [10, 60]
+name: {tr: Hareketli grafik, en: Motion graphics}
+tagline:
+  tr: "Anlatımın değil hareketin öne çıktığı kısa, çarpıcı işler."
+  en: "Short, striking pieces where motion leads, not narration."
+makes:
+  tr: "Kinetik tipografi, diyagram ve veri animasyonları, Three.js ile 3D dünyalar; anlatımlı ya da yalnız müzikli."
+  en: "Kinetic typography, diagram and data animation, Three.js 3D worlds; narrated or music-only."
+good_for:
+  tr: ["Lansman ve duyurular", "Tek bir istatistiği vurgulamak", "Döngü (loop) içerikler", "Müzikli, anlatımsız videolar"]
+  en: ["Launches and announcements", "Landing one statistic", "Loop content", "Music-led videos without narration"]
+not_for:
+  tr: ["Uzun sözlü anlatım", "Gerçek görüntü isteyen konular"]
+  en: ["Long spoken explanations", "Topics that need real footage"]
+needs:
+  tr: "Bir konu ya da tek cümlelik mesaj; istersen müzik tarzı."
+  en: "A topic or a one-line message; a music style if you like."
+cost:
+  tr: "Müzik istenirse ~47 kredi/sn; seslendirme isteğe bağlı. Claude tasarım."
+  en: "Music ~47 credits/s if wanted; narration optional. Claude for design."
+stages:
+  - id: research
+    run: agent
+    model: sonnet
+    tools: [web_search, web_fetch]
+    review:
+      - "The message the piece must land fits in one sentence"
+      - "Every figure that may appear on screen has a source URL, its unit and its date"
+      - "At least 3 sources and 2 different angles"
+
+  - id: proposal
+    gate: true
+    run: agent
+    model: opus
+    tools: [read_artifact, catalog, memory, estimate_cost, render_time]
+    review:
+      - "Three concepts that differ in motion idea, structure and look, not just wording"
+      - "Says whether the piece is narrated or music-led, and why; a music-led piece always has music"
+      - "The chosen concept names its key frame, length, look and sound plan"
+      - "Cost is itemised from the estimate tool, never guessed"
+
+  - id: script
+    gate: true
+    run: agent
+    model: opus
+    tools: [read_artifact, web_search, web_fetch, proof_check]
+    review:
+      - "Music-led: every line is short on-screen text (<= 7 words) with a hold in seconds; holds add up to the approved length within 10%"
+      - "Narrated: word count fits the approved length within 10%"
+      - "The first beat lands the hook in under 1.5 seconds"
+      - "Every figure is a verified claim with a source"
+
+  - id: scene_plan
+    gate: true
+    run: agent
+    model: opus
+    tools: [read_artifact, catalog, recipes, stock_search, render_stills, layout_lint, contact_sheet, proof_check]
+    review:
+      - "Motion leads: every scene has one clear movement idea, not a static card"
+      - "No two consecutive scenes use the same visual device"
+      - "Layout lint has no errors; text is readable on a phone at a glance"
+      - "Every on-screen figure matches the script"
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.explainer:assets
+    tools: [tts, align_words, music, preview_render]
+    review:
+      - "Music fits the length; spend stays inside the approved budget"
+
+  - id: edit
+    run: code
+    call: factory.hat.explainer:edit
+    tools: [compile_bundle]
+
+  - id: compose
+    run: code
+    call: factory.hat.explainer:compose
+    tools: [final_render, qa_technical, qa_sound, thumbnails, deliver]
+
+  - id: publish
+    gate: true
+    run: agent
+    model: sonnet
+    tools: [read_artifact, proof_check, safe_area]
+    review:
+      - "Caption in the video's language, under 150 characters, ends with a question"
+      - "3–5 hashtags that match the topic"

@@ -42,7 +42,7 @@
     return el;
   };
   /* emphasis */
-  FX.shine = (tl, el, at, o = {}) => { el.style.backgroundImage = `linear-gradient(110deg, ${o.base || "currentColor"} 40%, ${o.light || "#fff"} 50%, ${o.base || "currentColor"} 60%)`; el.style.backgroundSize = "250% 100%"; el.style.webkitBackgroundClip = "text"; el.style.backgroundClip = "text"; el.style.color = "transparent"; tl.fromTo(el, { backgroundPosition: "120% 0" }, { backgroundPosition: "-120% 0", duration: o.dur || 1.2, ease: "power1.inOut" }, at); };
+  FX.shine = (tl, el, at, o = {}) => { const base = o.base || getComputedStyle(el).color; el.style.backgroundImage = `linear-gradient(110deg, ${base} 40%, ${o.light || "#fff"} 50%, ${base} 60%)`; el.style.backgroundSize = "250% 100%"; el.style.webkitBackgroundClip = "text"; el.style.backgroundClip = "text"; el.style.color = "transparent"; tl.fromTo(el, { backgroundPosition: "120% 0" }, { backgroundPosition: "-120% 0", duration: o.dur || 1.2, ease: "power1.inOut" }, at); };
   FX.gradientText = (el, colors) => { el.style.backgroundImage = `linear-gradient(90deg, ${colors.join(",")})`; el.style.webkitBackgroundClip = "text"; el.style.backgroundClip = "text"; el.style.color = "transparent"; };
   FX.highlight = (tl, el, at, o = {}) => { el.style.backgroundImage = `linear-gradient(${o.color || "var(--accent)"}, ${o.color || "var(--accent)"})`; el.style.backgroundRepeat = "no-repeat"; el.style.backgroundPosition = "0 88%"; tl.fromTo(el, { backgroundSize: "0% 40%" }, { backgroundSize: "100% 40%", duration: o.dur || 0.45, ease: "power2.out" }, at); };
   FX.countUp = (tl, el, at, to, o = {}) => { const st = { v: o.from || 0 }, dec = o.decimals || 0; tl.fromTo(st, { v: o.from || 0 }, { v: to, duration: o.dur || 0.9, ease: "power2.out", onUpdate: () => { el.textContent = (o.prefix || "") + st.v.toLocaleString(o.locale || "en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }) + (o.suffix || ""); } }, at); };
@@ -1046,12 +1046,13 @@
     const out = o.out;   // out: true closes onto the point at `at`
     tl.fromTo(root, { clipPath: `circle(${out ? 150 : 0}% at ${p[0] * 100}% ${p[1] * 100}%)` }, { clipPath: `circle(${out ? 0 : 150}% at ${p[0] * 100}% ${p[1] * 100}%)`, duration: o.dur || 0.45, ease: out ? "power3.in" : "power3.out" }, at);
   };
-  FX.brushWipe = (tl, root, at, o = {}) => {   // fat strokes cover the frame then drag off (cut under full cover)
+  FX.brushWipe = (tl, root, at, o = {}) => {   // fat strokes cover the frame then drag off (cut under full cover, at + 0.4; hold: true keeps the cover)
     const W = root.clientWidth || 1080, H = root.clientHeight || 1920, svg = FX.svg(root, W, H), n = o.n || 5, c = o.color || "var(--ink, #111)";
     svg.style.zIndex = 90;
     for (let i = 0; i < n; i++) {
       const y = (H / n) * (i + 0.5), p = FX.el(svg, "path", { d: `M-80,${y} L${W + 80},${y + (i % 2 ? 40 : -40)}`, stroke: c, "stroke-width": H / n + 60, "stroke-linecap": "round", fill: "none" });
       FX.drawOn(tl, p, at + i * 0.04, { dur: 0.32, ease: "power2.in" });
+      if (!o.hold) tl.to(p, { strokeDashoffset: -p.getTotalLength(), duration: 0.32, ease: "power2.out" }, at + 0.44 + i * 0.04);   // drag off
     }
     if (o.sfx !== false) FX.sfx("swish", at + 0.1);
     return svg;
@@ -1586,6 +1587,172 @@
     words.forEach(([wt, text, color], i) => FX.kinetic(tl, frame, wt, { style: "cut", text, until: (words[i + 1] || [at + dur])[0], color: color || "#fff", y: o.y ?? H0 * 0.7, width: o.wordWidth || 0.7, fx: "beat" }));
     if (o.weather) FX.weather(frame, { kind: o.weather === "dust" ? "snow" : o.weather, n: o.weather === "dust" ? 60 : undefined, color: o.weather === "dust" ? "rgba(255,240,210,.5)" : undefined, size: o.weather === "dust" ? 0.6 : 1, z: 8 });
     return frame;
+  };
+
+  /* ---- science: equations (KaTeX), function plots, 3D space. The same scene types a Manim film uses, drawn here.
+     FX.math(tl, root, at, tex, {x, y, size, color, reveal: 'terms'|'fade', mark}) writes an equation; parts wrapped in
+     \hl{...} light up in the accent colour at `mark`. FX.eqSteps(tl, root, steps, {x, y, size}) runs a derivation:
+     steps = [{tex, at}], each new line writes in term by term while the earlier ones move up and dim.
+     FX.plot(tl, root, {box, x: [min, max, step], y: [...], fns: [{f, at, dur, color, label, area: [a, b]}],
+     points: [{x, y, at, label}], tracer: {fn, from, to, at, dur, digits}, xlabel, ylabel}) draws axes then curves on.
+     FX.space(root, T, {range, turn, height, axes}) is a turning 3D stage: k.surface(f, {at, dur}) z = f(x, y) rising
+     out of the floor, k.curve(fn, {t: [a, b], at, dur}) a parametric path drawn on, k.arrow(to, {from}), k.dot(p),
+     k.label(p, text). Times are absolute seconds like every tween. ---- */
+  const ink = (o) => o.color || "var(--ink)";
+  FX.tex = (tex, display = true) => {
+    const K = window.katex;
+    if (!K) throw new Error("KaTeX not loaded");
+    return K.renderToString(tex, { displayMode: display, throwOnError: true, output: "html", strict: false, trust: (c) => c.command === "\\htmlClass",
+                                   macros: { "\\hl": "\\htmlClass{fx-hl}{#1}" } });
+  };
+  const terms = (el) => { const bases = el.querySelectorAll(".katex-html > .base"); const out = []; bases.forEach((b) => b.childNodes.forEach((n) => { if (n.nodeType === 1 && !n.classList.contains("strut")) out.push(n); })); return out; };
+  FX.math = (tl, root, at, tex, o = {}) => {
+    const [W, H] = dims(root);
+    const el = div(root, { position: "absolute", left: (o.x ?? W / 2) + "px", top: (o.y ?? H / 2) + "px",
+                           fontSize: (o.size || 72) + "px", color: ink(o), whiteSpace: "nowrap" }, FX.tex(tex));
+    el.className = "fx-math";
+    gsap.set(el, { xPercent: -50, yPercent: -50 });   // centred by GSAP itself: a CSS translate gets re-parsed by later y tweens
+    const ts = terms(el);
+    if (o.reveal === "fade" || !ts.length) tl.fromTo(el, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: o.dur || 0.6 }, at);
+    else tl.fromTo(ts, { opacity: 0, y: 24, filter: "blur(8px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.45, stagger: o.stagger ?? Math.min(0.12, (o.dur || 1) / ts.length) }, at);
+    const hl = el.querySelectorAll(".fx-hl");
+    if (hl.length) {
+      const when = o.mark ?? at + (o.dur || 1) + 0.2;
+      tl.to(hl, { color: o.accent || "var(--accent)", scale: 1.12, duration: 0.3, ease: "back.out(3)", transformOrigin: "50% 60%" }, when);
+      tl.to(hl, { scale: 1, duration: 0.3 }, when + 0.35);
+      hl.forEach((h) => { h.style.display = "inline-block"; });
+    }
+    return el;
+  };
+  FX.eqSteps = (tl, root, steps, o = {}) => {
+    const [W, H] = dims(root), gap = (o.size || 72) * (o.gap || 2.4), y0 = o.y ?? H / 2;
+    return steps.map((st, i) => {
+      const el = FX.math(tl, root, st.at, st.tex, { ...o, y: y0, mark: st.mark ?? st.at + 0.9 });
+      for (let j = i + 1; j < steps.length; j++) {   // each later step pushes this line up one row; old lines dim
+        const k = j - i, op = (n) => (n === 0 ? 1 : Math.max(0, 0.45 - 0.2 * (n - 1)));
+        tl.fromTo(el, { y: -gap * (k - 1), opacity: op(k - 1) }, { y: -gap * k, opacity: op(k), duration: 0.5, ease: "power2.inOut", immediateRender: false }, steps[j].at - 0.45);
+      }
+      return el;
+    });
+  };
+  const num = (v, d) => { const r = Number(v.toFixed(d)); return (Math.abs(r) < 1e-9 ? 0 : r).toLocaleString(document.documentElement.lang || "en"); };
+  FX.plot = (tl, root, o = {}) => {
+    const [W, H] = dims(root), [bx, by, bw, bh] = o.box || [W * 0.1, H * 0.3, W * 0.8, H * 0.4];
+    const [x0, x1, xs] = o.x || [-5, 5, 1], [y0, y1, ys] = o.y || [-5, 5, 1], at = o.at ?? 0, col = ink(o);
+    const X = (x) => bx + ((x - x0) / (x1 - x0)) * bw, Y = (y) => by + bh - ((y - y0) / (y1 - y0)) * bh;
+    const svg = FX.svg(root, W, H), fs = o.font || Math.round(Math.min(bw, bh) / 22) + 8;
+    const id = "fxclip" + uid++, cl = FX.el(FX.el(svg, "defs", {}), "clipPath", { id }); FX.el(cl, "rect", { x: bx, y: by, width: bw, height: bh });
+    const ax = Math.min(Math.max(0, x0), x1), ay = Math.min(Math.max(0, y0), y1);   // axes cross at 0 when 0 is in range
+    if (o.grid !== false) {
+      const g = FX.el(svg, "g", { stroke: col, "stroke-opacity": 0.12, "stroke-width": 2 });
+      for (let x = Math.ceil(x0 / xs) * xs; x <= x1 + 1e-9; x += xs) FX.el(g, "line", { x1: X(x), y1: by, x2: X(x), y2: by + bh });
+      for (let y = Math.ceil(y0 / ys) * ys; y <= y1 + 1e-9; y += ys) FX.el(g, "line", { x1: bx, y1: Y(y), x2: bx + bw, y2: Y(y) });
+      tl.fromTo(g, { opacity: 0 }, { opacity: 1, duration: 0.6 }, at);
+    }
+    const axis = (d) => { const p = FX.el(svg, "path", { d, stroke: col, "stroke-width": 4, fill: "none", "stroke-linecap": "round" }); FX.drawOn(tl, p, at, { dur: 0.7 }); };
+    axis(`M${bx} ${Y(ay)} H${bx + bw}`); axis(`M${X(ax)} ${by + bh} V${by}`);
+    const tick = (x, y, txt, anchor, dy) => { const t = FX.el(svg, "text", { x, y: y + dy, fill: col, "font-size": fs, "text-anchor": anchor, "font-family": "inherit", opacity: 0.8 }); t.textContent = txt; return t; };
+    const ticks = [];
+    for (let x = Math.ceil(x0 / xs) * xs; x <= x1 + 1e-9; x += xs) if (Math.abs(x - ax) > 1e-9 || o.zero) ticks.push(tick(X(x), Y(ay), num(x, 3), "middle", fs * 1.25));
+    for (let y = Math.ceil(y0 / ys) * ys; y <= y1 + 1e-9; y += ys) if (Math.abs(y - ay) > 1e-9) ticks.push(tick(X(ax) - fs * 0.5, Y(y), num(y, 3), "end", fs * 0.35));
+    if (ticks.length) tl.fromTo(ticks, { opacity: 0 }, { opacity: 0.8, duration: 0.3, stagger: 0.6 / ticks.length }, at + 0.3);
+    if (o.xlabel) tl.fromTo(tick(bx + bw, Y(ay), o.xlabel, "end", -fs * 0.6), { opacity: 0 }, { opacity: 1, duration: 0.4 }, at + 0.6);
+    if (o.ylabel) tl.fromTo(tick(X(ax) + fs * 0.5, by + fs, o.ylabel, "start", 0), { opacity: 0 }, { opacity: 1, duration: 0.4 }, at + 0.6);
+    const colors = o.colors || ["var(--accent)", "var(--accent2)", "var(--hot)", "var(--muted)"];
+    const curves = (o.fns || []).map((fn, i) => {
+      const f = typeof fn === "function" ? fn : fn.f, c = fn.color || colors[i % colors.length], n = fn.samples || 400, when = fn.at ?? at + 0.8 + i * 0.6;
+      let d = "", pen = false;
+      for (let k = 0; k <= n; k++) {
+        const x = x0 + ((x1 - x0) * k) / n, y = f(x);
+        if (!isFinite(y) || y > y1 + (y1 - y0) || y < y0 - (y1 - y0)) { pen = false; continue; }   // asymptotes break the line
+        d += (pen ? "L" : "M") + X(x).toFixed(1) + " " + Y(y).toFixed(1); pen = true;
+      }
+      const g = FX.el(svg, "g", { "clip-path": `url(#${id})` });
+      if (fn.area) {
+        const [a, b] = fn.area; let ad = `M${X(a)} ${Y(ay)}`;
+        for (let k = 0; k <= 200; k++) { const x = a + ((b - a) * k) / 200; ad += `L${X(x).toFixed(1)} ${Y(Math.max(y0, Math.min(y1, f(x)))).toFixed(1)}`; }
+        const ar = FX.el(g, "path", { d: ad + `L${X(b)} ${Y(ay)}Z`, fill: c, "fill-opacity": 0.28, stroke: "none" });
+        tl.fromTo(ar, { opacity: 0 }, { opacity: 1, duration: 0.6 }, fn.areaAt ?? when + (fn.dur || 1.2));
+      }
+      const p = FX.el(g, "path", { d, stroke: c, "stroke-width": fn.width || 7, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" });
+      FX.drawOn(tl, p, when, { dur: fn.dur || 1.2 });
+      if (fn.label) {
+        const lx = fn.labelAt ?? x0 + (x1 - x0) * 0.85, t = tick(X(lx), Y(f(lx)), fn.label, "start", -fs * 0.7);
+        t.setAttribute("fill", c); t.setAttribute("font-size", fs * 1.3); t.setAttribute("font-weight", 700);
+        tl.fromTo(t, { opacity: 0 }, { opacity: 1, duration: 0.4 }, when + (fn.dur || 1.2) * 0.8);
+      }
+      return { f, c };
+    });
+    for (const pt of o.points || []) {
+      const c = pt.color || "var(--hot)", dot = FX.el(svg, "circle", { cx: X(pt.x), cy: Y(pt.y), r: pt.r || 13, fill: c });
+      tl.fromTo(dot, { scale: 0, transformOrigin: "50% 50%" }, { scale: 1, duration: 0.4, ease: "back.out(3)" }, pt.at ?? at + 1.5);
+      if (pt.label) { const t = tick(X(pt.x) + 22, Y(pt.y) - 18, pt.label, "start", 0); t.setAttribute("fill", c); t.setAttribute("font-weight", 700); tl.fromTo(t, { opacity: 0 }, { opacity: 1, duration: 0.3 }, (pt.at ?? at + 1.5) + 0.2); }
+    }
+    if (o.tracer && curves.length) {
+      const tr = o.tracer, cv = curves[tr.fn || 0], st = { x: tr.from ?? x0 }, dg = tr.digits ?? 2;
+      const dot = FX.el(svg, "circle", { r: 15, fill: "#fff", stroke: cv.c, "stroke-width": 6, opacity: 0 });
+      const guide = FX.el(svg, "path", { stroke: cv.c, "stroke-width": 3, "stroke-dasharray": "8 8", fill: "none", opacity: 0 });
+      const read = tick(0, 0, "", "start", 0); read.setAttribute("font-weight", 700); read.setAttribute("font-size", fs * 1.3); read.setAttribute("opacity", 0);
+      const put = () => { const y = cv.f(st.x); dot.setAttribute("cx", X(st.x)); dot.setAttribute("cy", Y(y)); guide.setAttribute("d", `M${X(st.x)} ${Y(ay)} V${Y(y)} H${X(ax)}`);
+                          read.setAttribute("x", X(st.x) + 26); read.setAttribute("y", Y(y) - 26); read.textContent = (tr.format || ((x, y) => `(${num(x, dg)}, ${num(y, dg)})`))(st.x, y); };
+      put(); const t0 = tr.at ?? at + 2.5;
+      tl.to([dot, guide, read], { opacity: 1, duration: 0.3 }, t0);
+      tl.fromTo(st, { x: tr.from ?? x0 }, { x: tr.to ?? x1, duration: tr.dur || 2, ease: tr.ease || "sine.inOut", onUpdate: put }, t0 + 0.2);
+    }
+    return { svg, X, Y };
+  };
+  FX.space = (root, T, o = {}) => {
+    const R = o.range || 3, tall = dims(root)[1] > dims(root)[0], k = FX.orbit3d(root, T, { radius: o.radius || R * (tall ? 5.4 : 3.6), height: o.height ?? R * 1.6, turn: o.turn ?? 0.9, from: o.from ?? 0.6, fov: o.fov || 38 });
+    const { THREE, scene } = k, items = [];
+    const C = (c, fb) => new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue("--" + (c || fb)).trim() || c || "#ffffff");
+    scene.add(new THREE.AmbientLight(0xffffff, 0.55)); const sun = new THREE.DirectionalLight(0xffffff, 1.3); sun.position.set(4, 8, 6); scene.add(sun);
+    const P = (p) => new THREE.Vector3(p[0], p[2] || 0, -(p[1] || 0));   // maths axes (z up) -> three (y up)
+    const prog = (lt, a, d) => Math.max(0, Math.min(1, (lt + T.start - a) / Math.max(0.01, d)));
+    if (o.axes !== false) {
+      const m = new THREE.LineBasicMaterial({ color: C("ink"), transparent: true, opacity: 0.7 });
+      for (const v of [[R * 1.2, 0, 0], [0, R * 1.2, 0], [0, 0, R * 1.2]]) scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([P(v.map((x) => -x * (o.negative === false ? 0 : 1))), P(v)]), m));
+      const grid = new THREE.GridHelper(R * 2, R * 4, C("muted"), C("muted")); grid.material.transparent = true; grid.material.opacity = 0.25; scene.add(grid);
+    }
+    k.surface = (f, so = {}) => {
+      const n = so.n || 64, geo = new THREE.PlaneGeometry(R * 2, R * 2, n, n); geo.rotateX(-Math.PI / 2);
+      const pos = geo.attributes.position, zs = [];
+      for (let i = 0; i < pos.count; i++) zs.push(f(pos.getX(i), -pos.getZ(i)));
+      const lo = so.z ? so.z[0] : Math.min(...zs), hi = so.z ? so.z[1] : Math.max(...zs), c0 = C(so.low, "accent2"), c1 = C(so.high, "accent");
+      const col = new Float32Array(pos.count * 3);
+      zs.forEach((z, i) => { const c = c0.clone().lerp(c1, (z - lo) / (hi - lo || 1)); col.set([c.r, c.g, c.b], i * 3); });
+      geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+      const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.55, metalness: 0.05, transparent: true, opacity: so.opacity ?? 0.95 }));
+      scene.add(mesh);
+      if (so.wire) { const w = new THREE.LineSegments(new THREE.WireframeGeometry(geo), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.05 })); mesh.add(w); }
+      const a = so.at ?? T.start, d = so.dur || 1.5;
+      k.frame((lt) => { const p = ease2(prog(lt, a, d)); mesh.visible = p > 0; for (let i = 0; i < pos.count; i++) pos.setY(i, zs[i] * p); pos.needsUpdate = true; geo.computeVertexNormals(); });
+      items.push(mesh); return mesh;
+    };
+    k.curve = (fn, co = {}) => {
+      const [t0, t1] = co.t || [0, 1], n = co.n || 400, pts = [...Array(n + 1)].map((_, i) => P(fn(t0 + ((t1 - t0) * i) / n)));
+      const geo = new THREE.BufferGeometry().setFromPoints(pts), line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: C(co.color, "accent") }));
+      scene.add(line); const head = new THREE.Mesh(new THREE.SphereGeometry(co.r || R * 0.04, 16, 16), new THREE.MeshStandardMaterial({ color: C(co.color, "accent"), emissive: C(co.color, "accent"), emissiveIntensity: 0.4 }));
+      scene.add(head); const a = co.at ?? T.start, d = co.dur || 2;
+      k.frame((lt) => { const p = prog(lt, a, d), m = Math.round(p * n); geo.setDrawRange(0, Math.max(0, m + 1)); line.visible = head.visible = p > 0; head.position.copy(pts[m]); });
+      return line;
+    };
+    k.arrow = (to, ao = {}) => {
+      const from = P(ao.from || [0, 0, 0]), v = P(to).sub(from), arr = new THREE.ArrowHelper(v.clone().normalize(), from, v.length(), C(ao.color, "hot"), R * 0.12, R * 0.07);
+      scene.add(arr); const a = ao.at ?? T.start, d = ao.dur || 0.6;
+      k.frame((lt) => { const p = ease2(prog(lt, a, d)); arr.visible = p > 0; arr.setLength(Math.max(0.001, v.length() * p), R * 0.12 * Math.min(1, p * 3), R * 0.07); });
+      return arr;
+    };
+    k.dot = (p, po = {}) => { const m = new THREE.Mesh(new THREE.SphereGeometry(po.r || R * 0.05, 20, 20), new THREE.MeshStandardMaterial({ color: C(po.color, "hot") })); m.position.copy(P(p)); scene.add(m);
+                              const a = po.at ?? T.start; k.frame((lt) => { const s = ease2(prog(lt, a, 0.4)); m.visible = s > 0; m.scale.setScalar(Math.max(0.001, s)); }); return m; };
+    k.label = (p, text, lo = {}) => {   // HTML text pinned to a 3D point (projected every frame)
+      const [W, H] = dims(root), el = div(root, { position: "absolute", left: 0, top: 0, color: lo.color || "var(--ink)", fontSize: (lo.size || 44) + "px", fontWeight: 700,
+                                                  whiteSpace: "nowrap", transform: "translate(-50%,-120%)", opacity: 0 }, lo.tex ? FX.tex(text, false) : null);
+      if (!lo.tex) el.textContent = text;
+      const v = P(p), a = lo.at ?? T.start;
+      k.frame((lt) => { const q = v.clone().project(k.camera); el.style.left = ((q.x + 1) / 2) * W + "px"; el.style.top = ((1 - q.y) / 2) * H + "px"; el.style.opacity = prog(lt, a, 0.3); });
+      return el;
+    };
+    return k;
   };
 
   window.FX = FX;

@@ -1,0 +1,5 @@
+{
+ "seconds": 3,
+ "css": "position:absolute;inset:0;background:linear-gradient(rgba(242,246,255,.12) 2px,transparent 2px) 0 0/60px 60px,linear-gradient(90deg,rgba(242,246,255,.12) 2px,transparent 2px) 0 0/60px 60px,#1d3f8f",
+ "js": "E('left:240px;top:620px;width:600px;height:600px;border:5px solid #f2f6ff;border-radius:50%');\nE('left:390px;top:770px;width:300px;height:300px;border:5px dashed #8fd3ff;border-radius:50%');\nE('left:500px;top:880px;width:80px;height:80px;background:#ffb547;border-radius:50%');\nE('left:240px;top:1300px;width:600px;height:0;border-top:3px solid #f2f6ff');\nE('left:240px;top:1280px;width:0;height:40px;border-left:3px solid #f2f6ff'); E('left:840px;top:1280px;width:0;height:40px;border-left:3px solid #f2f6ff');\nE('left:0;right:0;top:1330px;text-align:center;font:600 44px Inter Tight;letter-spacing:.25em;color:#f2f6ff', 'Ø 420 MM');\nE('left:90px;top:230px;font:600 84px/1.1 Inter Tight;letter-spacing:.12em;color:#f2f6ff', 'DİŞLİ<br><span style=\"color:#ffb547\">A-12</span>');\ntl.from(root.children[0], {scale: .2, opacity: 0, duration: 1.2, ease: 'power2.out'}, 0);"
+}

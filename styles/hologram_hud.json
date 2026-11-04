@@ -1,0 +1,5 @@
+{
+ "seconds": 3,
+ "css": "position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,#0b1a24,#05080d 70%)",
+ "js": "const G = 'box-shadow:0 0 18px #3df0ff;';\nE('left:190px;top:610px;width:700px;height:700px;border-radius:50%;border:3px solid #3df0ff;' + G);\nE('left:290px;top:710px;width:500px;height:500px;border-radius:50%;border:14px dotted rgba(61,240,255,.55)');\nE('left:390px;top:810px;width:300px;height:300px;border-radius:50%;border:2px solid #3df0ff;border-left-color:transparent;' + G);\nE('left:0;right:0;top:905px;text-align:center;font:500 96px Inter Tight;letter-spacing:.08em;color:#3df0ff;text-shadow:0 0 16px #3df0ff', '87.4');\nE('left:90px;top:260px;font:500 40px/1.6 Inter Tight;letter-spacing:.3em;color:#3df0ff', 'SİSTEM DURUMU<br>ÇEKİRDEK ISI');\nE('left:90px;top:1500px;padding:16px 26px;border:2px solid #ff8a3d;font:500 36px Inter Tight;letter-spacing:.3em;color:#ff8a3d', 'UYARI · SEVİYE 2');\ntl.from(root.children[0], {scale: .3, opacity: 0, duration: 1, ease: 'expo.out'}, 0);"
+}

@@ -6,6 +6,8 @@ Measurements (data/render_speed.json, runtime state):
   final     every real final render: captured frames (x motion-blur samples) -> capture wall time, and the
             mix + encode wall time per video second
   preview   the same for previews (half size, 15 fps)
+  final_par / preview_par  the same for long videos captured in parallel slices (bin/htmlmotion.capture): the
+            speed-up over one Chromium, measured; until then PAR_GAIN is assumed
   demo:<id> each catalog demo clip (same size and fps for all), so techniques compare: a 3D set or a weather canvas
             costs more per frame than kinetic type. weight(id) = its seconds per frame / the median demo's.
 Until something is measured, rough defaults for a 4-core VM are used and the estimate says so (measured: False).
@@ -19,6 +21,7 @@ PATH = os.path.join(ROOT, "data", "render_speed.json")
 KEEP = 20
 DEFAULT = {"per_capture": 0.45, "startup": 6.0, "post_per_s": 0.6, "preview_per_capture": 0.16}   # 4 cores, no GPU
 FPS = {"final": 30, "preview": 15}
+PAR_MIN_S, PAR_GAIN = 75, 1.8   # long videos are captured in slices side by side (bin/htmlmotion.py); assumed gain
 
 
 def _load():
@@ -57,9 +60,11 @@ def machine():
     pc = _median(finals, lambda r: max(0.01, (r["s"] - startup) / r["n"])) or _median(calib, lambda r: r.get("per_capture"))
     post = _median(finals, lambda r: r.get("post_per_s"))
     prev = _median(d.get("preview") or [], lambda r: max(0.005, (r["s"] - startup) / r["n"]))
-    return {"per_capture": pc or DEFAULT["per_capture"], "startup": startup, "post_per_s": post or DEFAULT["post_per_s"],
-            "preview_per_capture": prev or (pc * 0.35 if pc else DEFAULT["preview_per_capture"]),
-            "measured": bool(pc), "finals": len(finals), "cores": os.cpu_count()}
+    pc, prev = pc or DEFAULT["per_capture"], prev or (pc * 0.35 if pc else DEFAULT["preview_per_capture"])
+    par = _median(d.get("final_par") or [], lambda r: max(0.005, (r["s"] - startup) / r["n"]))
+    return {"per_capture": pc, "startup": startup, "post_per_s": post or DEFAULT["post_per_s"],
+            "preview_per_capture": prev, "par_gain": round(max(1.0, pc / par), 2) if par else PAR_GAIN,
+            "measured": bool(finals or calib), "finals": len(finals), "cores": os.cpu_count()}
 
 
 def weight(cid):
@@ -83,8 +88,9 @@ def estimate(seconds=30, ids=(), blur_samples=None):
     m = machine()
     b = blur_samples or blur(ids)
     w = max([weight(i) for i in ids] or [1.0])
-    final = m["startup"] + seconds * FPS["final"] * b * m["per_capture"] * w + seconds * m["post_per_s"]
-    preview = m["startup"] + seconds * FPS["preview"] * m["preview_per_capture"] * w + seconds * m["post_per_s"] * 0.5
+    gain = m["par_gain"] if seconds >= PAR_MIN_S else 1.0
+    final = m["startup"] + seconds * FPS["final"] * b * m["per_capture"] * w / gain + seconds * m["post_per_s"]
+    preview = m["startup"] + seconds * FPS["preview"] * m["preview_per_capture"] * w / gain + seconds * m["post_per_s"] * 0.5
     return {"preview_s": round(preview), "final_s": round(final), "blur": b, "weight": w, "measured": m["measured"],
             "seconds": seconds}
 

@@ -1,0 +1,53 @@
+id: localize
+order: 12
+status: ready
+category: transform
+inputs: [video, source_lang]
+duration: [10, 600]
+name: {tr: Yerelleştirme & dublaj, en: Localization & dub}
+tagline:
+  tr: "Bitmiş bir videonun başka dillerde altyazılı ve dublajlı sürümleri."
+  en: "Subtitled and dubbed versions of a finished video in other languages."
+makes:
+  tr: "Transkript, çeviri, aynı zamanlamayla altyazı ve konuşmacının sesini koruyan dublaj; istenirse dudak senkronu."
+  en: "Transcript, translation, subtitles on the same timing and a dub that keeps the speaker's voice; lip-sync if wanted."
+good_for:
+  tr: ["Türkçe videoyu İngilizce kanala taşımak (ve tersi)", "Bir videoyu birden çok pazara açmak"]
+  en: ["Taking a Turkish video to an English channel (and back)", "Opening one video to several markets"]
+not_for:
+  tr: ["Yakın planda dudak senkronu kritik videolar (ek adım gerekir)"]
+  en: ["Close-up videos where lip-sync is critical (needs an extra step)"]
+needs:
+  tr: "Bitmiş video + kaynak dil; video dili hedef dildir. Dudak senkronu için açıklamaya \"dudak senkronu\" yaz."
+  en: "A finished video plus its language; the video language is the target. For lip-sync, write \"lip-sync\" in the brief."
+cost:
+  tr: "Dublaj dakika başına ElevenLabs kredisi."
+  en: "Dubbing costs ElevenLabs credits per minute."
+stages:
+  - id: idea
+    gate: true
+    run: code
+    call: factory.hat.localize:idea
+    tools: [estimate_cost]
+
+  - id: script
+    gate: true
+    name: {tr: Çeviri, en: Translation}
+    run: code
+    call: factory.hat.localize:script
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.localize:assets
+    tools: [tts, align_words, video_gen]
+
+  - id: compose
+    run: code
+    call: factory.hat.localize:compose
+    tools: [final_render, qa_technical, thumbnails, deliver]
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.localize:publish

@@ -2,7 +2,7 @@
 import json, os, re
 
 from . import llm
-from .store import jload, now
+from .store import OWN_CLIPS, jload, now
 
 from .config import ROOT
 PROFILE = os.path.join(ROOT, ".agents", "social-media-context-sms.md")
@@ -90,7 +90,7 @@ Never invent numbers, quotes, names or studies; anything factual goes into "clai
 def build_context(con, signals, max_clips=80):
     clips = [dict(r) for r in con.execute(
         "SELECT c.*, p.name AS place FROM clips c LEFT JOIN places p ON p.place_id=c.place_id "
-        "WHERE c.usable=1 ORDER BY c.captured_at LIMIT ?", (max_clips,))]
+        f"WHERE c.usable=1 AND {OWN_CLIPS} ORDER BY c.captured_at LIMIT ?", (max_clips,))]
     inv = []
     for c in clips:
         item = {"clip_id": c["clip_id"], "kind": c["kind"], "place": c["place"], "captured_at": c["captured_at"],

@@ -1,0 +1,5 @@
+{
+ "seconds": 3,
+ "css": "position:absolute;inset:0;background:#e9d8b4",
+ "js": "const L = (top, c, r, z) => E(`left:-80px;top:${top}px;width:1240px;height:1300px;background:${c};border-radius:${r};box-shadow:0 -14px 22px rgba(0,0,0,.28);z-index:${z}`);\nE('left:620px;top:360px;width:260px;height:260px;border-radius:50%;background:#f2c14e;box-shadow:0 10px 20px rgba(0,0,0,.25)');\nL(900, '#7a9e7e', '55% 45% 0 0', 1); L(1150, '#d9734e', '40% 60% 0 0', 2); L(1420, '#355070', '60% 40% 0 0', 3);\nE('left:0;right:0;top:220px;text-align:center;font:400 150px Shrikhand;color:#355070;text-shadow:0 8px 14px rgba(0,0,0,.25);z-index:4', 'Vadi');\ntl.from(root.children[2], {y: 120, duration: 1.4, ease: 'power2.out'}, 0);"
+}

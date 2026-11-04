@@ -1,0 +1,59 @@
+id: podcast
+order: 8
+status: ready
+category: footage
+inputs: [audio, video]
+duration: [15, 90]
+name: {tr: Podcast dönüştürme, en: Podcast repurpose}
+tagline:
+  tr: "Podcast sesinden sosyal medyaya hazır klipler ve alıntı kartları."
+  en: "Social-ready clips and quote cards from podcast audio."
+makes:
+  tr: "Altyazılı ya da ses dalgalı klipler, alıntı kartları; istenirse bölümün tamamına eşlik eden bir video."
+  en: "Captioned or waveform clips, quote cards and, if wanted, a companion video for the whole episode."
+good_for:
+  tr: ["Sesli içeriği görünür kılmak", "Bölüm tanıtımları"]
+  en: ["Making audio content visible", "Episode promos"]
+not_for:
+  tr: ["Kötü kayıtlı ses (önce ses izolasyonu gerekir)"]
+  en: ["Badly recorded audio (needs isolation first)"]
+needs:
+  tr: "Podcast ses ya da video dosyası."
+  en: "A podcast audio or video file."
+cost:
+  tr: "Kredi gerekmez; transkript yerelde yapılır. (Ses izolasyonu henüz yok.)"
+  en: "No credits; transcription runs locally. (Voice isolation not yet.)"
+stages:
+  - id: idea
+    gate: true
+    name: {tr: Klip ve alıntı seçimi, en: Clips and quotes}
+    run: code
+    call: factory.hat.podcast:idea
+    tools: [align_words]
+
+  - id: scene_plan
+    gate: true
+    name: {tr: Görünüm ve kartlar, en: Look and cards}
+    artifact: plates
+    run: code
+    call: factory.hat.podcast:scene_plan
+
+  - id: assets
+    gate: true
+    run: code
+    call: factory.hat.podcast:assets
+    tools: [preview_render]
+
+  - id: edit
+    run: code
+    call: factory.hat.podcast:edit
+
+  - id: compose
+    run: code
+    call: factory.hat.podcast:compose
+    tools: [final_render, qa_technical, thumbnails, deliver]
+
+  - id: publish
+    gate: true
+    run: code
+    call: factory.hat.podcast:publish
