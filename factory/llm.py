@@ -128,13 +128,13 @@ AGENT_STEPS = {
     "ideas.check_claims": "İddia kontrolü", "qa.review": "Kalite kontrol",
     "discover.make_cards": "Fikir keşfi", "refs.describe": "Referans analizi",
     "refs.describe_recipes": "Referans tarif analizi", "styles.extract": "Stil analizi",
-    "jobs.do_describe": "Klip analizi", "default": "Diğer agent’lar",
+    "jobs.do_describe": "Klip analizi", "router.suggest": "Hat önerici", "default": "Diğer agent’lar",
 }
 CLAUDE_DEFAULT_MODELS = {
     "director.scout": "sonnet", "director.sketch": "sonnet", "ideas.generate": "sonnet",
     "ideas.check_claims": "sonnet", "productions.plan_edit": "sonnet", "qa.review": "sonnet",
     "refs.describe": "sonnet", "refs.describe_recipes": "sonnet", "jobs.do_describe": "sonnet",
-    "discover.make_cards": "sonnet", "artdirector.review": "sonnet",
+    "discover.make_cards": "sonnet", "artdirector.review": "sonnet", "router.suggest": "sonnet",
 }
 _CODEX_MODELS = None
 

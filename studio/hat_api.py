@@ -53,7 +53,7 @@ def lines():
     for m in manifest.all_lines().values():
         v = manifest.localize(m, lang())
         out.append({k: v[k] for k in ("id", "order", "status", "category", "inputs", "duration", "name", "tagline",
-                                      "makes", "good_for", "not_for", "needs", "cost")} |
+                                      "makes", "good_for", "not_for", "needs", "cost", "limits")} |
                    {"stages": [{k: s[k] for k in ("id", "name", "says", "gate", "run")} for s in v["stages"]],
                     "proof": proof.supports(m), "aspect": m.get("aspect")})
     return out
@@ -381,6 +381,9 @@ def _post(con, path, b, queue):
         from factory import recipes
         ids = [x for x in b.get("ids") or [] if recipes.get(x)] or None
         return {"job_id": queue("recipe_demos", json.dumps({"ids": ids, "force": bool(b.get("force"))}))}
+    if path == "/api/hat/suggest":          # t604: which line makes this brief, and how (one quick call, no credits)
+        from factory.hat import router
+        return router.suggest(b.get("brief"), lang())
     if path == "/api/hat/projects":
         line = manifest.get(b.get("line") or "")
         if line["status"] != "ready":
