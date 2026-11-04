@@ -187,7 +187,8 @@ def _render_spec(pid, plan, d=None, final=False):
     edit = P.read_artifact(pid, "edit", d) or {}
     v, mu = assets.get("voice") or {}, assets.get("music")
     sp.update(name=pid, voice={"file": v["file"]} if v.get("file") else None,
-              music={"file": mu["file"], "db": mu.get("db", -22)} if mu and mu.get("file") else None,
+              music={"file": mu["file"], "db": mu.get("db", -22), "seek": mu.get("seek", 0)} if mu and mu.get("file")
+              else None,
               sound=edit.get("sound") or {"level": "full"}, voice_chain=edit.get("voice_chain") or "clean",
               post_fx=edit.get("post_fx") if final else None, motion_blur=edit.get("motion_blur") if final else None)
     return sp
@@ -260,7 +261,8 @@ def assets(pid, s, note=None, d=None):
                                            approved=max(0, remaining_budget(pid, d) - round(cost)), account=account)
             if secs > gen:
                 mpath = loop_music(mpath, secs, P.path(pid, "work", "music-long.m4a", d=d))
-            music = {"file": _rel(mpath), "prompt": prompt, "credits": round(mcost), "db": -22}
+            music = end_on_card(pid, {"file": _rel(mpath), "prompt": prompt, "credits": round(mcost), "db": -22},
+                                times, d)
     art = {"voice": voice, "music": music}
     P.write_artifact(pid, "assets", art, d)          # the preview reads the real timing from here
     res, sp = _render(pid, final=False, d=d)
@@ -358,11 +360,46 @@ def compose_music(pid, prompt, secs, line_times, narrated, d=None):
                                                                          + VOICE_START, 2)})
     out = P.path(pid, "work", "music-composed.m4a", d=d)
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    res = compose.compose(prompt, secs, cues, out, narrated=narrated)
+    end_at = cues[-1]["t"] if cues else None           # the last scene is the end card: the piece ends on it (t518)
+    res = compose.compose(prompt, secs, cues, out, narrated=narrated, end_at=end_at)
     P.decision(pid, "music", "composer" if res["agent"] else "composer (plain score)", d=d, bpm=res["bpm"],
                reason=res.get("why") or f"{len(cues)} cues")
     return {"file": _rel(out), "prompt": prompt, "credits": 0, "db": -22, "source": "composer", "bpm": res["bpm"],
-            "agent": res["agent"], "score": _rel(os.path.splitext(out)[0] + ".score.json")}
+            "agent": res["agent"], "score": _rel(os.path.splitext(out)[0] + ".score.json"),
+            "ending": {"end_card": end_at, "hit": end_at, "seek": 0.0, "fits": end_at is not None}}
+
+
+def end_card_at(pid, line_times, d=None):
+    """When the end card (the last scene) starts in the video, or None with one scene."""
+    plan = P.read_artifact(pid, "scene_plan", d) or {}
+    scenes = plan.get("scenes") or []
+    if len(scenes) < 2:
+        return None
+    a = (scenes[-1].get("lines") or [0])[0]
+    if not 0 <= a < len(line_times):
+        return None
+    lt = line_times[a]
+    return round((lt["start"] if isinstance(lt, dict) else lt[0]) + VOICE_START, 2)
+
+
+ENDING_MIN = 0.8      # seconds of the track that must be left after its final hit for the ending to count
+
+
+def end_on_card(pid, music, line_times, d=None):
+    """Place a bought track so its own ending (audiofx.final_hit) lands on the end card (t518): seek into it by the
+    difference. A track whose ending comes before the end card is left as it is (logged). Mutates and returns music."""
+    from .. import audiofx
+    t = end_card_at(pid, line_times, d)
+    f = os.path.join(ROOT, music["file"])
+    hit = audiofx.final_hit(f) if t is not None and os.path.exists(f) else None
+    fits = hit is not None and hit >= t
+    music["ending"] = {"end_card": t, "hit": hit, "seek": round(hit - t, 2) if fits else 0.0, "fits": fits}
+    if fits:
+        music["seek"] = music["ending"]["seek"]
+    P.decision(pid, "music_ending", "aligned" if fits else "not aligned", d=d, **music["ending"],
+               reason="the track's final hit lands on the end card" if fits
+               else "the track ends before the end card (or no clear ending)")
+    return music
 
 
 def _music_only(pid, p, prop, con, account, d=None):
@@ -380,7 +417,8 @@ def _music_only(pid, p, prop, con, account, d=None):
         mpath, mcost = eleven.generate(con, "music", productions.MUSIC_MODEL, prompt, {"duration_seconds": secs,
                                        "instrumental": True}, secs, "s", ext="mp3",
                                        approved=remaining_budget(pid, d), account=account)
-        music = {"file": _rel(mpath), "prompt": prompt, "credits": round(mcost), "db": -10}
+        music = end_on_card(pid, {"file": _rel(mpath), "prompt": prompt, "credits": round(mcost), "db": -10},
+                            timing(pid, d)[1], d)
     art = {"voice": None, "music": music}
     P.write_artifact(pid, "assets", art, d)
     res, sp = _render(pid, final=False, d=d)

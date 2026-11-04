@@ -352,11 +352,15 @@ def build_scenes(pid, s, note=None, d=None, build=None):
         pl["edits"] = current["edits"]
     b = X.bundle(pid, pl, d)
     p = P.load(pid, d)
-    stills, errs, found = layoutlint.run(b, X.scene_times(pid, pl, d), P.path(pid, "stills", "long-lint", d=d), "16:9")
+    rep = {}
+    stills, errs, found = layoutlint.run(b, X.scene_times(pid, pl, d), P.path(pid, "stills", "long-lint", d=d), "16:9",
+                                         report=rep)
     errors = [f for f in found if f["kind"] in ("safe", "caption", "overlap", "contrast", "tiny")]
     ui = p.get("ui_lang") if p.get("ui_lang") in ("tr", "en") else "tr"
     n = len([x for x in pl["scenes"] if not x["id"].startswith(CARD)])
-    pl["lint"] = {"layout": len(errors), "timing": len(found) - len(errors), "js_errors": errs[:6],
+    slop = sum(1 for f in found if f["kind"] in layoutlint.SLOP)
+    pl["lint"] = {"layout": len(errors), "slop": slop, "timing": len(found) - len(errors) - slop, "js_errors": errs[:6],
+                  "grade": rep.get("grade"), "score": rep.get("score"),
                   "text": layoutlint.as_text(found)}
     pl["stills"] = [X._rel(x) for x in stills]
     pl["parts"] = {"built": sorted(r["k"] for r in done), "kept": sorted(keep)}

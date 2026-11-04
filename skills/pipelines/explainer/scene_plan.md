@@ -29,3 +29,5 @@ the voice is recorded only after that, so the timing you see now is a draft from
 {{include:factory.hat.explainer:design_kit}}
 
 {{include:factory.motiongrammar:brief}}
+
+{{include:factory.layoutlint:SLOP_BRIEF}}

@@ -293,12 +293,17 @@ def layout_lint(ctx, times=None, plan=None):
     if ctx.part is not None:                 # only this designer's part: its stills, its span of the timing pass
         b, mine, span, ids = _part_plan(ctx, plan)
         paths, errs, found = layoutlint.run(b, times or mine, ctx.path("stills", f"lint-p{ctx.part}"), "16:9", span=span)
-        found = [f for f in found if f.get("scene") in ids]
+        found = [f for f in found if f.get("scene") in ids or (f["kind"] == "easing" and f.get("scene") is None)]
         return {"findings": found, "text": layoutlint.as_text(found), "js_errors": errs, "stills": paths}
     b = _draft_plan(ctx, plan)
     times = times or explainer.scene_times(ctx.pid, plan, ctx.d)
-    paths, errs, found = layoutlint.run(b, times, ctx.path("stills", "lint"), p.get("aspect", "9:16"))
-    return {"findings": found, "text": layoutlint.as_text(found), "js_errors": errs, "stills": paths}
+    rep = {}
+    paths, errs, found = layoutlint.run(b, times, ctx.path("stills", "lint"), p.get("aspect", "9:16"), report=rep)
+    text = layoutlint.as_text(found)
+    if rep:
+        P.event(ctx.pid, "lint_grade", d=ctx.d, stage=ctx.stage, grade=rep["grade"], score=rep["score"])
+        text = [f"grade {rep['grade']} {rep['score']}/100 {rep['parts']}"] + text
+    return {"findings": found, "text": text, "js_errors": errs, "stills": paths, "grade": rep or None}
 
 
 @tool("chapter_marks", "publish", "The video's chapter marks from its real timing, as YouTube wants them in the "

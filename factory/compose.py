@@ -464,27 +464,71 @@ def _comb(x, d, g, g2=0.0):
     return y[d + 1:]
 
 
-def render(score, seconds, dst):
-    """Play the score for `seconds` (looped in whole bars when it is shorter, faded at the end) -> dst (.m4a/.wav)."""
+def tonic(key):
+    """(root pitch class, minor?) of a key such as 'Am', 'Bb', 'F#m'."""
+    k = str(key or "C").strip().replace("maj", "").replace("min", "m")
+    minor = k.endswith("m") and k != "m"
+    root = k[:-1] if minor else k
+    pc = _STEP.get(root[:1].upper(), 0) + root[1:].count("#") - root[1:].count("b")
+    return pc % 12, minor
+
+
+def ending_notes(score, hold):
+    """The piece's own ending (t518): every voice lands on the tonic together and lets it ring for `hold` seconds.
+    -> [(voice index, pitch or drum name, length, velocity)]."""
+    pc, minor = tonic(score.get("key"))
+    out = []
+    for vi, v in enumerate(score["voices"]):
+        inst = v["inst"]
+        if inst == "drums":
+            out += [(vi, "kick", 0.4, 0.9), (vi, "crash", hold, 0.7)]
+            continue
+        lo, hi = INSTRUMENTS[inst][:2]
+        base = next(p for p in range(lo, hi + 1) if p % 12 == pc)
+        if inst == "bass":
+            out.append((vi, base, hold, 0.85))
+        elif inst in ("pad", "strings", "piano"):
+            r = next((p for p in range(max(lo, 55), hi + 1) if p % 12 == pc), base)
+            out += [(vi, r + iv, hold, 0.7) for iv in (0, 3 if minor else 4, 7) if r + iv <= hi]
+        else:
+            r = next((p for p in range(max(lo, 67), hi + 1) if p % 12 == pc), base)
+            out.append((vi, r, min(hold, 1.5), 0.6))
+    return out
+
+
+def render(score, seconds, dst, end_at=None):
+    """Play the score for `seconds` (looped in whole bars when it is shorter, faded at the end) -> dst (.m4a/.wav).
+    With `end_at` the loop stops there and the piece ENDS: every voice lands on the tonic at end_at and rings out
+    (the end card gets the music's own final chord instead of a fade in the middle of a phrase)."""
     probs = problems(score)
     if probs:
         raise ScoreError("; ".join(probs))
+    if end_at is not None and not (0.5 <= end_at <= seconds - 0.8):
+        end_at = None
     evs, end = events(score)
     bar = bar_seconds(score["bpm"], score.get("meter") or "4/4")
     loop = max(bar, math.ceil(end / bar - 1e-6) * bar)
     n = int((seconds + 2.5) * SR)
     voices = score["voices"]
     bufs = [np.zeros(n) for _ in voices]
+    stop = end_at if end_at is not None else seconds
     k = 0
-    while k * loop < seconds:
+    while k * loop < stop:
         for a, ln, p, vel, vi in evs:
             st = int((a + k * loop) * SR)
-            if st >= n or a + k * loop >= seconds:
+            if st >= n or a + k * loop >= stop - 0.02:
                 continue
+            ln = min(ln, stop - (a + k * loop)) if end_at is not None else ln
             y = voice_note(voices[vi]["inst"], p, ln, vel)
             m = min(len(y), n - st)
             bufs[vi][st:st + m] += y[:m]
         k += 1
+    if end_at is not None:
+        st = int(end_at * SR)
+        for vi, p, ln, vel in ending_notes(score, seconds - end_at):
+            y = voice_note(voices[vi]["inst"], p, ln, vel)
+            m = min(len(y), n - st)
+            bufs[vi][st:st + m] += y[:m]
     left, right = np.zeros(n), np.zeros(n)
     for v, b in zip(voices, bufs):
         pan = float(v.get("pan", INSTRUMENTS[v["inst"]][2]))
@@ -493,7 +537,7 @@ def render(score, seconds, dst):
         right += b * g * math.sin((pan + 1) * math.pi / 4)
     st = np.stack([_reverb(_hp(left, 30)), _reverb(_hp(right, 30))], axis=1)[:int(seconds * SR)]
     st = np.tanh(st / max(1e-6, np.abs(st).max()) * 1.2) / math.tanh(1.2) * 0.89
-    fade = min(2.0, seconds / 4)
+    fade = min(2.0, seconds / 4) if end_at is None else min(0.6, (seconds - end_at) / 2)
     st[-int(fade * SR):] *= np.linspace(1, 0, int(fade * SR))[:, None]
     st[:int(0.01 * SR)] *= np.linspace(0, 1, int(0.01 * SR))[:, None]
     os.makedirs(os.path.dirname(os.path.abspath(dst)), exist_ok=True)
@@ -625,14 +669,14 @@ def write_score(prompt, seconds, cues, narrated=True, ask=None):
                                                                      "why": tries[-1] if tries else ""}
 
 
-def compose(prompt, seconds, cues, dst, narrated=True, ask=None):
-    """Score + play it. -> {"file", "score", "agent", "bpm", "credits": 0}"""
+def compose(prompt, seconds, cues, dst, narrated=True, ask=None, end_at=None):
+    """Score + play it (ending on the tonic at `end_at`, the end card). -> {"file", "score", "agent", "bpm", "credits": 0}"""
     score, meta = write_score(prompt, seconds, cues, narrated, ask)
     try:
-        render(score, seconds, dst)
+        render(score, seconds, dst, end_at)
     except ScoreError as e:                             # a score that validated but does not play: the plain one
         score, meta = auto_score(prompt, seconds, [c["t"] for c in cues], meta["bpm"]), {**meta, "agent": False, "why": str(e)}
-        render(score, seconds, dst)
+        render(score, seconds, dst, end_at)
     with open(os.path.splitext(dst)[0] + ".score.json", "w", encoding="utf-8") as f:
         json.dump(score, f, ensure_ascii=False, indent=1)
     return {"file": dst, "score": score, "credits": 0, **meta}

@@ -554,14 +554,19 @@ def test_gauntlet_reviewer_judges_a_fresh_render(d, monkeypatch):
         calls.append((name, ctx.stage))
         if name == "render_stills":
             return {"stills": ["/p/stills/a.png", "/p/stills/b.png"], "js_errors": ["boom"], "times": [1.0, 3.0]}
+        if name == "layout_lint":
+            return {"grade": {"grade": "slop", "score": 41, "parts": {"slop": -40}},
+                    "text": ["slop counter @ 1.00s scene a: '01 / 04' a counter"]}
         return {"sheet": "/p/stills/sheet.jpg"}
     monkeypatch.setattr(T, "available", lambda name: (True, ""))
     monkeypatch.setattr(T, "call", fake_call)
     r = G.fresh_render(pid, s, 1, d)
-    assert calls == [("render_stills", "review-scene_plan-r2"), ("contact_sheet", "review-scene_plan-r2")]
-    assert r["sheet"] == "/p/stills/sheet.jpg" and r["js_errors"] == ["boom"]
+    assert calls == [("render_stills", "review-scene_plan-r2"), ("contact_sheet", "review-scene_plan-r2"),
+                     ("layout_lint", "review-scene_plan-r2")]
+    assert r["sheet"] == "/p/stills/sheet.jpg" and r["js_errors"] == ["boom"] and r["grade"]["grade"] == "slop"
     task = A.review_task(pid, s, d, r)
     assert "Fresh render" in task and "/p/stills/b.png" in task and "boom" in task and "do not trust stills" in task
+    assert "Measured grade: SLOP 41/100" in task and "- slop counter @ 1.00s" in task       # t520
     assert G.fresh_render(pid, manifest.stage(manifest.get("explainer"), "research"), 0, d) is None
     monkeypatch.setattr(T, "call", lambda *a, **k: (_ for _ in ()).throw(T.ToolError("no chromium")))
     assert G.fresh_render(pid, s, 0, d) is None
@@ -578,6 +583,7 @@ def test_gauntlet_reviewer_judges_a_fresh_render(d, monkeypatch):
     assert st["review"]["render"]["sheet_url"].startswith("/media/projects/") and st["review"]["render"]["sheet_url"].endswith("sheet.jpg")
     js = open(os.path.join(os.path.dirname(manifest.__file__), "..", "..", "studio", "hat.js"), encoding="utf-8").read()
     assert js.count("gl_counts:") == 2 and js.count("gl_render:") == 2
+    assert all(js.count(k + ":") == 2 for k in ("gr_line", "gr_slop", "gr_orta", "gr_maxxed"))
 
 
 def test_a_broken_review_never_blocks_the_stage(d, skills, monkeypatch):
@@ -2279,6 +2285,7 @@ def test_motion_grammar_reaches_the_designers_and_submit_checks_mechanisms(d):
     for line, sid in (("explainer", "scene_plan"), ("long_explainer", "scene_build")):
         text = A.skill(line, sid, {"aspect": "9:16"})
         assert "MOTION GRAMMAR" in text and "MECHANISM CATALOGUE" in text and "cause_chain:" in text and "mechanism" in text
+        assert "SLOP LINT" in text and "slop <kind>" in text
     anim = A.skill("animation", "scene_plan", {"aspect": "9:16"})
     assert "MOTION GRAMMAR" in anim and "MECHANISM CATALOGUE" not in anim
     assert any("motion grammar" in r for r in manifest.stage(manifest.get("explainer"), "scene_plan")["review"])

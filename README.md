@@ -9,7 +9,38 @@ key). ElevenLabs makes the voice, music and effects. ffmpeg, Pillow and headless
 
 Detailed operating guide: [RUNBOOK.md](RUNBOOK.md). Art rules for the designers: [ART_PLAYBOOK.md](ART_PLAYBOOK.md).
 
-## How it is built
+## Factory v2: production lines
+
+Since v2, every video is a **project** made on a **production line** (`pipelines/<line>.yaml`): a fixed row of
+stages (for the explainer: research → proposal → script → scene_plan → assets → edit → compose → publish). Each
+stage is done by an agent (Claude or Codex, headless) that works only through the factory's tools (an MCP server).
+A reviewer on the other model judges it against the stage's rubric (score ≥ 90, up to two fix rounds) and keeps a
+findings ledger. Then the stage **stops at its gate**: the creator approves it or writes feedback (at most 3
+revisions). Nothing spends ElevenLabs credits beyond the budget locked when the proposal is approved. The design
+is in [docs/HAT_V2.md](docs/HAT_V2.md).
+
+Lines: explainer, long_explainer (16:9), animation, travel_vlog, hybrid, talking_head, series_episode, avatar,
+character, cinematic, documentary, clip_factory, podcast, screen_demo, localize.
+
+```
+pipelines/*.yaml        one file per line: stages, tools, rubric, gates; _artifacts.yaml = the artifact schemas
+skills/pipelines/<line>/<stage>.md   the stage briefs; skills/meta/ = stage agent + reviewer rules
+factory/hat/
+  project.py    a project folder (projects/<id>/: artifacts, checkpoints, events, decisions, renders)
+  runner.py     the line manager: run a stage, stop at the gate, approve / feedback / reopen
+  agent.py      the stage agent + the reviewer (rubric score, fix rounds); gauntlet.py = ledger + fresh render
+  tools.py      the tool registry the agents call; mcp_server.py serves it to Claude / Codex
+  explainer.py  the code stages (assets, edit, compose: voice, music, render); longform.py, footage.py, ... per line
+  migrate.py    imports the old productions as projects (dry run by default)
+studio/hat.js, hat.css, hat_api.py   the Studio pages: #/uret (start a line), #/uretimler (productions), #/u/<id>
+factory/layoutlint.py   layout + slop lint and the measured grade (Slop / Orta / Maxxed) on every design round
+factory/motiongrammar.py, framenotes.py, sceneedit.py   motion grammar, frame comments, the scene editor
+```
+
+The interface language (TR or EN, per user) is separate from the video language (per project). Projects live in
+`projects/` (not in git; `CF_PROJECTS` points to another folder for trials).
+
+## How it is built (v1 engines, still used by the lines)
 
 Everything starts in one composer: write what you want (and attach places, reference videos, a series, links or a raw
 video of yourself talking); the planner (`factory/planner.py`) acts as producer **and art director**: it reads the
@@ -157,5 +188,7 @@ mattes for text behind subject, frame break and vertigo) is in requirements.txt;
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest -q tests
+.venv/bin/python -m pytest -q tests                 # everything (~5-9 min; Chromium tests need CF_CHROME_LIBS)
+.venv/bin/python -m pytest -q tests/test_hat.py     # the v2 lines, gates, reviewer, Studio API
 ```
+Tests never reach a real model or spend credits: an autouse guard replaces the agent.

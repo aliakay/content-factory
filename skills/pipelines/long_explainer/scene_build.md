@@ -26,3 +26,5 @@ is a draft from the script.
 {{include:factory.hat.explainer:design_kit}}
 
 {{include:factory.motiongrammar:brief}}
+
+{{include:factory.layoutlint:SLOP_BRIEF}}

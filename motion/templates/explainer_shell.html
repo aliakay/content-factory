@@ -163,6 +163,7 @@ window.lintMotion = () => {
     const ease = typeof v.ease === "string" ? v.ease : (tw.vars.ease && tw.vars.ease.name) || "";
     const targets = tw.targets ? tw.targets() : [];
     if (d > 0.04) (active[sc.id] = active[sc.id] || []).push([st, st + d]);
+    if (props.length && d > 0.15) out.push({ kind: "ease", scene: sc.id, t: +st.toFixed(2), detail: typeof v.ease === "function" ? "custom" : ease || "default", d: +d.toFixed(2) });
     if (props.length && d > 0.2 && /^(none|linear)/.test(ease) && !props.includes("rotation"))
       out.push({ kind: "linear", scene: sc.id, t: +st.toFixed(2), detail: `linear ease on ${props.join("/")} over ${d.toFixed(2)} s (spatial moves ease in and out)` });
     const stg = typeof v.stagger === "number" ? v.stagger : (v.stagger && v.stagger.each) || 0;
@@ -177,6 +178,17 @@ window.lintMotion = () => {
     let t = sc.start;
     for (const [a, b] of iv) { if (a - t > 3) out.push({ kind: "dead", scene: sc.id, t: +t.toFixed(2), detail: `${(a - t).toFixed(1)} s with nothing moving` }); t = Math.max(t, b); }
     if (sc.end - t > 3) out.push({ kind: "dead", scene: sc.id, t: +t.toFixed(2), detail: `${(sc.end - t).toFixed(1)} s with nothing moving at the end of the scene` });
+  }
+  const FADE = ["opacity", "autoAlpha"], MOVE = [...SPATIAL, "clipPath", "filter", "strokeDashoffset", "width", "height", "attr", "backgroundPosition", "rotationX", "rotationY", "skewX", "skewY"];
+  for (const sc of B.scenes.slice(1)) {   // how each scene comes in (slop lint: a fade on every transition)
+    let fade = false, move = false;
+    for (const tw of tweens) {
+      const st = tw.startTime();
+      if (st < sc.start - 0.05 || st > sc.start + 0.6) continue;
+      const ks = Object.keys(tw.vars || {});
+      if (ks.some((k) => MOVE.includes(k))) move = true; else if (ks.some((k) => FADE.includes(k))) fade = true;
+    }
+    out.push({ kind: "entry", scene: sc.id, t: +sc.start.toFixed(2), detail: move ? "move" : fade ? "fade" : "cut" });
   }
   for (const c of FX._cast || []) {   // characters: frozen between moves, or stopping dead at every pose
     const sc = B.scenes.find((s) => s.id === c.scene), t = sc ? +sc.start.toFixed(2) : 0;

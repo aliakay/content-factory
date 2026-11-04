@@ -121,15 +121,69 @@ def test_explainer_uses_the_composer_for_no_credits(tmp_path, monkeypatch):
     P.write_artifact(pid, "scene_plan", {"scenes": [{"id": "a", "lines": [0, 0]}, {"id": "b", "lines": [1, 1]}]}, d)
     seen = {}
 
-    def fake(prompt, secs, cues, out, narrated=True, ask=None):
-        seen.update(cues=cues, narrated=narrated)
+    def fake(prompt, secs, cues, out, narrated=True, ask=None, end_at=None):
+        seen.update(cues=cues, narrated=narrated, end_at=end_at)
         open(out, "wb").write(b"x")
         return {"file": out, "agent": True, "bpm": 96, "credits": 0}
     monkeypatch.setattr(C, "compose", fake)
     m = E.compose_music(pid, "calm", 10.0, [{"start": 0.1, "end": 2.0}, {"start": 2.4, "end": 5.0}], True, d)
     assert m["credits"] == 0 and m["source"] == "composer" and m["bpm"] == 96 and m["file"].endswith("music-composed.m4a")
-    assert seen == {"cues": [{"label": "scene b", "t": 2.55}], "narrated": True}
+    assert seen == {"cues": [{"label": "scene b", "t": 2.55}], "narrated": True, "end_at": 2.55}
+    assert m["ending"] == {"end_card": 2.55, "hit": 2.55, "seek": 0.0, "fits": True}
     assert E.composed({"use": True, "source": "composer"}) and not E.composed({"use": True})
+
+
+def _rms(y, sr, a, b):
+    return float(np.sqrt(np.mean(y[int(a * sr):int(b * sr)] ** 2)))
+
+
+def test_the_score_ends_on_the_tonic_at_the_end_card(tmp_path):
+    """t518: with end_at the loop stops there and every voice lands on the tonic together and rings out."""
+    import soundfile as sf
+    from factory import audiofx
+    assert C.tonic("Am") == (9, True) and C.tonic("Bb") == (10, False) and C.tonic("F#m") == (6, True)
+    sc = C.auto_score("calm", 12, [])
+    notes = C.ending_notes(sc, 3.0)
+    pitched = [p for vi, p, ln, v in notes if sc["voices"][vi]["inst"] != "drums"]
+    assert pitched and all(p % 12 in (9, 0, 4) for p in pitched)          # A minor triad only
+    for vi, p, ln, v in notes:
+        lo, hi = C.INSTRUMENTS[sc["voices"][vi]["inst"]][:2]
+        assert sc["voices"][vi]["inst"] == "drums" or lo <= p <= hi
+    out = str(tmp_path / "end.wav")
+    C.render(sc, 12.0, out, end_at=8.0)
+    y, sr = sf.read(out)
+    y = y.mean(axis=1)
+    assert abs(len(y) / sr - 12.0) < 0.01
+    assert _rms(y, sr, 8.02, 8.5) > 1.5 * _rms(y, sr, 7.4, 7.9)          # the final chord is a hit, not a fade
+    assert _rms(y, sr, 9.5, 10.5) > 0.005                                  # and it rings out
+    hit = audiofx.final_hit(out)
+    assert abs(hit - 8.0) < 0.15
+    C.render(sc, 12.0, out, end_at=11.9)                                   # no room to end: a plain fade
+    assert abs(len(sf.read(out)[0]) / sr - 12.0) < 0.01
+
+
+def test_a_bought_track_is_placed_so_its_ending_lands_on_the_end_card(tmp_path, monkeypatch):
+    from factory import audiofx
+    from factory.hat import explainer as E, project as P
+    d = str(tmp_path)
+    pid = P.create("explainer", "t", d=d)["id"]
+    P.write_artifact(pid, "scene_plan", {"scenes": [{"id": "a", "lines": [0, 0]}, {"id": "end", "lines": [1, 1]}]}, d)
+    times = [{"start": 0.1, "end": 4.0}, {"start": 6.0, "end": 9.0}]
+    assert E.end_card_at(pid, times, d) == 6.15
+    track = tmp_path / "t.mp3"
+    track.write_bytes(b"x")
+    rel = os.path.relpath(str(track), E.ROOT)
+    monkeypatch.setattr(audiofx, "final_hit", lambda f: 20.4)
+    m = E.end_on_card(pid, {"file": rel, "db": -22}, times, d)
+    assert m["seek"] == 14.25 and m["ending"] == {"end_card": 6.15, "hit": 20.4, "seek": 14.25, "fits": True}
+    monkeypatch.setattr(audiofx, "final_hit", lambda f: 3.0)              # ends too early: left alone
+    m = E.end_on_card(pid, {"file": rel, "db": -22}, times, d)
+    assert "seek" not in m and m["ending"]["fits"] is False
+    decisions = [json.loads(x) for x in open(P.path(pid, "decisions.jsonl", d=d))]
+    assert [x.get("choice") for x in decisions if x.get("category") == "music_ending"] == ["aligned", "not aligned"]
+    P.write_artifact(pid, "assets", {"music": {"file": rel, "db": -22, "seek": 14.25}}, d)
+    monkeypatch.setattr(E, "spec", lambda pid, plan=None, d=None: {"scenes": []})
+    assert E._render_spec(pid, P.read_artifact(pid, "scene_plan", d), d)["music"]["seek"] == 14.25
 
 
 def test_ui_strings_and_proposal_skills():

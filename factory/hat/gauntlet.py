@@ -86,6 +86,12 @@ def fresh_render(pid, s, rnd, d=None):
         out = {"stills": r["stills"], "js_errors": r.get("js_errors") or [], "times": r.get("times"), "sheet": None}
         if r["stills"]:
             out["sheet"] = T.call("contact_sheet", ctx, {"stills": r["stills"], "title": f"review {rnd + 1}"})["sheet"]
+        if "layout_lint" in s["tools"]:                 # the measured grade (t520) and the lint, for the reviewer too
+            try:
+                lint = T.call("layout_lint", ctx, {})
+                out.update(grade=lint.get("grade"), lint=lint.get("text") or [])
+            except Exception as e:
+                P.event(pid, "review_lint_error", d=d, stage=s["id"], error=str(e)[:300])
         P.event(pid, "review_render", d=d, stage=s["id"], round=rnd + 1, stills=len(r["stills"]))
         return out
     except Exception as e:                              # a failed render never blocks the review; it is logged
@@ -100,4 +106,15 @@ def render_brief(r):
             "Read; do not trust stills the author made, they can be from an older draft. "
             f"Contact sheet: {r['sheet'] or '(none)'}\nStills (one settled frame per scene, at {r.get('times')} s):\n"
             + "\n".join(f"- {x}" for x in r["stills"])
-            + (f"\nJavaScript errors on the page: {r['js_errors']}\n" if r["js_errors"] else "\n"))
+            + (f"\nJavaScript errors on the page: {r['js_errors']}\n" if r["js_errors"] else "\n")
+            + grade_brief(r))
+
+
+def grade_brief(r):
+    g = r.get("grade")
+    if not g and not r.get("lint"):
+        return ""
+    head = (f"\n## Measured grade: {g['grade'].upper()} {g['score']}/100 (layout, timing, slop lint, measured easing: "
+            f"{g['parts']})\nA SLOP grade, or any `slop` line below, is a major finding unless the brief asks for it.\n"
+            if g else "\n## Lint\n")
+    return head + "\n".join(f"- {x}" for x in (r.get("lint") or [])[:14]) + "\n"

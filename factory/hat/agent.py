@@ -191,7 +191,8 @@ def review_stage(pid, s, d=None, user=None, rnd=0):
     return {"verdict": verdict, "findings": findings, "summary": str(r.get("summary", ""))[:800], "model": model,
             "rubric": marks, "score": score, "pass_score": need, "cost_usd": meta.get("cost_usd") or 0,
             "ledger_marks": [x for x in (r.get("ledger") or []) if isinstance(x, dict)],
-            "render": {"sheet": render["sheet"], "stills": len(render["stills"])} if render else None}
+            "render": {"sheet": render["sheet"], "stills": len(render["stills"]), "grade": render.get("grade")}
+            if render else None}
 
 
 def _author(pid, s, note=None, d=None, user=None):

@@ -28,7 +28,7 @@ const TX = {
     decision: "Karar", waiting_prev: "Önceki aşamalar bitince başlar.", not_built: "Bu aşama bu hatta henüz yazılmadı.",
     working: "Çalışıyor…", live: "Canlı akış", spent: "Harcanan", credits: "kredi", note_sent: "Not gönderildi, aşama yeniden çalışıyor",
     approved_ok: "Onaylandı, sıradaki aşama başladı", back_ok: "Aşama yeniden açıldı",
-    review: "Denetim", verdict_pass: "Denetimden geçti", verdict_fix: "Açık kritik bulgu var", verdict_unknown: "Denetim alınamadı", verdict_low: "Puan eşiğin altında", gl_title: "Denetim defteri", gl_counts: "{0} düzeldi · {1} açık · {2} düştü", gl_render: "Denetçi teslim edilen hâlin taze çizimine baktı ({0} kare)", gl_sheet: "kontak sayfası", rb_pass: "geçer ({0}+)", rb_low: "{0} altında: ajan düzeltti ama yetmedi",
+    review: "Denetim", verdict_pass: "Denetimden geçti", verdict_fix: "Açık kritik bulgu var", verdict_unknown: "Denetim alınamadı", verdict_low: "Puan eşiğin altında", gl_title: "Denetim defteri", gl_counts: "{0} düzeldi · {1} açık · {2} düştü", gl_render: "Denetçi teslim edilen hâlin taze çizimine baktı ({0} kare)", gl_sheet: "kontak sayfası", gr_line: "Ölçülen derece: {0} · {1}/100", gr_slop: "Slop", gr_orta: "Orta", gr_maxxed: "Maxxed", rb_pass: "geçer ({0}+)", rb_low: "{0} altında: ajan düzeltti ama yetmedi",
     sev_critical: "Kritik", sev_suggestion: "Öneri", sev_nitpick: "Ayrıntı", rounds: "{0} tur",
     insight: "Ana fikir", misconception: "Yaygın yanlış", data: "Veriler", sources: "Kaynaklar", angles: "Açılar",
     concepts: "Üç yaklaşım", chosen: "Seçilen", look: "Görünüm", music: "Müzik", yes: "Var", no: "Yok", total: "Toplam",
@@ -74,7 +74,7 @@ const TX = {
     decision: "Decision", waiting_prev: "Starts when the earlier stages are done.", not_built: "This stage is not written on this line yet.",
     working: "Working…", live: "Live feed", spent: "Spent", credits: "credits", note_sent: "Note sent; the stage runs again",
     approved_ok: "Approved; the next stage started", back_ok: "Stage reopened",
-    review: "Review", verdict_pass: "Passed review", verdict_fix: "Open critical findings", verdict_unknown: "No review", verdict_low: "Score below the bar", gl_title: "Review ledger", gl_counts: "{0} fixed · {1} open · {2} dropped", gl_render: "The reviewer judged a fresh render of the submitted output ({0} frames)", gl_sheet: "contact sheet", rb_pass: "passes ({0}+)", rb_low: "below {0}: the agent revised but not enough",
+    review: "Review", verdict_pass: "Passed review", verdict_fix: "Open critical findings", verdict_unknown: "No review", verdict_low: "Score below the bar", gl_title: "Review ledger", gl_counts: "{0} fixed · {1} open · {2} dropped", gl_render: "The reviewer judged a fresh render of the submitted output ({0} frames)", gl_sheet: "contact sheet", gr_line: "Measured grade: {0} · {1}/100", gr_slop: "Slop", gr_orta: "Mid", gr_maxxed: "Maxxed", rb_pass: "passes ({0}+)", rb_low: "below {0}: the agent revised but not enough",
     sev_critical: "Critical", sev_suggestion: "Suggestion", sev_nitpick: "Nitpick", rounds: "{0} rounds",
     insight: "Insight", misconception: "Common misconception", data: "Data points", sources: "Sources", angles: "Angles",
     concepts: "Three approaches", chosen: "Chosen", look: "Look", music: "Music", yes: "Yes", no: "No", total: "Total",
@@ -383,6 +383,7 @@ function reviewHtml(r) {
       <div class="small"><b>${esc(x.item || "")}</b> ${esc(x.problem || "")}</div>${x.fix ? `<div class="tiny muted">→ ${esc(x.fix)}</div>` : ""}</div>`).join("")}
     ${r.ledger ? ledgerHtml(r.ledger) : ""}
     ${r.render ? `<div class="tiny faint mt8">${esc(t("gl_render", r.render.stills))}${r.render.sheet_url ? ` · <a href="${esc(r.render.sheet_url)}" target="_blank">${esc(t("gl_sheet"))}</a>` : ""}</div>` : ""}
+    ${r.render && r.render.grade ? `<div class="tiny mt4"><span class="hl-grade hl-grade-${esc(r.render.grade.grade)}">${esc(t("gr_line", t("gr_" + r.render.grade.grade), r.render.grade.score))}</span></div>` : ""}
     ${r.error ? `<div class="tiny faint">${esc(r.error)}</div>` : ""}</div>`;
 }
 // the review ledger (factory/hat/gauntlet.py, t516): every finding of every round, closed only by a later review

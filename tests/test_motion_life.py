@@ -113,6 +113,17 @@ def test_bloom_and_beat_grid():
     assert htmlmotion.beat_grid({"music": {"file": "does/not/exist.mp3"}}) == {}
 
 
+def test_beat_grid_follows_a_track_seeked_to_its_ending(tmp_path):
+    import sys, json
+    sys.path.insert(0, os.path.join(ROOT, "bin"))
+    import htmlmotion
+    f = tmp_path / "m.mp3"
+    f.write_bytes(b"x")
+    json.dump({"bpm": 120, "first": 0.2}, open(str(f) + ".beats.json", "w"))
+    assert htmlmotion.beat_grid({"music": {"file": str(f)}}) == {"bpm": 120, "beat0": 0.2}
+    assert htmlmotion.beat_grid({"music": {"file": str(f), "seek": 14.25}}) == {"bpm": 120, "beat0": 0.45}
+
+
 def test_catalog_lists_every_technique_with_demos_where_drawable():
     from factory import catalog
     items = catalog.listing()
@@ -159,3 +170,37 @@ def test_render_estimates_follow_this_machines_measurements(tmp_path, monkeypatc
     rs.record("final", 900, 120.0, post_per_s=1.0)       # a real final render overrides the benchmark
     assert abs(rs.machine()["per_capture"] - (120.0 - 2.0) / 900) < 1e-6 and rs.machine()["post_per_s"] == 1.0
     assert rs.label(40) == "~40 sn" and rs.label(400) == "~7 dk" and rs.label(4000) == "~1 sa 7 dk"
+
+
+def test_motion_lint_reports_how_each_scene_comes_in():
+    """t519: the shell tells the slop lint whether each scene change is a fade, a move or a plain cut."""
+    import json, shutil, sys
+    sys.path.insert(0, os.path.join(ROOT, "bin"))
+    import htmlmotion
+    js = {"a": "tl.from($('h1'), {y: 40, duration: .5}, T.start)",
+          "b": "tl.from(root, {opacity: 0, duration: .4}, T.start)",
+          "c": "tl.from($('h1'), {xPercent: -100, opacity: 0, duration: .5}, T.start)",
+          "e": "tl.from($('h1'), {y: 60, duration: .8, ease: 'expo.out'}, T.start)",
+          "d": "tl.to($('h1'), {color: 'red', duration: .3}, T.start + 1)"}
+    sc = [{"id": k, "start": float(i), "end": i + 1.0, "html": f"<h1>{k} title</h1>", "css": "", "js": v, "lines_t": [],
+           "hide_captions": True} for i, (k, v) in enumerate(js.items())]
+    out = os.path.join(ROOT, "work", "_test_entries")
+    os.makedirs(out, exist_ok=True)
+    try:
+        p = os.path.join(out, "bundle.json")
+        json.dump({"palette": {}, "global_css": "", "words": [], "scenes": sc, "duration": 5.0, "w": 1080, "h": 1920,
+                   "captions": {}, "lang": "en", "chapters": [], "chrome": {}}, open(p, "w"))
+        motion = htmlmotion.readcheck(p)["motion"]
+        from factory import layoutlint
+        rep = {}
+        stills, errs, found = layoutlint.run(p, [0.6, 1.6], os.path.join(out, "lint"), report=rep)
+        assert len(stills) == 2 and not errs
+    finally:
+        shutil.rmtree(out, ignore_errors=True)
+    assert [(m["scene"], m["detail"]) for m in motion if m["kind"] == "entry"] == [("b", "fade"), ("c", "move"), ("e", "move"),
+                                                                                         ("d", "cut")]
+    # t520: every spatial move reports its ease and length (the shell's default ease when the scene names none)
+    assert [(m["scene"], m["detail"], m["d"]) for m in motion if m["kind"] == "ease"] == [
+        ("a", "power3.out", 0.5), ("c", "power3.out", 0.5), ("e", "expo.out", 0.8)]
+    assert rep["grade"] in ("slop", "orta", "maxxed") and rep["easing"]["moves"] == 3 and rep["easing"]["intent"] == 1.0
+    assert not any(f["kind"] in ("entry", "ease") for f in found)

@@ -178,6 +178,30 @@ def drop_time(path, lo=2.0):
     return round((max(0, at - 5) + int(np.argmax(seg)) + 1) * hop / sr, 2)
 
 
+def final_hit(path, search=8.0):
+    """Where a track's own ending lands (t518): the strongest rise into a loud window within `search` s before the
+    music last plays loud (RMS, 0.05 s windows). That is the final chord / hit a composer writes; a track that only
+    fades has its last loud moment there instead. None for a near-silent or very short track."""
+    sr, hop = 22050, 1102
+    y = decode(path, sr)
+    n = len(y) // hop
+    if n < 40:
+        return None
+    env = np.array([np.sqrt(np.mean(y[i * hop:(i + 1) * hop].astype(np.float64) ** 2)) for i in range(n)])
+    p95 = np.percentile(env, 95)
+    if p95 < 1e-4:
+        return None
+    loud = np.nonzero(env > 0.3 * p95)[0]
+    last = int(loud[-1])
+    a = max(2, last - int(search * sr / hop))
+    rise = env[a:last + 1] - env[a - 2:last - 1]
+    ok = env[a:last + 1] > 0.5 * p95
+    if not ok.any():
+        return round(last * hop / sr, 2)
+    i = a + int(np.argmax(np.where(ok, rise, -1)))
+    return round(i * hop / sr, 2)
+
+
 def drop_offset(drop_t, key_t):
     """How to place a track so its drop lands on key_t (seconds in the video): seek into the track when the drop comes
     later than the key line, otherwise delay the track's start. -> {"seek": s, "delay": s}"""

@@ -388,6 +388,26 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
   `mechanism` adlandırır; `submit_artifact` bilinmeyen kimliği ve aynı mekanizmaya üst üste üç sahneyi geri çevirir;
   denetçinin rubriğinde "vuruşlar ve gramer" maddesi vardır. Animasyon hattı yalnız grameri alır (hikâye sahneleri
   kataloga bağlı değildir).
+- **Müzik sona göre (t518):** müzik sesten önce bitmez ya da ortasından kısılmaz; parçanın kendi bitişi bitiş
+  kartına oturur. Besteci (`compose.render(end_at=...)`) döngüyü bitiş kartının başında keser ve bütün sesleri
+  tonikte birlikte bitirir (bas kök, ped/yaylı/piyano üçlü, davul kick + crash), akor sona kadar çınlar. Satın alınan
+  (ElevenLabs) parçada `audiofx.final_hit` son vuruşu bulur, `end_on_card` parçayı aradaki fark kadar ileri sarar
+  (`music.seek`), kararı `music_ending` olarak kaydeder; bitiş bitiş kartından önce geliyorsa parça olduğu gibi kalır.
+  Vuruş ızgarası (`beat_grid`) ileri sarmayı hesaba katar.
+- **Slop lint (t519, `factory/layoutlint.py`):** yerleşim kontrolüne "slayt gibi" kalıpları yakalayan bir geçiş
+  eklenir; her bulgu `slop <tür>` olarak tasarımcının öz denetimine gider: köşede sahne sahne tekrarlanan küçük
+  etiket (`corner`), "01 / 05", "Adım 2" gibi sayaç (`counter`), her sahnede solda aynı yuvada duran başlık — başlık
+  + kart slayt düzeni (`template`), harf harf yazılan başlık (`typed`, `FX.typewriter`), her sahnede düz tek renk
+  zemin (`flat`), üzerinde hiçbir şey olmayan boş kare (`empty`; hareketsiz > 3 s zaten `dead`), her sahne
+  geçişinin fade olması (`fades`; kabuğun hareket denetimi her sahnenin girişini fade / hareket / kesme olarak
+  bildirir). Tasarımcı kuralları baştan `SLOP_BRIEF` ile alır; uzun açıklayıcıda sayılar ayrı tutulur (`lint.slop`).
+- **Ölçülmüş easing + derece (t520):** kabuğun hareket denetimi her mekânsal hareketin easing'ini ve süresini
+  bildirir; `layoutlint.easing` jenerik yumuşak easing payını (default / power1 / sine / linear), niyetli easing payını
+  (power3+, expo, circ, back, elastic, özel), çeşitliliği ve uzun hareketleri ölçer; jenerik pay ≥ %60 ya da tek
+  easing `easing` bulgusu olur. `layoutlint.grade` yerleşim, zamanlama, slop ve easing'den 0–100 puan ve derece verir:
+  **Slop** (< 55) / **Orta** (55–79) / **Maxxed** (≥ 80; tek bir slop kalıbı bile varsa en çok Orta). Derece
+  `layout_lint` aracının ilk satırıdır, `lint_grade` olayı olarak kaydedilir, denetçinin taze çizim özetine girer
+  (Slop derecesi büyük bulgudur) ve kapı kartında renkli rozet olarak görünür; uzun açıklayıcıda `lint.grade`.
 - Menü sadeleşir: Stüdyo · Üretimler · Keşif · Takip · Ayarlar (kanallar, sesler, hesaplar, bütçe, stiller tek yerde).
 
 ## 8. Fazlar

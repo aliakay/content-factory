@@ -58,7 +58,10 @@ def beat_grid(spec):
             return {}
     if not g.get("bpm"):
         return {}
-    return {"bpm": g["bpm"], "beat0": round(mu["drop_at"] if mu.get("drop_at") is not None else g.get("first", 0.0), 3)}
+    if mu.get("drop_at") is not None:
+        return {"bpm": g["bpm"], "beat0": round(mu["drop_at"], 3)}
+    first = g.get("first", 0.0) - (mu.get("seek") or 0)          # a track placed by its ending starts part way in
+    return {"bpm": g["bpm"], "beat0": round(first % (60 / g["bpm"]) if first < 0 else first, 3)}
 
 
 def write_bundle(spec, design):
