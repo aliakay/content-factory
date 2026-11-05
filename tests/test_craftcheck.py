@@ -62,3 +62,26 @@ def test_sound_review_runs_the_budget(monkeypatch):
     cues = [{"t": t, "kind": "whoosh"} for t in (1, 5, 9)]
     r = soundqa.review("x.mp4", cues=cues, total=20, lufs=(-14.0, -3.0))
     assert "too_many_whooshes" in {f["kind"] for f in r["findings"]}
+
+
+def test_camera_angle_crane_rack_handheld_cards_exist_and_validate():
+    from factory import recipes as R
+    cs = {c["id"]: c for c in R.cards()}
+    for cid in ("camera.low_angle", "camera.high_angle", "camera.crane_up", "camera.crane_down", "camera.rack_focus",
+                "camera.handheld"):
+        assert cid in cs, cid
+    assert R.problems(R.cards()) == []
+    js = open(R.os.path.join(R.ROOT, "motion", "templates", "fxlib.js"), encoding="utf-8").read()
+    for fn in ("FX.angle", "FX.crane", "FX.rack", "FX.handheld"):
+        assert f"{fn} = " in js, fn
+
+
+@pytest.mark.parametrize("cid", ["camera.low_angle", "camera.crane_up", "camera.rack_focus", "camera.handheld"])
+def test_new_camera_demos_run_without_page_errors(cid):
+    import os
+    from factory import recipes as R
+    if not os.path.isdir(os.path.join(R.ROOT, "motion", "node_modules")):
+        pytest.skip("no motion/node_modules here")
+    os.makedirs(os.path.join(R.ROOT, "work", "catalog"), exist_ok=True)
+    pngs, errs = R.check(cid)
+    assert errs == [] and len(pngs) == 1
