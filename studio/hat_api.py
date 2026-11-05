@@ -20,7 +20,8 @@ GET  /api/hat/project/<id>/clips       the MiniMax clip card (t508): clips, thei
 POST /api/hat/project/<id>/clips {action: draft|redraft|approve|discard, ...}   draft = new clip + its 480p draft job;
                                        approve = the creator approves a draft and its final job is queued (credits)
 POST /api/hat/lang          {lang}     the user's interface language (tr | en)
-POST /api/hat/projects      {line, brief, title?, video_lang, aspect, channel?, proof?}   create and start
+POST /api/hat/projects      {line, brief, title?, video_lang, aspect, channel?, proof?, images?}   create and start
+POST /api/hat/suggest       {brief, images?}   the line router (t604): which line makes this, and how
 POST /api/hat/project/<id>  {action: approve|feedback|back|retry|advance, stage, note?}  a gate action
 """
 import glob, json, os, re
@@ -383,7 +384,7 @@ def _post(con, path, b, queue):
         return {"job_id": queue("recipe_demos", json.dumps({"ids": ids, "force": bool(b.get("force"))}))}
     if path == "/api/hat/suggest":          # t604: which line makes this brief, and how (one quick call, no credits)
         from factory.hat import router
-        return router.suggest(b.get("brief"), lang())
+        return router.suggest(b.get("brief"), lang(), imgs=b.get("images"))
     if path == "/api/hat/projects":
         line = manifest.get(b.get("line") or "")
         if line["status"] != "ready":
@@ -424,6 +425,9 @@ def _post(con, path, b, queue):
                 extra["series"] = {"id": int(b.get("series")), "episode": int(b.get("episode"))}
             except (TypeError, ValueError):
                 raise ValueError({"tr": "Bir seri ve bölüm seç.", "en": "Pick a series and an episode."}[lang()]) from None
+        if b.get("images"):                              # photos the creator attached in the line router
+            from factory.hat import router
+            extra["images"] = router.images(b["images"], lang())
         from factory import proof
         if b.get("proof") and proof.supports(line):      # proof film: every number must match a source
             extra["proof"] = True

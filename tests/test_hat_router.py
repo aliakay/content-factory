@@ -58,7 +58,7 @@ def test_suggest_asks_once_with_the_brief_and_validates_length():
 
     out = router.suggest("A 30 second ad for my phone shop", "en", ask=ask)
     assert "A 30 second ad for my phone shop" in seen["prompt"] and seen["kw"]["tools"] == ()
-    assert out == {"understood": "", "fit": "none", "picks": [], "gap": "no ad line", "video_lang": None}
+    assert out == {"understood": "", "fit": "none", "picks": [], "gap": "no ad line", "images_seen": "", "video_lang": None}
     with pytest.raises(ValueError):
         router.suggest("short", "tr", ask=ask)
     with pytest.raises(ValueError):
@@ -79,6 +79,59 @@ def test_limits_are_optional_but_checked():
 def test_api_routes_to_the_router(monkeypatch):
     from studio import hat_api
     monkeypatch.setattr(hat_api, "lang", lambda: "tr")
-    monkeypatch.setattr(router, "suggest", lambda brief, lang: {"brief": brief, "lang": lang})
-    out = hat_api._post(None, "/api/hat/suggest", {"brief": "bir reklam filmi istiyorum"}, lambda *a: 1)
-    assert out == {"brief": "bir reklam filmi istiyorum", "lang": "tr"}
+    monkeypatch.setattr(router, "suggest", lambda brief, lang, imgs=None: {"brief": brief, "lang": lang, "imgs": imgs})
+    out = hat_api._post(None, "/api/hat/suggest", {"brief": "bir reklam filmi istiyorum", "images": ["raw/brief/a.jpg"]},
+                        lambda *a: 1)
+    assert out == {"brief": "bir reklam filmi istiyorum", "lang": "tr", "imgs": ["raw/brief/a.jpg"]}
+
+
+@pytest.fixture
+def brief_img(monkeypatch, tmp_path):
+    monkeypatch.setattr(router, "ROOT", str(tmp_path))
+    (tmp_path / "raw" / "brief").mkdir(parents=True)
+
+    def make(name="shop_1.jpg"):
+        (tmp_path / "raw" / "brief" / name).write_bytes(b"\xff\xd8x")
+        return f"raw/brief/{name}"
+    return make
+
+
+def test_images_only_uploaded_brief_files_and_at_most_six(brief_img):
+    a = brief_img()
+    assert router.images([a, a], "en") == [a]
+    for bad in (["raw/avatar/x.jpg"], ["raw/brief/../secret.jpg"], ["raw/brief/missing.jpg"], ["raw/brief/x.txt"]):
+        with pytest.raises(ValueError):
+            router.images(bad, "tr")
+    with pytest.raises(ValueError):
+        router.images([brief_img(f"p{i}.png") for i in range(router.MAX_IMAGES + 1)], "en")
+
+
+def test_suggest_with_images_lets_the_model_read_them(brief_img):
+    a = brief_img()
+    seen = {}
+
+    def ask(prompt, **kw):
+        seen["prompt"], seen["kw"] = prompt, kw
+        cards = router._cards("tr")
+        return {"fit": "good", "images_seen": "a phone shop front",
+                "picks": [{"line": cards[0]["id"], "fit": "good", "images_use": "on screen as they are"}]}, {}
+
+    out = router.suggest("Dükkânım için 30 saniyelik bir reklam", "tr", ask=ask, imgs=[a])
+    assert seen["kw"]["tools"] == ("Read",) and router.os.path.join(router.ROOT, a) in seen["prompt"]
+    assert out["images_seen"] == "a phone shop front" and out["picks"][0]["images_use"] == "on screen as they are"
+
+
+def test_project_keeps_the_router_images_and_the_agent_sees_them(brief_img, monkeypatch):
+    from factory.hat import agent
+    from factory.hat import project as P
+    a = brief_img()
+    monkeypatch.setattr(P, "load", lambda pid, d=None: {"line": "explainer", "ui_lang": "tr", "video_lang": "tr",
+                                                         "aspect": "9:16", "images": [a]})
+    monkeypatch.setattr(P, "read_artifact", lambda *a, **k: None)
+    monkeypatch.setattr(agent, "skill", lambda *a, **k: "")
+    from factory import proof, sceneedit
+    monkeypatch.setattr(proof, "brief", lambda *a, **k: "")
+    monkeypatch.setattr(sceneedit, "brief", lambda *a, **k: "")
+    s = manifest.get("explainer")["stages"][0]
+    text = agent.task("x", s)
+    assert "## The creator's images" in text and a in text

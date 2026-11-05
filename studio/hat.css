@@ -25,6 +25,12 @@
 .hl-router .badge.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
 .hl-router .badge.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
 .hl-router .badge.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
+.hl-imgs{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.hl-imgs figure{position:relative;margin:0;width:72px;height:72px;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.hl-imgs img{width:100%;height:100%;object-fit:cover;display:block}
+.hl-imgs figure .btn{position:absolute;top:2px;right:2px;padding:0 6px;min-height:0;line-height:20px;background:var(--surface)}
+.hl-imgadd{width:72px;height:72px;border:1px dashed var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--muted);cursor:pointer}
+.hl-imgadd input{display:none}
 .hl-pick{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface)}
 .hl-form .field{min-width:0}
 
