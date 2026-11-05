@@ -203,3 +203,16 @@
   demo: |
     const w = D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
     FX.handheld(tl, w, T, {amount: 1});
+- id: camera.speed_ramp
+  name: {tr: "Hız rampası", en: "Speed ramp"}
+  use: {tr: "Bir hareket yavaş başlar, ana anda fırlar, yine yavaşlar: vurgu, 'işte bu an' hissi.", en: "A move starts slow, surges through the key moment and settles slow again: emphasis, a 'this is it' beat."}
+  call: "FX.ramp(tl, wrap, T, {props: {scale: [1, 1.5]}, slow: 0.25, peak: 0.55})"
+  timing: {tr: "0.6-1.5 sn; en hızlı an vurgulanan kelimeye denk gelsin (peak 0-1).", en: "0.6-1.5 s; the fastest moment lands on the stressed word (peak 0-1)."}
+  pitfalls:
+    tr: ["Filmde 2-3 kez; her sahnede olursa etkisi kalmaz.", "Ses vuruşunu en hızlı ana koy: peak * süre.", "slow 0.1'in altına inerse hareket donmuş gibi görünür."]
+    en: ["Two or three times a film; in every scene it stops meaning anything.", "Put the sound hit on the fastest moment: peak * duration.", "Below slow 0.1 the move looks frozen."]
+  seconds: 2.5
+  demo: |
+    const w = D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    FX.ramp(tl, w, T, {props: {scale: [1, 1.5]}, slow: 0.2, peak: 0.55});
+    FX.sfx('hit', T.start + 0.55 * T.dur);

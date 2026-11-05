@@ -85,3 +85,15 @@ def test_new_camera_demos_run_without_page_errors(cid):
     os.makedirs(os.path.join(R.ROOT, "work", "catalog"), exist_ok=True)
     pngs, errs = R.check(cid)
     assert errs == [] and len(pngs) == 1
+
+
+def test_speed_ramp_card_and_demo():
+    import os
+    from factory import recipes as R
+    assert "camera.speed_ramp" in {c["id"] for c in R.cards()} and R.problems(R.cards()) == []
+    assert "FX.ramp = " in open(os.path.join(R.ROOT, "motion", "templates", "fxlib.js"), encoding="utf-8").read()
+    if not os.path.isdir(os.path.join(R.ROOT, "motion", "node_modules")):
+        pytest.skip("no motion/node_modules here")
+    os.makedirs(os.path.join(R.ROOT, "work", "catalog"), exist_ok=True)
+    pngs, errs = R.check("camera.speed_ramp")
+    assert errs == [] and len(pngs) == 1

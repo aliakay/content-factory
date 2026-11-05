@@ -115,6 +115,20 @@
     gsap.set(wrap, { scale: 1.03 });
     for (let i = 0; i < n; i++) tl.to(wrap, { x: (r() - 0.5) * 14 * a, y: (r() - 0.5) * 10 * a, rotation: (r() - 0.5) * 0.9 * a, duration: T.dur / n, ease: "sine.inOut" }, T.start + i * T.dur / n);
   };
+  /* speed ramp: a move that runs slow, surges through its middle and settles slow again (the camera "punches" through
+     the moment). Time is remapped, not the picture: the velocity is `slow` + a smooth bump around `peak` (0-1 of the
+     move), integrated once into an ease, so every frame stays a pure function of time. Works on any numeric props.
+     FX.ramp(tl, el, T, {props: {scale: [1, 1.5], x: [0, -120]}, slow: 0.25, peak: 0.55, width: 0.3, at, dur}) */
+  FX.ramp = (tl, el, T, o = {}) => {
+    const slow = o.slow ?? 0.25, peak = o.peak ?? 0.55, wd = o.width ?? 0.3, N = 240, tab = [0];
+    const vel = (p) => { const u = Math.max(0, 1 - Math.abs(p - peak) / wd); return slow + (1 - slow) * Math.sin(u * Math.PI / 2) ** 2; };
+    for (let i = 1; i <= N; i++) tab.push(tab[i - 1] + vel((i - 0.5) / N));
+    const ease = (p) => { const x = Math.min(1, Math.max(0, p)) * N, i = Math.min(N - 1, Math.floor(x)); return (tab[i] + (tab[i + 1] - tab[i]) * (x - i)) / tab[N]; };
+    const from = {}, to = {};
+    for (const [k, [a, b]] of Object.entries(o.props || { scale: [1, 1.4] })) { from[k] = a; to[k] = b; }
+    tl.fromTo(el, from, { ...to, duration: o.dur || Math.max(0.5, T.dur), ease }, o.at ?? T.start);
+    return ease;
+  };
   /* surfaces */
   FX.glass = (el, o = {}) => Object.assign(el.style, { background: o.bg || "rgba(255,255,255,.10)", backdropFilter: `blur(${o.blur || 18}px) saturate(1.4)`, border: "1px solid rgba(255,255,255,.22)", borderRadius: (o.r || 28) + "px", boxShadow: "0 20px 60px -20px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.25)" });
   FX.spotlight = (tl, root, at, p, o = {}) => { const d = document.createElement("div"); Object.assign(d.style, { position: "absolute", inset: 0, pointerEvents: "none", background: `radial-gradient(circle at ${p[0] * 100}% ${p[1] * 100}%, transparent 0, transparent var(--r), rgba(0,0,0,${o.dark || 0.72}) calc(var(--r) + 60px))` }); root.appendChild(d); tl.fromTo(d, { "--r": "900px" }, { "--r": (o.r || 220) + "px", duration: o.dur || 0.8, ease: "power3.inOut" }, at); return d; };
