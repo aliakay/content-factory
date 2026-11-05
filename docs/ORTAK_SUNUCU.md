@@ -47,9 +47,8 @@ telefon / bilgisayar ──Tailscale (özel tünel)──▶ ortak VPS
 `owner` rolündeki **herkes** sunucunun Claude girişini kullanır. İki kişi owner olursa ikisi de aynı aboneliği
 tüketir. Bu yüzden bir owner, bir member.
 
-**Karar bekliyor:** sahip kim? Kod sahibi `ali` olarak varsayıyor (`accounts.OWNER = "ali"`, sahibin ElevenLabs
-hesabının kimliği `ali`). Sahip Cem olursa bu sabitin ve etiketlerin düzeltilmesi gerekir. Sahip Ali olursa
-bugünkü kod olduğu gibi çalışır.
+**Karar: sahip Ali, üye Cem.** Kod sahibi zaten `ali` olarak varsayıyor (`accounts.OWNER = "ali"`, sahibin ElevenLabs
+hesabının kimliği `ali`), bu yüzden kod değişikliği gerekmez. Sunucudaki `claude` girişi Ali'nin hesabıyla yapılır.
 
 ## 3. Sunucu seçimi (Contabo)
 
@@ -91,7 +90,6 @@ Contabo fiyatları (aylık, EUR, Şubat 2026 itibarıyla; sipariş sayfasında g
 ### Faz 0 — Hazırlık (karar ve satın alma)
 - [ ] Açık PR'ları merge et: #24 film stilleri, #25 render hızı, #26 config, #27 oturum çerezi, #28 soundfile,
       `feat/shared-studio` (kim başlattı etiketi + ana ekran kısayolu), bu belge.
-- [ ] Sahibi seç (§2). Sahip Cem ise önce `OWNER` sabitini kaldıran küçük bir PR.
 - [ ] Contabo'dan Cloud VPS 30 al. Ödeme ve sahiplik kimde olacak, maliyet nasıl bölünecek kararlaştır.
 - [ ] Ali'nin Tailscale hesabı yoksa açsın (ücretsiz).
 
@@ -114,7 +112,7 @@ git clone https://github.com/aliakay/content-factory.git ~/content-factory && cd
 curl -fsSL https://claude.ai/install.sh | bash      # Claude Code CLI
 ./install.sh                                         # venv, requirements, Chromium, klasörler, testler
 (cd motion && sudo npx playwright install-deps chromium)    # Chromium'un sistem kütüphaneleri
-claude                                               # SAHİBİN hesabıyla giriş; claude.ai'de ElevenLabs bağlayıcısı açık olmalı
+claude                                               # Ali'nin (sahip) hesabıyla giriş; claude.ai'de ElevenLabs bağlayıcısı açık olmalı
 ```
 `config.env`: `CF_HOST=127.0.0.1` (dışarıya değil, Tailscale serve'e açılır). Diğer `CF_*` satırları boş kalabilir
 (#26 ile boş değer otomatik demek).
@@ -149,8 +147,8 @@ sudo tailscale serve --bg --https=8444 http://127.0.0.1:8503   # Streamlit
 
 ### Faz 5 — Kullanıcılar ve hesaplar
 ```bash
-.venv/bin/python bin/users.py add <sahip-id> "<Ad>" owner     # şifreyi yazdırır
-.venv/bin/python bin/users.py add <uye-id> "<Ad>" member
+.venv/bin/python bin/users.py add ali "Ali" owner     # şifreyi yazdırır
+.venv/bin/python bin/users.py add cem "Cem" member
 ```
 - [ ] Üye: Studio → Hesaplar → Claude'u bağla (tam giriş; ElevenLabs bağlayıcısı da gelir) ya da ElevenLabs API
       anahtarı ekle.
