@@ -1834,7 +1834,7 @@ def test_character_spans_hold_a_pose_until_the_next_line():
 
 def test_every_film_style_has_a_card_in_both_languages_and_a_scene():
     from factory import filmstyles as styles
-    assert len(styles.ids()) == 12
+    assert len(styles.ids()) == 17
     for sid in styles.ids():
         tr, en = styles.card(styles.get(sid), "tr"), styles.card(styles.get(sid), "en")
         for k in ("look", "type", "motion", "sound", "avoid"):
@@ -1933,7 +1933,7 @@ def test_own_style_from_a_blank_page_through_the_api(own, monkeypatch):
     v = post("/api/hat/ownstyles", name="Plain", base="blank")
     sid = v["id"]
     assert v["base"] == "blank" and set(v["missing"]) == {"look", "motion", "sound", "avoid"}
-    assert v["questions"][0]["q"].startswith("What should it look like") and len(v["bases"]) == 12
+    assert v["questions"][0]["q"].startswith("What should it look like") and len(v["bases"]) == 17
     with pytest.raises(ValueError, match="Answer every question"):
         post(f"/api/hat/ownstyle/{sid}", action="sample")
     for k, val in (("look", "Flat colour"), ("motion", "slow"), ("sound", "piano"), ("avoid", "gradients")):

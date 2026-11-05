@@ -529,6 +529,229 @@
      "avoid": "Colour, flat lighting, upbeat tempo."
     }
    }
+  },
+  {
+   "id": "sketchnote",
+   "name": "Sketchnote notebook",
+   "tr": "Defter eskizi",
+   "essence": "Explained with a pen on white paper, xkcd and whiteboard style: wobbly hand-drawn strokes, boxes, arrows and stick figures; every line is drawn on while the voice says it; one marker colour does the emphasis.",
+   "not": "Not chalk on a dark board (that is chalkboard), not clean vector icons, no gradients, no shadows, no glow, no photos.",
+   "render": "SVG paths with hand jitter (rough.js idea: each stroke drawn twice with 1-2 px random offsets and slightly overshooting ends, seeded so it never boils unless asked); draw-on with stroke-dashoffset; rough-notation style annotations (circle, underline, box, highlight) drawn over words on the beat; charts as xkcd charts (wobbly axes, hand labels). Paper #fbfaf6 with faint blue ruled lines.",
+   "composition": "One idea per page: a big diagram in the middle, a hand label on each part, arrows doing the explaining; lots of white space; stick figures for people.",
+   "colour": "Ink #1d1d1f on paper #fbfaf6; ONE marker colour for emphasis (coral #ff5a4e or highlighter yellow #ffe14d as a fill behind words); a pale blue #a8c4e6 for ruled lines only.",
+   "type": "Hand-lettered look: Instrument Serif italic for labels, heavy Anton caps only for the one headline word; underlined, never boxed by a clean rectangle.",
+   "motion": "Strokes draw on in the order a hand would draw them (0.3-0.6 s each, ease-out); annotations land on the stressed word; a gentle 'boil' (re-seed every 4 frames) only on the hero drawing.",
+   "camera": "Mostly locked like a page on a desk; slide to the next part of a big drawing; push in on a detail as if leaning over the paper.",
+   "transitions": "Page turn; the drawing is scribbled out and a new one drawn; an arrow pulls the camera to the next idea; a quick eraser wipe.",
+   "sound": "Pen and marker scratches on draw-on, paper rustle on page turns, light ukulele / pizzicato / glockenspiel bed.",
+   "post": {
+    "grain": 0.08
+   },
+   "card": {
+    "palette": [
+     "#fbfaf6",
+     "#1d1d1f",
+     "#ff5a4e",
+     "#ffe14d",
+     "#a8c4e6"
+    ],
+    "fonts": [
+     "Instrument Serif italic",
+     "Anton"
+    ],
+    "tr": {
+     "look": "Beyaz kâğıtta kalemle anlatım: titrek çizgiler, oklar, kutular, çöp adamlar; tek renk keçeli vurgu.",
+     "type": "El yazısı havasında italik etiketler; tek kelimelik kalın başlık, altı çizili.",
+     "motion": "Çizgiler, eli takip eder gibi sırayla çizilir; vurgu daireleri vurgulanan kelimede düşer.",
+     "sound": "Kalem ve keçeli cızırtısı, kâğıt hışırtısı, ukulele ve pizzicato.",
+     "avoid": "Koyu zemin, düzgün vektör ikon, gölge, parıltı, gradyan."
+    },
+    "en": {
+     "look": "Pen on white paper: wobbly strokes, arrows, boxes, stick figures; one marker colour for emphasis.",
+     "type": "Hand-lettered italic labels; one heavy underlined headline word.",
+     "motion": "Strokes draw on in the order a hand would; annotation circles land on the stressed word.",
+     "sound": "Pen and marker scratches, paper rustle, ukulele and pizzicato.",
+     "avoid": "Dark boards, clean vector icons, shadows, glow, gradients."
+    }
+   }
+  },
+  {
+   "id": "vhs_tape",
+   "name": "VHS home tape",
+   "tr": "VHS kaset",
+   "essence": "A home video from the late 80s / 90s played back on a worn VCR: soft picture, colour bleeding sideways, red and blue planes slipping apart, tracking noise rolling through, a white on-screen 'PLAY' and date stamp.",
+   "not": "Not black-and-white newsreel film (that is archive_film), not a digital glitch with pixel blocks, not a cyberpunk neon HUD, not crisp 4K.",
+   "render": "Draw the scene clean in the page in a 4:3-feel safe area, slightly oversaturated warm colours; OSD text (PLAY ▶, REC ●, date 'OCT 12 1994', counter 00:00:13) in white caps with a hard 3 px black shadow; scanlines as a static repeating-linear-gradient overlay (opacity .12); tracking band = a 40-80 px tall bright noisy strip that rolls down the frame now and then (keyframed, not every frame). The colour slip, chroma smear and grain come from the post (chroma), not from the page.",
+   "composition": "Home-video framing: subjects a little off-centre, horizon a little tilted, big title cards of the 'family tape' kind; keep the OSD corners clear.",
+   "colour": "Warm tape colours: lifted blacks #1a1420, warm reds #e8452c, faded teal #3fb0a8, cream highlights #f4e9cf; OSD always pure white #ffffff with black shadow; blue screen #1734d6 for 'no signal' cuts.",
+   "type": "OSD: Inter Tight 700 caps, wide tracking, white with hard black drop shadow; titles in Anton as if made with a 90s titler, maybe with a rainbow gradient stroke.",
+   "motion": "Footage-like handheld drift; zooms are fast and a bit clumsy (camcorder rocker); pause = a held frame with a jittering tracking band; rewind = fast scrubbing with horizontal lines.",
+   "camera": "Camcorder grammar: snap zoom, slow pan, a wobble when the 'operator' moves; no smooth dolly.",
+   "transitions": "Tape stop (picture squeezes, blue screen), rewind scrub, a tracking roll, a hard cut to the next 'recording' with a new date stamp.",
+   "sound": "Tape hiss, VCR motor clunks on play/stop, warbly lo-fi synth or Casio keyboard bed, the music slightly wow-and-fluttering.",
+   "post": {
+    "chroma": 1.0,
+    "grain": 0.4,
+    "vignette": 0.2
+   },
+   "card": {
+    "palette": [
+     "#1a1420",
+     "#e8452c",
+     "#3fb0a8",
+     "#f4e9cf",
+     "#1734d6"
+    ],
+    "fonts": [
+     "Inter Tight 700",
+     "Anton"
+    ],
+    "tr": {
+     "look": "90'lardan kalma ev videosu: yumuşak görüntü, kayan renkler, iz bozulması, köşede PLAY ve tarih.",
+     "type": "Beyaz büyük harf ekran yazısı, sert siyah gölgeli; 90'lar başlık jeneratörü havası.",
+     "motion": "Kamera elde, beceriksizce hızlı zoom; durdurunca titreyen bant, geri sarma çizgileri.",
+     "sound": "Bant cızırtısı, video oynatıcı tıkırtıları, dalgalanan lo-fi synth.",
+     "avoid": "Siyah-beyaz film makarası, piksel blok glitch'i, neon HUD, keskin 4K."
+    },
+    "en": {
+     "look": "A 90s home tape on a worn VCR: soft picture, slipping colours, tracking noise, PLAY and a date stamp.",
+     "type": "White caps on-screen display with a hard black shadow; 90s titler headlines.",
+     "motion": "Handheld drift, clumsy snap zooms; a jittering band on pause, scan lines on rewind.",
+     "sound": "Tape hiss, VCR clunks, warbly lo-fi synth.",
+     "avoid": "Black-and-white newsreel, pixel-block glitches, neon HUD, crisp 4K."
+    }
+   }
+  },
+  {
+   "id": "retro_desktop",
+   "name": "Retro desktop (Windows 95)",
+   "tr": "Retro masaüstü",
+   "essence": "The story told on a mid-90s computer desktop: grey bevelled windows, title bars, dialog boxes, progress bars and error pop-ups open one by one; the interface itself is the explainer.",
+   "not": "Not a modern flat UI, not macOS glass, not a screen recording of a real app, not a terminal hacker screen; no rounded corners, no blur.",
+   "render": "Pure CSS like React95: window = #c3c3c3 panel with 2 px bevel (border white top-left, #808080 / #000 bottom-right), title bar linear-gradient(90deg,#000080,#1084d0) with white bold title and three square buttons; teal desktop #008080; pixel-crisp: no border-radius, no shadows except the bevel; icons as 32 px chunky shapes; a pointer cursor that clicks things.",
+   "composition": "Windows stack and overlap like a messy desktop; the key fact sits in a dialog box with an OK button; progress bars measure numbers; a taskbar with START at the bottom.",
+   "colour": "Desktop teal #008080, panel grey #c3c3c3, title navy #000080 to #1084d0, text black, highlight selection navy with white text; one warning yellow #ffff00 icon for errors.",
+   "type": "System look: Inter Tight 700 at small sizes for UI text, Anton only inside a big 'WordArt' style title; numbers in progress bars.",
+   "motion": "Windows pop open with a 3-frame zoom outline (no easing), the cursor glides then clicks, progress bars fill in blocky steps, error dialogs cascade; everything snaps, nothing floats.",
+   "camera": "Locked on the screen; occasional punch in on a dialog, like zooming into a screenshot.",
+   "transitions": "A window minimises to the taskbar; a new window opens over the old; the screen saver kicks in; a blue-screen cut for the twist.",
+   "sound": "Mouse clicks, the startup chime idea (original, not the real one), dialog 'ding', hard-drive whirr, a light MIDI bed.",
+   "post": {
+    "grain": 0.05
+   },
+   "card": {
+    "palette": [
+     "#008080",
+     "#c3c3c3",
+     "#000080",
+     "#1084d0",
+     "#ffff00"
+    ],
+    "fonts": [
+     "Inter Tight 700",
+     "Anton"
+    ],
+    "tr": {
+     "look": "90'ların bilgisayar masaüstü: gri kabartmalı pencereler, diyalog kutuları, hata pencereleri, ilerleme çubukları.",
+     "type": "Küçük sistem yazısı; büyük başlıklar WordArt havasında.",
+     "motion": "Pencereler takır takır açılır, imleç tıklar, çubuklar blok blok dolar; hiçbir şey süzülmez.",
+     "sound": "Fare tıkları, uyarı 'ding'i, disk vızıltısı, hafif MIDI müzik.",
+     "avoid": "Modern düz arayüz, yuvarlak köşe, bulanık cam, gerçek uygulama kaydı."
+    },
+    "en": {
+     "look": "A 90s desktop: grey bevelled windows, dialog boxes, error pop-ups, progress bars.",
+     "type": "Small system UI text; big titles as WordArt.",
+     "motion": "Windows snap open, the cursor clicks, bars fill in blocks; nothing floats.",
+     "sound": "Mouse clicks, a dialog ding, drive whirr, a light MIDI bed.",
+     "avoid": "Modern flat UI, rounded corners, glass blur, real app recordings."
+    }
+   }
+  },
+  {
+   "id": "isometric",
+   "name": "Isometric explainer",
+   "tr": "İzometrik anlatım",
+   "essence": "Flat vector worlds seen at a 30 degree isometric angle: machines, buildings and systems built from clean boxes; tiny figures, pipes and flows show how a thing works step by step.",
+   "not": "Not a tilt-shift photo of a toy world (that is miniature), not true 3D with perspective, no realistic textures, no heavy gradients.",
+   "render": "Isometric projection in SVG: every box = three faces (top lightest, left mid, right darkest) from one hue; grid of 2:1 rhombi; objects built from boxes and cylinders; flows as dashed paths animated with stroke-dashoffset; optional FX.three with an orthographic camera at (1,1,1) for a rotating object; thin 2 px outlines in a darker shade only.",
+   "composition": "One system in the centre of the frame like a board-game piece; the camera reveals it layer by layer; labels on leader lines; the flow (data, water, money) is the hero.",
+   "colour": "Soft background #eef1f7; 3 hues with 3 shades each, e.g. blue #4c6ef5/#3b5bdb/#2f4ac0, coral #ff8a65/#f4704a/#d9583a, mint #63e6be/#38d9a9/#20b98d; dark text #1f2a44; one accent for the moving flow.",
+   "type": "Poppins 700 labels on small white tags with leader lines; titles Poppins 700 large, flat on the screen (never skewed onto the iso plane except small floor labels).",
+   "motion": "Pieces drop in from above and settle (back.out 1.2), layers slide apart to show the inside (exploded view), flows run along paths continuously, little figures walk in iso steps.",
+   "camera": "Orthographic only: slow pan across the board, zoom into one block, rotate the whole board in 90 degree steps.",
+   "transitions": "The board slides out and the next assembles; zoom into a block and it becomes the next scene; an exploded view collapsing.",
+   "sound": "Soft clicks as pieces snap in, a gentle marimba / pluck loop, whooshes on the flows.",
+   "post": {},
+   "card": {
+    "palette": [
+     "#eef1f7",
+     "#4c6ef5",
+     "#ff8a65",
+     "#63e6be",
+     "#1f2a44"
+    ],
+    "fonts": [
+     "Poppins 700"
+    ],
+    "tr": {
+     "look": "30 derece açıdan düz vektör dünya: kutulardan makineler, binalar, borular, akışlar.",
+     "type": "Okla bağlı küçük beyaz etiketler; başlıklar ekranda düz durur.",
+     "motion": "Parçalar yukarıdan düşüp oturur, katmanlar açılıp içi görünür, akış hiç durmaz.",
+     "sound": "Yerine oturan parçaların tıkları, marimba, akışlarda yumuşak vınlama.",
+     "avoid": "Tilt-shift oyuncak dünya, perspektifli 3B, gerçekçi doku, ağır gradyan."
+    },
+    "en": {
+     "look": "A flat vector world at a 30 degree angle: machines, buildings, pipes and flows made of boxes.",
+     "type": "Small white tags on leader lines; titles stay flat on the screen.",
+     "motion": "Pieces drop in and settle, layers explode apart to show the inside, the flow never stops.",
+     "sound": "Soft snap clicks, marimba, whooshes along the flows.",
+     "avoid": "Tilt-shift toy worlds, perspective 3D, realistic textures, heavy gradients."
+    }
+   }
+  },
+  {
+   "id": "pixel_8bit",
+   "name": "8-bit pixel art",
+   "tr": "8-bit piksel",
+   "essence": "A retro video game screen: big square pixels, a 16-colour palette, sprite characters, tile backgrounds, dialog boxes that type out text, score counters; the topic becomes a level to play through.",
+   "not": "Not hand-drawn cartoon (that is retro_cel), not smooth vector with a pixel filter, no anti-aliasing, no gradients, no blur, no soft shadows.",
+   "render": "Draw on a low-res grid (e.g. 120x213 cells of 9 px) in canvas with imageSmoothingEnabled=false or as CSS boxes; sprites from string maps; a fixed 16-colour palette (PICO-8 / Pyxel style); dithering with a 2x2 checker only; text in a pixel font built from a 5x7 bitmap or a blocky face; every position snapped to the pixel grid.",
+   "composition": "Game screens: a side-scroll level, a dialog box at the bottom with a portrait, a HUD at the top (score, lives, level), a big title screen with PRESS START.",
+   "colour": "PICO-8 like 16 colours: #000000 #1d2b53 #7e2553 #008751 #ab5236 #5f574f #c2c3c7 #fff1e8 #ff004d #ffa300 #ffec27 #00e436 #29adff #83769c #ff77a8 #ffccaa; backgrounds dark navy #1d2b53, accents yellow and red.",
+   "type": "Pixel caps only (bitmap font), text types out letter by letter in dialog boxes; numbers as score counters that roll up.",
+   "motion": "Stepped: sprites animate on 2-4 frame cycles at 8-12 fps, moves snap to whole pixels, jumps follow a parabola in steps, hits flash white for 2 frames, screen shake on impact.",
+   "camera": "Side-scrolling follow; a hard screen-by-screen flip like old games; a zoom only as an integer scale jump (x2, x4).",
+   "transitions": "Iris/circle wipe to black, a pixel dissolve (blocks), a 'LEVEL 2' title card, a door the hero walks through.",
+   "sound": "Chiptune: square and triangle waves, noise drums, coin and jump blips for events (the studio's own composer can play these).",
+   "post": {},
+   "card": {
+    "palette": [
+     "#1d2b53",
+     "#ff004d",
+     "#ffa300",
+     "#ffec27",
+     "#29adff",
+     "#fff1e8"
+    ],
+    "fonts": [
+     "Pixel bitmap 5x7",
+     "Inter Tight 800"
+    ],
+    "tr": {
+     "look": "Retro oyun ekranı: iri kare pikseller, 16 renk, sprite karakterler, puan ve can göstergesi.",
+     "type": "Yalnız piksel büyük harf; diyalog kutusunda harf harf yazılır.",
+     "motion": "Basamaklı, piksele oturan hareket; vuruşta beyaz yanıp sönme ve ekran sarsıntısı.",
+     "sound": "Chiptune: kare dalga melodi, gürültü davul, jeton ve zıplama sesleri.",
+     "avoid": "El çizimi çizgi film, kenar yumuşatma, gradyan, bulanıklık."
+    },
+    "en": {
+     "look": "A retro game screen: big square pixels, 16 colours, sprite characters, score and lives.",
+     "type": "Pixel caps only; dialog text types out letter by letter.",
+     "motion": "Stepped moves snapped to the pixel grid; white hit flashes and screen shake.",
+     "sound": "Chiptune: square-wave tunes, noise drums, coin and jump blips.",
+     "avoid": "Hand-drawn cartoon, anti-aliasing, gradients, blur."
+    }
+   }
   }
  ]
 }
