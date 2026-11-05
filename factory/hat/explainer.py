@@ -448,8 +448,14 @@ def compose(pid, s, note=None, d=None):
     res, sp = _render(pid, final=True, d=d)
     tech = qa.technical(res["file"], sp["duration"])
     try:
-        snd = soundqa.review(res["file"], total=sp["duration"])
+        starts = [sc["start"] for sc in sp.get("scenes") or []][1:]
+        snd = soundqa.review(res["file"], cues=res.get("placed") or None, total=sp["duration"], cuts=starts)
         sound = {"findings": snd.get("findings", []), "metrics": snd.get("metrics", {})}
+        if len(starts) >= 2:
+            from .. import craftcheck
+            sl = craftcheck.scene_loudness(res["file"], starts)
+            sound["findings"] += sl["findings"]
+            sound["metrics"]["scenes"] = sl["scenes"]
     except Exception as e:
         sound = {"error": f"{type(e).__name__}: {e}"[:300]}
     script = P.read_artifact(pid, "script", d) or {}

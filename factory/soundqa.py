@@ -68,7 +68,8 @@ def click_times(y, sr, max_n=12):
     return out[:max_n]
 
 
-def review(path, cues=None, words=None, voice_offset=0.0, total=None, voice_file=None, music=None, lufs=None):
+def review(path, cues=None, words=None, voice_offset=0.0, total=None, voice_file=None, music=None, lufs=None,
+           cuts=()):
     """Findings + metrics for a finished file. cues = [{t, kind, gain_db}] as placed; words = [[w, s, e]] of the voice
     file starting at voice_offset; music = {"file", "db"} to estimate the voice / music ratio."""
     y = decode(path)
@@ -150,6 +151,8 @@ def review(path, cues=None, words=None, voice_offset=0.0, total=None, voice_file
             gaps = np.diff([c["t"] for c in cs])
             if len(gaps) >= 3 and np.std(gaps) < 0.15 * np.mean(gaps) and not any(c.get("take") for c in cs):
                 add("machinegun", "warn", f"'{kind}' {len(cs)} times at a regular {np.mean(gaps):.2f} s with no variation", cs[0]["t"])
+    from . import craftcheck
+    findings.extend(craftcheck.sound_budget(cues, dur, cuts))
     if words:
         spans = [(s + voice_offset, e + voice_offset) for _, s, e in words]
         masked = [c for c in cues if any(a - 0.02 <= c["t"] <= b for a, b in spans) and

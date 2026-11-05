@@ -80,6 +80,55 @@
     tl.fromTo(wrap, v[0], { ...v[1], duration: Math.max(0.5, T.dur), ease: "sine.inOut" }, T.start);
     if (mv === "zoom_to" && o.at != null) tl.to(wrap, { scale: o.zoom || 2.2, duration: 0.9, ease: "power3.inOut" }, o.at);
   };
+  /* camera ANGLE on a picture or built scene: low = the camera looks UP at the subject (it towers: the top leans away,
+     the frame fills from below); high = the camera looks DOWN on it (it shrinks, the ground opens up, a map view).
+     FX.angle(tl, wrap, T, {angle: 'low' | 'high', amount: 18, to: 'level', focus: [x, y]}) -- static by default; give
+     `to: 'level'` to settle from the angle to a straight-on view over the scene. Keep text outside the wrapper. */
+  FX.angle = (tl, wrap, T, o = {}) => {
+    const low = (o.angle || "low") === "low", deg = (o.amount ?? 18) * (low ? 1 : -1), f = o.focus || [0.5, low ? 0.9 : 0.1];
+    const base = { transformPerspective: 900, transformOrigin: `${f[0] * 100}% ${f[1] * 100}%`, scale: low ? 1.18 : 0.94 };
+    const A = { ...base, rotationX: deg }, B = o.to === "level" ? { ...base, rotationX: 0, scale: 1.06 } : { ...base, rotationX: deg * 0.7, scale: base.scale + (low ? 0.05 : -0.02) };
+    tl.fromTo(wrap, A, { ...B, duration: Math.max(0.5, T.dur), ease: "sine.inOut" }, T.start);
+  };
+  /* crane: the camera rises (up) or descends (down) while the subject stays framed. Layers move by depth (far 1x, mid
+     2x, near 4x of `rise` px), so the world slides past; give plain elements or a list. up = reveal, hope, scale;
+     down = arrival, settling. FX.crane(tl, layers, T, {dir: 'up' | 'down', rise: 160}) */
+  FX.crane = (tl, layers, T, o = {}) => {
+    const els = Array.isArray(layers) ? layers : [layers], rise = o.rise || 160, sign = (o.dir || "up") === "up" ? 1 : -1;
+    els.forEach((el, i) => { const k = els.length === 1 ? 1 : 1 + (i / (els.length - 1)) * 3;
+      tl.fromTo(el, { yPercent: 0, y: -sign * rise * k / 2 }, { y: sign * rise * k / 2, duration: Math.max(0.5, T.dur), ease: "sine.inOut" }, T.start); });
+  };
+  /* rack focus: focus jumps from the `from` element to the `to` element (blur swaps, a little scale breath).
+     FX.rack(tl, from, to, at, {dur: .8, blur: 14}) */
+  FX.rack = (tl, from, to, at, o = {}) => {
+    const d = o.dur || 0.8, b = o.blur || 14;
+    gsap.set(to, { filter: `blur(${b}px)` });
+    tl.to(from, { filter: `blur(${b}px)`, duration: d, ease: "sine.inOut" }, at);
+    tl.to(to, { filter: "blur(0px)", duration: d, ease: "sine.inOut" }, at);
+    tl.fromTo(to, { scale: 1.02 }, { scale: 1, duration: d, ease: "sine.out" }, at);
+  };
+  /* handheld: seeded, low-frequency drift (never per-frame jitter) so a static picture reads as presence.
+     amount 0.5-1 is subtle, 3+ for an impact. Scale the wrapper up ~3% first so the edges stay covered.
+     FX.handheld(tl, wrap, T, {amount: 1, seed: 7}) */
+  FX.handheld = (tl, wrap, T, o = {}) => {
+    const r = FX.rand(o.seed || 7), a = o.amount ?? 1, n = Math.max(3, Math.round(T.dur / 0.9));
+    gsap.set(wrap, { scale: 1.03 });
+    for (let i = 0; i < n; i++) tl.to(wrap, { x: (r() - 0.5) * 14 * a, y: (r() - 0.5) * 10 * a, rotation: (r() - 0.5) * 0.9 * a, duration: T.dur / n, ease: "sine.inOut" }, T.start + i * T.dur / n);
+  };
+  /* speed ramp: a move that runs slow, surges through its middle and settles slow again (the camera "punches" through
+     the moment). Time is remapped, not the picture: the velocity is `slow` + a smooth bump around `peak` (0-1 of the
+     move), integrated once into an ease, so every frame stays a pure function of time. Works on any numeric props.
+     FX.ramp(tl, el, T, {props: {scale: [1, 1.5], x: [0, -120]}, slow: 0.25, peak: 0.55, width: 0.3, at, dur}) */
+  FX.ramp = (tl, el, T, o = {}) => {
+    const slow = o.slow ?? 0.25, peak = o.peak ?? 0.55, wd = o.width ?? 0.3, N = 240, tab = [0];
+    const vel = (p) => { const u = Math.max(0, 1 - Math.abs(p - peak) / wd); return slow + (1 - slow) * Math.sin(u * Math.PI / 2) ** 2; };
+    for (let i = 1; i <= N; i++) tab.push(tab[i - 1] + vel((i - 0.5) / N));
+    const ease = (p) => { const x = Math.min(1, Math.max(0, p)) * N, i = Math.min(N - 1, Math.floor(x)); return (tab[i] + (tab[i + 1] - tab[i]) * (x - i)) / tab[N]; };
+    const from = {}, to = {};
+    for (const [k, [a, b]] of Object.entries(o.props || { scale: [1, 1.4] })) { from[k] = a; to[k] = b; }
+    tl.fromTo(el, from, { ...to, duration: o.dur || Math.max(0.5, T.dur), ease }, o.at ?? T.start);
+    return ease;
+  };
   /* surfaces */
   FX.glass = (el, o = {}) => Object.assign(el.style, { background: o.bg || "rgba(255,255,255,.10)", backdropFilter: `blur(${o.blur || 18}px) saturate(1.4)`, border: "1px solid rgba(255,255,255,.22)", borderRadius: (o.r || 28) + "px", boxShadow: "0 20px 60px -20px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.25)" });
   FX.spotlight = (tl, root, at, p, o = {}) => { const d = document.createElement("div"); Object.assign(d.style, { position: "absolute", inset: 0, pointerEvents: "none", background: `radial-gradient(circle at ${p[0] * 100}% ${p[1] * 100}%, transparent 0, transparent var(--r), rgba(0,0,0,${o.dark || 0.72}) calc(var(--r) + 60px))` }); root.appendChild(d); tl.fromTo(d, { "--r": "900px" }, { "--r": (o.r || 220) + "px", duration: o.dur || 0.8, ease: "power3.inOut" }, at); return d; };

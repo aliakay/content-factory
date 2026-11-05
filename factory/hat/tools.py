@@ -324,6 +324,37 @@ def proof_check(ctx, data=None):
     return r | {"problems": proof.problems(r, "en")}
 
 
+@tool("words_check", "qa", "Check narration lines for dashes, generated-sounding stock phrasing and a greeting opener. "
+      "Findings only; you decide the rewrite. Pass `lines` or leave empty to check the project's script.",
+      schema={"type": "object", "properties": {"lines": {"type": "array", "items": {"type": "string"}}}})
+def words_check_tool(ctx, lines=None):
+    from .. import craftcheck
+    p = P.load(ctx.pid, ctx.d)
+    if lines is None:
+        lines = [l if isinstance(l, str) else l.get("text", "") for l in (P.read_artifact(ctx.pid, "script", ctx.d) or {}).get("lines") or []]
+    return {"findings": craftcheck.words_check(lines, p.get("video_lang", "en"))}
+
+
+@tool("rhythm_check", "qa", "Check the scene plan's pacing before any render: scene lengths (estimated from the words "
+      "each scene covers) that are too even or run five or more alike. Findings only.",
+      schema={"type": "object", "properties": {"plan": {"type": "object"}}})
+def rhythm_check(ctx, plan=None):
+    from .. import craftcheck
+    plan = plan or P.read_artifact(ctx.pid, "scene_plan", ctx.d) or {}
+    lines = (P.read_artifact(ctx.pid, "script", ctx.d) or {}).get("lines") or []
+    words = [len((l if isinstance(l, str) else l.get("text", "")).split()) for l in lines]
+    sizes = [sum(words[a:b + 1]) for a, b in (sc["lines"] for sc in plan.get("scenes") or [])]
+    return {"scene_words": sizes, "findings": craftcheck.rhythm(sizes)}
+
+
+@tool("beat_frames", "qa", "Tempos whose beat is a whole number of frames at the video's fps, so every cue on the beat "
+      "grid lands exactly on a frame (pick one of these for music-led pieces).",
+      schema={"type": "object", "properties": {"fps": {"type": "integer"}}})
+def beat_frames_tool(ctx, fps=30):
+    from .. import craftcheck
+    return {"fps": fps, "tempos": craftcheck.frame_bpms(fps)}
+
+
 @tool("contact_sheet", "qa", "Tile several stills into one labelled picture, to see the whole piece at a glance.",
       schema={"type": "object", "required": ["stills"], "properties": {
           "stills": {"type": "array", "minItems": 1, "items": {"type": "string"}},

@@ -124,3 +124,95 @@
     const mid = D(svg('#7b3f61', 'M0 1300 Q300 1100 650 1280 T1400 1250 V1920 H0Z'), 'left:-160px;top:0');
     const near = D(svg('#d1665a', 'M0 1550 Q400 1400 800 1560 T1400 1500 V1920 H0Z'), 'left:-160px;top:0');
     [[far, 40], [mid, 90], [near, 180]].forEach(([l, dx]) => tl.fromTo(l, {x: dx}, {x: -dx, duration: 3.5, ease: 'sine.inOut'}, 0));
+- id: camera.low_angle
+  name: {tr: "Alçak açı (aşağıdan çekim)", en: "Low angle (shot from below)"}
+  use: {tr: "Konuyu heybetli, güçlü ya da tehditkâr göstermek: bina, lider, dev rakam.", en: "Making the subject tower, feel powerful or threatening: a building, a leader, a giant number."}
+  call: "FX.angle(tl, wrap, T, {angle: 'low', amount: 18, to: 'level'})"
+  timing: {tr: "Sahnenin tamamı ya da 2-3 sn; 'to: level' ile açıdan düz bakışa oturur.", en: "The whole scene or 2-3 s; 'to: level' settles from the angle to straight-on."}
+  pitfalls:
+    tr: ["amount 25'i geçerse görüntü eğrilip bozulur.", "Yazıları wrap'in dışına koy, yoksa onlar da eğilir.", "Köşelerde boşluk kalır: wrap'in arkasına düz bir renk ya da arka plan koy."]
+    en: ["Past amount 25 the picture skews and breaks.", "Keep text outside the wrapper or it tilts too.", "The corners show the stage: put a solid colour or background behind the wrapper."]
+  seconds: 3
+  demo: |
+    const w = D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    FX.angle(tl, w, T, {angle: 'low', amount: 18, to: 'level'});
+- id: camera.high_angle
+  name: {tr: "Yüksek açı (yukarıdan çekim)", en: "High angle (shot from above)"}
+  use: {tr: "Konuyu küçük, savunmasız ya da bir bütünün parçası göstermek; harita bakışı.", en: "Making the subject small, vulnerable or part of a whole; a map-like view."}
+  call: "FX.angle(tl, wrap, T, {angle: 'high', amount: 16, to: 'level'})"
+  timing: {tr: "Sahnenin tamamı ya da 2-3 sn.", en: "The whole scene or 2-3 s."}
+  pitfalls:
+    tr: ["Küçülen görüntü kenarlarda boşluk bırakır: arka planı wrap'in arkasına koy.", "amount 20'yi geçmesin."]
+    en: ["The shrinking picture leaves edges empty: put a background behind the wrapper.", "Keep amount under 20."]
+  seconds: 3
+  demo: |
+    D('', 'inset:0;background:#14120e');
+    const w = D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    FX.angle(tl, w, T, {angle: 'high', amount: 16, to: 'level'});
+- id: camera.crane_up
+  name: {tr: "Vinç yukarı (yükselme)", en: "Crane up (rising)"}
+  use: {tr: "Büyük resmi açmak, umut ya da ölçek hissi: kamera yükselirken dünya aşağı kayar.", en: "Opening onto the big picture, hope or scale: the camera rises and the world slides down."}
+  call: "FX.crane(tl, [far, mid, near], T, {dir: 'up', rise: 160})"
+  timing: {tr: "3-5 sn, yavaş; sine.inOut.", en: "3-5 s, slow; sine.inOut."}
+  pitfalls:
+    tr: ["Katmanlar rise payı kadar taşmalı, yoksa kenar görünür.", "Üç katman yeter; derinlik oranı otomatik."]
+    en: ["Layers must overflow by the rise or an edge shows.", "Three layers are enough; the depth ratio is automatic."]
+  seconds: 3.5
+  demo: |
+    const svg = (fill, d) => `<svg viewBox="0 0 1400 2300" width="1400" height="2300"><path d="${d}" fill="${fill}"/></svg>`;
+    const far = D(svg('#2e294e', 'M0 1100 Q350 800 700 1050 T1400 1000 V2300 H0Z'), 'left:-160px;top:-190px');
+    const mid = D(svg('#7b3f61', 'M0 1300 Q300 1100 650 1280 T1400 1250 V2300 H0Z'), 'left:-160px;top:-190px');
+    const near = D(svg('#d1665a', 'M0 1550 Q400 1400 800 1560 T1400 1500 V2300 H0Z'), 'left:-160px;top:-190px');
+    FX.crane(tl, [far, mid, near], T, {dir: 'up', rise: 160});
+- id: camera.crane_down
+  name: {tr: "Vinç aşağı (alçalma)", en: "Crane down (descending)"}
+  use: {tr: "Varış, yerleşme, ağırlık: kamera yüksekten göz hizasına iner.", en: "Arrival, settling, gravity: the camera descends from high to eye level."}
+  call: "FX.crane(tl, [far, mid, near], T, {dir: 'down', rise: 160})"
+  timing: {tr: "3-5 sn, yavaş.", en: "3-5 s, slow."}
+  pitfalls:
+    tr: ["Yükselmenin tersi: son kare konunun göz hizasında durduğu yer olsun."]
+    en: ["The reverse of rising: the last frame is where the subject sits at eye level."]
+  seconds: 3.5
+  demo: |
+    const svg = (fill, d) => `<svg viewBox="0 0 1400 2300" width="1400" height="2300"><path d="${d}" fill="${fill}"/></svg>`;
+    const far = D(svg('#2e294e', 'M0 1100 Q350 800 700 1050 T1400 1000 V2300 H0Z'), 'left:-160px;top:-190px');
+    const near = D(svg('#d1665a', 'M0 1550 Q400 1400 800 1560 T1400 1500 V2300 H0Z'), 'left:-160px;top:-190px');
+    FX.crane(tl, [far, near], T, {dir: 'down', rise: 160});
+- id: camera.rack_focus
+  name: {tr: "Odak çekme (rack focus)", en: "Rack focus"}
+  use: {tr: "Dikkati bir şeyden diğerine taşımak; iki şeyi birbirine bağlamak.", en: "Moving attention from one thing to another; linking two things."}
+  call: "FX.rack(tl, fromEl, toEl, at, {dur: 0.8, blur: 14})"
+  timing: {tr: "0.5-1.5 sn; ikinci şeyi anlatan kelimede.", en: "0.5-1.5 s; on the word that names the second thing."}
+  pitfalls:
+    tr: ["İki öğe de başta görünür olmalı; biri kaybolmasın, sadece bulanıklaşsın.", "Bulanık öğede okunması gereken yazı olmasın."]
+    en: ["Both elements are visible at the start; one blurs, it does not vanish.", "No text that must be read on the blurred element."]
+  seconds: 3
+  demo: |
+    const a = D('<div style="font:900 220px Inter Tight;color:#ffd93d">NOW</div>', 'left:120px;top:520px');
+    const b = D('<div style="font:900 220px Inter Tight;color:#fff">NEXT</div>', 'left:380px;top:1000px');
+    FX.rack(tl, a, b, 1.2, {dur: 0.9});
+- id: camera.handheld
+  name: {tr: "El kamerası", en: "Handheld drift"}
+  use: {tr: "Duran bir görüntüye canlılık, haber/belgesel hissi: yavaş, rastgele ama tekrarlanabilir salınım.", en: "Presence on a still picture, a news or documentary feel: slow, seeded drift."}
+  call: "FX.handheld(tl, wrap, T, {amount: 1, seed: 7})"
+  timing: {tr: "Sahnenin tamamı; amount 0.5-1 hafif, 3+ darbe için.", en: "The whole scene; amount 0.5-1 is subtle, 3+ for an impact."}
+  pitfalls:
+    tr: ["Kare başına titreme değil, yavaş salınım: amount 2'yi geçmesin.", "Aynı sahnede push_in ile birlikte en fazla ikincil hareket olsun."]
+    en: ["Slow drift, never per-frame jitter: keep amount under 2.", "As a secondary move next to a push-in, keep it small."]
+  seconds: 3.5
+  demo: |
+    const w = D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    FX.handheld(tl, w, T, {amount: 1});
+- id: camera.speed_ramp
+  name: {tr: "Hız rampası", en: "Speed ramp"}
+  use: {tr: "Bir hareket yavaş başlar, ana anda fırlar, yine yavaşlar: vurgu, 'işte bu an' hissi.", en: "A move starts slow, surges through the key moment and settles slow again: emphasis, a 'this is it' beat."}
+  call: "FX.ramp(tl, wrap, T, {props: {scale: [1, 1.5]}, slow: 0.25, peak: 0.55})"
+  timing: {tr: "0.6-1.5 sn; en hızlı an vurgulanan kelimeye denk gelsin (peak 0-1).", en: "0.6-1.5 s; the fastest moment lands on the stressed word (peak 0-1)."}
+  pitfalls:
+    tr: ["Filmde 2-3 kez; her sahnede olursa etkisi kalmaz.", "Ses vuruşunu en hızlı ana koy: peak * süre.", "slow 0.1'in altına inerse hareket donmuş gibi görünür."]
+    en: ["Two or three times a film; in every scene it stops meaning anything.", "Put the sound hit on the fastest moment: peak * duration.", "Below slow 0.1 the move looks frozen."]
+  seconds: 2.5
+  demo: |
+    const w = D('<img src="/work/catalog/picture.png" style="width:100%;height:100%;object-fit:cover">', 'inset:0');
+    FX.ramp(tl, w, T, {props: {scale: [1, 1.5]}, slow: 0.2, peak: 0.55});
+    FX.sfx('hit', T.start + 0.55 * T.dur);
