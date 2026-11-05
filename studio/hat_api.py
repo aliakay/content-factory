@@ -88,7 +88,8 @@ def projects():
                     "channel": p.get("channel"), "created_at": p.get("created_at"),
                     "updated_at": ev[0]["at"] if ev else p.get("created_at"),
                     "video": _media(final if os.path.exists(final) else preview if os.path.exists(preview) else None),
-                    "legacy": p.get("legacy")})
+                    "legacy": p.get("legacy"),
+                    "by": accounts.name_of(p.get("created_by")) if accounts.shared() else None})
     return out
 
 
