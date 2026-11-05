@@ -1133,7 +1133,8 @@ class Handler(shorts.Handler):
         return self.json(200, {"ok": True, "file": os.path.relpath(dst, ROOT), "name": name})
 
     def avatar_upload(self, n, name, folder="avatar"):
-        """The presenter portrait for the avatar line -> raw/avatar/; a brand logo for an own film style -> raw/logo/."""
+        """The presenter portrait for the avatar line -> raw/avatar/; a brand logo for an own film style -> raw/logo/;
+        a photo attached in the line router -> raw/brief/."""
         ext = os.path.splitext(name)[1].lower()
         if ext not in (".jpg", ".jpeg", ".png", ".webp") or not 0 < n <= 30 << 20:
             self.rfile.read(min(n, 1 << 20))
@@ -1141,7 +1142,10 @@ class Handler(shorts.Handler):
         d = os.path.join(ROOT, "raw", folder)
         os.makedirs(d, exist_ok=True)
         safe = re.sub(r"[^\w-]", "_", os.path.splitext(name)[0])[:60]
-        dst = os.path.join(d, f"{safe}_{int(time.time())}{ext}")
+        dst, k = os.path.join(d, f"{safe}_{int(time.time())}{ext}"), 1
+        while os.path.exists(dst):              # phones name every photo image.jpg: never overwrite one
+            k += 1
+            dst = os.path.join(d, f"{safe}_{int(time.time())}_{k}{ext}")
         data = self.rfile.read(n)
         if len(data) != n:
             return self.json(400, {"error": "yükleme yarıda kaldı"})
@@ -1161,6 +1165,8 @@ class Handler(shorts.Handler):
             return self.avatar_upload(n, name)
         if self.headers.get("X-Logo") == "1":
             return self.avatar_upload(n, name, "logo")
+        if self.headers.get("X-Brief") == "1":          # a photo attached in the line router -> raw/brief/
+            return self.avatar_upload(n, name, "brief")
         if not name.lower().endswith((".mp4", ".mov", ".m4v") + refs.REF_PHOTO_EXT) or not 0 < n <= MAX_UPLOAD:
             self.rfile.read(min(n, 1 << 20))
             return self.json(400, {"error": "MP4/MOV ya da JPG/PNG/WEBP fotoğraf, en fazla 600 MB"})

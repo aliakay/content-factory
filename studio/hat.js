@@ -8,6 +8,7 @@ const L = () => ((S.me && S.me.ui_lang) || "tr");
 const TX = {
   tr: {
     nav_make: "Üret", nav_prods: "Üretimler", nav_fstyles: "Film stilleri", rc_nav: "Reçeteler", rc_lead: "Sahne planlayıcının kullandığı hareket reçeteleri: her kart bir FX çağrısı, zamanlaması, tuzakları ve çalışan bir örnek. Planlayıcı bir sahnenin reçetelerini adıyla seçer, tasarımcı kartın tamamını alır.", rc_all: "Hepsi", rc_search: "Ara: grafik, kamera, yağmur…", rc_render: "{0} örnek klibi üret (ücretsiz)", rc_rendering: "Klipler üretiliyor", rc_queued: "Örnek klipler üretiliyor (birkaç dakika, kredi harcamaz)", rc_noclip: "Örnek klip henüz üretilmedi.", rc_call: "Çağrı", rc_timing: "Zamanlama", rc_pitfalls: "Tuzaklar", rc_code: "Örnek kod", rc_more: "Ayrıntı", rc_none: "Bu filtrede reçete yok", rc_job: "reçete örnek klipleri", rc_count: "{0} reçete", cm_title: "Kareye yorum", cm_on: "Yorum modu", cm_off: "Yorumu bitir", cm_hint: "Yorum modunu aç, karede ya da durdurulmuş önizlemede bir noktaya tıkla, ne değişmeli yaz. Yorumlar birlikte tasarımcıya gider; yalnız yorumlanan sahneler değişir.", cm_hint_on: "Karede ya da önizlemede bir noktaya tıkla. Tıkladığın yazı ve onun kaynak satırı yoruma eklenir.", cm_note: "Yorum", cm_ph: "Ne değişmeli? Örn. bu sayı daha büyük ve kırmızı olsun", cm_add: "Yorumu ekle", cm_cancel: "Vazgeç", cm_added: "Yorum eklendi", cm_empty: "Yorumu yaz.", cm_del: "Sil", cm_none: "Henüz yorum yok.", cm_send: "{0} yorumu tasarımcıya gönder", cm_send_hint: "Tasarımcı ajan yalnız yorumlanan sahneleri düzeltir; diğer sahneler, renkler ve ortak CSS olduğu gibi geri konur. Sahne planı kapısında yeniden onayın beklenir.", cm_send_q: "Yorumlar tasarımcıya gönderilsin mi? Sahne planı yeniden çalışır ve kapısında durur (kredi harcamaz).", cm_sent: "{0} yorum gönderildi", cm_running: "Tasarımcı yorumları uyguluyor…", cm_done: "Son revizyon: {0} sahnesi düzeltildi.", cm_restored: "Dokunulmaması gerekenler geri kondu: {0}.", cm_line: "satır {0}", cm_video: "Önizlemeye yorum", cm_video_hint: "Videoyu istediğin anda durdur, sonra görüntüde bir noktaya tıkla.", cm_at: "{0} sn anı seçildi", cm_st_open: "açık", cm_st_sent: "gönderildi", cm_st_done: "uygulandı", mu_composer: "kendi bestecimiz, kredisiz", mu_composed: "Özgün beste, {0} BPM, kredisiz", mu_plain: "Basit beste (ajan yazamadı), {0} BPM, kredisiz", pt_label: "Ön-kırpma", pt_cut: "Metinde olmayan {0} dolgu/takılma kesildi ({1} sn)", parts_reused: "Yalnız değişen sahneler yeniden çizildi: {0}/{1} parça.", fs_lead: "Kütüphanedeki 12 stil ve senin kendi stillerin. Bir stili değiştirerek ya da boş sayfadan kendi stilini yap; onaylanınca öneri kapılarında seçilebilir.", fs_lib: "Kütüphane", fs_own: "Senin stillerin", fs_new: "Kendi stilini yap", fs_name: "Stilin adı", fs_base: "Nereden başlayalım?", fs_blank: "Boş sayfa", fs_create: "Başla", fs_change: "Bunu değiştir", fs_st_start: "Başlangıç", fs_st_plan: "Plan", fs_st_brand: "Marka", fs_st_sample: "Örnek kare", fs_st_approve: "Onay", fs_next: "İleri", fs_prev: "Geri", fs_save: "Kaydet", fs_skip: "Atla", fs_draw: "Örnek kareyi çiz", fs_drawing: "Çiziliyor (yaklaşık 1 dk)…", fs_redraw: "Yeniden çiz", fs_approve: "Onayla, kütüphaneye ekle", fs_draft: "taslak", fs_sampled: "kare hazır", fs_approved: "onaylı", fs_stale: "Değişiklikten sonra örnek kareyi yeniden çiz.", fs_need: "Yanıtlanmamış: {0}", fs_logo_up: "Logo yükle", fs_logo_ok: "Logo yüklü", fs_delete: "Sil", fs_del_q: "Bu stil silinsin mi?", fs_saved: "Kaydedildi", fs_in_lib: "Bu stil kütüphanede; öneri kapılarında seçilebilir.", fs_no_cost: "Kredi harcanmaz: kare stüdyonun kendi motoruyla çizilir.", fs_based: "Temel: {0}", lang: "Arayüz dili",
+    rt_imgs: "Fotoğraf ya da görsel ekle", rt_imgs_hint: "Ürün, dükkân, kişi, logo, eskiz ya da örnek bir görünüş. En fazla 6, JPG/PNG/WEBP. Önerici bakar, seçtiğin hat da kullanır.", rt_seen: "Görsellerde gördüğüm", rt_img_use: "Görselleri nasıl kullanır", rt_img_max: "En fazla 6 görsel", rt_imgs_carry: "Önericiye eklediğin görseller bu projeye gider", rt_img_remove: "Kaldır",
     rt_title: "Ne istediğini anlat, hattı ben önereyim", rt_lead: "Fikrini, senaryonu ya da örnek bir metni olduğu gibi yapıştır. Hangi hattın bunu yapabileceğini, nasıl yapacağını ve neyi yapamayacağını söylerim. Kredi harcanmaz.", rt_ph: "Örn: Dükkanım için 30 saniyelik bir reklam: yasa dışı IPTV'nin riskini anlatsın, sonra kampanyamızı göstersin. Seslendirme olsun.", rt_go: "Hat öner", rt_busy: "Hatlar okunuyor (yarım dakika kadar)…", rt_understood: "Anladığım", rt_fit_good: "Uygun hat var", rt_fit_partial: "Değişiklikle olur", rt_fit_none: "Şu an uygun hat yok", rt_pick_good: "Tam uyuyor", rt_pick_partial: "Kısmen uyuyor", rt_why: "Neden", rt_how: "Nasıl yapar", rt_bring: "Senden istenen", rt_gaps: "Yapmayacakları", rt_gap: "Stüdyoda eksik olan", rt_use: "Bu hatla başla", rt_again: "Yeniden öner", rt_vlang: "Video dili: {0}", limits: "Sınırları",
     make_title: "Ne üretelim?", make_lead: "Bir üretim hattı seç. Her hat videoyu aynı sırayla, adım adım üretir ve her kapıda senin kararını bekler.",
     status_ready: "Hazır", status_partial: "Kısmen hazır", status_planned: "Yakında",
@@ -55,6 +56,7 @@ const TX = {
   },
   en: {
     nav_make: "Make", nav_prods: "Productions", nav_fstyles: "Film styles", rc_nav: "Recipes", rc_lead: "The motion recipes the scene planner uses: each card is an FX call, its timing, its pitfalls and a working example. The planner names a scene's recipes by id and the designer gets the whole card.", rc_all: "All", rc_search: "Search: chart, camera, rain…", rc_render: "Render {0} demo clips (free)", rc_rendering: "Rendering clips", rc_queued: "Rendering the demo clips (a few minutes, no credits)", rc_noclip: "No demo clip rendered yet.", rc_call: "Call", rc_timing: "Timing", rc_pitfalls: "Pitfalls", rc_code: "Example code", rc_more: "Details", rc_none: "No recipes in this filter", rc_job: "recipe demo clips", rc_count: "{0} recipes", cm_title: "Frame comments", cm_on: "Comment mode", cm_off: "Done commenting", cm_hint: "Turn comment mode on, click a point on a frame or on the paused preview and write what should change. The comments go to the designer together; only the commented scenes change.", cm_hint_on: "Click a point on a frame or on the preview. The text you click and its source line are added to the comment.", cm_note: "Comment", cm_ph: "What should change? E.g. make this number bigger and red", cm_add: "Add comment", cm_cancel: "Cancel", cm_added: "Comment added", cm_empty: "Write the comment.", cm_del: "Delete", cm_none: "No comments yet.", cm_send: "Send {0} comments to the designer", cm_send_hint: "The designer agent fixes only the commented scenes; every other scene, the colours and the shared CSS are put back as they are. The scene plan gate then waits for your approval again.", cm_send_q: "Send the comments to the designer? The scene plan runs again and stops at its gate (no credits).", cm_sent: "{0} comments sent", cm_running: "The designer is applying the comments…", cm_done: "Last revision: scene {0} fixed.", cm_restored: "Put back what had to stay: {0}.", cm_line: "line {0}", cm_video: "Comment on the preview", cm_video_hint: "Pause the video at any moment, then click a point in the picture.", cm_at: "Moment {0} s picked", cm_st_open: "open", cm_st_sent: "sent", cm_st_done: "applied", mu_composer: "our own composer, no credits", mu_composed: "Original score, {0} BPM, no credits", mu_plain: "Plain score (the agent could not write one), {0} BPM, no credits", pt_label: "Pre-trim", pt_cut: "{0} fillers/restarts the script lacks were cut ({1} s)", parts_reused: "Only the changed scenes were re-rendered: {0} of {1} parts.", fs_lead: "The library's 12 styles and your own. Make your own by changing a style or from a blank page; once approved it can be picked at proposal gates.", fs_lib: "Library", fs_own: "Your styles", fs_new: "Make your own style", fs_name: "Style name", fs_base: "Where to start?", fs_blank: "Blank page", fs_create: "Start", fs_change: "Change this", fs_st_start: "Start", fs_st_plan: "Plan", fs_st_brand: "Brand", fs_st_sample: "Sample frame", fs_st_approve: "Approve", fs_next: "Next", fs_prev: "Back", fs_save: "Save", fs_skip: "Skip", fs_draw: "Draw the sample frame", fs_drawing: "Drawing (about 1 min)…", fs_redraw: "Draw again", fs_approve: "Approve, add to the library", fs_draft: "draft", fs_sampled: "frame ready", fs_approved: "approved", fs_stale: "Draw the sample frame again after a change.", fs_need: "Unanswered: {0}", fs_logo_up: "Upload logo", fs_logo_ok: "Logo uploaded", fs_delete: "Delete", fs_del_q: "Delete this style?", fs_saved: "Saved", fs_in_lib: "This style is in the library; proposal gates can pick it.", fs_no_cost: "No credits: the frame is drawn by the studio's own engine.", fs_based: "Based on: {0}", lang: "Interface language",
+    rt_imgs: "Add photos or images", rt_imgs_hint: "A product, a shop, a person, a logo, a sketch or a look you like. Up to 6, JPG/PNG/WEBP. The router looks at them and the line you pick uses them.", rt_seen: "What I see in the images", rt_img_use: "How it uses the images", rt_img_max: "At most 6 images", rt_imgs_carry: "The images you added in the router go with this project", rt_img_remove: "Remove",
     rt_title: "Say what you want, I'll suggest the line", rt_lead: "Paste your idea, script or an example text as it is. I'll say which line can make it, how, and what it would not do. No credits.", rt_ph: "E.g. a 30 second ad for my shop: show the risk of illegal IPTV, then our offer. With a voiceover.", rt_go: "Suggest a line", rt_busy: "Reading the lines (about half a minute)…", rt_understood: "What I understood", rt_fit_good: "A line fits", rt_fit_partial: "Works with a change", rt_fit_none: "No line fits yet", rt_pick_good: "Fits", rt_pick_partial: "Partly fits", rt_why: "Why", rt_how: "How it makes it", rt_bring: "What you bring", rt_gaps: "What it won't do", rt_gap: "What the studio is missing", rt_use: "Start with this line", rt_again: "Suggest again", rt_vlang: "Video language: {0}", limits: "Limits",
     make_title: "What shall we make?", make_lead: "Pick a production line. Each line makes the video step by step in the same order and waits for your decision at every gate.",
     status_ready: "Ready", status_partial: "Partly built", status_planned: "Coming soon",
@@ -178,6 +180,7 @@ function startForm(l) {
   const vl = HS.vlang || L();
   return `<div class="hl-form mt12">
     <label class="field"><span>${esc(t("brief"))}</span><textarea id="hlBrief" data-keep="hl-brief" placeholder="${esc(t("brief_ph"))}"></textarea></label>
+    ${(HS.briefImgs || []).length ? `<div class="tiny faint mt8">${esc(t("rt_imgs_carry"))}</div>${briefImgs(false)}` : ""}
     <label class="field mt8"><span>${esc(t("title"))}</span><input id="hlTitle" data-keep="hl-title" maxlength="80"></label>
     <div class="row mt8" style="gap:12px;align-items:flex-end">
       <label class="field"><span>${esc(t("video_lang"))}</span><select id="hlVlang">${Object.entries(LANGS).map(([k, v]) => `<option value="${k}" ${k === vl ? "selected" : ""}>${v}</option>`).join("")}</select></label>
@@ -198,6 +201,15 @@ function startForm(l) {
       <button class="btn ghost" data-act="hatClose">${esc(t("cancel"))}</button></div>
   </div>`;
 }
+// The photos attached in the router: uploaded to raw/brief/ at once, shown from the local file, sent with the brief
+// and, when a line is picked, with the new project.
+function briefImgs(edit) {
+  const xs = HS.briefImgs || [];
+  return xs.length || edit ? `<div class="hl-imgs mt8">${xs.map((x, i) => `<figure><img src="${esc(x.url)}" alt="${esc(x.name)}">
+      <button class="btn ghost sm" data-act="briefImgDel" data-i="${i}" title="${esc(t("rt_img_remove"))}">×</button></figure>`).join("")}
+    ${edit && xs.length < 6 ? `<label class="hl-imgadd" title="${esc(t("rt_imgs"))}">+<input type="file" id="hlImgs" accept="image/jpeg,image/png,image/webp" multiple data-change="briefImgAdd"></label>` : ""}
+    ${HS.imgBusy ? `<span class="tiny faint">${esc(t("uploading"))}</span>` : ""}</div>` : "";
+}
 // t604: the line router. The creator describes the video in their own words; one quick call (no credits) names the
 // lines that can make it, how, and what they would not do. "Start with this line" opens that line's form with the text.
 function routerPanel() {
@@ -208,17 +220,20 @@ function routerPanel() {
     <div class="hl-kv small mt8"><b>${esc(t("rt_why"))}</b><div>${esc(p.why)}</div>
       <b>${esc(t("rt_how"))}</b><div>${esc(p.how)}</div>
       ${p.you_bring ? `<b>${esc(t("rt_bring"))}</b><div>${esc(p.you_bring)}</div>` : ""}
+      ${p.images_use ? `<b>${esc(t("rt_img_use"))}</b><div>${esc(p.images_use)}</div>` : ""}
       ${p.seconds || p.aspect ? `<b>${esc(t("duration"))}</b><div>${p.seconds ? `${p.seconds} ${esc(t("sec"))}` : ""}${p.seconds && p.aspect ? " · " : ""}${esc(p.aspect || "")}</div>` : ""}
       ${(p.gaps || []).length ? `<b>${esc(t("rt_gaps"))}</b><ul>${p.gaps.map((g) => `<li>${esc(g)}</li>`).join("")}</ul>` : ""}</div>
     <button class="btn accent sm mt8" data-act="hatPick" data-id="${esc(p.line)}">${esc(t("rt_use"))}</button></div>`;
   return `<div class="card hl-router mt16"><h3>${esc(t("rt_title"))}</h3><p class="small muted">${esc(t("rt_lead"))}</p>
     <textarea id="hlAsk" data-keep="hl-ask" placeholder="${esc(t("rt_ph"))}" style="min-height:110px"></textarea>
+    <div class="small mt8"><b>${esc(t("rt_imgs"))}</b> <span class="tiny faint">${esc(t("rt_imgs_hint"))}</span></div>${briefImgs(true)}
     <div class="row mt8"><button class="btn accent" data-act="hatSuggest" ${busy ? "disabled" : ""}>${esc(t(r ? "rt_again" : "rt_go"))}</button>
       ${busy ? `<span class="small muted">${esc(t("rt_busy"))}</span>` : ""}</div>
     ${r && !busy ? `<div class="mt12">
       <div class="row"><span class="badge ${fitCls[r.fit]}">${esc(t("rt_fit_" + r.fit))}</span>
         ${r.video_lang ? `<span class="tiny faint">${esc(t("rt_vlang").replace("{0}", LANGS[r.video_lang]))}</span>` : ""}</div>
       ${r.understood ? `<p class="small mt8"><b>${esc(t("rt_understood"))}:</b> ${esc(r.understood)}</p>` : ""}
+      ${r.images_seen ? `<p class="small mt8"><b>${esc(t("rt_seen"))}:</b> ${esc(r.images_seen)}</p>` : ""}
       ${r.picks.map(pick).join("")}
       ${r.gap ? `<div class="note small mt12"><b>${esc(t("rt_gap"))}:</b> ${esc(r.gap)}</div>` : ""}</div>` : ""}
   </div>`;
@@ -228,7 +243,7 @@ ROUTES["#/uret"] = async () => {
   HS.lines = HS.lines || await api("/api/hat/lines");
   if (HS.open === "series_episode") HS.series = await api("/api/hat/series");
   paint(`<h1>${esc(t("make_title"))}</h1><p class="lead">${esc(t("make_lead"))}</p>${routerPanel()}
-    <div class="hl-grid mt16">${HS.lines.map(lineCard).join("")}</div>`, JSON.stringify([L(), HS.open, !!HS.suggesting, HS.suggestN || 0]));
+    <div class="hl-grid mt16">${HS.lines.map(lineCard).join("")}</div>`, JSON.stringify([L(), HS.open, !!HS.suggesting, HS.suggestN || 0, (HS.briefImgs || []).map((x) => x.file), !!HS.imgBusy]));
   return {};
 };
 ACT.hatSuggest = async () => {
@@ -236,9 +251,27 @@ ACT.hatSuggest = async () => {
   keepDrafts();
   HS.suggesting = true; S.sig = null; route({ poll: true });
   try {
-    HS.suggest = await post("/api/hat/suggest", { brief });
+    HS.suggest = await post("/api/hat/suggest", { brief, images: (HS.briefImgs || []).map((x) => x.file) });
     HS.askText = brief; HS.suggestN = (HS.suggestN || 0) + 1;
   } finally { HS.suggesting = false; S.sig = null; route({ poll: true }); }
+};
+ACT.briefImgAdd = async (el) => {
+  const files = [...el.files]; keepDrafts();
+  HS.briefImgs = HS.briefImgs || [];
+  if (HS.briefImgs.length + files.length > 6) toast(t("rt_img_max"), 1);
+  HS.imgBusy = true; S.sig = null; route({ poll: true });
+  try {
+    for (const f of files.slice(0, 6 - HS.briefImgs.length)) {
+      const r = await upload("/api/refs/upload", f, { "X-Brief": "1" }, () => {});
+      HS.briefImgs.push({ file: r.file, name: f.name, url: URL.createObjectURL(f) });
+    }
+  } finally { HS.imgBusy = false; S.sig = null; route({ poll: true }); }
+};
+ACT.briefImgDel = (el) => {
+  keepDrafts();
+  const [x] = HS.briefImgs.splice(+el.dataset.i, 1);
+  if (x) URL.revokeObjectURL(x.url);
+  S.sig = null; route({ poll: true });
 };
 ACT.hatPick = (el) => {
   HS.open = el.dataset.id; HS.vlang = (HS.suggest && HS.suggest.video_lang) || null;
@@ -264,8 +297,10 @@ ACT.hatCreate = async (el) => {
     const r = await post("/api/hat/projects", { portrait, url: $("#hlUrl") ? $("#hlUrl").value.trim() : null, source_lang: $("#hlSrcLang") ? $("#hlSrcLang").value : null, line: el.dataset.id, brief: $("#hlBrief").value, title: $("#hlTitle").value,
       video_lang: $("#hlVlang").value, aspect: $("#hlAspect").value, channel: $("#hlChan").value || null, source,
       format: $("#hlFormat") ? $("#hlFormat").value : null, proof: $("#hlProof") ? $("#hlProof").checked : false,
-      series: $("#hlSeries") ? $("#hlSeries").value : null, episode: $("#hlEp") ? $("#hlEp").value : null });
-    HS.open = null; HS.vlang = null; S.drafts = {}; toast(t("started"));
+      series: $("#hlSeries") ? $("#hlSeries").value : null, episode: $("#hlEp") ? $("#hlEp").value : null,
+      images: (HS.briefImgs || []).map((x) => x.file) });
+    (HS.briefImgs || []).forEach((x) => URL.revokeObjectURL(x.url));
+    HS.open = null; HS.vlang = null; HS.briefImgs = []; HS.suggest = null; S.drafts = {}; toast(t("started"));
     location.hash = "#/u/" + r.id;
   } finally { el.disabled = false; }
 };
