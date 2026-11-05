@@ -53,12 +53,13 @@ stages:
     run: agent
     model: opus
     schema: long_script
-    tools: [read_artifact, web_search, web_fetch, proof_check]
+    tools: [read_artifact, web_search, web_fetch, proof_check, words_check]
     review:
       - "Word count fits the approved duration within 10% (Turkish ~2.4 words/s, English ~2.6)"
       - "A cold open before chapter 1; every chapter opens on a short title line and ends on a turn into the next"
       - "Every factual claim is marked verified with a source, or removed"
       - "Numbers are written the way the narrator should say them"
+      - "words_check has no open findings: no dashes, no stock phrasing, no greeting"
 
   - id: outline
     gate: true
@@ -76,7 +77,7 @@ stages:
     run: code
     call: factory.hat.longform:build_scenes
     model: opus
-    tools: [read_artifact, recipes, stock_search, render_stills, layout_lint, contact_sheet, proof_check]
+    tools: [read_artifact, recipes, stock_search, render_stills, layout_lint, contact_sheet, proof_check, rhythm_check]
     review:
       - "Every scene follows the outline's brief and the shared kit"
       - "Each scene's motion follows the beats of its named mechanism, and every motion verb keeps one meaning (motion grammar)"

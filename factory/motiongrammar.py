@@ -23,7 +23,21 @@ GRAMMAR = """MOTION GRAMMAR (what a move means; binding, one meaning per verb fo
 - Appearance is assertion, disappearance is dismissal: what leaves the frame is no longer true or no longer the
   subject; keep on screen what the next line builds on.
 - Repetition is a rhyme: when an idea returns, its picture returns in the same place, the same colour, the same move.
-- Write the video's verbs in `concept` (e.g. "left->right = time, accent = the new rule") and keep them."""
+- Write the video's verbs in `concept` (e.g. "left->right = time, accent = the new rule") and keep them.
+
+CAMERA SPEED AND CUTS (after cinecode's camera vocabulary; numbers, not adjectives):
+- Name every camera move as: move, seconds, speed easing, target ("push in, 3 s, slow ease-in-out, on the number").
+  Speed words: slow = a subject changes size <= 10 % per second or takes >= 6 s to cross the frame; medium = 10-25 %
+  per second, 3-6 s to cross; fast = more than 25 % per second, 1.5-3 s to cross.
+- Easing carries meaning: ease-out (fastest at frame 0) opens a hook, ease-in gathers force toward an ending,
+  ease-in-out is deliberate and self-contained, linear is for machines. The first scene never starts on an ease-in.
+- One primary move per scene, at most one secondary. A move already moving at the cut stays moving into the next scene.
+- Cut seams: cut at the move's fastest moment, not as it settles; keep direction and speed the same on both sides
+  (a push in keeps pushing in, a pan right meets a pan right); hold the subject's position within a tenth of the frame.
+- Adjacent scenes differ in move, size or direction; never the same designed transition twice in a row (a plain cut is
+  the default and may repeat). Spend the big ones (freeze, speed ramp, smash cut, dolly zoom) once per video.
+- Every cut has a reason you could say aloud: the next step, this caused that, this becomes that, into or out of the
+  subject, later, back to an earlier picture changed. A cut with no reason is the one to remove."""
 
 LINES = ("explainer", "long_explainer")            # lines whose scenes must name a mechanism
 

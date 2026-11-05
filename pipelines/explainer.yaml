@@ -51,21 +51,23 @@ stages:
     gate: true
     run: agent
     model: opus
-    tools: [read_artifact, web_search, web_fetch, proof_check]
+    tools: [read_artifact, web_search, web_fetch, proof_check, words_check]
     review:
       - "Word count fits the approved duration within 10% (Turkish ~2.4 words/s, English ~2.6)"
       - "Hook in the first line; arc hook -> setup -> turn -> landing; a question or CTA at the end"
       - "Every factual claim is marked verified with a source, or removed"
       - "Numbers are written the way the narrator should say them"
+      - "words_check has no open findings: no dashes, no stock phrasing, no greeting"
 
   - id: scene_plan
     gate: true
     run: agent
     model: opus
-    tools: [read_artifact, catalog, recipes, stock_search, render_stills, layout_lint, contact_sheet, proof_check]
+    tools: [read_artifact, catalog, recipes, stock_search, render_stills, layout_lint, contact_sheet, proof_check, rhythm_check]
     review:
       - "Scenes cover the whole script with no gaps; every scene has a trigger word"
       - "No two consecutive scenes use the same visual device"
+      - "rhythm_check is clean: scene lengths vary with the idea (spread >= 0.30, no run of five alike)"
       - "Each scene's motion follows the beats of its named mechanism, and every motion verb keeps one meaning (motion grammar)"
       - "Layout lint has no errors; no text sits under the caption band"
       - "Every on-screen number matches the script and the research"

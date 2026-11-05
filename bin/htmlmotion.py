@@ -352,7 +352,7 @@ def render_bundle(bundle, spec, workdir, dst, preview=False):
                                capture_s, post_per_s=round((time.time() - t1) / max(1.0, total), 3))
     except Exception as e:
         print(f"render speed not recorded: {e}", flush=True)
-    return {"file": dst, "duration": total, "cues": len(cues), "music_cuts": len(mutes), "drop": drop,
+    return {"file": dst, "duration": total, "cues": len(cues), "placed": cues, "music_cuts": len(mutes), "drop": drop,
             "capture_s": round(capture_s, 1), "parts": parts}
 
 

@@ -48,7 +48,7 @@ stages:
     gate: true
     run: agent
     model: opus
-    tools: [read_artifact, web_search, web_fetch, proof_check]
+    tools: [read_artifact, web_search, web_fetch, proof_check, words_check]
     review:
       - "Music-led: every line is short on-screen text (<= 7 words) with a hold in seconds; holds add up to the approved length within 10%"
       - "Narrated: word count fits the approved length within 10%"
@@ -59,10 +59,11 @@ stages:
     gate: true
     run: agent
     model: opus
-    tools: [read_artifact, catalog, recipes, stock_search, render_stills, layout_lint, contact_sheet, proof_check]
+    tools: [read_artifact, catalog, recipes, stock_search, render_stills, layout_lint, contact_sheet, proof_check, rhythm_check, beat_frames]
     review:
       - "Motion leads: every scene has one clear movement idea, not a static card"
       - "No two consecutive scenes use the same visual device"
+      - "rhythm_check is clean: scene lengths vary with the idea (spread >= 0.30, no run of five alike)"
       - "Layout lint has no errors; text is readable on a phone at a glance"
       - "Every on-screen figure matches the script"
 
