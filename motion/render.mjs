@@ -50,7 +50,10 @@ const base = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({
   headless: true,
   env: { ...process.env, LD_LIBRARY_PATH: `${libs}:${process.env.LD_LIBRARY_PATH || ""}` },
-  args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--disable-dev-shm-usage"],
+  // Chromium's own software GL (SwiftShader) already backs WebGL here; forcing --use-angle=swiftshader made every
+  // screenshot ~5x slower (1.4 s vs 0.26 s a 1080x1920 frame, same pixels up to edge anti-aliasing).
+  // CF_CHROME_ARGS (space separated) restores or adds flags on a machine that needs them.
+  args: ["--disable-dev-shm-usage", ...(process.env.CF_CHROME_ARGS || "").split(" ").filter(Boolean)],
 });
 const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: scale });
 page.on("pageerror", (e) => console.error("page error:", e.message));
