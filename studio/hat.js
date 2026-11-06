@@ -315,7 +315,7 @@ ROUTES["#/uretimler"] = async () => {
       <a class="btn accent" href="#/uret">${ICON.plus}${esc(t("new_prod"))}</a></div>
     <div class="hl-list mt16">${ps.map((p) => `<a class="hl-row" href="#/u/${esc(p.id)}">
         <span class="mono tiny faint">${esc(p.id.slice(0, 3))}</span>
-        <span class="hl-row-t"><b>${esc(p.title)}</b><span class="tiny muted">${esc(p.line_name)} · ${esc((p.video_lang || "").toUpperCase())} · ${esc(p.aspect || "")}</span></span>
+        <span class="hl-row-t"><b>${esc(p.title)}</b><span class="tiny muted">${esc(p.line_name)} · ${esc((p.video_lang || "").toUpperCase())} · ${esc(p.aspect || "")}${p.by ? ` · 👤 ${esc(p.by)}` : ""}</span></span>
         <span class="small muted">${esc(p.stage_name || "")}</span>${stateBadge(p.state)}</a>`).join("") || `<div class="empty">${esc(t("prods_empty"))}</div>`}</div>`,
     JSON.stringify([L(), ps.map((p) => [p.id, p.state, p.stage])]));
   return { poll: ps.some((p) => p.state === "busy") ? 5000 : 0 };

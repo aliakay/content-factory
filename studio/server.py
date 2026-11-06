@@ -170,7 +170,8 @@ def prod_summary(con, p):
             "warn": len(warn), "busy": busy(con, p), "output": p["output"], "name": p["name"],
             "voice": bool(d.get("voice")), "qa_pass": (p["qa"] or {}).get("pass"), "aspect": d.get("aspect", "9:16"),
             "channel_id": p.get("channel_id"), "kind": "series" if d.get("series") else d.get("kind") or "footage",
-            "look": d.get("look_pack"), "series": d.get("series")}
+            "look": d.get("look_pack"), "series": d.get("series"),
+            "by": accounts.name_of(d.get("created_by")) if accounts.shared() else None}
 
 
 def all_prods(con, channel=None):
@@ -211,6 +212,9 @@ def production_detail(con, pid):
     p = P.get(con, pid)
     fmt = formats.for_data(p["format"], p["data"])
     out = {**p, "format_info": fmt, "busy": busy(con, p), "claims_ok": P.claims_ok(p)}
+    if accounts.shared():   # who started it and who did each step, by display name
+        out["by"] = accounts.name_of(p["data"].get("created_by"))
+        out["history"] = [{**h, "by": accounts.name_of(h.get("by"))} if h.get("by") else h for h in p["history"]]
     try:
         spec, total, starts, warn = P.shown_timeline(con, p)
         if p["data"].get("motion"):   # HTML-designed scenes: the script-stage stock photos are not used
@@ -935,7 +939,13 @@ def prod_thumb(con, prod_id, t):
 
 
 # ---------- HTTP ----------
-LOGIN_PAGE = """<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+# home-screen shortcut: the manifest and icons are public (no data in them); every other path still needs a login
+PUBLIC_STATIC = {"/static/manifest.webmanifest", "/static/icon-192.png", "/static/icon-512.png", "/static/icon-maskable.png",
+                 "/static/apple-touch-icon.png"}
+APP_HEAD = ('<link rel="manifest" href="/static/manifest.webmanifest"><link rel="apple-touch-icon" href="/static/apple-touch-icon.png">'
+            '<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">'
+            '<meta name="apple-mobile-web-app-title" content="Studio"><meta name="apple-mobile-web-app-status-bar-style" content="black">')
+LOGIN_PAGE = """<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">""" + APP_HEAD + """
 <title>Studio giriş</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f1115;
 color:#e8e8ea;font:16px system-ui,sans-serif;padding:16px}form{width:100%;max-width:340px;background:#181b22;padding:24px;border-radius:14px}
 input,button{width:100%;box-sizing:border-box;padding:12px;margin-top:10px;border-radius:10px;border:1px solid #2c313c;background:#0f1115;color:inherit;font:inherit}
@@ -967,6 +977,8 @@ class Handler(shorts.Handler):
             accounts.set_current(uid)
             return True
         path = urllib.parse.urlsplit(self.path).path
+        if path in PUBLIC_STATIC:   # phones fetch the home-screen icon and the manifest without the session cookie
+            return True
         if path == "/login":
             self.send_bytes(200, LOGIN_PAGE.encode(), "text/html; charset=utf-8", head)
         elif path.startswith("/api/"):
@@ -1574,7 +1586,8 @@ class Handler(shorts.Handler):
                 return self.send_bytes(200, f.read(), "text/html; charset=utf-8", head)
         if path.startswith("/static/"):   # the Studio's own css / js (read per request, like index.html)
             f = self.inside(HERE, path[len("/static/"):])
-            types = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml"}
+            types = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml",
+                     ".png": "image/png", ".webmanifest": "application/manifest+json"}
             if f and os.path.splitext(f)[1] in types:
                 with open(f, "rb") as fh:
                     return self.send_bytes(200, fh.read(), types[os.path.splitext(f)[1]], head)

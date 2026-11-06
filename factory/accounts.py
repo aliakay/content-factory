@@ -76,6 +76,16 @@ def user(uid=None):
     return users()["users"].get(uid) or ({"name": "Ali", "role": "owner"} if uid == OWNER else None)
 
 
+def name_of(uid):
+    """Display name for a user id ('' for none), for "who started / who approved" labels in a shared Studio."""
+    return ((user(uid) or {}).get("name") or uid) if uid else ""
+
+
+def shared():
+    """More than one person logs in, so the Studio labels who started and who approved things."""
+    return len(users()["users"]) > 1
+
+
 def is_owner(uid=None):
     return (user(uid) or {}).get("role") == "owner"
 

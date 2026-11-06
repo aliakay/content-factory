@@ -99,8 +99,9 @@ def get(con, prod_id):
 
 
 def save(con, p, event=None, detail=""):
-    if event:
-        p["history"].append({"at": now(), "event": event, "detail": detail})
+    if event:   # "by": who did it (the logged-in user, or the user a job runs for), shown in a shared Studio
+        from . import accounts
+        p["history"].append({"at": now(), "event": event, "detail": detail, "by": accounts.current()})
     con.execute("""UPDATE productions SET updated_at=?, title=?, stage=?, data=?, name=?, preview=?, output=?, qa=?,
                    verification=?, history=?, job_id=?, note=? WHERE prod_id=?""",
                 (now(), p["title"], p["stage"], json.dumps(p["data"], ensure_ascii=False), p["name"], p["preview"],
@@ -113,12 +114,13 @@ def save(con, p, event=None, detail=""):
 def create(con, fmt_id, data, brief="", channel_id=None):
     from . import accounts, channels
     data.setdefault("eleven_account", accounts.default_eleven())   # the creator's own ElevenLabs account by default
+    data.setdefault("created_by", accounts.current())
     ensure(con)
     channel_id = channels.resolve(con, channel_id, "topic" if explainer.is_explainer(data) else "footage")
     if not isinstance(data.get("title"), str):
         data["title"] = str((data.get("title") or {}).get("text") or "untitled") if isinstance(data.get("title"), dict) \
             else "untitled"
-    hist = [{"at": now(), "event": "fikir", "detail": "Claude önerdi"}]
+    hist = [{"at": now(), "event": "fikir", "detail": "Claude önerdi", "by": data["created_by"]}]
     cur = con.execute("INSERT INTO productions (created_at, updated_at, format, title, stage, brief, data, history, "
                       "channel_id) VALUES (?,?,?,?,?,?,?,?,?)", (now(), now(), fmt_id, data.get("title"), "idea", brief,
                                                                  json.dumps(data, ensure_ascii=False), json.dumps(hist),

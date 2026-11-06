@@ -246,7 +246,7 @@ function pcard(p) {
       <div class="tag"><span class="badge glass">${k[0]} ${esc(k[1])}</span>${p.aspect === "16:9" ? '<span class="badge glass">16:9</span>' : ""}</div>
       ${p.duration ? `<span class="dur">${sec(p.duration)}</span>` : ""}</div>
     <div class="bd"><div class="t">${esc(p.title)}</div>${p.hook ? `<div class="h">${esc(p.hook)}</div>` : ""}
-      <div class="ft">${stageBadge(p.stage)}${c ? `<span class="badge">${esc(c.name)}</span>` : ""}${p.series ? `<span class="badge">Bölüm ${esc(p.series.episode)}</span>` : ""}${p.warn ? `<span class="badge warn">⚠ ${p.warn}</span>` : ""}</div>
+      <div class="ft">${stageBadge(p.stage)}${c ? `<span class="badge">${esc(c.name)}</span>` : ""}${p.series ? `<span class="badge">Bölüm ${esc(p.series.episode)}</span>` : ""}${p.warn ? `<span class="badge warn">⚠ ${p.warn}</span>` : ""}${p.by ? `<span class="badge">👤 ${esc(p.by)}</span>` : ""}</div>
       ${p.busy ? `<div class="busy"><span class="spin"></span>${esc(JOBTR[p.busy.kind] || p.busy.kind)}</div>` : ""}</div></a>`;
 }
 function inrow(p) {
@@ -729,7 +729,7 @@ async function viewProd(id) {
     </div>
     <div class="col sticky" style="gap:14px">
       ${actionCard(p, wide)}
-      <div class="card"><h3>Geçmiş</h3><div class="hist">${p.history.slice().reverse().map((h) => `<div><time>${dt(h.at)}</time><span><b>${esc(h.event)}</b> ${esc(h.detail || "")}</span></div>`).join("")}</div></div>
+      <div class="card"><h3>Geçmiş</h3><div class="hist">${p.history.slice().reverse().map((h) => `<div><time>${dt(h.at)}</time><span><b>${esc(h.event)}</b> ${esc(h.detail || "")}${h.by ? ` <span class="faint">· ${esc(h.by)}</span>` : ""}</span></div>`).join("")}</div></div>
       <div class="card flat"><button class="btn danger sm" data-act="delProd" data-id="${id}">${ICON.trash}Kalıcı olarak sil</button><div class="tiny faint mt8">Fikri/videoyu ve dosyalarını diskten kaldırır.</div></div>
     </div>
   </div>`;
