@@ -425,3 +425,12 @@ drifting whisper run left prod 17 with 0.05 s scenes and sound/picture out of sy
   calibration render (browser start-up + seconds per frame); every real final / preview render updates the numbers.
   Shown per catalog card ("⏱ 30 sn video: önizleme ~… · final ~…"), on the plan card (for the plan's length) and above
   "Onayla, final render". Motion blur counts as x4 frames; "kaba" means nothing has been measured yet.
+
+## Ses önerileri (voice suggestions)
+Videonun diline göre 2–3 anlatıcı sesi, dinlenebilir örnekleriyle önerilir; kullanıcı seçer.
+- `factory/voices.py`: kürate TR/EN seed (`SEED`) + `data/voice_suggestions.json` (kütüphane yenilemesi, 14 gün) + yedek varsayılan ses. Örnekler `assets/voice_samples/<voice_id>.mp3` (git'te).
+- `GET /api/voices/suggest?lang=&kind=` (kind: ad/story/explainer/social); `POST /api/voices/refresh {lang}` → `voice_suggest` job'u connector ile dilin kütüphane seslerini okur (kredi harcamaz). Seedsiz dillerde ilk istek yenilemeyi tetikler.
+- v1 Studio: Ses aşaması kartında `.vsug` kartları → `set_voice` (öneri sesi hesaba otomatik eklenir, `voices.adopt`).
+- v2 hat: üretim formunda dil seçimine bağlı kartlar (`voice_id` project.json'a), proje sayfasında "Ses" kartı (`action: "voice"`).
+- API-key hesaplarında kütüphane sesi önce ElevenLabs hesabına eklenmeli (otomatik ekleme yok); connector hesaplarında gerek yok.
+- Yeni ses önermek: `SEED`'e kayıt + örneği `assets/voice_samples/`a koy.

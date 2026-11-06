@@ -2502,3 +2502,23 @@ def test_ffmpeg_agent_tool_stays_in_the_project(d, tmp_path):
     with pytest.raises(T.ToolError, match="unknown operation"):
         T.call("ffmpeg", ctx, {"op": "explode", "inputs": ["in.mp4"]})
     assert "deliver" in [s for st in manifest.get("talking_head")["stages"] for s in st.get("tools", [])]
+
+
+def test_api_voice_pick_from_suggestions(api, monkeypatch, tmp_path):
+    hat_api, pid, q = api
+    prof = tmp_path / "prof.json"
+    from factory import voices
+    monkeypatch.setattr(voices.formats, "PROFILE", str(prof))
+    monkeypatch.setattr(hat_api.accounts, "eleven", lambda aid: {"type": "connector", "owner": "ali", "voices": []})
+    post = lambda **b: hat_api.post(None, f"/api/hat/project/{pid}", b, q)
+    assert post(action="voice", voice_id="c9eIhSvMHBxtYhLX4oBt")["voice_id"] == "c9eIhSvMHBxtYhLX4oBt"
+    assert P.load(pid)["voice_id"] == "c9eIhSvMHBxtYhLX4oBt"          # a suggested library voice is adopted, then stored
+    with pytest.raises(ValueError, match="Invalid voice"):
+        post(action="voice", voice_id="../x")
+    with pytest.raises(ValueError, match="not on the selected"):
+        post(action="voice", voice_id="Zzzzzzzzzzzzzzzzzzzz")
+    _planned_line(monkeypatch, tmp_path)
+    monkeypatch.setattr(hat_api.accounts, "default_eleven", lambda uid: "ali", raising=False)
+    out = hat_api.post(None, "/api/hat/projects", {"line": "explainer", "brief": "Kiralık daire tanıtımı", "video_lang": "tr",
+                                                   "voice_id": "uxXY4QvpsdWFe6Yigtlq"}, q)
+    assert P.load(out["id"])["voice_id"] == "uxXY4QvpsdWFe6Yigtlq"

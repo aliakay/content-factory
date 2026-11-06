@@ -428,6 +428,9 @@ def _post(con, path, b, queue):
         if b.get("images"):                              # photos the creator attached in the line router
             from factory.hat import router
             extra["images"] = router.images(b["images"], lang())
+        vid = str(b.get("voice_id") or "")
+        if vid:                                          # a narrator picked from the suggestions (factory.voices)
+            extra["voice_id"] = _voice(vid, extra["eleven_account"])
         from factory import proof
         if b.get("proof") and proof.supports(line):      # proof film: every number must match a source
             extra["proof"] = True
@@ -464,12 +467,36 @@ def _post(con, path, b, queue):
             state, stage = runner.back(pid, sid, by=uid)
         elif a == "retry":
             state, stage = runner.retry(pid, sid, queue, by=uid)
+        elif a == "voice":            # change the narrator (applies to the next voice generation)
+            p = P.load(pid)
+            p["voice_id"] = _voice(str(b.get("voice_id") or ""), p.get("eleven_account") or accounts.OWNER)
+            P.save(p)
+            return {"id": pid, "voice_id": p["voice_id"]}
         elif a == "advance":          # start the next stage of a line that stands still (nothing queued it)
             state, stage = runner.advance(pid, queue, by=uid)
         else:
             raise ValueError("unknown action")
         return {"id": pid, "state": state, "stage": stage}
     raise ValueError("unknown hat endpoint")
+
+
+def _voice(vid, account):
+    """A narrator id the creator picked: a suggested/known voice or one in the account's list; library suggestions are
+    added to the account first."""
+    from factory import accounts, voices
+    if not re.fullmatch(r"[A-Za-z0-9]{10,40}", vid):
+        raise ValueError({"tr": "Geçersiz ses.", "en": "Invalid voice."}[lang()])
+    mine = {v["voice_id"] for v in (accounts.eleven(account) or {}).get("voices") or []}
+    if account == accounts.OWNER:        # the owner's voices live in data/eleven_profile.json
+        try:
+            mine |= {v["voice_id"] for v in json.load(open(os.path.join(ROOT, "data", "eleven_profile.json")))["voices"]}
+        except (OSError, ValueError, KeyError):
+            pass
+    if vid not in mine and not voices.adopt(account, vid):
+        from factory import formats
+        if vid not in {v["voice_id"] for v in formats.DEFAULT_VOICES.values()}:
+            raise ValueError({"tr": "Bu ses seçili ElevenLabs hesabında yok.", "en": "This voice is not on the selected ElevenLabs account."}[lang()])
+    return vid
 
 
 def _own_style(path, b, queue, uid):

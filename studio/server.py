@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
-from factory import accounts, channels, claudeauth, credits, discover, eleven_api, explainer, illustrate, planner, series, styles, formats, jobs, productions as P, refs, signals, tracking, usage, llm  # noqa: E402
+from factory import accounts, channels, claudeauth, credits, discover, eleven_api, explainer, illustrate, planner, series, styles, formats, jobs, voices, productions as P, refs, signals, tracking, usage, llm  # noqa: E402
 from factory.store import OWN_CLIPS, connect  # noqa: E402
 sys.path.insert(0, HERE)
 import hat_api  # noqa: E402  (v2 production lines: /api/hat/*, /media/projects/*)
@@ -646,6 +646,8 @@ def act(con, pid, body):
             queue_for(con, p, "p_preview", str(pid))
     elif a in ("set_voice", "set_lang"):
         vids = voice_ids(P.eleven_account(p["data"]))
+        if a == "set_voice" and body.get("voice_id") not in vids and adopt_voice(P.eleven_account(p["data"]), body.get("voice_id")):
+            vids = voice_ids(P.eleven_account(p["data"]))
         new_lang = None
         if a == "set_lang":   # the video's language; the voice follows (creator's default voice for that language)
             new_lang = body.get("lang")
@@ -788,6 +790,22 @@ def eleven_info(aid, fresh=False):
 
 def voice_ids(aid):
     return {v["voice_id"] for v in eleven_info(aid)["voices"]}
+
+
+def voice_suggestions(q):
+    """GET /api/voices/suggest?lang=tr&kind=ad&gender=male: 2-3 narrators with samples for the video's language. When
+    the cached library list for that language is old, a background job refreshes it (the next call is richer)."""
+    one = lambda k, d="": (q.get(k) or [d])[0]  # noqa: E731
+    lang = one("lang", "tr")
+    out = {"language": lang, "kind": one("kind", "social"), "voices": voices.suggest(
+        lang, one("kind", "social"), one("gender") or None, 3)}
+    if voices.stale(lang) and lang not in voices.SEED and lang != "en":
+        out["refreshing"] = True
+    return out
+
+
+def adopt_voice(aid, voice_id):
+    return voices.adopt(aid, voice_id)
 
 
 def voice_ready(d):
@@ -1463,6 +1481,12 @@ class Handler(shorts.Handler):
             con.execute("UPDATE ref_videos SET theme=? WHERE ref_id=?", (th, b.get("ref_id")))
             con.commit()
             return {"ok": True}
+        if path == "/api/voices/refresh":
+            lang = str(b.get("lang") or "")
+            if lang not in dict(formats.ELEVEN_LANGUAGES):
+                raise ValueError("Bilinmeyen dil")
+            jobs.queue(con, "voice_suggest", lang)
+            return {"ok": True}
         if path == "/api/eleven/default":
             prof = eleven_profile()
             if b.get("voice_id") not in {v["voice_id"] for v in prof["voices"]} or b.get("lang") not in ("en", "tr"):
@@ -1679,6 +1703,8 @@ class Handler(shorts.Handler):
         ch = (q.get("channel") or [None])[0]
         if path.startswith("/api/hat/"):
             return hat_api.get(con, path, q)
+        if path == "/api/voices/suggest":
+            return voice_suggestions(q)
         if path == "/api/overview":
             return overview(con, ch)
         if path == "/api/formats":
