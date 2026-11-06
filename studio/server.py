@@ -796,6 +796,9 @@ def voice_ids(aid):
     return {v["voice_id"] for v in eleven_info(aid)["voices"]}
 
 
+V1_OFF = "Eski (v1) üretim kapalı; yeni üretimi + (Üret) sayfasından v2 akışla başlat"
+
+
 def voice_suggestions(q):
     """GET /api/voices/suggest?lang=tr&kind=ad&gender=male: 2-3 narrators with samples for the video's language. When
     the cached library list for that language is old, a background job refreshes it (the next call is richer)."""
@@ -1351,6 +1354,8 @@ class Handler(shorts.Handler):
         m = re.fullmatch(r"/api/production/(\d+)/action", path)
         if m:
             return act(con, int(m.group(1)), b)
+        if path == "/api/generate" or path == "/api/plan" or re.fullmatch(r"/api/plan/\d+/start", path):
+            raise ValueError(V1_OFF)
         if path == "/api/generate":
             fmt = formats.get(b.get("format"))
             if fmt["status"] != "ready":
@@ -1441,6 +1446,7 @@ class Handler(shorts.Handler):
                 series.set_voice(con, sid, b.get("who"), vid)
                 return series_detail(con, sid)
             if op == "episode":
+                raise ValueError(V1_OFF)
                 return {"job_id": jobs.queue(con, "series_episode", json.dumps({"id": sid, "n": int(b.get("n") or 1),
                                                                                 "note": b.get("note", "")}, ensure_ascii=False))}
             con.execute("DELETE FROM series WHERE series_id=?", (sid,))
@@ -1464,22 +1470,16 @@ class Handler(shorts.Handler):
             if m.group(2) == "skip":
                 discover.set_status(con, row["card_id"], "skipped")
                 return {"ok": True}
-            card = json.loads(row["data"])
-            vids = voice_ids(accounts.default_eleven())
-            lang = b.get("lang") if b.get("lang") in explainer.LANGS else None
-            voice = b.get("voice_id") if b.get("voice_id") in vids else None
-            if lang and not voice:   # the creator's default voice for that language (Ali EN / Ali TR)
-                voice = eleven_profile().get("defaults", {}).get(lang)
-                voice = voice if voice in vids else None
+            card = json.loads(row["data"])   # v2 only: the card becomes an explainer production line project
+            lang = b.get("lang") if b.get("lang") in explainer.LANGS else discover.region_of(row["category"]) == "tr" and "tr" or "en"
             cid = channels.resolve(con, b.get("channel"), "topic")
             ch = channels.get(con, cid)
-            arg = {"format": "explainer_short", "n": 1, "brief": discover.brief_for(card),
-                   "aspect": b.get("aspect") if b.get("aspect") in formats.ASPECTS else ch["defaults"]["aspect"],
-                   "look": b.get("look") if styles.valid(b.get("look")) else (ch["defaults"]["look"] if styles.valid(ch["defaults"]["look"]) else "auto"),
-                   "voice_id": voice or ch["defaults"].get("voice_id"), "channel": cid, "lang": lang}
-            jid = jobs.queue(con, "p_ideas", json.dumps(arg, ensure_ascii=False))
-            discover.set_status(con, row["card_id"], "picked", jid, cid)
-            return {"job_id": jid}
+            out = hat_api.post(con, "/api/hat/projects", {
+                "line": "explainer", "brief": discover.brief_for(card), "title": str(card.get("title") or "")[:80],
+                "video_lang": lang, "channel": cid, "aspect": ch["defaults"]["aspect"]},
+                lambda kind, arg: jobs.queue(con, kind, arg))
+            discover.set_status(con, row["card_id"], "picked", out["id"], cid)
+            return {"id": out["id"]}
         if path == "/api/refs/delete":
             return delete_ref(con, b.get("ref_id"))
         if path == "/api/library/delete":

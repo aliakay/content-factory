@@ -272,6 +272,7 @@ const EXAMPLES = [
   "Seriler sayfasındaki seriden sıradaki bölümü üret",
 ];
 async function viewHome(_, opts) {
+  if (!opts.poll) { location.replace("#/uretimler"); return {}; }   // v2 only: the old planner home is retired
   const ch = S.ch;
   const [o, plans] = await Promise.all([api("/api/overview" + (opts.poll ? "" : "")), api("/api/plans")]);
   S.jobs = o.jobs; renderShell(); crumb(["Stüdyo"]);
@@ -545,7 +546,8 @@ function boardHtml(ps) {
   const rej = ps.filter((p) => p.stage === "rejected");
   return `<div class="board">${lanes}</div>${rej.length ? `<details class="mt16"><summary class="muted small">Reddedilenler (${rej.length})</summary><div class="grid mt12" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">${rej.map(pcard).join("")}</div></details>` : ""}`;
 }
-ROUTES["#/hat"] = async () => {
+ROUTES["#/hat"] = async () => { location.replace("#/uretimler"); return {}; };
+const _oldBoard = async () => {
   const f = q("ch") || store.get("boardFilter", "");
   const ps = await api("/api/productions" + (f ? "?channel=" + encodeURIComponent(f) : ""));
   crumb(["Üretim panosu"]);
@@ -1072,7 +1074,7 @@ ACT.serApprove = async (el) => { await post(`/api/series/${el.dataset.id}/approv
 ACT.serRevise = async (el) => { const fb = el.dataset.retry ? "Write the bible again from the premise." : $("#serfb").value; await post(`/api/series/${el.dataset.id}/revise`, { feedback: fb }); toast("Kitap yeniden yazılıyor"); S.sig = null; route(); };
 ACT.serCast = async (el) => { if (!confirm(`ElevenLabs ~${el.dataset.credits} kredi harcanacak (karakter sayfaları). Onaylıyor musun?`)) return; await post(`/api/series/${el.dataset.id}/cast`, { approved: Number(el.dataset.credits) }); toast("Karakter sayfaları üretiliyor"); S.sig = null; route(); };
 ACT.serVoice = async (el) => { await post(`/api/series/${el.dataset.id}/voice`, { who: el.dataset.who, voice_id: el.value || null }); toast("Ses kaydedildi"); };
-ACT.serEpisode = async (el) => { await post(`/api/series/${el.dataset.id}/episode`, { n: Number(el.dataset.n) }); toast(`Bölüm ${el.dataset.n} yazılıyor`); S.sig = null; route(); };
+ACT.serEpisode = async () => { HS.open = "series_episode"; S.sig = null; location.hash = "#/uret"; };   // v2 only
 
 // ================= Stiller =================
 ROUTES["#/stiller"] = async () => {
@@ -1123,7 +1125,7 @@ function pickButtons(c, ch) {
   const first = c.lang || (c.region === "tr" ? "tr" : "en");
   return [first, first === "tr" ? "en" : "tr"].map((l, i) => `<button class="btn sm ${i ? "" : "accent"}" data-act="pickCard" data-id="${c.card_id}" data-ch="${esc(ch || "")}" data-lang="${l}">${l === "tr" ? "Türkçe üret" : "İngilizce üret"}</button>`).join("");
 }
-ACT.pickCard = async (el) => { const c = el.dataset.ch || S.ch; const r = await post(`/api/discover/card/${el.dataset.id}/pick`, { channel: c, lang: el.dataset.lang }); toast("Araştırma + senaryo başladı (#" + r.job_id + ")"); S.sig = null; route(); };
+ACT.pickCard = async (el) => { const c = el.dataset.ch || S.ch; const r = await post(`/api/discover/card/${el.dataset.id}/pick`, { channel: c, lang: el.dataset.lang }); toast("Üretim başladı"); location.hash = "#/u/" + r.id; };
 ACT.skipCard = async (el) => { await post(`/api/discover/card/${el.dataset.id}/skip`); S.sig = null; route(); };
 
 // ================= Takip =================
