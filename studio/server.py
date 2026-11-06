@@ -1047,7 +1047,7 @@ class Handler(shorts.Handler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Set-Cookie", f"{accounts.COOKIE}={accounts.make_session(uid)}; Path=/; Max-Age={30 * 86400}; "
-                                       "HttpOnly; SameSite=Strict")
+                                       "HttpOnly; SameSite=Lax")
         self.end_headers()
         self.wfile.write(body)
 
@@ -1062,7 +1062,7 @@ class Handler(shorts.Handler):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
-            self.send_header("Set-Cookie", f"{accounts.COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict")
+            self.send_header("Set-Cookie", f"{accounts.COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")
             self.end_headers()
             return self.wfile.write(body)
         if not self.gate(False):
