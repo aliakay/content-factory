@@ -55,3 +55,26 @@ def test_adopt_adds_to_owner_profile_without_a_check_call(tmp_path, monkeypatch)
     assert not voices.adopt("ali", "unknownvoiceid1234")
     monkeypatch.setattr("factory.accounts.eleven", lambda aid: {"type": "apikey", "key": "k"})
     assert not voices.adopt("x", "c9eIhSvMHBxtYhLX4oBt")
+
+
+def test_discover_pick_and_v1_creation_go_v2_only(tmp_path, monkeypatch):
+    import json, sqlite3
+    from factory import discover
+    from factory.store import SCHEMA
+    from studio import server
+    con = sqlite3.connect(tmp_path / "t.db"); con.row_factory = sqlite3.Row
+    con.executescript(SCHEMA); discover.ensure(con)
+    con.execute("INSERT INTO disc_runs (run_id) VALUES (1)") if False else None
+    con.execute("INSERT INTO disc_cards (run_id, category, status, title, data) VALUES (1,'tr_gundem','new','t',?)",
+                (json.dumps({"title": "Konu", "hook": "h", "why": "w", "lang": "tr"}),))
+    con.commit()
+    seen = {}
+    monkeypatch.setattr(server.hat_api, "post", lambda c, path, b, q: seen.update(path=path, b=b) or {"id": "001-konu"})
+    monkeypatch.setattr(server.discover, "brief_for", lambda card: "brief text")
+    H = server.Handler.__new__(server.Handler)
+    out = H.post(con, "/api/discover/card/1/pick", {"lang": "tr"})
+    assert out == {"id": "001-konu"} and seen["b"]["line"] == "explainer" and seen["b"]["video_lang"] == "tr"
+    assert con.execute("SELECT status, prod_job FROM disc_cards").fetchone()[:] == ("picked", "001-konu")
+    for path in ("/api/generate", "/api/plan", "/api/plan/3/start"):
+        with pytest.raises(ValueError, match="v1"):
+            H.post(con, path, {})
