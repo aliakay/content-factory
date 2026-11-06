@@ -1,5 +1,6 @@
 """t604 line router: a brief in the creator's words -> the ready lines that can make it, kept honest by clean()."""
 import copy
+import os
 
 import pytest
 
@@ -135,3 +136,22 @@ def test_project_keeps_the_router_images_and_the_agent_sees_them(brief_img, monk
     s = manifest.get("explainer")["stages"][0]
     text = agent.task("x", s)
     assert "## The creator's images" in text and a in text
+
+
+def test_attached_videos_are_accepted_and_shown_as_stills(tmp_path, monkeypatch):
+    import shutil, subprocess
+    from factory.config import FFMPEG
+    if not shutil.which(FFMPEG) and not os.path.exists(FFMPEG):
+        pytest.skip("no ffmpeg")
+    monkeypatch.setattr(router, "ROOT", str(tmp_path))
+    d = tmp_path / "raw" / "brief"
+    d.mkdir(parents=True)
+    subprocess.run([FFMPEG, "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc=d=2:s=160x90:r=10", str(d / "clip_1.mp4")], check=True)
+    (d / "a.jpg").write_bytes(b"x")
+    assert router.images(["raw/brief/clip_1.mp4", "raw/brief/a.jpg"]) == ["raw/brief/clip_1.mp4", "raw/brief/a.jpg"]
+    seen = router.sees(["raw/brief/clip_1.mp4", "raw/brief/a.jpg"])
+    assert len(seen) == router.FRAMES + 1 and "clip_1.mp4" in seen[0][1] and seen[-1][1] == ""
+    assert all(os.path.exists(p) for p, _ in seen[:-1] + seen[-1:])
+    assert "[frame 1/4" in router.listing(["raw/brief/clip_1.mp4"])
+    with pytest.raises(ValueError):
+        router.images(["raw/brief/../../etc/passwd.mp4"])

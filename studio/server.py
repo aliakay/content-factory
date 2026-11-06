@@ -1185,6 +1185,33 @@ class Handler(shorts.Handler):
         open(dst, "wb").write(data)
         return self.json(200, {"ok": True, "file": os.path.relpath(dst, ROOT), "name": name})
 
+    def brief_video_upload(self, n, name):
+        """A video attached in the line router -> raw/brief/, streamed to disk (up to MAX_UPLOAD)."""
+        if not 0 < n <= MAX_UPLOAD:
+            self.rfile.read(min(n, 1 << 20))
+            return self.json(400, {"error": "Video en fazla 600 MB"})
+        d = os.path.join(ROOT, "raw", "brief")
+        os.makedirs(d, exist_ok=True)
+        ext = os.path.splitext(name)[1].lower()
+        safe = re.sub(r"[^\w-]", "_", os.path.splitext(name)[0])[:60]
+        dst, k = os.path.join(d, f"{safe}_{int(time.time())}{ext}"), 1
+        while os.path.exists(dst):
+            k += 1
+            dst = os.path.join(d, f"{safe}_{int(time.time())}_{k}{ext}")
+        with open(dst + ".part", "wb") as f:
+            left = n
+            while left:
+                chunk = self.rfile.read(min(1 << 20, left))
+                if not chunk:
+                    break
+                f.write(chunk)
+                left -= len(chunk)
+        if left:
+            os.remove(dst + ".part")
+            return self.json(400, {"error": "yükleme yarıda kaldı"})
+        os.replace(dst + ".part", dst)
+        return self.json(200, {"ok": True, "file": os.path.relpath(dst, ROOT), "name": name})
+
     def upload(self):
         """A reference video sent as the raw request body (phone browser fetch with the File as body)."""
         n = int(self.headers.get("Content-Length") or 0)
@@ -1198,7 +1225,9 @@ class Handler(shorts.Handler):
             return self.avatar_upload(n, name)
         if self.headers.get("X-Logo") == "1":
             return self.avatar_upload(n, name, "logo")
-        if self.headers.get("X-Brief") == "1":          # a photo attached in the line router -> raw/brief/
+        if self.headers.get("X-Brief") == "1":          # a photo or video attached in the line router -> raw/brief/
+            if name.lower().endswith((".mp4", ".mov", ".m4v")):
+                return self.brief_video_upload(n, name)
             return self.avatar_upload(n, name, "brief")
         if not name.lower().endswith((".mp4", ".mov", ".m4v") + refs.REF_PHOTO_EXT) or not 0 < n <= MAX_UPLOAD:
             self.rfile.read(min(n, 1 << 20))
