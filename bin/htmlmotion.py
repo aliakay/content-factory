@@ -245,6 +245,9 @@ def post_vf(fx, preview=False):
         # in RGB: on YUV frames the screen blend also lifts the chroma planes and tints the whole film magenta
         vf.append(f"format=gbrp,split[bl_a][bl_b];[bl_b]curves=all='0/0 0.62/0 1/1',gblur=sigma={10 if preview else 22}[bl_g];"
                   f"[bl_a][bl_g]blend=all_mode=screen:all_opacity={0.25 + 0.5 * a:.2f},format=yuv420p")
+    if fx.get("chroma"):     # tape / cheap lens: red and blue planes slip sideways, then a soft horizontal smear (VHS)
+        px = max(1, int(float(fx["chroma"]) * (3 if preview else 6)))
+        vf.append(f"format=gbrp,rgbashift=rh=-{px}:bh={px}:edge=smear,format=yuv420p,boxblur=lr=1:lp=1:cr={px}:cp=1")
     if fx.get("mono"):
         vf.append("hue=s=0")
     if fx.get("sepia"):
