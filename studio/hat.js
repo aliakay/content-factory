@@ -46,7 +46,7 @@ const TX = {
     script: "Senaryo", claims: "İddialar", verified: "doğrulandı", unverified: "doğrulanmadı", caption: "Paylaşım metni",
     words: "kelime", lines_n: "satır",
     scenes: "Sahneler", concept: "Görsel fikir", palette: "Renkler", no_stills: "Henüz kare yok.", line_range: "satır {0}–{1}",
-    preview: "Önizleme", voice: "Ses", final: "Final video", qa: "Kalite kontrolü", covers: "Kapak adayları", download: "İndir",
+    voice_next: "Seçtiğin ses bir sonraki ses üretiminde kullanılır.", preview: "Önizleme", voice: "Ses", final: "Final video", qa: "Kalite kontrolü", covers: "Kapak adayları", download: "İndir",
     no_problems: "Teknik sorun bulunmadı.", hashtags: "Etiketler", notes: "Notlar", copy: "Kopyala",
     summary: "Özet", output_none: "Bu aşamanın çıktısı henüz yok.", error: "Hata",
     ev_created: "Üretim açıldı", ev_stage_start: "{0} başladı", ev_stage_finish: "{0} bitti", ev_stage_fail: "{0} hata verdi",
@@ -94,7 +94,7 @@ const TX = {
     script: "Script", claims: "Claims", verified: "verified", unverified: "not verified", caption: "Post caption",
     words: "words", lines_n: "lines",
     scenes: "Scenes", concept: "Visual idea", palette: "Colours", no_stills: "No frames yet.", line_range: "lines {0}–{1}",
-    preview: "Preview", voice: "Voice", final: "Final video", qa: "Quality check", covers: "Cover candidates", download: "Download",
+    voice_next: "The voice you pick is used the next time the voice is generated.", preview: "Preview", voice: "Voice", final: "Final video", qa: "Quality check", covers: "Cover candidates", download: "Download",
     no_problems: "No technical problems found.", hashtags: "Hashtags", notes: "Notes", copy: "Copy",
     summary: "Summary", output_none: "This stage has no output yet.", error: "Error",
     ev_created: "Production opened", ev_stage_start: "{0} started", ev_stage_finish: "{0} finished", ev_stage_fail: "{0} failed",
@@ -183,10 +183,11 @@ function startForm(l) {
     ${(HS.briefImgs || []).length ? `<div class="tiny faint mt8">${esc(t("rt_imgs_carry"))}</div>${briefImgs(false)}` : ""}
     <label class="field mt8"><span>${esc(t("title"))}</span><input id="hlTitle" data-keep="hl-title" maxlength="80"></label>
     <div class="row mt8" style="gap:12px;align-items:flex-end">
-      <label class="field"><span>${esc(t("video_lang"))}</span><select id="hlVlang">${Object.entries(LANGS).map(([k, v]) => `<option value="${k}" ${k === vl ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+      <label class="field"><span>${esc(t("video_lang"))}</span><select id="hlVlang" data-change="vsugLang">${Object.entries(LANGS).map(([k, v]) => `<option value="${k}" ${k === vl ? "selected" : ""}>${v}</option>`).join("")}</select></label>
       <label class="field"><span>${esc(t("aspect"))}</span><select id="hlAspect" ${l.aspect ? "disabled" : ""}>${["9:16", "16:9"].map((x) => `<option ${x === l.aspect ? "selected" : ""}>${x}</option>`).join("")}</select></label>
       <label class="field"><span>${esc(t("channel"))}</span><select id="hlChan"><option value="">${esc(t("none"))}</option>${S.channels.map((c) => `<option value="${esc(c.id)}" ${c.id === S.ch ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
     </div>
+    ${l.voiced === false ? "" : `<input type="hidden" id="hlVoice" value=""><div class="vsug mt12" id="hlVsug" data-pick="form" data-field="hlVoice" data-lang="${esc(vl)}" data-kind="social" data-sel=""></div>`}
     ${(l.inputs || []).includes("url") ? `<label class="field mt8"><span>${esc(t("page_url"))}</span><input type="url" id="hlUrl" placeholder="https://"></label><div class="tiny faint">${esc(t("page_url_hint"))}</div>` : ""}
     ${(l.inputs || []).includes("source_lang") ? `<label class="field mt8"><span>${esc(t("source_lang"))}</span><select id="hlSrcLang"><option value="tr">Türkçe</option><option value="en">English</option></select></label>` : ""}
     ${(l.inputs || []).includes("portrait") ? `<label class="field mt8"><span>${esc(t("portrait_file"))}</span><input type="file" id="hlPortrait" accept="image/jpeg,image/png,image/webp"></label><div class="tiny faint">${esc(t("portrait_hint"))}</div>` : ""}
@@ -295,7 +296,7 @@ ACT.hatCreate = async (el) => {
       portrait = (await upload("/api/refs/upload", $("#hlPortrait").files[0], { "X-Avatar": "1" }, () => {})).file;
     }
     const r = await post("/api/hat/projects", { portrait, url: $("#hlUrl") ? $("#hlUrl").value.trim() : null, source_lang: $("#hlSrcLang") ? $("#hlSrcLang").value : null, line: el.dataset.id, brief: $("#hlBrief").value, title: $("#hlTitle").value,
-      video_lang: $("#hlVlang").value, aspect: $("#hlAspect").value, channel: $("#hlChan").value || null, source,
+      video_lang: $("#hlVlang").value, voice_id: $("#hlVoice") ? $("#hlVoice").value : "", aspect: $("#hlAspect").value, channel: $("#hlChan").value || null, source,
       format: $("#hlFormat") ? $("#hlFormat").value : null, proof: $("#hlProof") ? $("#hlProof").checked : false,
       series: $("#hlSeries") ? $("#hlSeries").value : null, episode: $("#hlEp") ? $("#hlEp").value : null,
       images: (HS.briefImgs || []).map((x) => x.file) });
@@ -506,6 +507,17 @@ function eventsHtml(f) {
   return `<div class="card"><h3>${esc(t("live"))}</h3><div class="hl-ev">${rows.map(([e, x]) => `<div><time>${esc(dt(e.at))}</time><span>${esc(x)}${e.seconds != null && e.kind !== "tool" ? ` <span class="faint">${e.seconds}s</span>` : ""}</span></div>`).join("")}</div>
     <div class="tiny muted mt8">${esc(t("spent"))}: ${num(f.spent.credits)} ${esc(t("credits"))} · $${(f.spent.usd || 0).toFixed(2)}</div></div>`;
 }
+// narrator suggestions on the project page (until the film is done): same cards as the create form
+function voiceCard(f) {
+  const p = f.project;
+  if (!p || f.state === "done" || f.state === "archived" || p.legacy) return "";
+  return `<div class="card"><h3>${esc(t("voice"))}</h3><div class="vsug" data-pick="hat" data-lang="${esc(p.video_lang || "tr")}" data-kind="social" data-sel="${esc(p.voice_id || "")}"></div>
+    <div class="tiny faint mt8">${esc(t("voice_next"))}</div></div>`;
+}
+VSUG_HAT = async (box, el) => {
+  await post("/api/hat/project/" + encodeURIComponent(HS.pid), { action: "voice", voice_id: el.dataset.voice });
+  toast(el.dataset.name); route();
+};
 async function viewProject(pid) {
   const f = await api("/api/hat/project/" + encodeURIComponent(pid));
   HS.pid = pid;
@@ -531,7 +543,7 @@ async function viewProject(pid) {
     <div class="split mt16"><div class="col" style="gap:14px"><div class="card"><div class="row"><h2 style="margin:0">${esc(s.name)}</h2><span class="sp"></span>
         <span class="badge hl-sb st-${esc(s.status)}">${esc(t("st_" + s.status))}</span></div><div class="small muted mt8">${esc(s.says)}</div>
         ${s.note ? `<div class="note mt12 small"><b>${esc(t("feedback"))}:</b> ${esc(s.note)}</div>` : ""}<div class="mt16">${outputHtml(s, f)}</div></div></div>
-      <div class="col sticky" style="gap:14px">${decisionHtml(s, f)}${proofHtml(s.proof)}${exportHtml(f)}${deliverHtml(f)}${clipsHtml(f)}${reviewHtml(s.review)}${eventsHtml(f)}</div></div>`;
+      <div class="col sticky" style="gap:14px">${voiceCard(f)}${decisionHtml(s, f)}${proofHtml(s.proof)}${exportHtml(f)}${deliverHtml(f)}${clipsHtml(f)}${reviewHtml(s.review)}${eventsHtml(f)}</div></div>`;
   const busy = f.state === "busy" || f.stages.some((x) => x.status === "running");
   paint(html, JSON.stringify([L(), sel, f.state, f.current, f.stages.map((x) => [x.status, x.revisions, x.proof ? x.proof.unmatched : null]), f.events.length, nex, !!exporting, ndv, !!delivering, f.clips ? f.clips.clips.map((c) => [c.id, c.status, c.busy]) : 0]));
   const clipping = f.clips && f.clips.clips.some((c) => c.busy);

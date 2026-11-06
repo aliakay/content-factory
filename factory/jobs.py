@@ -328,6 +328,9 @@ def run(job_id):
             o = json.loads(arg)
             v = eleven.add_voice(o["voice_id"], o["language"], o.get("name"))
             result = f"ses eklendi: {v['name']}"
+        elif kind == "voice_suggest":   # fresh library voices for a language (owner's connector), cached for suggestions
+            from . import voices
+            result = f"{len(voices.refresh(arg))} ses önerisi"
         elif kind == "eleven_voices":   # a member's own ElevenLabs connector: read its voices on their Claude login
             from . import accounts, eleven
             acc = accounts.eleven(arg)

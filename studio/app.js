@@ -71,7 +71,7 @@ const STAGES = [["idea", "Fikir"], ["voice", "Ses"], ["preview", "Önizleme"], [
 const SL = Object.fromEntries(STAGES);
 const PL = { youtube: "YouTube", tiktok: "TikTok", instagram: "Instagram" };
 const plat = (p) => PL[p] || p || "—";
-const JOBTR = { p_ideas: "fikir üretimi", p_voice: "ses + önizleme", p_preview: "önizleme", p_render: "final render + QA", p_revise: "revizyon", p_design: "hareket tasarımı", p_direct: "art direction", p_verify: "doğrulama", p_plan: "düzenleme planı", p_plan_apply: "plan uygulama", p_music: "müzik + önizleme", p_plates: "çizimler + tasarım", plan: "planlayıcı", series_bible: "seri kitabı", series_cast: "karakter sayfaları", series_episode: "bölüm yazımı", ingest: "albüm indirme", analyze: "analiz", describe: "klip açıklama", radar: "radar", trends: "trendler", yt_stats: "YouTube istatistik", ref_lib: "referans analizi", discover: "günlük keşif", style_extract: "stil çıkarma", avatar_check: "avatar kontrolü", eleven_voices: "sesleri okuma", voice_add: "ses ekleme", talk_new: "konuşma videosu kurgusu", catalog_demos: "katalog örnek klipleri" };
+const JOBTR = { p_ideas: "fikir üretimi", p_voice: "ses + önizleme", p_preview: "önizleme", p_render: "final render + QA", p_revise: "revizyon", p_design: "hareket tasarımı", p_direct: "art direction", p_verify: "doğrulama", p_plan: "düzenleme planı", p_plan_apply: "plan uygulama", p_music: "müzik + önizleme", p_plates: "çizimler + tasarım", plan: "planlayıcı", series_bible: "seri kitabı", series_cast: "karakter sayfaları", series_episode: "bölüm yazımı", ingest: "albüm indirme", analyze: "analiz", describe: "klip açıklama", radar: "radar", trends: "trendler", yt_stats: "YouTube istatistik", ref_lib: "referans analizi", discover: "günlük keşif", style_extract: "stil çıkarma", avatar_check: "avatar kontrolü", eleven_voices: "sesleri okuma", voice_suggest: "ses önerileri", voice_add: "ses ekleme", talk_new: "konuşma videosu kurgusu", catalog_demos: "katalog örnek klipleri" };
 const KIND = { footage: ["🎞", "Çekimli"], explainer: ["✍️", "Konu"], series: ["📚", "Seri"] };
 const LOOKS = [["auto", "✨ Otomatik", "Opus sahneleri kendisi tasarlar"], ["illustrated", "🖌 Çizimli", "AI illüstrasyon + kamera + işaretler"], ["tech", "🌌 Tech", "koyu lacivert, neon vurgu"], ["paper", "📰 Paper", "Vox tarzı kâğıt"]];
 const THEME_TR = { gezi: "Gezi", vlog: "Vlog", manzara: "Manzara", motivasyon: "Motivasyon", "diğer": "Diğer" };
@@ -934,6 +934,7 @@ function actionCard(p, wide) {
     <div class="kv mt8"><div>Metin</div><div>${est.chars} karakter</div><div>Tahmin</div><div><b>~${num(est.credits)} kredi</b></div><div>Bu ay</div><div>${num(est.budget.spent)} → ${num(est.budget.after)} / ${num(est.budget.cap)}</div></div>
     ${est.budget.ok ? "" : `<div class="note err mt8">${esc(est.budget.why || "Aylık tavan aşılır")}</div>`}
     ${langPick(p)}
+    ${d.cast_voices && Object.keys(d.cast_voices).length > 1 ? "" : `<div class="vsug mt12" data-pick="v1" data-id="${id}" data-lang="${esc(d.lang || "en")}" data-kind="${d.kind === "explainer" ? "explainer" : "social"}" data-sel="${esc(d.voice_id || "")}"></div>`}
     ${(p.eleven_accounts || []).length > 1 ? `<label class="field mt12"><span>Kredi bu hesaptan düşer</span><select data-change="setEleven" data-id="${id}">${p.eleven_accounts.map((x) => `<option value="${esc(x.id)}" ${x.id === p.eleven_account ? "selected" : ""}>💳 ${esc(x.name)}${x.mine ? "" : " (paylaşılan)"}</option>`).join("")}</select></label>` : ""}
     ${d.cast_voices && Object.keys(d.cast_voices).length > 1 ? `<div class="tiny muted mt12">🎭 Karakter sesleri seri sayfasından: ${Object.keys(d.cast_voices).map(esc).join(", ")}</div>` : `<label class="field mt12"><span>Ses</span><select data-change="setVoice" data-id="${id}">${(p.voices || []).map((v) => `<option value="${esc(v.voice_id)}" ${(d.voice_id || p.default_voice || (p.voices[0] || {}).voice_id) === v.voice_id ? "selected" : ""}>🎙 ${esc(v.name)}${v.language ? " · " + esc(v.language) : ""}</option>`).join("")}</select></label>`}
     ${p.plates_estimate && p.plates_estimate.images ? `<div class="note warn mt12 small">Önce çizimler: soldaki Çizimler kartından onayla.</div>` : ""}
@@ -1399,3 +1400,45 @@ async function jobsTick() { try { S.jobs = await api("/api/jobs"); const run = S
   setInterval(jobsTick, 9000);
   setInterval(async () => { try { S.channels = await api("/api/channels"); } catch (e) {} }, 60000);
 })();
+
+/* ---- voice suggestions: 2-3 narrators per video language with a listenable sample (shared by v1 and the v2 flow) ----
+   Put <div class="vsug" data-lang="tr" data-kind="ad" data-sel="<voice_id>" data-pick="v1|hat" data-id="…"></div> anywhere;
+   it fills itself. Picking calls ACT.vsugPick, which dispatches by data-pick. */
+const VSUG_GENDER = { male: "Erkek", female: "Kadın" };
+function vsugHtml(r, sel) {
+  if (!r.voices?.length) return `<div class="tiny muted">Bu dil için öneri yok; aşağıdan sesi listeden seç.</div>`;
+  return r.voices.map((v) => `<div class="vsug-card ${v.voice_id === sel ? "on" : ""}">
+    <div class="vsug-top"><b>${esc(v.name)}</b>${v.gender ? `<span class="tiny faint">${esc(VSUG_GENDER[v.gender] || v.gender)}</span>` : ""}</div>
+    <div class="tiny muted">${esc(v.note)}</div>
+    ${v.sample ? `<audio controls preload="none" src="${esc(v.sample)}"></audio>` : `<div class="tiny faint">örnek yok</div>`}
+    <button class="btn sm ${v.voice_id === sel ? "" : "accent"} block" data-act="vsugPick" data-voice="${esc(v.voice_id)}" data-name="${esc(v.name)}" ${v.voice_id === sel ? "disabled" : ""}>${v.voice_id === sel ? "✓ Seçili" : "Bunu seç"}</button></div>`).join("");
+}
+async function vsugFill(el) {
+  if (el.dataset.ready === el.dataset.lang + "|" + el.dataset.kind + "|" + el.dataset.sel) return;
+  el.dataset.ready = el.dataset.lang + "|" + el.dataset.kind + "|" + el.dataset.sel;
+  try {
+    const r = await api(`/api/voices/suggest?lang=${encodeURIComponent(el.dataset.lang || "tr")}&kind=${encodeURIComponent(el.dataset.kind || "social")}`);
+    el.innerHTML = `<div class="vsug-head tiny muted">🎧 Bu dil için önerilen sesler · dinle, birini seç</div><div class="vsug-grid">${vsugHtml(r, el.dataset.sel)}</div>`;
+    if (r.refreshing) post("/api/voices/refresh", { lang: el.dataset.lang }).catch(() => {});
+  } catch (e) { el.innerHTML = ""; }
+}
+function vsugScan(root) { (root || document).querySelectorAll(".vsug").forEach(vsugFill); }
+new MutationObserver(() => vsugScan()).observe(document.documentElement, { childList: true, subtree: true });
+document.addEventListener("play", (ev) => {   // one sample at a time
+  if (ev.target.tagName !== "AUDIO") return;
+  document.querySelectorAll(".vsug audio").forEach((a) => { if (a !== ev.target) a.pause(); });
+}, true);
+ACT.vsugPick = async (el) => {
+  const box = el.closest(".vsug"), mode = box.dataset.pick;
+  if (mode === "v1") { await pact(box.dataset.id, "set_voice", { voice_id: el.dataset.voice }); toast(`Ses: ${el.dataset.name}`); route(); return; }
+  if (mode === "hat") { await VSUG_HAT(box, el); return; }
+  const h = document.getElementById(box.dataset.field);   // create form: remember the pick in a hidden field
+  if (h) { h.value = el.dataset.voice; box.dataset.sel = el.dataset.voice; box.dataset.ready = ""; vsugFill(box); toast(`Ses: ${el.dataset.name}`); }
+};
+let VSUG_HAT = async () => {};   // hat.js replaces this
+ACT.vsugLang = (el) => {   // create form: the video language changed → new suggestions, no pick yet
+  const box = document.getElementById("hlVsug"); if (!box) return;
+  box.dataset.lang = el.value; box.dataset.sel = ""; box.dataset.ready = "";
+  const h = document.getElementById(box.dataset.field); if (h) h.value = "";
+  vsugFill(box);
+};
