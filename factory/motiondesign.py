@@ -170,6 +170,12 @@ TASTE = """DESIGN TASTE IN NUMBERS (binding):
 - Motion: entrances 0.35-0.7 s, exits 0.2-0.35 s; staggers 0.04-0.08 s per word / 0.08-0.15 s per item; ONE easing family
   (expo.out / power3.out) plus at most one back.out accent; the camera only moves forward (keeps pushing / panning in one
   direction, never bounces back); something meaningful moves at all times, the final state holds 0.4 s.
+- Ease by role: arrivals land on a long tail (expo.out / power4.out), camera moves and colour floods ease both ways
+  (power2.inOut), zooms-through and exits accelerate (power3.in); a landed title is dead still, the motion moves to the
+  next element or the world behind. Position and size may bounce, opacity and colour never.
+- Video facts: full-screen linear gradients on dark grounds band under H.264 (use a radial gradient, a solid fill or a
+  solid plus a local glow); an accent at 5 % opacity vanishes in compression (15-25 % for atmosphere, full saturation for
+  the focal element); text meant to be read is >= 28 px at 1080 wide (2.6 % of the short side).
 - Recompose for THIS subject: never reuse a stock layout; every scene's composition comes from what it explains.
 - ANTI-SLIDESHOW: if a scene could be a PowerPoint slide (static centred text on a flat background) it is wrong: give it
   a diagram, a camera move over a picture, a build-up, a comparison that animates."""

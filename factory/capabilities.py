@@ -234,7 +234,8 @@ CAPS = {
     "edit.hook_text": {
         "area": "edit", "tr": "Büyük hook yazısı (ilk 2 sn)", "kinds": ("talk",),
         "what": "Hook text from the strongest line, big in the first 1-2 seconds (behind the speaker when a subject matte "
-                "is available).",
+                "is available). Place it so the person covers 30-55 % of the word: under ~15 % it floats, over ~65 % it is "
+                "eaten; measure the word boxes against the matte over each hook's own time window (heads move).",
     },
     "edit.motion_broll": {
         "area": "edit", "tr": "Kodla motion B-roll (~%20)", "kinds": ("talk",),
@@ -383,6 +384,15 @@ CAPS = {
                 "a grid that snaps into the logo), placed at the emotional peak; the ending rhymes with the opening.",
         "designer": "Design ONE signature move at the peak and make the last frame echo the first (same place / pose / "
                     "motif, changed).",
+    },
+    "sound.beat_grid": {
+        "area": "sound", "tr": "Ritim ızgarası (vuruşa kes)", "kinds": ("topic", "talk"),
+        "what": "When music drives the film: compute every beat from its index (frames per beat = fps x 60 / BPM, round "
+                "each beat, never add a rounded beat repeatedly: 128 BPM at 30 fps drifts 2 frames in 32 beats). Land the "
+                "payoff and the mark on strong beats, cut on the beat, change the layout on the bar (every 4 beats); cuts "
+                "follow the motion, not the drums.",
+        "designer": "Pick BPM from the track, list beat times as round(i * fps * 60 / BPM) / fps, put scene starts on "
+                    "beats and layout changes on bars.",
     },
     "sound.silence_turn": {
         "area": "sound", "tr": "Dönüşten önce sessizlik", "kinds": ("topic", "talk"),
