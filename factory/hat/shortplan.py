@@ -196,10 +196,10 @@ def scenes(pid, s, design_art, part, script, note=None, d=None, ask=None, build=
 
 def validate(plan, script, board, refs=()):
     """Everything the gate would refuse, in one list (camera, subject, mechanism, determinism, originality, board)."""
-    from .. import camera, determinism, motiongrammar, originality, subjectqc
+    from .. import camera, determinism, motiongrammar, originality, shotplan, subjectqc
     lines = script.get("lines") or []
     scenes_ = plan.get("scenes") or []
-    found = T.validate_artifact("scene_plan", plan)
+    found = shotplan.problems(scenes_, lines) or T.validate_artifact("scene_plan", plan)
     found += camera.problems(scenes_) or motiongrammar.problems(scenes_) or subjectqc.problems(scenes_, lines) \
         or determinism.problems(plan) or originality.problems(plan, lines, refs) \
         or direction_problems(plan, board)

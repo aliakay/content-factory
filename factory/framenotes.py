@@ -7,7 +7,7 @@ those scenes are drawn again.
 """
 import json, os, re, uuid
 
-from . import sceneedit
+from . import noteanchor, sceneedit
 from .hat import project as P
 
 FILE = "frame_notes.json"
@@ -110,6 +110,11 @@ def add(pid, text, t=None, scene=None, x=None, y=None, origin="frame", by=None, 
     data = load(pid, d)
     note = {"id": "c" + uuid.uuid4().hex[:6], "text": text, "origin": origin if origin in ("frame", "video") else "frame",
             "status": "open", "by": by, "at": P.now(), **where}
+    # the note stays with its moment: its scene and the offset inside it, so a re-timed scene keeps the note on frame
+    try:
+        note = noteanchor.anchor(note, sceneedit.prepare(pid, d).get("scenes") or [])
+    except Exception:
+        pass
     data["notes"].append(note)
     _save(pid, data, d)
     P.event(pid, "frame_note", d=d, id=note["id"], scene=note["scene"], by=by)
@@ -152,8 +157,29 @@ def note_text(pid, notes, d=None):
             "cannot be done inside its scene, say so in `summary`.\n" + "\n".join(_line(n, size) for n in notes))
 
 
+def follow(pid, d=None):
+    """Re-derive every open note's time from its anchor after the plan was re-timed (scene trimmed, cut moved).
+
+    A note is written on a moment, not on a second: `factory/noteanchor.py` keeps scene + offset, so a re-cut film
+    still points the designer at the right frame; a note whose scene is gone is marked stale and says so."""
+    data = load(pid, d)
+    try:
+        scenes = sceneedit.prepare(pid, d).get("scenes") or []
+        before = [dict(n) for n in data["notes"]]
+        data["notes"] = noteanchor.follow(data["notes"], scenes)
+        moved = [n["id"] for n, b in zip(data["notes"], before) if n.get("t") != b.get("t")]
+        if moved or any(n.get("stale") for n in data["notes"]):
+            _save(pid, data, d)
+            P.event(pid, "notes_followed", d=d, moved=moved,
+                    stale=[n["id"] for n in data["notes"] if n.get("stale")])
+    except Exception:
+        return data["notes"]
+    return data["notes"]
+
+
 def pending(pid, d=None):
-    return [n for n in load(pid, d)["notes"] if n["status"] in ("open", "sent")]
+    notes = follow(pid, d)
+    return [n for n in notes if n["status"] in ("open", "sent")]
 
 
 def send(pid, queue, by=None, d=None):

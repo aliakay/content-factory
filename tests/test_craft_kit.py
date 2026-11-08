@@ -95,3 +95,18 @@ def test_the_board_measures_the_style_preview(tmp_path):
     assert len(m.get("palette") or []) == 5 and m.get("accent", "").startswith("#")
     assert 10 <= m["key"]["elevation_deg"] <= 70 and "patch" in m
     assert board["palette"]["bg"].startswith("#")          # the card's palette still wins when it is real
+
+
+# ---------------------------------------------------------------- the own-footage tools (footagecut)
+def test_pause_trim_and_retake_flags_read_the_project_transcript(tmp_path):
+    import json
+    from factory.hat import project as P, tools as T
+    d = str(tmp_path / "projects")
+    pid = P.create("travel_vlog", "t", d=d)["id"]
+    words = [["bir", 0.0, 0.4], ["iki", 0.45, 0.9], ["üç", 14.0, 14.4], ["dört", 14.45, 14.9]]
+    P.write_artifact(pid, "transcript", {"words": words, "duration": 16.0}, d)
+    ctx = T.Ctx(pid, "scene_plan", d)
+    trim = T.call("pause_trim", ctx, {})
+    assert trim["saved_s"] > 2.0 and trim["intervals"] and "filter" in trim
+    flags = T.call("retake_flags", ctx, {})
+    assert flags["count"] == 0 and "bayrak yok" in flags["summary"]

@@ -42,7 +42,7 @@ stages:
     gate: true
     run: code
     call: factory.hat.footage:assets
-    tools: [tts, align_words, music, preview_render]
+    tools: [tts, align_words, music, preview_render, retake_flags, pause_trim]
 
   - id: edit
     run: code
