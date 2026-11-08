@@ -170,11 +170,32 @@ def findings(script, lang="tr"):
     return out
 
 
+def _reaches(sentence, script, lang="tr"):
+    """Does the cold reader's sentence reach the film's subject? The title is the test, but the hook says the same
+    thing sooner, a proper name (ASELSAN) or a figure carries the subject across languages, and a reader that
+    answers in the other language still names it."""
+    title = str((script or {}).get("title") or "")
+    hook = str((script or {}).get("hook") or "")
+    if not words.content(title, lang):
+        return True                                   # a title with no content word cannot be compared
+    if words.shares_content(title, sentence, lang) or words.shares_content(hook, sentence, lang):
+        return True
+    folded = words.fold(sentence)
+    for name in words.proper_nouns(title) + words.proper_nouns(hook):
+        if len(name) > 2 and words.fold(name) in folded:
+            return True
+    import re as _re
+    def nums(text):
+        return {x.replace(".", "").replace(",", ".") for x in _re.findall(r"\d[\d.,]*", text)}
+    return bool(nums(title + " " + hook) & nums(sentence))
+
+
 def problems(script, lang="tr"):
     """The blocking cold-test failures, as short sentences for `submit_artifact`."""
     return [f["detail"] for f in findings(script, lang) if f["severity"] == "block"]
 
 
+LANG = {"tr": "Turkish", "en": "English"}
 COLD = """You have not seen this short video and you will not see it. You have only its lines, in order.
 
 Title: {title}
@@ -186,7 +207,9 @@ Answer with ONLY JSON:
   "throughline": "the one thing it is really about, in two or three words",
   "delivers": true,
   "remembered": "the one phrase or figure you would remember tomorrow"}}
-`delivers` is true only if the closing line gives the viewer what the title and the first line promised."""
+`delivers` is true only if the closing line gives the viewer what the title and the first line promised.
+Write `one_sentence` and `throughline` in {language} — the video's language, the same language as the title — and name
+the title's subject with the title's own words: a reviewer compares them word for word."""
 
 
 def cold_read(script, lang="tr", ask=None):
@@ -198,7 +221,8 @@ def cold_read(script, lang="tr", ask=None):
     ask = ask or _ask
     lines = content_lines(script, lang)
     prompt = COLD.format(title=str((script or {}).get("title") or ""),
-                         lines="\n".join(f"{i + 1}. {x}" for i, x in enumerate(lines)))
+                         lines="\n".join(f"{i + 1}. {x}" for i, x in enumerate(lines)),
+                         language=LANG.get(lang, LANG["en"]))
     try:
         out = ask(prompt) or {}
     except Exception as e:
@@ -207,8 +231,7 @@ def cold_read(script, lang="tr", ask=None):
     if out.get("delivers") is False:
         problems.append("a cold read says the closing line does not deliver what the title promised")
     sentence = str(out.get("one_sentence") or "")
-    title = str((script or {}).get("title") or "")
-    if sentence and words.content(title, lang) and not words.shares_content(title, sentence, lang):
+    if sentence and not _reaches(sentence, script, lang):
         problems.append(f"a cold read of the lines does not reach the title's subject ('{sentence[:120]}')")
     return {"ok": bool(out.get("delivers")) and not problems, "one_sentence": sentence,
             "throughline": out.get("throughline"), "delivers": out.get("delivers"),

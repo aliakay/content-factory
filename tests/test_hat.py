@@ -398,7 +398,8 @@ def test_cli_commands_attach_our_server(monkeypatch, tmp_path):
     import subprocess
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(llm, "_record", lambda *a, **k: None)
-    monkeypatch.setattr(llm, "selected_provider", lambda *a, **k: "claude")
+    monkeypatch.setattr(llm, "selected_provider", lambda *a, **k: "claude")   # and the per-step choice
+    monkeypatch.setattr(llm, "provider_for", lambda *a, **k: "claude")        # (the VM user may have saved another)
     monkeypatch.setattr(accounts, "claude_env", lambda: {})
     monkeypatch.setattr(llm, "WORKDIR", str(tmp_path))
     monkeypatch.setattr(llm, "ask_text", _REAL_ASK_TEXT)      # subprocess is faked above, so nothing real runs

@@ -71,7 +71,8 @@ stages:
 
   - id: scene_plan
     gate: true
-    run: agent
+    run: code
+    call: factory.hat.shortplan:build
     model: opus
     tools: [read_artifact, catalog, recipes, stock_search, render_stills, layout_lint, contact_sheet, proof_check, rhythm_check, subject_check, originality_check]
     review:

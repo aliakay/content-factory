@@ -91,7 +91,7 @@ function thumb(p) { return p.thumb_url || (p.thumb ? `/thumb/clip/${encodeURICom
 
 // ---------------- shell ----------------
 const NAV = [   // studio/hat.js puts "Üret" and "Üretimler" first; the old board and planner home are reached by link only
-  ["#/kesif", "compass", "Keşif"], ["#/takip", "chart", "Takip"],
+  ["#/kesif", "compass", "Keşif"], ["#/takip", "chart", "Takip"], ["#/inceleme", "chart", "İnceleme"],
   null,
   ["#/seriler", "book", "Seriler"], ["#/yerler", "pin", "Yerler & çekimler"], ["#/referanslar", "ref", "Referanslar"], ["#/katalog", "layers", "Teknik kataloğu"],
   null,
@@ -1299,11 +1299,21 @@ ROUTES["#/butce"] = async () => {
     ${u ? `<h2>Son AI çağrıları</h2><div class="card pad0" style="overflow-x:auto"><table><tbody>${u.recent.slice(0, 20).map((r) => `<tr><td class="tiny">${dt(r.at)}</td><td class="small">${esc(r.step)}${r.ok ? "" : ' <span class="bad tiny">hata</span>'}<div class="tiny faint">${esc(r.model)}</div></td><td class="num">${r.cost == null ? "—" : usd(r.cost)}</td></tr>`).join("")}</tbody></table></div>` : ""}
   </div></div>`);
 };
+ROUTES["#/inceleme"] = async () => {
+  const r = await api("/api/reviewstats"); crumb(["İnceleme"]);
+  paint(`<h1>İncele<span class="serif">me</span></h1><p class="lead">Kapıların neyi reddettiği ve her aşamanın ne kadar sürdüğü — ${r.projects || 0} proje üzerinden.</p>
+    <h2>Aşama süreleri</h2><div class="card pad0"><table><thead><tr><th>Aşama</th><th class="num">Koşu</th><th class="num">Ort. dk</th><th class="num">En uzun</th></tr></thead><tbody>
+      ${(r.stages || []).map((s) => `<tr><td>${esc(s.stage)}</td><td class="num">${s.runs}</td><td class="num">${s.avg_min}</td><td class="num">${s.max_min}</td></tr>`).join("") || '<tr><td colspan="4" class="muted">henüz veri yok</td></tr>'}</tbody></table></div>
+    <h2>En sık kapı reddi</h2><div class="card pad0"><table><tbody>
+      ${(r.rejections || []).map((x) => `<tr><td class="num">${x.count}×</td><td class="small">${esc(x.problem)}</td><td class="tiny faint">${esc((x.stages || []).join(", "))}</td></tr>`).join("") || '<tr><td class="muted">red yok</td></tr>'}</tbody></table></div>
+    <h2>Denetim kararları</h2><div class="card small">${Object.entries(r.reviews || {}).map(([k, v]) => `${esc(k)}: <b>${v}</b>`).join(" · ") || "—"}</div>
+    <div class="small muted mt12">Skill'lere eklenecek satırlar için: <code>.venv/bin/python -m factory.hat.reviewstats</code></div>`);
+};
 ROUTES["#/hesaplar"] = async () => {
   S.me = await api("/api/me"); const m = S.me; crumb(["Hesaplar"]);
   const cl = m.claude.connected ? `<div class="small">✅ Bağlı · ${esc(m.claude.how)}${m.claude.at ? " · " + esc(m.claude.at) : ""}</div>` : `<div class="small">❌ Bağlı değil.</div>`;
   const lc = m.llm_settings || { provider: "claude", models: {} }, provider = lc.provider || "claude";
-  const orr = m.openrouter || {}, ev = m.eleven_settings || { via: "auto" }, evt = m.eleven_transports || {};
+  const orr = m.openrouter || {};
   const gm = m.gemini || {}, ms = m.media_settings || {}, ML = { voice: "Ses", music: "Müzik", image: "Görsel", video: "Video" };
   const mediaCard = `<div class="card mt16"><h3>🎨 Medya üreticisi</h3>
     <p class="small muted">Ses, müzik, görsel ve videoyu kim üretsin? ElevenLabs krediyle çalışır (connector ya da API anahtarı); Gemini kendi anahtarınla, <b>dolar</b> olarak faturalanır ve ayrı deftere yazılır. Varsayılan ElevenLabs.</p>
@@ -1317,7 +1327,7 @@ ROUTES["#/hesaplar"] = async () => {
   const steps = m.llm_agents || [];
   const saved = lc.providers || {};
   S.llmDraft = { provider: provider, mix: Object.keys(saved).some((k) => k !== "default"),
-                 providers: { ...saved }, models: { ...(lc.models || {}) } };
+                 providers: { ...saved }, models: { ...(lc.models || {}) }, effort: { ...(lc.effort || {}) } };
   if (S.llmDraft.providers.default) delete S.llmDraft.providers.default;   // the default CLI covers it
   S.llmSteps = steps;
 
@@ -1338,6 +1348,13 @@ ROUTES["#/hesaplar"] = async () => {
     }
     return `<select data-agent-model="${esc(step)}" data-change="agentModel"><option value="">${esc(def)} · varsayılan</option>${(m.llm_models[prov] || []).map((x) => `<option value="${esc(x.id)}" ${id === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select>`;
   };
+  const EFFNAME = { low: "az", medium: "orta", high: "çok" };
+  const effortField = (step) => {
+    const cur = S.llmDraft.effort[step] || "";
+    return `<select data-agent-effort="${esc(step)}" data-change="agentEffort" title="Bu agent ne kadar düşünsün"
+              style="max-width:96px"><option value="">düşünme: varsayılan</option>${Object.entries(EFFNAME).map(([k, n]) =>
+              `<option value="${k}" ${cur === k ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>`;
+  };
   S.llmGrid = () => steps.map((a) => {
     const prov = eff(a.id);
     const picker = S.llmDraft.mix
@@ -1345,7 +1362,7 @@ ROUTES["#/hesaplar"] = async () => {
            ${Object.entries(PNAME).map(([k, n]) => `<option value="${k}" ${prov === k ? "selected" : ""}>${esc(n)}</option>`).join("")}
          </select>`
       : `<span class="badge" title="Tüm agent'lar bu CLI'da: değiştirmek için yukarıdaki CLI kutusunu kullan">${esc(PNAME[prov] || prov)}</span>`;
-    return `<label class="field"><span>${esc(a.name)}</span><div class="row nowrap" style="gap:6px">${picker}${modelField(prov, a.id)}</div></label>`;
+    return `<label class="field"><span>${esc(a.name)}</span><div class="row nowrap" style="gap:6px">${picker}${modelField(prov, a.id)}${effortField(a.id)}</div></label>`;
   }).join("");
   const agentGrid = S.llmGrid();
   const acc = m.eleven.map((a) => { const b = a.balance || {}; const can = a.mine || m.role === "owner";
@@ -1357,13 +1374,16 @@ ROUTES["#/hesaplar"] = async () => {
   paint(`<div class="row"><h1>Hesap<span class="serif">lar</span></h1><span class="sp"></span>${m.login ? `<button class="btn sm ghost" data-act="logout">Çıkış</button>` : ""}</div>
   <div class="small muted mt8">Giriş yapan: <b>${esc(m.name)}</b> (${m.role === "owner" ? "sahip" : "üye"})</div>
   <div class="card mt16"><h3>⚙️ CLI ve model seçenekleri</h3><p class="small muted">Agent’ların hangi CLI ve modeli kullanacağını seç. Kaydettikten sonra başlayan işlerde uygulanır.</p>
+    <label class="field mt12"><span>Denetim (reviewer)</span><select id="review_rounds">
+      ${(m.review_options || [0, 1, 2]).map((n) => `<option value="${n}" ${(m.review_rounds ?? 1) === n ? "selected" : ""}>${n === 0 ? "yok · reviewer çalışmasın" : n === 1 ? "1 tur · varsayılan" : "2 tur · gerekirse düzeltme"}</option>`).join("")}
+    </select></label>
     <label class="field mt12"><span>CLI</span><select id="llm_provider" data-change="llmProvider">
       <option value="claude" ${!S.llmDraft.mix && provider === "claude" ? "selected" : ""}>Claude Code</option>
       <option value="openrouter" ${!S.llmDraft.mix && provider === "openrouter" ? "selected" : ""}>OpenRouter API</option>
       <option value="codex" ${!S.llmDraft.mix && provider === "codex" ? "selected" : ""}>OpenAI Codex CLI</option>
       <option value="mix" ${S.llmDraft.mix ? "selected" : ""}>Karışık (agent bazında)</option>
     </select></label>
-    <div class="small muted mt8" id="llm_provider_note">${provider === "codex" ? "Varsayılan model tüm agent’larda GPT-6-Luna. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs de Codex connector’ı üzerinden çalışır." : provider === "openrouter" ? "Varsayılan model DeepSeek V4.1 Flash. OpenRouter API anahtarınla çalışır; araçlar (sahne, ses, yayın adımları) sunucudaki fabrika araçları üzerinden yürür, web aramasını OpenRouter’ın kendi sunucu araçları yapar (kaynaklar alıntıyla döner). ElevenLabs connector'ı bir CLI girişinde yaşar: OpenRouter seçiliyken de ses/görsel işleri Claude Code ya da Codex'teki connector'a (Hesaplar → ElevenLabs · Codex connector) gider; API anahtarı hesabı ise ses/müzik/efekti doğrudan üretir." : "Varsayılanlar mevcut Claude agent modelleridir (opus/sonnet gibi); değiştirmediğin seçimler korunur."}</div>
+    <div class="small muted mt8" id="llm_provider_note">${provider === "codex" ? "Varsayılan model tüm agent’larda GPT-6-Luna. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs sesi/müziği API anahtarı hesabından üretilir." : provider === "openrouter" ? "Varsayılan model DeepSeek V4.1 Flash. OpenRouter API anahtarınla çalışır; araçlar (sahne, ses, yayın adımları) sunucudaki fabrika araçları üzerinden yürür, web aramasını OpenRouter’ın kendi sunucu araçları yapar (kaynaklar alıntıyla döner). Ses/müzik/görsel/video ElevenLabs API anahtarı hesabından (ya da Gemini'den) üretilir." : "Varsayılanlar mevcut Claude agent modelleridir (opus/sonnet gibi); değiştirmediğin seçimler korunur."}</div>
     <h3 class="mt16">Agent modelleri</h3><div class="grid mt8" id="agentGrid" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">${agentGrid}</div>
     <button class="btn accent sm mt12" data-act="llmSave">Kaydet</button></div>
   <div class="card mt16"><h3>🔑 OpenRouter API</h3>
@@ -1375,21 +1395,6 @@ ROUTES["#/hesaplar"] = async () => {
     <p class="small muted mt8">Anahtarını <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey ↗</a> üzerinden al. Anahtar girince Medya üreticisi bölümünde Gemini seçilebilir.${m.gemini_spend ? ` · bu ay <b>$${m.gemini_spend.toFixed(2)}</b>` : ""}</p>
     <div class="row nowrap mt8"><input type="password" id="gm_key" placeholder="AIza…" autocomplete="off" spellcheck="false"><button class="btn accent sm" data-act="geminiKey">Kaydet</button>${gm.mine ? `<button class="btn sm ghost danger" data-act="geminiClear">Kaldır</button>` : ""}</div></div>
   ${mediaCard}
-  ${provider === "openrouter" ? `<div class="card mt16"><h3>🎙 ElevenLabs taşıması</h3>
-    <p class="small muted">Agent’lar OpenRouter’da yazıyor. ElevenLabs işlerini (ses, müzik, efekt, görsel, video, avatar) kimin çalıştıracağını burada seç: <b>API</b> = kendi kodumuz anahtarınla REST’ten üretir; <b>Codex</b>/<b>Claude</b> = o CLI’daki connector üretir. Otomatik, bağlı olanı seçer.</p>
-    <label class="field mt8"><span>Taşıma</span><select id="eleven_via">
-      <option value="auto" ${ev.via === "auto" ? "selected" : ""}>Otomatik (bağlı olan)</option>
-      <option value="api" ${ev.via === "api" ? "selected" : ""}>API anahtarı ${evt.api ? "" : "· hesap yok"}</option>
-      <option value="codex" ${ev.via === "codex" ? "selected" : ""}>Codex CLI ${evt.codex ? "· bağlı" : "· bağlı değil"}</option>
-      <option value="claude" ${ev.via === "claude" ? "selected" : ""}>Claude Code ${evt.claude ? "· bağlı" : "· bağlı değil"}</option>
-    </select></label>
-    <button class="btn accent sm mt8" data-act="elevenVia">Kaydet</button></div>` : ""}
-  <div class="card mt16"><h3>🔌 ElevenLabs · Codex connector</h3>
-    <div class="small">${m.codex_elevenlabs?.connected ? "✅ Codex CLI’ye bağlı" : "❌ Codex CLI’ye bağlı değil"}</div>
-    <p class="small muted mt8">Codex seçildiğinde ses, müzik ve görsel üretimi bu bağlantıdan yapılır. ElevenLabs’te izin verdikten sonra localhost dönüş sayfası açılmasa bile adres çubuğundaki URL’nin tamamını kopyalayıp aşağıya yapıştır.</p>
-    ${m.role === "owner" ? `<button class="btn accent sm mt8" data-act="codexElevenConnect" ${m.codex_elevenlabs?.connected ? "disabled" : ""}>${m.codex_elevenlabs?.connected ? "Bağlandı" : "ElevenLabs’i Codex’e bağla"}</button>` : '<div class="tiny muted">Bu bağlantıyı hesap sahibi yönetir.</div>'}
-    <div id="codex_oauth_flow" class="mt12">${m.codex_elevenlabs?.flow === "waiting" ? `<div class="note info small">ElevenLabs girişini aç, izin ver ve yönlendirme URL’sini aşağıya yapıştır.</div><input type="url" id="codex_oauth_url" class="mt8" placeholder="http://127.0.0.1:…/callback?code=…&state=…"><button class="btn sm mt8" data-act="codexElevenFinish">Codex bağlantısını tamamla</button>` : m.codex_elevenlabs?.error ? `<div class="note err small">${esc(m.codex_elevenlabs.error)}</div>` : ""}</div>
-  </div>
   <div class="card mt16"><h3>🤖 Claude hesabı</h3>${cl}${m.role === "owner" ? "" : `<div id="clflow" class="mt12"><button class="btn sm accent" data-act="claudeStart" data-mode="login">🔗 Tam giriş ile bağla</button> <button class="btn sm" data-act="claudeStart" data-mode="token">🔑 Anahtar ile bağla</button></div>`}</div>
   <h2>ElevenLabs hesapları</h2><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">${acc}</div>
   <div class="card mt16"><h3>＋ ElevenLabs API anahtarı ekle</h3><input type="text" id="ak_name" placeholder="hesap adı (isteğe bağlı)"><input type="password" id="ak_key" placeholder="API anahtarı" class="mt8"><button class="btn accent sm mt8" data-act="accAdd">Ekle ve sesleri oku</button>
@@ -1425,13 +1430,17 @@ ACT.llmNote = () => {
     : p === "codex"
     ? "Tüm agent'lar Codex CLI'da. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs de Codex connector'ı üzerinden çalışır."
     : p === "openrouter"
-    ? "Tüm agent'lar OpenRouter'da; varsayılan DeepSeek V4.1 Flash, model kutusundan başka bir model seçebilir ya da kimliğini yazabilirsin. Araçlar sunucudaki fabrika araçlarından, web araması OpenRouter'ın sunucu araçlarından gelir. ElevenLabs connector'ı bir CLI girişinde yaşar (Hesaplar → ElevenLabs taşıması); API anahtarı hesabı doğrudan üretir."
+    ? "Tüm agent'lar OpenRouter'da; varsayılan DeepSeek V4.1 Flash, model kutusundan başka bir model seçebilir ya da kimliğini yazabilirsin. Araçlar sunucudaki fabrika araçlarından, web araması OpenRouter'ın sunucu araçlarından gelir. Ses/müzik/görsel/video, seçtiğin ElevenLabs API hesabından ya da Gemini'den üretilir."
     : "Tüm agent'lar Claude Code'da; varsayılanlar opus/sonnet gibi Claude modelleridir.";
 };
 ACT.agentProvider = (el) => {
   S.llmDraft.providers[el.dataset.agentProvider] = el.value;
   delete S.llmDraft.models[el.dataset.agentProvider];     // the old CLI's model does not carry over
   ACT.renderAgents();
+};
+ACT.agentEffort = (el) => {
+  const step = el.dataset.agentEffort, v = el.value || "";
+  if (v) S.llmDraft.effort[step] = v; else delete S.llmDraft.effort[step];
 };
 ACT.agentModel = (el) => {
   const step = el.dataset.agentModel, v = (el.value || "").trim();
@@ -1444,26 +1453,16 @@ ACT.llmSave = async () => {
     if (v) models[step] = v; else delete models[step];
   }
   const providers = S.llmDraft.mix ? { ...S.llmDraft.providers } : {};
+  const effort = { ...S.llmDraft.effort };
+  for (const x of $$('[data-agent-effort]')) {
+    const v = x.value, step = x.dataset.agentEffort;
+    if (v) effort[step] = v; else delete effort[step];
+  }
   try {
-    await post("/api/llm/settings", { provider: S.llmDraft.provider, models, providers });
+    await post("/api/llm/settings", { provider: S.llmDraft.provider, models, providers, effort,
+                                      review_rounds: parseInt($("#review_rounds").value, 10) });
     toast(S.llmDraft.mix ? "Karışık CLI'lar ve modeller kaydedildi" : "CLI ve modeller kaydedildi"); route();
   } catch (e) { toast(e.message, 1); }
-};
-ACT.codexElevenConnect = async () => {
-  const r = await post("/api/codex/elevenlabs/start", {});
-  if (r.connected) { toast("Codex ElevenLabs zaten bağlı"); return route(); }
-  if (!r.url) throw new Error("ElevenLabs giriş bağlantısı alınamadı");
-  $("#codex_oauth_flow").innerHTML = `<a class="btn sm mt8" href="${esc(r.url)}" target="_blank" rel="noopener">ElevenLabs girişini aç ↗</a><div class="note info small mt8">İzin verdikten sonra localhost dönüş sayfası açılamayabilir. Tarayıcı adres çubuğundaki URL’nin tamamını kopyalayıp buraya yapıştır:</div><input type="url" id="codex_oauth_url" class="mt8" placeholder="http://127.0.0.1:…/callback?code=…&state=…"><button class="btn sm mt8" data-act="codexElevenFinish">Codex bağlantısını tamamla</button>`;
-};
-ACT.codexElevenFinish = async () => {
-  await post("/api/codex/elevenlabs/finish", { url: $("#codex_oauth_url").value.trim() });
-  for (let i = 0; i < 30; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const status = await api("/api/codex/elevenlabs/status");
-    if (status.connected) { toast("Codex ElevenLabs bağlandı"); return route(); }
-    if (status.flow === "error") throw new Error(status.error || "Codex OAuth tamamlanamadı");
-  }
-  throw new Error("Codex bağlantısı henüz tamamlanmadı; birkaç saniye bekleyip durumu yenile");
 };
 ACT.logout = async () => { await post("/api/logout"); location.href = "/login"; };
 ACT.accShared = async (el) => { await post(`/api/eleven/accounts/${el.dataset.id}/update`, { shared: el.checked }); toast("Kaydedildi"); };

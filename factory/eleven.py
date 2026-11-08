@@ -1,51 +1,27 @@
-"""ElevenLabs generation through the MCP connector configured in the selected CLI (Claude or Codex).
+"""ElevenLabs through its REST API (an API-key account). The CLI connector path was removed.
 
-No API key needed: a headless CLI turn calls the connector's generate tool, polls the flow run and returns the
-signed audio/image/video URL plus its `credit_cost`; we download the file and write the spend to the ledger.
-Callers must have shown the user a credit estimate and received approval first (see credits.estimate).
+Everything a film needs is here and needs no CLI session: speech, music, sound effects, images, generated video,
+talking presenters (image + speech) and asset uploads. Each call is guarded by the approved credit amount
+(`credits.guard`), measured against the account's real balance, and written to the credit ledger. Files are cached by
+their inputs, so a re-run of a stage never pays twice for the same take.
+
+A capability can be pointed at Google Gemini instead (Hesaplar → Medya üreticisi, factory/mediaprov.py): the same
+functions hand the work to factory/gemini.py and return the same shapes, so no caller knows which provider made the
+file. Node ids we hand back are `gen:<generation id>` / `asset:<asset id>` for the REST path.
 """
-import hashlib, json, os, subprocess, urllib.request
-from contextlib import nullcontext
-from datetime import datetime, timezone
+import hashlib, json, os, subprocess
 
-from . import accounts, credits, eleven_api, llm
+from . import accounts, credits, eleven_api
 
 from .config import FFPROBE, ROOT
 OUT = os.path.join(ROOT, "assets", "eleven")
-CONNECTOR_MODEL = "sonnet"  # light connector driving when Claude is the selected CLI
-T = "mcp__claude_ai_ElevenLabs__"
-POLL_TOOLS = (T + "creative_get_flow_run_status", T + "creative_get_flow_node", T + "creative_get_flow")
-
-
-class ElevenError(RuntimeError):
-    pass
-
-
-def _connector_context(account):
-    """Claude connectors belong to their account owner; Codex MCP uses the CLI's own profile.
-
-    The CLI is the one that carries the ElevenLabs connector (llm.connector_provider()), which is the selected CLI
-    unless the agents run on OpenRouter: an API model has no connectors, so these turns stay on a CLI.
-    """
-    if llm.connector_provider() == "codex":
-        return nullcontext()
-    acc = accounts.eleven(account)
-    return accounts.as_user((acc or {}).get("owner"))
-
-
-def _download(url, ext, key):
-    os.makedirs(OUT, exist_ok=True)
-    path = os.path.join(OUT, f"{key}.{ext}")
-    urllib.request.urlretrieve(url, path + ".part")
-    os.replace(path + ".part", path)
-    return path
-
-
-ERROR_REPLY = """If a tool returns an error (nothing generated), do not retry or work around it: reply ONLY JSON
-{"url": null, "error": "<the tool's exact error text>"}."""
-READ_TOOLS = (T + "creative_list_flows", T + "creative_get_flow", T + "creative_get_flow_node",
-              T + "creative_get_generations") + POLL_TOOLS
-
+IMAGE_MODEL = "gpt-image-2"
+EDIT_MODEL = "gpt-image-2.5-sunburst"   # the model for an image made from reference images
+VIDEO_MODEL = "bytedance-seedance-v2.5"
+AVATAR_MODEL = "creatify-aurora"
+PROFILE = os.path.join(ROOT, "data", "eleven_profile.json")
+MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".mp3": "audio/mpeg",
+        ".wav": "audio/wav", ".m4a": "audio/mp4", ".mp4": "video/mp4", ".mov": "video/quicktime"}
 # ElevenLabs errors the user can act on (the raw text stays in the job log after the explanation)
 KNOWN_ERRORS = (
     ("free_tier_image_limit", "ElevenLabs hesabı ücretsiz planda ve günlük görsel limiti doldu; yarın tekrar dene "
@@ -56,6 +32,10 @@ KNOWN_ERRORS = (
 )
 
 
+class ElevenError(RuntimeError):
+    pass
+
+
 def explain(error):
     text = str(error)
     for needle, why in KNOWN_ERRORS:
@@ -64,73 +44,25 @@ def explain(error):
     return text[:400]
 
 
-def recover(model, since, flow_id=None):
-    """The generation may have run even if the reply was malformed: fetch the one for `model` started at or after
-    `since` (URL + credit cost) instead of generating again and paying twice. Older generations never count."""
-    where = (f'Read flow_id "{flow_id}" with creative_get_flow' if flow_id else
-             "Call creative_list_flows and read the most recently updated flows with creative_get_flow")
-    prompt = f"""Use ElevenLabs tools to READ only (never generate, never add or change nodes). {where}, then
-creative_get_flow_node on its nodes with model "{model}" to see their generations. Take the newest generation created at
-or after {since} (UTC); ignore anything older. Read its signed file URL with creative_get_generations and its
-price.credits with creative_get_flow_run_status.
-Reply ONLY JSON: {{"url": "<signed url or null if there is no such generation>", "credit_cost": <number or null>,
-"flow_id": "<flow id>", "node_id": "<node id>", "created": "<time>"}}"""
-    data, meta = llm.ask(prompt, tools=READ_TOOLS, timeout=600, mcp=True, model=CONNECTOR_MODEL)
-    if not isinstance(data, dict) or not data.get("url"):
-        raise ElevenError(f"{model} üretimi bulunamadı (büyük olasılıkla başlamadı, kredi harcanmadı)")
-    return data, meta
-
-
-def _run(prompt, tools, timeout=900, model=None, flow_id=None):
-    """One headless turn that must reply {"url": ...}. A reply carrying "error" means the connector refused before
-    anything ran: surface it. A missing/malformed reply may hide a finished generation: recover it (with `model`)."""
-    since = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    try:
-        data, meta = llm.ask(prompt, tools=tools, timeout=timeout, mcp=True, model=CONNECTOR_MODEL)
-    except llm.LLMError as e:
-        if not model:
-            raise
-        try:
-            return recover(model, since, flow_id)
-        except ElevenError as r:
-            raise ElevenError(f"{r}; ilk yanıt: {str(e)[:300]}") from None
-    if isinstance(data, dict) and not data.get("url") and data.get("error"):
-        raise ElevenError(explain(data["error"]))
-    if not isinstance(data, dict) or not data.get("url"):
-        if model:
-            return recover(model, since, (data or {}).get("flow_id") if isinstance(data, dict) else flow_id)
-        raise ElevenError(f"no file URL returned: {json.dumps(data)[:300]}")
-    return data, meta
-
-
-def _account(account):
+def _account(account=None):
+    """The account this call spends from, checked: it must exist, be usable, and be an API-key account."""
     account = account or accounts.default_eleven()
     acc = accounts.eleven(account)
     if not acc or not accounts.can_use(account):
         raise ElevenError(f"ElevenLabs hesabı kullanılamıyor: {account}")
+    if acc.get("type") != "apikey":
+        raise ElevenError("bu ElevenLabs hesabı connector tipinde; connector kaldırıldı — Hesaplar → ElevenLabs API "
+                          "anahtarı ekle ve hesabı varsayılan yap")
     return account, acc
 
 
-def via():
-    """This user's ElevenLabs transport choice: 'auto' | 'api' | 'codex' | 'claude' (Hesaplar → ElevenLabs)."""
-    try:
-        return accounts.eleven_settings().get("via") or "auto"
-    except Exception:
-        return "auto"
-
-
-def transport(account=None):
-    """'api' when our REST client does the work, 'cli' when a CLI's connector does.
-
-    An API-key account never needs a CLI; a connector account always does, and `llm.connector_provider()` picks which
-    one (the creator's choice when the agents run on OpenRouter, else the selected CLI)."""
-    _, acc = _account(account)
-    if acc["type"] == "apikey":
-        return "api"
-    if via() == "api":
-        raise ElevenError("ElevenLabs taşıması 'API' seçili ama bu hesap bir connector: Hesaplar → ElevenLabs API "
-                          "anahtarı ekle, ya da taşımayı Codex/Claude CLI yap")
-    return "cli"
+def _write(data, ext, key):
+    os.makedirs(OUT, exist_ok=True)
+    path = os.path.join(OUT, f"{key}.{ext}")
+    with open(path + ".part", "wb") as f:
+        f.write(data)
+    os.replace(path + ".part", path)
+    return path
 
 
 def _node(prefix, ident):
@@ -138,13 +70,12 @@ def _node(prefix, ident):
     return f"{prefix}:{ident}" if ident else None
 
 
-def _estimated(kind, model, units, approved):
-    """Credits to write in the ledger for a REST generation: the learned rate, else what the creator approved.
-
-    The REST API reports no `credit_cost` (the connector does), so the ledger keeps the estimate; an unmeasured model
-    records the approved amount, which is exactly the ceiling credits.guard enforced."""
-    est = credits.estimate([{"kind": kind, "model": model, "units": units, "unit": ""}])
-    return float(est["total"]) if not est["unknown"] else float(approved or 0)
+def _pick_ext(mime, fallback):
+    m = str(mime or "").lower()
+    for needle, ext in (("wav", "wav"), ("mpeg", "mp3"), ("mp3", "mp3"), ("mp4", "mp4"), ("png", "png")):
+        if needle in m:
+            return ext
+    return fallback
 
 
 def _gemini_on(kind):
@@ -160,31 +91,19 @@ def _gemini_cost(con, kind, model, units, unit, usd, note):
     return 0.0        # Gemini bills dollars: nothing is deducted from the ElevenLabs credit budget
 
 
-def _pick_ext(mime, fallback):
-    m = str(mime or "").lower()
-    if "wav" in m:
-        return "wav"
-    if "mpeg" in m or "mp3" in m:
-        return "mp3"
-    if "mp4" in m:
-        return "mp4"
-    if "png" in m:
-        return "png"
-    return fallback
+def _estimated(kind, model, units, approved):
+    """Credits to write in the ledger for a REST generation: the learned rate, else what the creator approved.
+
+    The REST API reports no `credit_cost`, so the ledger keeps the estimate; an unmeasured model records the approved
+    amount, which is exactly the ceiling credits.guard enforced."""
+    est = credits.estimate([{"kind": kind, "model": model, "units": units, "unit": ""}])
+    return float(est["total"]) if not est["unknown"] else float(approved or 0)
 
 
-def _write(data, ext, key):
-    os.makedirs(OUT, exist_ok=True)
-    path = os.path.join(OUT, f"{key}.{ext}")
-    with open(path + ".part", "wb") as f:
-        f.write(data)
-    os.replace(path + ".part", path)
-    return path
-
-
+# ---------------------------------------------------------------- voice
 def tts(con, text, voice_id, model="eleven_v4", idea_id=None, approved=None, account=None):
-    """Speech for `text` (one take) from the given ElevenLabs account (connector or API key). Returns (mp3_path,
-    credit_cost). Cached by (text, voice, model). `approved`: the credit amount the user approved; guard refuses without it."""
+    """Speech for `text` (one take). Returns (mp3_path, credit_cost). Cached by (text, voice, model).
+    `approved`: the credit amount the user approved; credits.guard refuses without it."""
     if _gemini_on("voice"):
         from . import gemini
         gmodel = gemini.DEFAULT["voice"]
@@ -203,30 +122,19 @@ def tts(con, text, voice_id, model="eleven_v4", idea_id=None, approved=None, acc
         return cached, 0.0
     account, acc = _account(account)
     credits.guard(con, "tts", model, len(text), approved, account)
-    if acc["type"] == "apikey":
-        data, cost = eleven_api.tts(acc["key"], text, voice_id, model)
-        path = _write(data, "mp3", key)
-        credits.record(con, "tts", model, len(text), "char", cost, idea_id, text[:60], account)
-        return path, cost
-    prompt = f"""Use the ElevenLabs tools. Generate speech with creative_generate_speech using voice_id "{voice_id}"
-and model "{model}" with generations_count 1 (exactly one take) for EXACTLY this text (do not change a word):
-<<<{text}>>>
-Then poll creative_get_flow_run_status (wait between tries) until the generation is finished, and find the signed
-mp3 URL of the generated audio. Generate only once. Reply ONLY JSON:
-{{"url": "<signed audio url>", "credit_cost": <number from the generate result>, "duration_s": <number or null>}}
-{ERROR_REPLY}"""
-    with _connector_context(account):
-        data, _ = _run(prompt, (T + "creative_generate_speech",) + POLL_TOOLS, model=model)
-    path = _download(data["url"], "mp3", key)
-    cost = float(data.get("credit_cost") or 0)
+    before = eleven_api.subscription(acc["key"])["used"]
+    data, chars = eleven_api.tts(acc["key"], text, voice_id, model)
+    path = _write(data, "mp3", key)
+    cost = float(max(0, eleven_api.subscription(acc["key"])["used"] - before)) or float(chars)   # measured, else reported
     credits.record(con, "tts", model, len(text), "char", cost, idea_id, text[:60], account)
     return path, cost
 
 
+# ---------------------------------------------------------------- music and sound effects
 def generate(con, kind, model, prompt_text, params, units, unit, idea_id=None, ext="mp3", approved=None, account=None):
-    """Generic flow generation (sfx / music / image / video) with the given model and params.
+    """Music or a sound effect through the REST API, with the given model params.
     `approved`: credits the user approved for this call; credits.guard refuses without it."""
-    key = f"{kind}_" + hashlib.sha1(f"{model}|{prompt_text}|{json.dumps(params, sort_keys=True)}".encode()).hexdigest()[:16]
+    key = f"{kind}_" + hashlib.sha1((f"{model}|{prompt_text}|{json.dumps(params, sort_keys=True)}").encode()).hexdigest()[:16]
     if kind == "music" and _gemini_on("music"):
         from . import gemini
         gmodel, secs = gemini.DEFAULT["music"], float(params.get("duration_seconds") or units or 30)
@@ -241,52 +149,30 @@ def generate(con, kind, model, prompt_text, params, units, unit, idea_id=None, e
     cached = os.path.join(OUT, f"{key}.{ext}")
     if os.path.exists(cached):
         return cached, 0.0
+    if kind == "video":
+        raise ElevenError("bu video modeli yalnız connector ile üretilebiliyordu; connector kaldırıldı — "
+                          "Medya üreticisi → video için ElevenLabs (API) veya Gemini kullan")
     account, acc = _account(account)
     credits.guard(con, kind, model, units, approved, account)
-    if acc["type"] == "apikey":
-        if kind not in ("music", "sfx"):
-            raise ElevenError(f"{kind} yalnızca connector hesabıyla üretilebiliyor")
-        before = eleven_api.subscription(acc["key"])["used"]
-        secs = float(params.get("duration_seconds") or units)
-        data = (eleven_api.music if kind == "music" else eleven_api.sound)(acc["key"], prompt_text, secs)
-        path = _write(data, ext, key)
-        cost = float(max(0, eleven_api.subscription(acc["key"])["used"] - before))   # measured from the balance
-        credits.record(con, kind, model, units, unit, cost, idea_id, prompt_text[:60], account)
-        return path, cost
-    tool = {"image": "creative_generate_image", "video": "creative_generate_video"}.get(kind, "creative_generate_in_flow")
-    prompt = f"""Use the ElevenLabs tools. Run ONE {kind} generation with model "{model}" and these parameters:
-{json.dumps(params)}
-Prompt: <<<{prompt_text}>>>
-Use {tool} (if it needs a flow, create the node with the given model and run only that node). Poll
-creative_get_flow_run_status until finished and find the signed URL of the generated file. Generate only once.
-The credit cost is in the run status as price.credits (or credit_cost). Reply ONLY JSON, nothing else:
-{{"url": "<signed file url>", "credit_cost": <number>}}
-{ERROR_REPLY}"""
-    tools = (T + tool, T + "creative_create_flow", T + "creative_add_flow_node", T + "creative_run_flow_nodes",
-             T + "creative_update_node", T + "creative_get_model_schema") + POLL_TOOLS
-    with _connector_context(account):
-        data, _ = _run(prompt, tools, timeout=1500, model=model)
-    path = _download(data["url"], ext, key)
-    cost = float(data.get("credit_cost") or 0)
+    secs = float(params.get("duration_seconds") or units)
+    before = eleven_api.subscription(acc["key"])["used"]
+    data = (eleven_api.music if kind == "music" else eleven_api.sound)(acc["key"], prompt_text, secs)
+    path = _write(data, ext, key)
+    cost = float(max(0, eleven_api.subscription(acc["key"])["used"] - before))
     credits.record(con, kind, model, units, unit, cost, idea_id, prompt_text[:60], account)
     return path, cost
 
 
-IMAGE_MODEL = "gpt-image-2"
-EDIT_MODEL = "gpt-image-2.5-sunburst"   # the connector's model for an image made from reference images
-
-
+# ---------------------------------------------------------------- images
 def image_model(refs=()):
     return EDIT_MODEL if refs else IMAGE_MODEL
 
 
 def image(con, prompt_text, approved, account=None, aspect="9:16", flow_id=None, refs=(), idea_id=None, model=None):
-    """One illustration (png) through the connector, on flow `flow_id` (a series keeps all its images on one flow).
-    `refs` = node ids of earlier images on that flow (character sheets, the previous plate): the new image is made
-    from them with creative_edit_image so characters and style stay the same. Returns (path, cost, flow_id, node_id).
-    Cached by (prompt, refs, aspect)."""
+    """One illustration (png). `refs`: earlier ids (`gen:`/`asset:`, or a local file) to keep characters and style
+    the same. Returns (path, cost, flow_id (None), node id). Cached by (prompt, refs, aspect)."""
     model = model or image_model(refs)
-    key = "img_" + hashlib.sha1(f"{model}|{aspect}|{','.join(refs)}|{prompt_text}".encode()).hexdigest()[:16]
+    key = "img_" + hashlib.sha1(f"{model}|{aspect}|{','.join(map(str, refs))}|{prompt_text}".encode()).hexdigest()[:16]
     cached = os.path.join(OUT, f"{key}.png")
     meta_path = cached + ".json"
     if os.path.exists(cached) and os.path.exists(meta_path):
@@ -304,62 +190,23 @@ def image(con, prompt_text, approved, account=None, aspect="9:16", flow_id=None,
                   open(meta_path, "w"))
         cost = _gemini_cost(con, "image", gmodel, 1, "img", gemini.price("image", gmodel), prompt_text[:60])
         return path, cost, None, node
-    if transport(account) == "api":                     # an API key account: the REST flow generation, no CLI
-        credits.guard(con, "image", model, 1, approved, account)
-        data, _, gid = eleven_api.image(acc["key"], prompt_text, model, aspect=ratio, refs=refs)
-        path = _write(data, "png", key)
-        cost = _estimated("image", model, 1, approved)
-        node = _node("gen", gid)
-        json.dump({"flow_id": None, "node_id": node, "prompt": prompt_text, "refs": [str(r) for r in refs]},
-                  open(meta_path, "w"))
-        credits.record(con, "image", model, 1, "img", cost, idea_id, prompt_text[:60], account)
-        return path, cost, None, node
     credits.guard(con, "image", model, 1, approved, account)
-    if refs:
-        how = (f"Call creative_edit_image on flow_id \"{flow_id}\" with model_id \"{model}\", connect_from "
-               f"{json.dumps(list(refs))} (these nodes are the reference images: keep their characters, faces, outfits, "
-               f"colours and drawing style exactly)")
-    else:
-        where = f' on flow_id "{flow_id}"' if flow_id else " (it creates a flow)"
-        how = f'Call creative_generate_image{where} with model_id "{model}"'
-    # neither generate tool takes an aspect ratio: create the node without running it, set the ratio, then run it
-    prompt = f"""Use the ElevenLabs tools, in this order, exactly once each:
-1. {how}, generations_count 1, estimate_only true and this prompt: <<<{prompt_text}>>>
-   This only creates the node (nothing is generated or charged); note its flow_id and node_id.
-2. Call creative_get_model_schema(node_type="image-generation", model_id="{model}") and creative_get_flow_node on
-   that node, then creative_update_node with only its plain settings that the schema lists (quality, resolution, ...)
-   and "aspect_ratio": "{ratio}" (portrait for a 9:16 video, landscape for 16:9). Leave out "images" and any other
-   field that holds node references ({{"template_node_id": ...}}): those are input ports, already wired by step 1,
-   and creative_update_node refuses them.
-3. creative_run_flow_nodes on that one node with generations_count 1.
-4. Poll creative_get_flow_run_status until finished, then read the signed image URL.
-Reply ONLY JSON: {{"url": "<signed image url>", "credit_cost": <number>, "flow_id": "<flow id>", "node_id": "<the
-generated image node id>"}}
-{ERROR_REPLY}"""
-    tools = (T + "creative_generate_image", T + "creative_edit_image", T + "creative_get_flow_node",
-             T + "creative_update_node", T + "creative_run_flow_nodes", T + "creative_get_model_schema") + POLL_TOOLS
-    with _connector_context(account):
-        data, _ = _run(prompt, tools, timeout=1200, model=model, flow_id=flow_id)
-    path = _download(data["url"], "png", key)
-    cost = float(data.get("credit_cost") or 0)
-    json.dump({"flow_id": data.get("flow_id") or flow_id, "node_id": data.get("node_id"), "prompt": prompt_text,
-               "refs": list(refs)}, open(meta_path, "w"))
+    data, _, gid = eleven_api.image(acc["key"], prompt_text, model, aspect=ratio, refs=refs)
+    path = _write(data, "png", key)
+    cost = _estimated("image", model, 1, approved)
+    node = _node("gen", gid)
+    json.dump({"flow_id": None, "node_id": node, "prompt": prompt_text, "refs": [str(r) for r in refs]},
+              open(meta_path, "w"))
     credits.record(con, "image", model, 1, "img", cost, idea_id, prompt_text[:60], account)
-    return path, cost, data.get("flow_id") or flow_id, data.get("node_id")
+    return path, cost, None, node
 
 
-VIDEO_MODEL = "bytedance-seedance-v2.5"
-
-
+# ---------------------------------------------------------------- generated clips and presenters
 def video(con, prompt_text, approved, seconds, account=None, aspect="9:16", flow_id=None, start=None, model=None,
           audio=False, idea_id=None, inputs=None, resolution=None, rate_model=None, frame_aspect=False):
-    """One generated clip (mp4) through the connector. `start` = the node id of an image on flow `flow_id` that
-    becomes the clip's first frame (a keyframe the creator approved); `inputs` = {node_id: what it is} for models fed
-    by several nodes (an avatar: the presenter image and the voice). Returns (path, cost, flow_id, node_id).
-    `resolution` names the exact resolution (else the lowest of 720p or above); `rate_model` is the price key when
-    the price depends on more than the model (e.g. "minimax-h3-max@480p"); `frame_aspect` leaves the aspect to the
-    start frame (models that reject aspect_ratio with one). Cached by (model, prompt, inputs, seconds, aspect, audio,
-    resolution)."""
+    """One generated clip (mp4). `start` = an earlier `gen:`/`asset:` id used as the first frame; `inputs` =
+    {id: what it is} for models fed by several references (an avatar: the presenter image and the voice).
+    Returns (path, cost, flow_id (None), node id). Cached by every input."""
     model = model or VIDEO_MODEL
     rate_model = rate_model or model
     inputs = dict(inputs or ({start: "the clip's start frame"} if start else {}))
@@ -384,133 +231,46 @@ def video(con, prompt_text, approved, seconds, account=None, aspect="9:16", flow
         cost = _gemini_cost(con, "video", gmodel, seconds, "s",
                             gemini.price("video", gmodel, seconds, resolution=resolution or "1080p"), prompt_text[:60])
         return path, cost, None, node
-    if transport(account) == "api":                     # an API key account: the REST flow generation, no CLI
-        credits.guard(con, "video", rate_model, seconds, approved, account)
-        if model == AVATAR_MODEL:                       # a talking presenter: the image speaks the audio
-            img = next((n for n, what in inputs.items() if "audio" not in str(what).lower()), None)
-            aud = next((n for n, what in inputs.items() if "audio" in str(what).lower()), None)
-            data, _, gid = eleven_api.lipsync(acc["key"], img, aud, model)
-        else:
-            data, _, gid = eleven_api.video(acc["key"], prompt_text, model, seconds, aspect, start=start,
-                                            images=[n for n in inputs if n != start], audios=[], resolution=resolution,
-                                            generate_audio=audio)
-        path = _write(data, "mp4", key)
-        cost = _estimated("video", rate_model, seconds, approved)
-        node = _node("gen", gid)
-        json.dump({"flow_id": None, "node_id": node, "prompt": prompt_text, "inputs": inputs}, open(meta_path, "w"))
-        credits.record(con, "video", rate_model, seconds, "s", cost, idea_id, prompt_text[:60], account)
-        return path, cost, None, node
     credits.guard(con, "video", rate_model, seconds, approved, account)
-    where = f' on flow_id "{flow_id}"' if flow_id else " (it creates a flow)"
-    wire = (f", connect_from {json.dumps(list(inputs))} ("
-            + "; ".join(f"{n} is {what}" for n, what in inputs.items()) + ")") if inputs else ""
-    prompt = f"""Use the ElevenLabs tools, in this order, exactly once each:
-1. Call creative_generate_video{where} with model_id "{model}"{wire}, generations_count 1, estimate_only true and
-   this prompt: <<<{prompt_text}>>>
-   This only creates the node (nothing is generated or charged); note its flow_id and node_id.
-2. Call creative_get_model_schema(node_type="video-generation", model_id="{model}") and creative_get_flow_node on
-   that node, then creative_update_node with only plain settings the schema lists: duration {seconds} s (the nearest
-   value the schema allows), {"no aspect_ratio (the start frame sets it)" if frame_aspect else f'"aspect_ratio": "{aspect}"'},
-   {f'"resolution": "{resolution}"' if resolution else "the lowest resolution of 720p or above"}, and audio generation
-   {"on" if audio else "off"} (when the schema has such a setting). Leave out every field that holds node references (input ports, already wired by step 1).
-3. creative_run_flow_nodes on that one node with generations_count 1.
-4. Poll creative_get_flow_run_status until finished, then read the signed video URL.
-Reply ONLY JSON: {{"url": "<signed video url>", "credit_cost": <number>, "flow_id": "<flow id>", "node_id": "<the
-video node id>"}}
-{ERROR_REPLY}"""
-    tools = (T + "creative_generate_video", T + "creative_get_flow_node", T + "creative_update_node",
-             T + "creative_run_flow_nodes", T + "creative_get_model_schema") + POLL_TOOLS
-    with _connector_context(account):
-        data, _ = _run(prompt, tools, timeout=1800, model=model, flow_id=flow_id)
-    path = _download(data["url"], "mp4", key)
-    cost = float(data.get("credit_cost") or 0)
-    json.dump({"flow_id": data.get("flow_id") or flow_id, "node_id": data.get("node_id"), "prompt": prompt_text,
-               "inputs": inputs}, open(meta_path, "w"))
+    if model == AVATAR_MODEL:                           # a talking presenter: the image speaks the audio
+        img = next((n for n, what in inputs.items() if "audio" not in str(what).lower()), None)
+        aud = next((n for n, what in inputs.items() if "audio" in str(what).lower()), None)
+        data, _, gid = eleven_api.lipsync(acc["key"], img, aud, model)
+    else:
+        data, _, gid = eleven_api.video(acc["key"], prompt_text, model, seconds, aspect, start=start,
+                                        images=[n for n in inputs if n != start], audios=[], resolution=resolution,
+                                        generate_audio=audio)
+    path = _write(data, "mp4", key)
+    cost = _estimated("video", rate_model, seconds, approved)
+    node = _node("gen", gid)
+    json.dump({"flow_id": None, "node_id": node, "prompt": prompt_text, "inputs": inputs}, open(meta_path, "w"))
     credits.record(con, "video", rate_model, seconds, "s", cost, idea_id, prompt_text[:60], account)
-    return path, cost, data.get("flow_id") or flow_id, data.get("node_id")
-
-
-AVATAR_MODEL = "creatify-aurora"
+    return path, cost, None, node
 
 
 def avatar(con, image_node, audio_node, flow_id, seconds, approved, account=None, aspect="9:16", model=None,
            prompt_text="The presenter speaks to camera, natural head movement and blinking, steady framing."):
-    """A talking presenter: the image node speaks the audio node (both on `flow_id`). Returns (path, cost)."""
+    """A talking presenter: an image and a speech reference -> (path, cost)."""
     path, cost, _, _ = video(con, prompt_text, approved, seconds, account, aspect, flow_id, model=model or AVATAR_MODEL,
                              inputs={image_node: "the presenter image", audio_node: "the speech audio to lip-sync"})
     return path, cost
 
 
+# ---------------------------------------------------------------- references and voices
 def new_flow(account=None, name="factory"):
-    """An empty flow (free) so nodes that feed each other can live together. The REST path needs none: None."""
-    if transport(account) == "api":
-        return None
-    prompt = f"""Call creative_create_flow once with name "{name}". Reply ONLY JSON: {{"flow_id": "<id>"}}"""
-    with _connector_context(account):
-        data, _ = llm.ask(prompt, tools=(T + "creative_create_flow",), timeout=300, mcp=True, model=CONNECTOR_MODEL)
-    if not isinstance(data, dict) or not data.get("flow_id"):
-        raise ElevenError(f"no flow created: {json.dumps(data)[:200]}")
-    return data["flow_id"]
+    """Flows were a connector concept; the REST path needs none (kept so callers do not branch)."""
+    return None
 
 
-MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".mp3": "audio/mpeg",
-        ".wav": "audio/wav", ".m4a": "audio/mp4", ".mp4": "video/mp4", ".mov": "video/quicktime"}
+def upload(path, flow_id=None, account=None, put=None):
+    """A local file as an API asset (free) -> `asset:<id>`, usable as a reference by later generations."""
+    _, acc = _account(account)
+    return _node("asset", eleven_api.upload(acc["key"], path))
 
 
-def upload(path, flow_id, account=None, put=None):
-    """Put a local file where a later generation can use it as a reference. Free, and the id comes back as a node.
-
-    REST: `POST /v1/assets` (needs no flow). Connector: an upload URL on flow `flow_id`. The connector path hands out
-    an upload URL, the bytes
-    go there with one PUT from here (never through the model), then the upload is finalized onto the flow.
-    Returns the node id. Cached per (file content, flow)."""
-    if transport(account) == "api":
-        _, acc = _account(account)
-        return _node("asset", eleven_api.upload(acc["key"], path))
-    mime = MIME.get(os.path.splitext(path)[1].lower())
-    if not mime:
-        raise ElevenError(f"unsupported file type: {os.path.basename(path)}")
-    digest = hashlib.sha1(open(path, "rb").read()).hexdigest()[:16]
-    meta_path = os.path.join(OUT, f"up_{digest}_{flow_id}.json")
-    if os.path.exists(meta_path):
-        return json.load(open(meta_path))["node_id"]
-    size = os.path.getsize(path)
-    with _connector_context(account):
-        data, _ = llm.ask(f"""Call creative_create_asset_upload once with name "{os.path.basename(path)}", mime_type
-"{mime}" and file_size {size}. Do not upload anything yourself. Reply ONLY JSON: {{"upload_url": "<url>", "asset_id": "<id>"}}
-{ERROR_REPLY}""", tools=(T + "creative_create_asset_upload",), timeout=300, mcp=True, model=CONNECTOR_MODEL)
-        if not isinstance(data, dict) or not data.get("upload_url") or not data.get("asset_id"):
-            raise ElevenError(explain((data or {}).get("error") if isinstance(data, dict) else data) or "no upload url")
-        (put or _put)(data["upload_url"], path, mime)
-        fin, _ = llm.ask(f"""Call creative_finalize_asset_upload once with asset_id "{data['asset_id']}" and flow_id
-"{flow_id}". Reply ONLY JSON: {{"node_id": "<the reference node id on the flow>"}}
-{ERROR_REPLY}""", tools=(T + "creative_finalize_asset_upload",), timeout=300, mcp=True, model=CONNECTOR_MODEL)
-    if not isinstance(fin, dict) or not fin.get("node_id"):
-        raise ElevenError(f"upload not finalized: {json.dumps(fin)[:200]}")
-    os.makedirs(OUT, exist_ok=True)
-    json.dump({"node_id": fin["node_id"], "asset_id": data["asset_id"], "file": os.path.basename(path)}, open(meta_path, "w"))
-    return fin["node_id"]
-
-
-def _put(url, path, mime):
-    req = urllib.request.Request(url, data=open(path, "rb").read(), method="PUT", headers={"Content-Type": mime})
-    with urllib.request.urlopen(req, timeout=600) as r:
-        if r.status >= 300:
-            raise ElevenError(f"upload PUT failed: HTTP {r.status}")
-
-
-def asset_node(asset_id, flow_id, modality="image", account=None):
-    """An already-uploaded API asset as a reference node. REST: the asset id itself; connector: a node on the flow."""
-    if transport(account) == "api":
-        return _node("asset", asset_id)
-    """An asset already in the account (a saved presenter photo) placed on `flow_id` as a node (free)."""
-    with _connector_context(account):
-        data, _ = llm.ask(f"""Call creative_add_flow_asset_node once with flow_id "{flow_id}", modality "{modality}" and
-content_asset_id "{asset_id}". Reply ONLY JSON: {{"node_id": "<the returned node id>"}}
-{ERROR_REPLY}""", tools=(T + "creative_add_flow_asset_node",), timeout=300, mcp=True, model=CONNECTOR_MODEL)
-    if not isinstance(data, dict) or not data.get("node_id"):
-        raise ElevenError(explain((data or {}).get("error") if isinstance(data, dict) else data) or "no node")
-    return data["node_id"]
+def asset_node(asset_id, flow_id=None, modality="image", account=None):
+    """An already-uploaded asset id as a reference node."""
+    return _node("asset", asset_id)
 
 
 def media_duration(path):
@@ -519,43 +279,26 @@ def media_duration(path):
     return float(out.strip() or 0)
 
 
-def avatar_node(flow_id):
-    """Find the avatar node the creator placed (Avatar Picker) on their avatar flow. Read-only, no credits."""
-    prompt = f"""Use the ElevenLabs tools to READ only (never generate, never add or change nodes). Call
-creative_get_flow for flow_id "{flow_id}" and find nodes whose type or node_type is "avatar".
-Reply ONLY JSON: {{"avatar_nodes": [{{"node_id": "...", "label": "...", "status": "..."}}], "node_count": <int>}}"""
-    data, _ = llm.ask(prompt, tools=(T + "creative_get_flow",), timeout=300, mcp=True, model=CONNECTOR_MODEL)
-    return data
-
-
-PROFILE = os.path.join(ROOT, "data", "eleven_profile.json")
+def avatar_node(flow_id=None):
+    """The old avatar picker read a connector flow; with the REST path there is nothing to read."""
+    return {"avatar_nodes": [], "node_count": 0}
 
 
 def check_voice(voice_id, flow_id=None):
-    """Does this account have `voice_id`? A free estimate_only speech call: the connector rejects an unknown voice
-    with "does not resolve" and prices a known one without generating. Returns the flow it used (reused next time)."""
-    where = f' with flow_id "{flow_id}"' if flow_id else ""
-    prompt = f"""Use the ElevenLabs tools. Call creative_generate_speech exactly once{where} with voice_id "{voice_id}",
-model_id "eleven_v4", prompt "test", generations_count 1 and estimate_only true (this must NOT generate or spend credits;
-never call it without estimate_only). Reply ONLY JSON: {{"ok": true, "flow_id": "<flow id>"}} if it returned an estimate,
-or {{"ok": false, "error": "<the tool's exact error text>"}} if it returned an error."""
-    data, _ = llm.ask(prompt, tools=(T + "creative_generate_speech",), timeout=300, mcp=True, model=CONNECTOR_MODEL)
-    if not isinstance(data, dict) or "ok" not in data:
-        raise ElevenError("ses kontrol edilemedi")
-    return data
+    """Does this account have `voice_id`? Read from the account's own voice list (free)."""
+    _, acc = _account()
+    return {"ok": any(v["voice_id"] == voice_id for v in eleven_api.info(acc["key"], fresh=True)["voices"])}
 
 
 def add_voice(voice_id, language, name=None, check=check_voice):
-    """Add a voice the creator pasted (Studio → Ses & avatar → Ses ekle) to the owner's connector profile after the
-    account confirms it. Returns the saved voice."""
+    """Save a voice the creator picked in the Studio to `data/eleven_profile.json` after the account confirms it."""
+    res = check(voice_id)
+    if not res.get("ok"):
+        raise ElevenError(explain("does not resolve") + f" ({voice_id})")
     try:
         prof = json.load(open(PROFILE))
     except (OSError, ValueError):
         prof = {"voices": [], "defaults": {}, "avatar": {}}
-    res = check(voice_id, prof.get("voice_check_flow"))
-    if not res.get("ok"):
-        raise ElevenError(explain(res.get("error") or "bu ses bulunamadı"))
-    prof["voice_check_flow"] = res.get("flow_id") or prof.get("voice_check_flow")
     voice = {"voice_id": voice_id, "name": (name or "").strip()[:60] or f"Ses {language.upper()} · {voice_id[:6]}",
              "language": language, "category": "custom", "note": "Studio'dan eklendi"}
     prof["voices"] = [v for v in prof.get("voices", []) if v.get("voice_id") != voice_id] + [voice]
@@ -565,13 +308,6 @@ def add_voice(voice_id, language, name=None, check=check_voice):
 
 
 def list_voices():
-    """Voices of the ElevenLabs account behind the current user's claude.ai connector (read-only, no credits)."""
-    prompt = """Use the ElevenLabs tools to READ only. Call creative_list_voices (all pages) and list the account's own
-voices first (cloned / professional / generated), then at most 15 library voices.
-Reply ONLY JSON: {"voices": [{"voice_id": "...", "name": "...", "category": "...", "language": "<2-letter code>",
-"note": "accent/age/gender if known", "preview_url": "... or null"}]}"""
-    data, _ = llm.ask(prompt, tools=(T + "creative_list_voices",), timeout=600, mcp=True, model=CONNECTOR_MODEL)
-    out = data.get("voices") if isinstance(data, dict) else data
-    if not isinstance(out, list):
-        raise ElevenError("ses listesi okunamadı")
-    return [v for v in out if isinstance(v, dict) and v.get("voice_id")]
+    """The current account's own voices, straight from the API (with their preview URLs)."""
+    _, acc = _account()
+    return eleven_api.info(acc["key"], fresh=True)["voices"]

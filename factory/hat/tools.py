@@ -157,6 +157,7 @@ def submit_artifact(ctx, data):
         name, schema = longform.part_art(ctx.part), "scene_part"
     problems = validate_artifact(schema, data) or _meaning(ctx, schema, data)
     if problems:
+        P.event(ctx.pid, "submit_rejected", d=ctx.d, stage=ctx.stage, artifact=name, problems=problems[:6])
         return {"accepted": False, "problems": problems}
     P.write_artifact(ctx.pid, name, data, ctx.d)
     return {"accepted": True, "artifact": name}

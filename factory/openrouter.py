@@ -22,6 +22,8 @@ DEFAULT_MODEL = "deepseek/deepseek-v4.1-flash-1017"
 MODELS_CACHE = os.path.join(ROOT, "data", "openrouter_models.json")
 MODELS_TTL = 24 * 3600
 MAX_TURNS = 80                 # one tool call per turn is normal; this only stops a runaway loop
+LOOP_LIMIT = 4                 # the same tool call with the same result this many times is a loop, not work
+EMPTY_RETRIES = 2              # an empty reply (no text, no tool call) is retried this many times before failing
 READ_CHARS = 200_000
 # The CLI's built-in web tools map to OpenRouter's server tools: OpenRouter runs them itself (native search where the
 # provider has it, otherwise Exa) and loops the model over the results, so nothing is executed on this machine.
@@ -141,9 +143,14 @@ def _usage(u):
     return counts, u.get("cost")
 
 
-def chat(messages, model=None, tools=None, plugins=None, timeout=600, key=None, retries=2):
+def chat(messages, model=None, tools=None, plugins=None, timeout=600, key=None, retries=2, max_tokens=None,
+         reasoning=None):
     """One chat completion (with `tools` the model may call). Returns the raw response body."""
     body = {"model": model or DEFAULT_MODEL, "messages": messages, "usage": {"include": True}}
+    if max_tokens:
+        body["max_tokens"] = int(max_tokens)
+    if reasoning in ("low", "medium", "high"):
+        body["reasoning"] = {"effort": reasoning}
     if tools:
         body["tools"] = tools
         body["tool_choice"] = "auto"
@@ -225,7 +232,8 @@ def _run_tool(routes, name, arguments):
     return ("ERROR: " + text if failed else text) or "(empty result)"
 
 
-def run(prompt, tools=(), timeout=900, model=None, servers=None, budget_usd=None, effort=None):
+def run(prompt, tools=(), timeout=900, model=None, servers=None, budget_usd=None, effort=None, step=None,
+        max_tokens=None):
     """One OpenRouter agent turn -> (reply text, meta). Runs the model's tool calls until it answers."""
     from . import llm, mcpclient
     started = time.time()
@@ -244,21 +252,30 @@ def run(prompt, tools=(), timeout=900, model=None, servers=None, budget_usd=None
                         if any(t in WEB_TOOLS for t in tools) else "")},
                     {"role": "user", "content": prompt}]
         spent, turns, reply = 0.0, 0, ""
+        seen, empty = {}, 0
         for turns in range(1, MAX_TURNS + 1):
             left = timeout - (time.time() - started)
             if left <= 5:
                 raise OpenRouterError(f"OpenRouter turn timed out after {timeout // 60} min")
-            body = chat(messages, model, schemas or None, plugins, timeout=min(600, left), key=key)
+            body = chat(messages, model, schemas or None, plugins, timeout=min(600, left), key=key,
+                        max_tokens=max_tokens, reasoning=effort)
             counts, cost = _usage(body.get("usage"))
             spent += cost or 0
-            llm._record({"usage": counts, "total_cost_usd": cost}, model, True, provider="openrouter")
+            llm._record({"usage": counts, "total_cost_usd": cost}, model, True, provider="openrouter", step=step)
             msg = ((body.get("choices") or [{}])[0].get("message") or {})
             calls = [c for c in (msg.get("tool_calls") or []) if isinstance(c, dict)]
             reply = str(msg.get("content") or "").strip()
             if not calls:
-                if not reply:
-                    raise OpenRouterError("OpenRouter boş yanıt döndü")
+                if not reply:                      # a provider hiccup, not an answer: ask again before giving up
+                    empty += 1
+                    if empty <= EMPTY_RETRIES:
+                        time.sleep(2 * empty)
+                        continue
+                    finish = ((body.get("choices") or [{}])[0]).get("finish_reason")
+                    raise OpenRouterError(f"OpenRouter boş yanıt döndü ({EMPTY_RETRIES} deneme"
+                                          + (f", finish_reason={finish}" if finish else "") + ")")
                 return reply, {"cost_usd": round(spent, 4), "turns": turns, "effort": effort, "model": model}
+            empty = 0
             messages.append({"role": "assistant", "content": msg.get("content") or "", "tool_calls": calls})
             for c in calls:
                 fn = c.get("function") or {}
@@ -266,9 +283,16 @@ def run(prompt, tools=(), timeout=900, model=None, servers=None, budget_usd=None
                     args = json.loads(fn.get("arguments") or "{}")
                 except ValueError:
                     args = {}
-                out = _run_tool(routes, fn.get("name") or "", args if isinstance(args, dict) else {})
-                messages.append({"role": "tool", "tool_call_id": c.get("id") or fn.get("name") or "call",
-                                 "content": out})
+                name = fn.get("name") or ""
+                out = _run_tool(routes, name, args if isinstance(args, dict) else {})
+                messages.append({"role": "tool", "tool_call_id": c.get("id") or name or "call", "content": out})
+                # the same call returning the same thing over and over is a loop, not progress: stop and say why
+                sig = (name, json.dumps(args, sort_keys=True, ensure_ascii=False)[:400], out[:400])
+                seen[sig] = seen.get(sig, 0) + 1
+                if seen[sig] >= LOOP_LIMIT:
+                    raise OpenRouterError(
+                        f"döngü: `{name}` {seen[sig]} kez aynı sonucu verdi — aynı cevabı tekrar denemek yerine "
+                        f"girdiyi değiştir. Son sonuç: {out[:200]}")
             if budget_usd and spent > float(budget_usd):
                 raise OpenRouterError(f"OpenRouter bütçesi aşıldı: ${spent:.2f} > ${float(budget_usd):.2f}")
         raise OpenRouterError(f"OpenRouter {MAX_TURNS} turda bitmedi (son söz: {reply[-200:]})")

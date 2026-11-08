@@ -116,3 +116,40 @@ def test_ask_text_runs_each_step_on_its_own_cli(users, monkeypatch):
     monkeypatch.setattr(llm, "_caller", lambda: "c_step")            # no choice: the default CLI (Codex)
     text, _ = llm.ask_text("x", tools=(), model=None)
     assert text == "codex" and got["codex"] == "c_step" and got["model"] == "gpt-6-luna"
+
+
+# ---------------------------------------------------------------- how hard each agent thinks
+def test_a_step_can_carry_its_own_reasoning_level(users):
+    accounts.set_llm_settings("ali", "openrouter", {}, {}, {"agent.review_stage": "low", "scene_plan": "high"})
+    cfg = accounts.llm_settings("ali")
+    assert cfg["effort"] == {"agent.review_stage": "low", "scene_plan": "high"}
+    assert llm.effort_choice("agent.review_stage", "ali") == "low"
+    assert llm.effort_choice("scene_plan", "ali") == "high"
+    assert llm.effort_choice("script", "ali") == "medium"            # the step table's default
+    with pytest.raises(ValueError):
+        accounts.set_llm_settings("ali", "openrouter", {}, {}, {"script": "xhigh"})
+
+
+def test_an_api_model_gets_the_level_the_creator_picked(users, monkeypatch):
+    accounts.set_llm_settings("ali", "openrouter", {}, {}, {"script": "high", "agent.review_stage": "low"})
+    seen = {}
+    monkeypatch.setattr(openrouter, "run", lambda prompt, **k: seen.update(k) or ("ok", {}))
+    with accounts.as_user("ali"):
+        monkeypatch.setattr(llm, "_caller", lambda: "script")
+        llm.ask_text("x", tools=(), model=None)
+        assert seen["effort"] == "high"                              # not capped at medium for an API model
+        monkeypatch.setattr(llm, "_caller", lambda: "agent.review_stage")
+        llm.ask_text("x", tools=(), model=None)
+        assert seen["effort"] == "low"
+
+
+def test_a_cli_keeps_the_medium_cap(users, monkeypatch):
+    accounts.set_llm_settings("ali", "codex", {}, {}, {"script": "high"})
+    seen = {}
+    monkeypatch.setattr(llm, "_codex", lambda prompt, tools, timeout, model, effort, step, approve_mcp=False,
+                                        servers=None: seen.update({"effort": effort}) or ("ok", {}))
+
+    monkeypatch.setattr(llm, "_caller", lambda: "script")
+    with accounts.as_user("ali"):
+        llm.ask_text("x", tools=(), model=None)
+    assert seen["effort"] == "medium"                                # MAX_EFFORT protects the subscription

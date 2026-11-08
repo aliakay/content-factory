@@ -1,5 +1,10 @@
 # Long explainer · Publish
 
+## Hard limits (the gate refuses these)
+- `credits` is the `attribution` tool's block verbatim; no asset without a licence reaches the description.
+- Caption in the video's language, under 150 characters, ending with a question; 3-5 hashtags.
+
+
 The video is rendered and checked. Write what goes with it on YouTube. Read `script` (title, caption draft, claims),
 `research` (sources) and `render` (duration, QA findings, cover candidates). Call `chapter_marks` for the chapter
 times measured on the final voice.

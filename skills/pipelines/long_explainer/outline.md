@@ -1,5 +1,12 @@
 # Long explainer · Scene outline
 
+## Hard limits (the gate refuses these)
+- Every scene names `shows` (subject + action), `camera` {move, seconds, easing, target} and its `lines` range;
+  palette and type pairing keep to the approved direction board.
+- The kit is concrete enough that designers drawing at once produce one film.
+- At least four scenes; chapters cover the script in order, none crossing a chapter.
+
+
 You are the lead motion designer. Several designers will draw this video's scenes AT THE SAME TIME, one part each
 (the cold open, then each chapter), without seeing each other's work. Your outline is all they share, so it decides
 whether the result is one film or a patchwork. Draw nothing yet: decide the design system and brief every scene.

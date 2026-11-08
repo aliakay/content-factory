@@ -56,52 +56,10 @@ def connector(monkeypatch, tmp_path, users):
     return acc
 
 
-# ---------------------------------------------------------------- the choice
-def test_the_choice_is_remembered_per_user(users):
-    assert accounts.eleven_settings("ali") == {"via": "auto"}
-    accounts.set_eleven_settings("ali", "codex")
-    assert accounts.eleven_settings("ali")["via"] == "codex" and llm.eleven_via("ali") == "codex"
-    with pytest.raises(ValueError):
-        accounts.set_eleven_settings("ali", "openrouter")
-
-
-def test_transports_are_reported_for_the_picker(users, monkeypatch):
-    monkeypatch.setattr(llm, "codex_elevenlabs_status", lambda: {"connected": True})
-    monkeypatch.setattr(accounts, "claude_status", lambda uid=None: {"connectors": False})
-    monkeypatch.setattr(accounts, "eleven_accounts", lambda: {"accounts": {"ali": {"type": "connector"}}})
-    assert accounts.eleven_transports("ali") == {"api": False, "codex": True, "claude": False}
-
-
-def test_an_api_key_account_never_needs_a_cli(apikey):
-    assert eleven.transport("ali-key") == "api"
-
-
-def test_a_connector_account_asks_a_cli(connector):
-    assert eleven.transport("ali") == "cli"                     # 'auto': a CLI runs the connector
-
-
-def test_asking_for_the_api_with_a_connector_account_says_what_to_do(connector, users):
-    accounts.set_eleven_settings("ali", "api")
-    with pytest.raises(eleven.ElevenError, match="API"):
-        eleven.transport("ali")
-
-
-def test_the_choice_decides_which_cli_runs_the_connector(users, monkeypatch):
-    accounts.set_llm_settings("ali", "openrouter", {})
-    monkeypatch.setattr(accounts, "claude_status", lambda uid=None: {"connectors": True})
-    monkeypatch.setattr(llm, "codex_elevenlabs_status", lambda: {"connected": True})
-    accounts.set_eleven_settings("ali", "claude")
-    assert llm.connector_provider() == "claude"                 # the creator's word beats auto-detection
-    accounts.set_eleven_settings("ali", "codex")
-    assert llm.connector_provider() == "codex"
-    accounts.set_eleven_settings("ali", "auto")
-    assert llm.connector_provider() == "codex"                  # auto: the connected CLI (Codex here)
-
-
-def test_the_selected_cli_still_wins_outside_openrouter(users, monkeypatch):
-    accounts.set_llm_settings("ali", "claude", {})
-    accounts.set_eleven_settings("ali", "api")
-    assert llm.connector_provider() == "claude"                 # agents on a CLI: that CLI's connector is used
+# ---------------------------------------------------------------- who may spend
+def test_only_api_key_accounts_can_spend(apikey):
+    from factory import mediaprov
+    assert mediaprov.ready("ali")["elevenlabs"] is True
 
 
 # ---------------------------------------------------------------- the REST paths

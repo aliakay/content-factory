@@ -34,6 +34,23 @@ hareket tasarımı Codex GPT-6 Luna, `qa.review`/`agent.review_stage` OpenRouter
 olduğu için yazarın CLI'ından bağımsız seçilebilir. Sunucu kayıtta modelin o CLI'ın kataloğunda olduğunu doğrular;
 ElevenLabs connector turları CLI'a geri düştüğünde o CLI'ın kendi modeli kullanılır (başka CLI'ın model adı geçmez).
 
+**Sahne planı iki geçiş (2026-11).** Kısa hatlarda (explainer, animation) `scene_plan` artık **kod aşaması**
+(`factory/hat/shortplan.py`): önce tek çağrıda **tasarım sistemi** (palet panodan, global CSS, kit, sahne brifleri:
+`id/lines/shows/camera/mechanism`) yazılır ve `artifacts/design_short.json`'a önbelleklenir (script/pano değişmedikçe
+tekrar üretilmez); sonra sahneler **2'şer paralel** ajanla çizilir (4 çekirdek: stills render'ı çakışmasın diye 2);
+sonunda deterministik kontroller (kamera, özne, mekanizma, determinizm, özgünlük, pano) + `layoutlint` birleşik plana
+uygulanır. Not bir sahneyi adlandırıyorsa (`s2`, `sahne 3`) **yalnız o parça** yeniden çizilir, kalan sahneler bayt bayt
+korunur. Uzun anlatımda aynı fikir zaten vardı (`longform.build_scenes`, PARALLEL=3).
+
+**Denetim eşiği ve yama turu (2026-11).** `PASS_SCORE` 90 → **85**: kritik bulgu yoksa ve skor ≥85 ise aşama geçer,
+öneriler kapı kartında not olarak kalır. Düzeltme turu **yama modunda**: yazar önceki artifact'ı okuyup yalnız bulgu
+maddelerini değiştirir (araştırmayı/senaryoyu baştan yazmaz). Denetçi artık yalnız **kapısı olan** aşamalarda koşar
+(araştırma/kurgu/render'da kimse okumuyordu; ölçümde bir aşamanın süresinin ~%48'iydi).
+
+**İnceleme sayfası (`#/inceleme`, `factory/hat/reviewstats.py`).** Projelerin `events.jsonl`'inden aşama süreleri, en sık
+kapı reddi ve denetim kararları; `python -m factory.hat.reviewstats` aynı raporu + "skill'e eklenecek satırlar" önerisini
+basar.
+
 **The look is decided once (2026-11, direction stage).** Between the script and the scene plan the explainer,
 animation and long-explainer lines run `direction` (`factory/hat/direction.py`, a code stage, no credits): it builds
 one board (palette from the chosen film style's card, or a scheme keyed on the project; a type pairing; the light,
@@ -244,41 +261,19 @@ searches when it needs to, the platform runs it — native search where the prov
 sources come back as `url_citation` annotations; a search costs OpenRouter credit per request). Default model: `deepseek/deepseek-v4.1-flash-1017` (per-agent overrides still apply). Every
 call's tokens and dollars go into the same `llm_usage` ledger (`source = live_openrouter`).
 
-**ElevenLabs with OpenRouter selected.** A connector lives inside a CLI login, so an API model cannot run one. Hesaplar
-shows a **ElevenLabs taşıması** picker whenever the provider is OpenRouter (`accounts.eleven_settings`,
-`POST /api/eleven/settings`): **API** = our own REST client with an API-key account, **Codex** / **Claude** = that CLI's
-connector, **auto** = whichever is connected (`llm.connector_ready()`). The choice is stored per user
-(`users.<id>.eleven_via`) and `llm.connector_provider()` falls back to it, so agents write on DeepSeek while the voice
-and images still come from the connector you picked (the Studio prints which CLI it will use).
+**ElevenLabs: API yolu (2026-11 — CLI connector kaldırıldı).** Ses, müzik, efekt, görsel, üretilen video, konuşan
+sunucu ve varlık yüklemesi artık yalnız REST API'den gider (`factory/eleven.py` + `factory/eleven_api.py`); CLI
+oturumuna/connector'a gerek yok. Hesap tipi **API anahtarı** olmalı (`data/eleven_accounts.json`; connector tipi
+hesaplar listede görünmez ve kullanılırsa açık hata verir). Varsayılan hesap kullanıcı tercihiyle seçilir
+(`users.<id>.default_eleven`, `accounts.set_default_eleven`); Hesaplar sayfasındaki "Ses & avatar" bölümü hesabın
+**kendi seslerini önizleme oynatıcısıyla** listeler ve "varsayılan yap" ile dil başına ses seçilir
+(`data/eleven_defaults.json`, `formats.default_voice`). Her çağrı onaylanan krediyle sınırlanır (`credits.guard`,
+canlı bakiye) ve kredi defterine yazılır; dosyalar girdiye göre önbelleklenir. Bir yetenek Gemini'ye çevrilebilir
+(Hesaplar → Medya üreticisi, `factory/mediaprov.py`).
 
-The REST path (`factory/eleven_api.py`) covers TTS, music, sfx and — through `/v1/flows/image`, `/v1/flows/video`
-(queue, poll, `content_url`) — images, generated video, talking presenters (`creatify-aurora`, image + speech) and asset
-uploads (`POST /v1/assets`, usable as a reference). References are our own ids (`gen:<id>`, `asset:<id>`) or local
-files sent inline as base64 (25 MB cap). One model family stays connector-only: the dub lip-sync
-(`sync-lipsync-v3`, video-to-video), which the REST media models do not offer. The REST API reports no `credit_cost`,
-so the ledger records the learned per-unit rate; an unmeasured model records the approved ceiling that
-`credits.guard` enforced.
-
-**Medya üreticisi: ElevenLabs ya da Gemini (2026-11).** Hesaplar → **Google Gemini API** (anahtarını yaz; `config.env`'de
-`GEMINI_API_KEY` da olur) ve **Medya üreticisi**: ses, müzik, görsel ve video için ayrı ayrı ElevenLabs/Gemini seçilir
-(`users.<id>.media`, `factory/mediaprov.py`, `POST /api/media/settings`). Gemini ancak anahtar varsa seçilebilir;
-varsayılan her şeyde ElevenLabs, yani ayarı açmayan kullanıcı için hiçbir şey değişmez. `factory/eleven.py` aynı
-fonksiyon imzalarıyla çalışmaya devam eder: seçim Gemini ise işi `factory/gemini.py`'ye devreder ve aynı şekilleri
-döndürür (`gen:<id>` düğüm kimliği dahil), böylece sahneler/hadar hangi sağlayıcının ürettiğini bilmez.
-
-Gemini yolu tek uç kullanır: `POST /v1beta/interactions` (`Api-Revision` başlığıyla), medya yanıtın `steps` dizisindeki
-son `model_output` bloğunda base64 gelir — akış/flow/düğüm grafiği yok. Ses `gemini-3.8-flash-tts` (+`speech_config.voice`,
-Gemini'nin kendi 30 stok sesi; ElevenLabs ses id'si anlamsız olduğu için film başına sabit bir eşleme), müzik
-`lyria-3-clip-preview` (30 s) / `lyria-3.5`, görsel `gemini-nano-banana-2.1` (aspekt + 1K/2K/4K; referans ya
-`previous_interaction_id` ya inline base64), video `gemini-omni-1.2-flash` (3–15 s, aspekt, 1080p; ilk kare
-`previous_interaction_id`). Konuşan sunucu (avatar/lip-sync) Gemini'de yok: o iş ElevenLabs'ta kalır ve seçim Gemini
-ise açık hata verir.
-
-Para: Google dolar faturalar, kredi değil. Gemini harcaması ayrı tabloya yazılır (`gemini_ledger`, liste fiyatlarıyla:
-ses $0.50/1M metin + ~$0.000225/s ses, müzik $0.04–0.08/şarkı, görsel 2K ≈ $0.067, video 720p ≈ $0.07/s ve 1080p ≈
-$0.104/s) ve aylık dolar tavanı `CF_GEMINI_MONTHLY_USD` (varsayılan 25). ElevenLabs kredi bütçesinden düşmez; bu yüzden
-Gemini seçiliyken "onaylanan kredi" o adımın tavanı olmaz — tavan aylık dolardır. Hesaplar sayfası bu ayki Gemini
-harcamasını gösterir.
+**Denetim (reviewer) turu.** Hesaplar → CLI ve model seçenekleri'nde "Denetim" kutusu: **yok / 1 tur (varsayılan) /
+2 tur**. `accounts.review_rounds`, `agent.run_stage` içinde okunur: 0 = denetçi hiç çalışmaz, 1 = tek geçiş,
+2 = kritik bulgu ya da eşik altı skorda bir düzeltme turu daha.
 
 **ElevenLabs accounts** (`data/eleven_accounts.json`, `factory/accounts.py`): `ali` = the owner's connector account (runs
 the MCP calls as the owner even when a member started the job); others = API keys (`factory/eleven_api.py`: TTS, music,

@@ -167,6 +167,35 @@ def claude_status(uid=None):
 
 
 CLI_PROVIDERS = {"claude", "codex", "openrouter"}
+EFFORT_LEVELS = ("low", "medium", "high")     # what the settings page offers per agent
+REVIEW_ROUNDS = (0, 1, 2)                      # how many review rounds a stage may use (0 = no reviewer)
+
+
+# ---------- chosen narrator per account ----------
+DEFAULTS = os.path.join(ROOT, "data", "eleven_defaults.json")
+
+
+def voice_defaults():
+    """{account id: {lang: voice_id}} — the narrator the creator picked for a language, per ElevenLabs account."""
+    try:
+        return json.load(open(DEFAULTS))
+    except (OSError, ValueError):
+        return {}
+
+
+def default_voice_for(aid, lang):
+    return (voice_defaults().get(aid) or {}).get(lang)
+
+
+def set_default_voice(aid, lang, voice_id):
+    if lang not in ("tr", "en"):
+        raise ValueError("Bilinmeyen dil")
+    d = voice_defaults()
+    d.setdefault(aid, {})[lang] = voice_id
+    os.makedirs(os.path.dirname(DEFAULTS), exist_ok=True)
+    with open(DEFAULTS, "w") as f:
+        json.dump(d, f, ensure_ascii=False, indent=1)
+    return d[aid]
 
 
 # ---------- Google Gemini per user ----------
@@ -200,6 +229,123 @@ def gemini_status(uid=None):
             "tail": "…" + key[-4:] if own.get("key") else None, "at": own.get("connected_at")}
 
 
+def review_rounds(uid=None):
+    """How many reviewer rounds one stage may use: 0 = no reviewer, 1 = one pass (the default), 2 = a fix round too."""
+    uid = uid or current()
+    n = (user(uid) or {}).get("review_rounds")
+    return n if n in REVIEW_ROUNDS else 1
+
+
+def set_review_rounds(uid, n):
+    if n not in REVIEW_ROUNDS:
+        raise ValueError("Denetim turu geçersiz")
+    u = users()
+    pref_rec(u, uid)["review_rounds"] = n
+    _save(USERS, u)
+    return n
+
+
+# ---------- who makes the media ----------
+MEDIA_KINDS = ("voice", "music", "image", "video")
+MEDIA_PROVIDERS = ("elevenlabs", "gemini")
+
+
+def media_settings(uid=None):
+    """Per capability, who generates it: ElevenLabs or Gemini (Hesaplar → Medya üreticisi)."""
+    uid = uid or current()
+    saved = (user(uid) or {}).get("media") or {}
+    return {k: (saved.get(k) if saved.get(k) in MEDIA_PROVIDERS else "elevenlabs") for k in MEDIA_KINDS}
+
+
+def set_media_settings(uid, mapping):
+    if not isinstance(mapping, dict) or not mapping:
+        raise ValueError("Medya üreticisi seçimi geçersiz")
+    clean = {}
+    for k, v in mapping.items():
+        if k not in MEDIA_KINDS or v not in MEDIA_PROVIDERS:
+            raise ValueError("Medya üreticisi seçimi geçersiz")
+        clean[k] = v
+    u = users()
+    rec = pref_rec(u, uid)
+    rec["media"] = {**media_settings(uid), **clean}
+    _save(USERS, u)
+    return media_settings(uid)
+
+
+# ---------- chosen narrator per account ----------
+DEFAULTS = os.path.join(ROOT, "data", "eleven_defaults.json")
+
+
+def voice_defaults():
+    """{account id: {lang: voice_id}} — the narrator the creator picked for a language, per ElevenLabs account."""
+    try:
+        return json.load(open(DEFAULTS))
+    except (OSError, ValueError):
+        return {}
+
+
+def default_voice_for(aid, lang):
+    return (voice_defaults().get(aid) or {}).get(lang)
+
+
+def set_default_voice(aid, lang, voice_id):
+    if lang not in ("tr", "en"):
+        raise ValueError("Bilinmeyen dil")
+    d = voice_defaults()
+    d.setdefault(aid, {})[lang] = voice_id
+    os.makedirs(os.path.dirname(DEFAULTS), exist_ok=True)
+    with open(DEFAULTS, "w") as f:
+        json.dump(d, f, ensure_ascii=False, indent=1)
+    return d[aid]
+
+
+# ---------- Google Gemini per user ----------
+def set_gemini_key(uid, key):
+    """Store this user's Gemini API key ("" removes it)."""
+    key = (key or "").strip()
+    if key and (len(key) < 20 or len(key) > 200 or any(c.isspace() for c in key)):
+        raise ValueError("Gemini anahtarı geçersiz görünüyor")
+    u = users()
+    rec = pref_rec(u, uid)
+    if key:
+        rec["gemini"] = {"key": key, "connected_at": time.strftime("%Y-%m-%d %H:%M")}
+    else:
+        rec.pop("gemini", None)
+    _save(USERS, u)
+    return gemini_status(uid)
+
+
+def gemini_key(uid=None):
+    uid = uid or current()
+    return ((user(uid) or {}).get("gemini") or {}).get("key") or ""
+
+
+def gemini_status(uid=None):
+    """This user's Gemini key: their own when they saved one, else the owner's GEMINI_API_KEY."""
+    uid = uid or current()
+    own = ((user(uid) or {}).get("gemini") or {})
+    env = os.environ.get("GEMINI_API_KEY") or ""
+    key = own.get("key") or env
+    return {"connected": bool(key), "mine": bool(own.get("key")), "env": not own.get("key") and bool(env),
+            "tail": "…" + key[-4:] if own.get("key") else None, "at": own.get("connected_at")}
+
+
+def review_rounds(uid=None):
+    """How many reviewer rounds one stage may use: 0 = no reviewer, 1 = one pass (the default), 2 = a fix round too."""
+    uid = uid or current()
+    n = (user(uid) or {}).get("review_rounds")
+    return n if n in REVIEW_ROUNDS else 1
+
+
+def set_review_rounds(uid, n):
+    if n not in REVIEW_ROUNDS:
+        raise ValueError("Denetim turu geçersiz")
+    u = users()
+    pref_rec(u, uid)["review_rounds"] = n
+    _save(USERS, u)
+    return n
+
+
 # ---------- who makes the media ----------
 MEDIA_KINDS = ("voice", "music", "image", "video")
 MEDIA_PROVIDERS = ("elevenlabs", "gemini")
@@ -228,43 +374,6 @@ def set_media_settings(uid, mapping):
 
 
 # ---------- how ElevenLabs is reached ----------
-ELEVEN_VIA = ("auto", "api", "codex", "claude")
-
-
-def eleven_settings(uid=None):
-    """This user's ElevenLabs transport: 'auto' (whatever is connected), 'api' (our REST client, needs an API key),
-    'codex' or 'claude' (that CLI's connector). It decides who runs a connector turn when the agents run on an API
-    model (OpenRouter), which has no connectors of its own."""
-    uid = uid or current()
-    via = (user(uid) or {}).get("eleven_via") or "auto"
-    return {"via": via if via in ELEVEN_VIA else "auto"}
-
-
-def set_eleven_settings(uid, via):
-    if via not in ELEVEN_VIA:
-        raise ValueError("ElevenLabs taşıması geçersiz")
-    u = users()
-    pref_rec(u, uid)["eleven_via"] = via
-    _save(USERS, u)
-    return eleven_settings(uid)
-
-
-def eleven_transports(uid=None):
-    """Which transports can run right now, for the Studio's picker: an API-key account, Codex connector, Claude login."""
-    from . import llm
-    codex = claude = False
-    try:
-        codex = bool(llm.codex_elevenlabs_status().get("connected"))
-    except Exception:
-        pass
-    try:
-        claude = bool(claude_status().get("connectors"))
-    except Exception:
-        pass
-    apikey = any(a.get("type") == "apikey" for a in (eleven_accounts().get("accounts") or {}).values())
-    return {"api": apikey, "codex": codex, "claude": claude}
-
-
 # ---------- OpenRouter per user ----------
 def set_openrouter_key(uid, key):
     """Store this user's OpenRouter API key ("" removes it). Returns the new status."""
@@ -307,13 +416,16 @@ def llm_settings(uid=None):
     provider = saved.get("provider") if saved.get("provider") in CLI_PROVIDERS else "claude"
     models = saved.get("models") if isinstance(saved.get("models"), dict) else {}
     provs = saved.get("providers") if isinstance(saved.get("providers"), dict) else {}
+    effs = saved.get("effort") if isinstance(saved.get("effort"), dict) else {}
     return {"provider": provider,
             "models": {str(k): str(v) for k, v in models.items() if isinstance(k, str) and isinstance(v, str)},
             "providers": {str(k): str(v) for k, v in provs.items()
-                          if isinstance(k, str) and isinstance(v, str) and v in CLI_PROVIDERS}}
+                          if isinstance(k, str) and isinstance(v, str) and v in CLI_PROVIDERS},
+            "effort": {str(k): str(v) for k, v in effs.items()
+                       if isinstance(k, str) and isinstance(v, str) and v in EFFORT_LEVELS}}
 
 
-def set_llm_settings(uid, provider, models, providers=None):
+def set_llm_settings(uid, provider, models, providers=None, effort=None):
     if provider not in CLI_PROVIDERS:
         raise ValueError("CLI seçimi geçersiz")
     if not isinstance(models, dict) or len(models) > 80:
@@ -330,9 +442,15 @@ def set_llm_settings(uid, provider, models, providers=None):
             raise ValueError("Agent CLI seçimi geçersiz")
         if p:
             provs[step] = p
+    effs = {}
+    for step, level in (effort or {}).items():
+        if not isinstance(step, str) or len(step) > 80 or level not in EFFORT_LEVELS:
+            raise ValueError("Agent düşünme seviyesi geçersiz")
+        if level:
+            effs[step] = level
     u = users()
     rec = pref_rec(u, uid)
-    rec["llm_settings"] = {"provider": provider, "models": clean, "providers": provs}
+    rec["llm_settings"] = {"provider": provider, "models": clean, "providers": provs, "effort": effs}
     _save(USERS, u)
     return llm_settings(uid)
 
@@ -376,10 +494,11 @@ def claude_env(uid=None):
 
 # ---------- ElevenLabs accounts ----------
 def eleven_accounts():
+    """ElevenLabs accounts: API keys only (the CLI connector was removed: voices, music, sfx, images, video and
+    lip-sync all come from the REST API now)."""
     a = _load(ELEVEN, None)
-    if a is None:  # the owner's existing connector account
-        a = {"accounts": {"ali": {"name": "Ali'nin ElevenLabs'ı", "type": "connector", "owner": OWNER,
-                                  "shared": True, "member_month_cap": None}}}
+    if a is None:
+        a = {"accounts": {}}
         _save(ELEVEN, a)
     return a
 
@@ -434,6 +553,8 @@ def usable_eleven(uid=None):
     uid = uid or current()
     out = []
     for aid, acc in eleven_accounts()["accounts"].items():
+        if acc.get("type") != "apikey":
+            continue                      # the CLI connector was removed: only API-key accounts can spend
         if acc["owner"] == uid or acc.get("shared"):
             out.append({"id": aid, "name": acc["name"], "type": acc["type"], "owner": acc["owner"],
                         "mine": acc["owner"] == uid, "shared": bool(acc.get("shared")),
@@ -443,10 +564,24 @@ def usable_eleven(uid=None):
 
 
 def default_eleven(uid=None):
+    """The account a production spends from unless it names its own: the user's saved choice, else their own, else any."""
     uid = uid or current()
     acc = usable_eleven(uid)
+    chosen = ((user(uid) or {}).get("default_eleven") or "")
+    if chosen and any(a["id"] == chosen for a in acc):
+        return chosen
     mine = [a for a in acc if a["mine"]]
     return (mine or acc or [{"id": "ali"}])[0]["id"]
+
+
+def set_default_eleven(uid, aid):
+    """Save the account a production spends from by default (an account id from usable_eleven)."""
+    if not any(a["id"] == aid for a in usable_eleven(uid)):
+        raise ValueError("ElevenLabs hesabı bulunamadı")
+    u = users()
+    pref_rec(u, uid)["default_eleven"] = aid
+    _save(USERS, u)
+    return aid
 
 
 def can_use(aid, uid=None):

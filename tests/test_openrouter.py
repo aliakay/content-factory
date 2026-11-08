@@ -168,7 +168,8 @@ def test_the_loop_runs_the_tool_then_returns_the_answer(tmp_path, monkeypatch):
     ]
     seen = []
 
-    def fake_chat(messages, model=None, tools=None, plugins=None, timeout=600, key=None, retries=2):
+    def fake_chat(messages, model=None, tools=None, plugins=None, timeout=600, key=None, retries=2, max_tokens=None,
+                  reasoning=None):
         seen.append([dict(m) for m in messages])
         return turns.pop(0)
 
@@ -200,7 +201,8 @@ def test_ask_text_routes_an_openrouter_user_to_openrouter(users, monkeypatch):
     accounts.set_llm_settings("cem", "openrouter", {})
     got = {}
 
-    def fake_run(prompt, tools=(), timeout=900, model=None, servers=None, budget_usd=None, effort=None):
+    def fake_run(prompt, tools=(), timeout=900, model=None, servers=None, budget_usd=None, effort=None, step=None,
+                 max_tokens=None):
         got.update({"prompt": prompt, "model": model, "servers": servers})
         return '{"ok": true}', {"cost_usd": 0.001}
 
@@ -211,40 +213,43 @@ def test_ask_text_routes_an_openrouter_user_to_openrouter(users, monkeypatch):
     assert got["model"] == openrouter.DEFAULT_MODEL and got["servers"] == {"factory": {"command": "x"}}
 
 
-# ---------------------------------------------------------------- ElevenLabs: the connector stays on a CLI
-def test_a_connector_turn_never_runs_on_the_api_model(users, monkeypatch):
-    """ElevenLabs lives inside a CLI login: with OpenRouter selected, those turns go back to Claude Code or Codex."""
-    from factory import eleven, llm as L
-
-    accounts.set_llm_settings("cem", "openrouter", {})
-    monkeypatch.setattr(L, "codex_elevenlabs_status", lambda: {"connected": False, "configured": False})
-    monkeypatch.setattr(accounts, "claude_status", lambda uid=None: {"connectors": False})
-    with accounts.as_user("cem"):
-        assert L.connector_ready() == (False, None)
-        with pytest.raises(L.LLMError, match="ElevenLabs"):
-            L.connector_provider()
-        monkeypatch.setattr(accounts, "claude_status", lambda uid=None: {"connectors": True})
-        assert L.connector_provider() == "claude"
-        monkeypatch.setattr(L, "codex_elevenlabs_status", lambda: {"connected": True, "configured": True})
-        assert L.connector_provider() == "codex"          # the CLI that actually has the connector wins
-
-
-def test_the_selected_cli_keeps_its_connector(users, monkeypatch):
-    accounts.set_llm_settings("cem", "codex", {})
-    monkeypatch.setattr(llm, "connector_ready", lambda: (False, None))
-    with accounts.as_user("cem"):
-        assert llm.connector_provider() == "codex"        # no probing: the selected CLI is the answer
+# ---------------------------------------------------------------- guards that stop a runaway stage
+def test_the_same_tool_with_the_same_result_is_a_loop(tmp_path, monkeypatch):
+    """The script stage burned 35 min re-running `cold_test` with the same verdict: that must stop the run."""
+    monkeypatch.setattr(openrouter, "WORK", str(tmp_path))
+    monkeypatch.setattr(mcpclient, "open_servers", lambda servers: {})
+    monkeypatch.setattr(mcpclient, "close_servers", lambda started: None)
+    monkeypatch.setattr(openrouter, "api_key", lambda uid=None: "k")
+    monkeypatch.setattr(llm, "_record", lambda *a, **k: None)
+    monkeypatch.setattr(openrouter, "chat", lambda *a, **k: {
+        "choices": [{"message": {"content": "", "tool_calls": [
+            {"id": "c", "type": "function", "function": {"name": "Read", "arguments": '{"path": "x"}'}}]}}],
+        "usage": {"cost": 0.0001}})
+    with pytest.raises(openrouter.OpenRouterError) as e:
+        openrouter.run("yaz", tools=("Read",), timeout=60)
+    assert "döngü" in str(e.value) and "Read" in str(e.value)
 
 
-def test_ask_text_routes_a_connector_turn_to_the_cli(users, monkeypatch):
-    accounts.set_llm_settings("cem", "openrouter", {})
-    seen = {}
-    monkeypatch.setattr(llm, "connector_ready", lambda: (True, "codex"))
-    monkeypatch.setattr(llm, "_codex_elevenlabs_server", lambda: "elevenlabs")
-    monkeypatch.setattr(llm, "_codex", lambda prompt, tools, timeout, model, effort, step, approve_mcp=False,
-                                        servers=None: seen.update({"prompt": prompt, "tools": tools}) or ("ok", {}))
-    monkeypatch.setattr(openrouter, "run", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no API model here")))
-    with accounts.as_user("cem"):
-        text, meta = llm.ask_text("ses üret", tools=("mcp__claude_ai_ElevenLabs__creative_generate_speech",), mcp=True)
-    assert text == "ok" and seen["tools"] == ("creative_generate_speech",)
-    assert "elevenlabs" in seen["prompt"]                 # the Codex MCP prompt names the connector server
+def test_an_empty_reply_is_asked_again_before_failing(tmp_path, monkeypatch):
+    monkeypatch.setattr(mcpclient, "open_servers", lambda servers: {})
+    monkeypatch.setattr(mcpclient, "close_servers", lambda started: None)
+    monkeypatch.setattr(openrouter, "api_key", lambda uid=None: "k")
+    monkeypatch.setattr(llm, "_record", lambda *a, **k: None)
+    monkeypatch.setattr(openrouter.time, "sleep", lambda s: None)
+    replies = [{"choices": [{"message": {"content": ""}}], "usage": {}},
+               {"choices": [{"message": {"content": "Bitti."}}], "usage": {"cost": 0.001}}]
+    monkeypatch.setattr(openrouter, "chat", lambda *a, **k: replies.pop(0))
+    text, meta = openrouter.run("yaz", tools=(), timeout=60)
+    assert text == "Bitti." and meta["turns"] == 2
+
+
+def test_a_persistently_empty_reply_fails_with_the_reason(tmp_path, monkeypatch):
+    monkeypatch.setattr(mcpclient, "open_servers", lambda servers: {})
+    monkeypatch.setattr(mcpclient, "close_servers", lambda started: None)
+    monkeypatch.setattr(openrouter, "api_key", lambda uid=None: "k")
+    monkeypatch.setattr(llm, "_record", lambda *a, **k: None)
+    monkeypatch.setattr(openrouter.time, "sleep", lambda s: None)
+    monkeypatch.setattr(openrouter, "chat", lambda *a, **k: {
+        "choices": [{"message": {"content": ""}, "finish_reason": "length"}], "usage": {}})
+    with pytest.raises(openrouter.OpenRouterError, match="boş yanıt"):
+        openrouter.run("yaz", tools=(), timeout=60)

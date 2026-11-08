@@ -41,8 +41,6 @@ def set_settings(uid, mapping):
 
 
 def ready(uid=None):
-    """Which providers can run right now (for the Studio's picker)."""
-    from . import llm
-    return {"elevenlabs": bool(accounts.eleven_transports(uid)["api"] or accounts.eleven_transports(uid)["codex"]
-                               or accounts.eleven_transports(uid)["claude"]),
+    """Which providers can run right now (for the Studio's picker): an ElevenLabs API-key account, or a Gemini key."""
+    return {"elevenlabs": any(a.get("type") == "apikey" and a.get("usable", True) for a in accounts.usable_eleven(uid)),
             "gemini": accounts.gemini_status(uid)["connected"]}
