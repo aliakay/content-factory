@@ -377,13 +377,11 @@ def composed(mu):
     return (mu or {}).get("source") == "composer"
 
 
-def cut_facts(pid, sp, d=None):
-    """The sound around every cut of the rendered film (qa.audio_facts): a 3 s window, not the whole file."""
+def cut_facts(path, sp, pid=None, d=None):
+    """The sound around every cut of a rendered film (qa.audio_facts): a 3 s window per cut, not the whole file."""
     from .. import qa
     out = os.path.join(ROOT, "work", "cut-facts.json")
     try:
-        prev = P.read_artifact(pid, "preview", d) or {}
-        path = os.path.join(ROOT, prev["file"]) if prev.get("file") else None
         if not path or not os.path.exists(path):
             return []
         facts = [qa.audio_facts(path, round(s["start"], 2)) for s in (sp.get("scenes") or [])[1:]]
@@ -527,6 +525,14 @@ def compose(pid, s, note=None, d=None):
             sl = craftcheck.scene_loudness(res["file"], starts)
             sound["findings"] += sl["findings"]
             sound["metrics"]["scenes"] = sl["scenes"]
+        cuts = cut_facts(res["file"], sp, pid, d)
+        if cuts:                                   # each cut: is there a hole, is anyone speaking
+            sound["cuts"] = cuts
+            silent = [c for c in cuts if c["silent_s"] > 1.0]
+            if silent:
+                sound["findings"].append({"kind": "cut_hole",
+                                          "detail": f"{len(silent)} kesimde >1 s sessizlik: "
+                                                    f"{[c['at'] for c in silent][:4]}"})
     except Exception as e:
         sound = {"error": f"{type(e).__name__}: {e}"[:300]}
     script = P.read_artifact(pid, "script", d) or {}
