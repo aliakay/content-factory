@@ -39,7 +39,7 @@ ElevenLabs connector turları CLI'a geri düştüğünde o CLI'ın kendi modeli 
   bloklar; ≤0,35 s boşluklar kapatılır (ekran boş kalmaz = titreme yok), uzun boşlukta 0,12 s tutuş, blok en az 0,20 s,
   cümle noktalamasında bölünür. `explainer.spec` artık `caption_blocks` alanını taşıyor (katman bunu kullanabilir).
 - **Kamera sözlüğü**: `inertia` easing (`0,35 linear + 0,65 smoothstep`; `factory/camera.py:inertia`,
-  `FX.INERTIA` ile aynı formül) + ölçülmüş hız kelimeleri `slow ≤%10 boyut/sn · medium %10-25 · fast >%25`
+  `FX.INERTIA` ile aynı formül) + ölçülmüş hız kelimeleri `slow ≤%10 boyut/sn · medium %10–25 · fast >%`
   (`camera.SPEED`, `camera.speed_of`). `FX.punch` (1,12× / 0,18 s out-expo + 0,20 s settle) vurgu kelimesi için hazır.
 - **Kesim noktası ses olguları** (`qa.audio_facts(path, t, 1.5)`): 3 s'lik pencerede silencedetect+astats → kesimde
   delik var mı, konuşma var mı. Tüm dosyayı taramaz.
