@@ -44,6 +44,8 @@ factory/camera.py, subjectqc.py, originality.py, determinism.py   what a scene p
 factory/words.py, typography.py, licence.py   Turkish/English folding, the type scale, the attribution ledger
 factory/eleven_api.py, eleven.py   ElevenLabs: the REST client (voice, music, image, video, lip-sync) and the
                         CLI-connector path; the transport is chosen per user when the agents run on OpenRouter
+factory/gemini.py, mediaprov.py   Google Gemini as the other media provider (Interactions API: speech, music, image,
+                        video) and the per-capability routing between the two (Hesaplar → Medya üreticisi)
 factory/openrouter.py, mcpclient.py   the OpenRouter provider (an API key, DeepSeek V4.1 Flash) and the MCP client it needs
 ```
 

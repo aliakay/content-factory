@@ -147,6 +147,32 @@ def _estimated(kind, model, units, approved):
     return float(est["total"]) if not est["unknown"] else float(approved or 0)
 
 
+def _gemini_on(kind):
+    """Did the creator point this capability at Gemini? (Hesaplar → Medya üreticisi)"""
+    from . import mediaprov
+    return mediaprov.choice(kind) == "gemini"
+
+
+def _gemini_cost(con, kind, model, units, unit, usd, note):
+    from . import gemini
+    gemini.guard(con, usd)
+    gemini.record(con, kind, model, units, unit, usd, note)
+    return 0.0        # Gemini bills dollars: nothing is deducted from the ElevenLabs credit budget
+
+
+def _pick_ext(mime, fallback):
+    m = str(mime or "").lower()
+    if "wav" in m:
+        return "wav"
+    if "mpeg" in m or "mp3" in m:
+        return "mp3"
+    if "mp4" in m:
+        return "mp4"
+    if "png" in m:
+        return "png"
+    return fallback
+
+
 def _write(data, ext, key):
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, f"{key}.{ext}")
@@ -159,6 +185,18 @@ def _write(data, ext, key):
 def tts(con, text, voice_id, model="eleven_v4", idea_id=None, approved=None, account=None):
     """Speech for `text` (one take) from the given ElevenLabs account (connector or API key). Returns (mp3_path,
     credit_cost). Cached by (text, voice, model). `approved`: the credit amount the user approved; guard refuses without it."""
+    if _gemini_on("voice"):
+        from . import gemini
+        gmodel = gemini.DEFAULT["voice"]
+        gkey = "gtts_" + hashlib.sha1(f"{gmodel}|{voice_id}|{text}".encode()).hexdigest()[:16]
+        for ext in ("wav", "mp3"):
+            hit = os.path.join(OUT, f"{gkey}.{ext}")
+            if os.path.exists(hit):
+                return hit, 0.0
+        data, mime, _ = gemini.tts(text, voice=gemini.pick_voice(voice_id))
+        path = _write(data, _pick_ext(mime, "wav"), gkey)
+        _gemini_cost(con, "voice", gmodel, len(text), "char", gemini.price("voice", gmodel, len(text)), text[:60])
+        return path, 0.0
     key = "tts_" + hashlib.sha1(f"{model}|{voice_id}|{text}".encode()).hexdigest()[:16]
     cached = os.path.join(OUT, f"{key}.mp3")
     if os.path.exists(cached):
@@ -189,6 +227,17 @@ def generate(con, kind, model, prompt_text, params, units, unit, idea_id=None, e
     """Generic flow generation (sfx / music / image / video) with the given model and params.
     `approved`: credits the user approved for this call; credits.guard refuses without it."""
     key = f"{kind}_" + hashlib.sha1(f"{model}|{prompt_text}|{json.dumps(params, sort_keys=True)}".encode()).hexdigest()[:16]
+    if kind == "music" and _gemini_on("music"):
+        from . import gemini
+        gmodel, secs = gemini.DEFAULT["music"], float(params.get("duration_seconds") or units or 30)
+        gkey = "gmusic_" + hashlib.sha1(f"{gmodel}|{prompt_text}|{secs}".encode()).hexdigest()[:16]
+        hit = next((os.path.join(OUT, f"{gkey}.{e}") for e in ("mp3", "wav") if os.path.exists(os.path.join(OUT, f"{gkey}.{e}"))), None)
+        if hit:
+            return hit, 0.0
+        data, mime, _ = gemini.music(prompt_text, secs, gmodel)
+        path = _write(data, _pick_ext(mime, "mp3"), gkey)
+        _gemini_cost(con, "music", gmodel, 1, "song", gemini.price("music", gmodel), prompt_text[:60])
+        return path, 0.0
     cached = os.path.join(OUT, f"{key}.{ext}")
     if os.path.exists(cached):
         return cached, 0.0
@@ -245,6 +294,16 @@ def image(con, prompt_text, approved, account=None, aspect="9:16", flow_id=None,
         return cached, 0.0, m.get("flow_id"), m.get("node_id")
     account, acc = _account(account)
     ratio = "9:16" if aspect == "9:16" else "16:9"
+    if _gemini_on("image"):                             # Gemini's own image model (Nano Banana / Imagen)
+        from . import gemini
+        gmodel = gemini.DEFAULT["image"]
+        data, mime, iid = gemini.image(prompt_text, gmodel, aspect=ratio, refs=refs)
+        path = _write(data, "png", key)
+        node = _node("gen", iid)
+        json.dump({"flow_id": None, "node_id": node, "prompt": prompt_text, "refs": [str(r) for r in refs]},
+                  open(meta_path, "w"))
+        cost = _gemini_cost(con, "image", gmodel, 1, "img", gemini.price("image", gmodel), prompt_text[:60])
+        return path, cost, None, node
     if transport(account) == "api":                     # an API key account: the REST flow generation, no CLI
         credits.guard(con, "image", model, 1, approved, account)
         data, _, gid = eleven_api.image(acc["key"], prompt_text, model, aspect=ratio, refs=refs)
@@ -312,6 +371,19 @@ def video(con, prompt_text, approved, seconds, account=None, aspect="9:16", flow
         m = json.load(open(meta_path))
         return cached, 0.0, m.get("flow_id"), m.get("node_id")
     account, acc = _account(account)
+    if _gemini_on("video"):
+        from . import gemini
+        if model == AVATAR_MODEL:
+            raise ElevenError("konuşan sunucu (avatar) Gemini'de yok: Medya üreticisi → video'yu ElevenLabs yap")
+        gmodel = gemini.DEFAULT["video"]
+        data, mime, iid = gemini.video(prompt_text, seconds, gmodel, aspect=aspect, start=start,
+                                       resolution=resolution or "1080p")
+        path = _write(data, "mp4", key)
+        node = _node("gen", iid)
+        json.dump({"flow_id": None, "node_id": node, "prompt": prompt_text, "inputs": inputs}, open(meta_path, "w"))
+        cost = _gemini_cost(con, "video", gmodel, seconds, "s",
+                            gemini.price("video", gmodel, seconds, resolution=resolution or "1080p"), prompt_text[:60])
+        return path, cost, None, node
     if transport(account) == "api":                     # an API key account: the REST flow generation, no CLI
         credits.guard(con, "video", rate_model, seconds, approved, account)
         if model == AVATAR_MODEL:                       # a talking presenter: the image speaks the audio

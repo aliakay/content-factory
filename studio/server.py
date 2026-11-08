@@ -855,7 +855,10 @@ def me(con):
     out = {"id": uid, "name": u.get("name", uid), "role": u.get("role", "owner"), "login": accounts.enabled(),
            "claude": accounts.claude_status(uid), "eleven": accs, "default_eleven": accounts.default_eleven(uid),
            "llm_settings": accounts.llm_settings(uid), "codex_elevenlabs": codex_elevenlabs,
-           "openrouter": accounts.openrouter_status(uid), "eleven_settings": accounts.eleven_settings(uid),
+           "openrouter": accounts.openrouter_status(uid), "gemini": accounts.gemini_status(uid),
+           "gemini_spend": (lambda: __import__("factory.gemini", fromlist=["gemini"]).month_usd(con))(),
+           "media_settings": accounts.media_settings(uid), "media_kinds": list(accounts.MEDIA_KINDS),
+           "eleven_settings": accounts.eleven_settings(uid),
            "eleven_transports": accounts.eleven_transports(uid),
            "llm_models": {p: llm.model_options(p) for p in LLM_PROVIDERS},
            "llm_default_models": {p: {step: llm.default_model(step, p) for step in llm.AGENT_STEPS} for p in LLM_PROVIDERS},
@@ -1286,6 +1289,24 @@ class Handler(shorts.Handler):
                    or model not in allowed_models for step, model in models.items()):
                 raise ValueError("Agent veya model seçimi listede yok")
             return {"llm_settings": accounts.set_llm_settings(uid, provider, models)}
+        if path == "/api/gemini/key":
+            key = (b.get("key") or "").strip()
+            if not key:                       # an empty box removes the user's own key
+                return {"gemini": accounts.set_gemini_key(uid, "")}
+            try:
+                from factory import gemini
+                info = gemini.check(key)
+            except ValueError as e:
+                raise ValueError(str(e)) from None
+            except Exception as e:            # the key may be good but the network is not: save it anyway
+                info = {"ok": False, "models": 0, "note": "doğrulanamadı: " + str(e)[:120]}
+            st = accounts.set_gemini_key(uid, key)
+            st["check"] = info
+            return {"gemini": st}
+        if path == "/api/media/settings":
+            from factory import mediaprov
+            return {"media_settings": mediaprov.set_settings(uid, b.get("media") or {}),
+                    "media_ready": mediaprov.ready(uid)}
         if path == "/api/eleven/settings":
             via = b.get("via")
             if via not in accounts.ELEVEN_VIA:

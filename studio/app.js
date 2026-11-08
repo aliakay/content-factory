@@ -1304,6 +1304,14 @@ ROUTES["#/hesaplar"] = async () => {
   const cl = m.claude.connected ? `<div class="small">✅ Bağlı · ${esc(m.claude.how)}${m.claude.at ? " · " + esc(m.claude.at) : ""}</div>` : `<div class="small">❌ Bağlı değil.</div>`;
   const lc = m.llm_settings || { provider: "claude", models: {} }, provider = lc.provider || "claude";
   const orr = m.openrouter || {}, ev = m.eleven_settings || { via: "auto" }, evt = m.eleven_transports || {};
+  const gm = m.gemini || {}, ms = m.media_settings || {}, ML = { voice: "Ses", music: "Müzik", image: "Görsel", video: "Video" };
+  const mediaCard = `<div class="card mt16"><h3>🎨 Medya üreticisi</h3>
+    <p class="small muted">Ses, müzik, görsel ve videoyu kim üretsin? ElevenLabs krediyle çalışır (connector ya da API anahtarı); Gemini kendi anahtarınla, <b>dolar</b> olarak faturalanır ve ayrı deftere yazılır. Varsayılan ElevenLabs.</p>
+    ${(m.media_kinds || []).map((k) => `<label class="field mt8"><span>${ML[k] || esc(k)}</span><select data-media="${esc(k)}">
+      <option value="elevenlabs" ${(ms[k] || "elevenlabs") === "elevenlabs" ? "selected" : ""}>ElevenLabs</option>
+      <option value="gemini" ${ms[k] === "gemini" ? "selected" : ""} ${gm.connected ? "" : "disabled"}>Gemini ${gm.connected ? "" : "· anahtar yok"}</option>
+    </select></label>`).join("")}
+    <button class="btn accent sm mt8" data-act="mediaSave">Kaydet</button></div>`;
   const PROVIDER_DEFAULT = { codex: "gpt-6-luna", openrouter: "deepseek/deepseek-v4.1-flash-1017", claude: "opus" };
   const agentModels = (m.llm_agents || []).map((a) => {
     const selected = (lc.models || {})[a.id] || (lc.models || {}).default || "";
@@ -1327,6 +1335,11 @@ ROUTES["#/hesaplar"] = async () => {
     <div class="small">${orr.connected ? (orr.mine ? `✅ Bağlı · anahtar ${esc(orr.tail || "")}${orr.at ? " · " + esc(orr.at) : ""}` : "✅ Sunucudaki OPENROUTER_API_KEY kullanılıyor") : "❌ Bağlı değil"}</div>
     <p class="small muted mt8">Kendi OpenRouter anahtarını gir: <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys ↗</a>. OpenRouter seçildiğinde tüm agent’lar bu anahtarla, varsayılan olarak DeepSeek V4.1 Flash ile çalışır.</p>
     <div class="row nowrap mt8"><input type="password" id="or_key" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false"><button class="btn accent sm" data-act="openrouterKey">Kaydet</button>${orr.mine ? `<button class="btn sm ghost danger" data-act="openrouterClear">Kaldır</button>` : ""}</div></div>
+  <div class="card mt16"><h3>🔷 Google Gemini API</h3>
+    <div class="small">${gm.connected ? (gm.mine ? `✅ Bağlı · anahtar ${esc(gm.tail || "")}${gm.at ? " · " + esc(gm.at) : ""}` : "✅ Sunucudaki GEMINI_API_KEY kullanılıyor") : "❌ Bağlı değil"}</div>
+    <p class="small muted mt8">Anahtarını <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey ↗</a> üzerinden al. Anahtar girince Medya üreticisi bölümünde Gemini seçilebilir.${m.gemini_spend ? ` · bu ay <b>$${m.gemini_spend.toFixed(2)}</b>` : ""}</p>
+    <div class="row nowrap mt8"><input type="password" id="gm_key" placeholder="AIza…" autocomplete="off" spellcheck="false"><button class="btn accent sm" data-act="geminiKey">Kaydet</button>${gm.mine ? `<button class="btn sm ghost danger" data-act="geminiClear">Kaldır</button>` : ""}</div></div>
+  ${mediaCard}
   ${provider === "openrouter" ? `<div class="card mt16"><h3>🎙 ElevenLabs taşıması</h3>
     <p class="small muted">Agent’lar OpenRouter’da yazıyor. ElevenLabs işlerini (ses, müzik, efekt, görsel, video, avatar) kimin çalıştıracağını burada seç: <b>API</b> = kendi kodumuz anahtarınla REST’ten üretir; <b>Codex</b>/<b>Claude</b> = o CLI’daki connector üretir. Otomatik, bağlı olanı seçer.</p>
     <label class="field mt8"><span>Taşıma</span><select id="eleven_via">
@@ -1362,6 +1375,26 @@ ACT.llmProvider = (el) => {
     : provider === "openrouter"
     ? "Varsayılan model DeepSeek V4.1 Flash. OpenRouter API anahtarınla çalışır; araçlar sunucudaki fabrika araçları üzerinden yürür, web aramasını OpenRouter’ın sunucu araçları yapar."
     : "Varsayılanlar mevcut Claude agent modelleridir (opus/sonnet gibi); değiştirmediğin seçimler korunur.";
+};
+ACT.geminiKey = async () => {
+  const key = ($("#gm_key").value || "").trim();
+  if (!key) return toast("Anahtar boş", 1);
+  const r = await post("/api/gemini/key", { key });
+  const c = (r.gemini || {}).check || {};
+  toast(c.ok === false ? "Kaydedildi · " + (c.note || "doğrulanamadı") : "Gemini bağlandı");
+  route();
+};
+ACT.geminiClear = async () => {
+  if (!confirm("Gemini anahtarın silinsin mi?")) return;
+  await post("/api/gemini/key", { key: "" });
+  toast("Anahtar kaldırıldı"); route();
+};
+ACT.mediaSave = async () => {
+  const media = Object.fromEntries($$('[data-media]').map((x) => [x.dataset.media, x.value]));
+  try {
+    await post("/api/media/settings", { media });
+    toast("Medya üreticisi kaydedildi"); route();
+  } catch (e) { toast(e.message, 1); }
 };
 ACT.elevenVia = async () => {
   const r = await post("/api/eleven/settings", { via: $("#eleven_via").value });

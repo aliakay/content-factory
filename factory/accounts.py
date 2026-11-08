@@ -154,6 +154,68 @@ def claude_status(uid=None):
 CLI_PROVIDERS = {"claude", "codex", "openrouter"}
 
 
+# ---------- Google Gemini per user ----------
+def set_gemini_key(uid, key):
+    """Store this user's Gemini API key ("" removes it)."""
+    key = (key or "").strip()
+    if key and (len(key) < 20 or len(key) > 200 or any(c.isspace() for c in key)):
+        raise ValueError("Gemini anahtarı geçersiz görünüyor")
+    u = users()
+    if uid not in u["users"] and uid != OWNER:
+        raise ValueError("Kullanıcı bulunamadı")
+    rec = u["users"].setdefault(uid, {"name": "Ali", "role": "owner"})
+    if key:
+        rec["gemini"] = {"key": key, "connected_at": time.strftime("%Y-%m-%d %H:%M")}
+    else:
+        rec.pop("gemini", None)
+    _save(USERS, u)
+    return gemini_status(uid)
+
+
+def gemini_key(uid=None):
+    uid = uid or current()
+    return ((user(uid) or {}).get("gemini") or {}).get("key") or ""
+
+
+def gemini_status(uid=None):
+    """This user's Gemini key: their own when they saved one, else the owner's GEMINI_API_KEY."""
+    uid = uid or current()
+    own = ((user(uid) or {}).get("gemini") or {})
+    env = os.environ.get("GEMINI_API_KEY") or ""
+    key = own.get("key") or env
+    return {"connected": bool(key), "mine": bool(own.get("key")), "env": not own.get("key") and bool(env),
+            "tail": "…" + key[-4:] if own.get("key") else None, "at": own.get("connected_at")}
+
+
+# ---------- who makes the media ----------
+MEDIA_KINDS = ("voice", "music", "image", "video")
+MEDIA_PROVIDERS = ("elevenlabs", "gemini")
+
+
+def media_settings(uid=None):
+    """Per capability, who generates it: ElevenLabs or Gemini (Hesaplar → Medya üreticisi)."""
+    uid = uid or current()
+    saved = (user(uid) or {}).get("media") or {}
+    return {k: (saved.get(k) if saved.get(k) in MEDIA_PROVIDERS else "elevenlabs") for k in MEDIA_KINDS}
+
+
+def set_media_settings(uid, mapping):
+    if not isinstance(mapping, dict) or not mapping:
+        raise ValueError("Medya üreticisi seçimi geçersiz")
+    clean = {}
+    for k, v in mapping.items():
+        if k not in MEDIA_KINDS or v not in MEDIA_PROVIDERS:
+            raise ValueError("Medya üreticisi seçimi geçersiz")
+        clean[k] = v
+    u = users()
+    if uid not in u["users"] and uid != OWNER:
+        raise ValueError("Kullanıcı bulunamadı")
+    rec = u["users"].setdefault(uid, {"name": "Ali", "role": "owner"})
+    rec["media"] = {**media_settings(uid), **clean}
+    _save(USERS, u)
+    return media_settings(uid)
+
+
 # ---------- how ElevenLabs is reached ----------
 ELEVEN_VIA = ("auto", "api", "codex", "claude")
 

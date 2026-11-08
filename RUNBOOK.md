@@ -250,6 +250,27 @@ files sent inline as base64 (25 MB cap). One model family stays connector-only: 
 so the ledger records the learned per-unit rate; an unmeasured model records the approved ceiling that
 `credits.guard` enforced.
 
+**Medya üreticisi: ElevenLabs ya da Gemini (2026-11).** Hesaplar → **Google Gemini API** (anahtarını yaz; `config.env`'de
+`GEMINI_API_KEY` da olur) ve **Medya üreticisi**: ses, müzik, görsel ve video için ayrı ayrı ElevenLabs/Gemini seçilir
+(`users.<id>.media`, `factory/mediaprov.py`, `POST /api/media/settings`). Gemini ancak anahtar varsa seçilebilir;
+varsayılan her şeyde ElevenLabs, yani ayarı açmayan kullanıcı için hiçbir şey değişmez. `factory/eleven.py` aynı
+fonksiyon imzalarıyla çalışmaya devam eder: seçim Gemini ise işi `factory/gemini.py`'ye devreder ve aynı şekilleri
+döndürür (`gen:<id>` düğüm kimliği dahil), böylece sahneler/hadar hangi sağlayıcının ürettiğini bilmez.
+
+Gemini yolu tek uç kullanır: `POST /v1beta/interactions` (`Api-Revision` başlığıyla), medya yanıtın `steps` dizisindeki
+son `model_output` bloğunda base64 gelir — akış/flow/düğüm grafiği yok. Ses `gemini-3.8-flash-tts` (+`speech_config.voice`,
+Gemini'nin kendi 30 stok sesi; ElevenLabs ses id'si anlamsız olduğu için film başına sabit bir eşleme), müzik
+`lyria-3-clip-preview` (30 s) / `lyria-3.5`, görsel `gemini-nano-banana-2.1` (aspekt + 1K/2K/4K; referans ya
+`previous_interaction_id` ya inline base64), video `gemini-omni-1.2-flash` (3–15 s, aspekt, 1080p; ilk kare
+`previous_interaction_id`). Konuşan sunucu (avatar/lip-sync) Gemini'de yok: o iş ElevenLabs'ta kalır ve seçim Gemini
+ise açık hata verir.
+
+Para: Google dolar faturalar, kredi değil. Gemini harcaması ayrı tabloya yazılır (`gemini_ledger`, liste fiyatlarıyla:
+ses $0.50/1M metin + ~$0.000225/s ses, müzik $0.04–0.08/şarkı, görsel 2K ≈ $0.067, video 720p ≈ $0.07/s ve 1080p ≈
+$0.104/s) ve aylık dolar tavanı `CF_GEMINI_MONTHLY_USD` (varsayılan 25). ElevenLabs kredi bütçesinden düşmez; bu yüzden
+Gemini seçiliyken "onaylanan kredi" o adımın tavanı olmaz — tavan aylık dolardır. Hesaplar sayfası bu ayki Gemini
+harcamasını gösterir.
+
 **ElevenLabs accounts** (`data/eleven_accounts.json`, `factory/accounts.py`): `ali` = the owner's connector account (runs
 the MCP calls as the owner even when a member started the job); others = API keys (`factory/eleven_api.py`: TTS, music,
 sfx; voices + balance read live, cached 10 min). Each production has `data.eleven_account` (default: its creator's own);
