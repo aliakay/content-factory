@@ -17,6 +17,39 @@
     tl.fromTo(el, { scale: amount }, { scale: 1, duration: settle, ease: "sine.inOut" }, at + dur + (o.hold ?? 0.04));
     return el;
   };
+  // springs (motionforge): closed form, so a layer drawn per frame is deterministic whatever order frames seek in
+  FX.SPRINGS = { ui: { k: 340, d: 30 }, card: { k: 180, d: 24 }, heavy: { k: 95, d: 18 }, bouncy: { k: 260, d: 12 } };
+  FX.spring = (t, s = FX.SPRINGS.card) => {
+    const k = s.k ?? 180, d = s.d ?? 24, m = s.m ?? 1;
+    if (t <= 0) return 0;
+    const w = Math.sqrt(k / m), z = d / (2 * Math.sqrt(k * m));
+    if (z < 1) { const wd = w * Math.sqrt(1 - z * z); return 1 - Math.exp(-z * w * t) * (Math.cos(wd * t) + (z * w / wd) * Math.sin(wd * t)); }
+    if (z === 1) return 1 - Math.exp(-w * t) * (1 + w * t);
+    const r1 = -w * (z - Math.sqrt(z * z - 1)), r2 = -w * (z + Math.sqrt(z * z - 1)), k2 = r1 / (r1 - r2);
+    return 1 - ((1 - k2) * Math.exp(r1 * t) + k2 * Math.exp(r2 * t));
+  };
+  FX.springTo = (t, changes, s = FX.SPRINGS.card) =>   // a target re-aimed mid-scene: contributions add up, value stays continuous
+    (changes || []).reduce((v, c, i) => i ? v + (c[1] - changes[i - 1][1]) * FX.spring(t - c[0], s) : c[1], 0);
+  FX.keys = (t, list) => {           // piecewise keyframes; the easing on a key shapes the segment ENDING there
+    const pts = list || [];
+    if (!pts.length) return 0;
+    if (t <= pts[0][0]) return pts[0][1];
+    for (let i = 1; i < pts.length; i++) {
+      if (t <= pts[i][0]) {
+        const [t0, v0] = pts[i - 1], [t1, v1, e] = pts[i], p = (t - t0) / Math.max(1e-6, t1 - t0);
+        const f = e === "linear" ? p : e === "out" ? 1 - Math.pow(1 - p, 3) : e === "in" ? p * p * p : (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+        return Array.isArray(v0) ? v0.map((x, j) => x + (v1[j] - x) * f) : v0 + (v1 - v0) * f;
+      }
+    }
+    return pts[pts.length - 1][1];
+  };
+  FX.pulse = (t, start, end, fadeIn = 0.3, fadeOut = 0.3) =>   // 0 -> 1 -> 0 envelope (glow, highlight, spotlight)
+    Math.max(0, Math.min((t - start) / Math.max(1e-6, fadeIn), 1 - Math.max(0, t - (end - fadeOut)) / Math.max(1e-6, fadeOut)));
+  FX.cue = (words, prefix, after = 0) => {   // a cue that throws when its word is gone: a changed script breaks the build
+    const hit = (words || []).find((w) => String(w && w[0] || "").toLowerCase().startsWith(String(prefix).toLowerCase()));
+    if (!hit) throw new Error(`cue "${prefix}" is not in the words: the script changed`);
+    return Number(hit[1]) + after;
+  };
   FX.rand = (seed = 1) => () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
   function split(el, by) {

@@ -25,16 +25,27 @@ def _htmlmotion():
     return htmlmotion
 
 
+def _word_weight(w):
+    """How much of a line's time a word takes: its letters (at least two) plus the pause its punctuation asks for.
+
+    A long word is not just longer on screen, it is spoken longer; a full stop carries a breath a comma does not. The
+    line's total time stays the speaking rate's — the weights only decide where inside the line each word lands, which
+    is what a cue (and the caption block) reads (`motionforge tools/word_timings.py` does the same for its fallback)."""
+    letters = max(2, sum(1 for c in w if c.isalnum()))
+    tail = w[-1] if w else ""
+    return letters + 1.5 + (1.2 if tail in ".!?…" else 0.6 if tail in ",;:" else 0.0)
+
+
 def draft_timing(lines, lang="tr"):
-    """Words [(w, s, e)] and line times for `lines` at the language's speaking rate."""
+    """Words [(w, s, e)] and line times for `lines` at the language's speaking rate, weighted per word."""
     wps = WPS.get(lang, 2.5)
     t, words, line_times = 0.0, [], []
     for line in lines:
         ws = line.split()
         start, span = t, len(ws) / wps                 # the line lasts words / rate ...
-        weight = sum(len(w) + 1 for w in ws) or 1
-        for w in ws:                                    # ... shared by word length
-            dur = span * (len(w) + 1) / weight
+        weight = sum(_word_weight(w) for w in ws) or 1
+        for w in ws:                                    # ... shared by weight, not equally
+            dur = span * _word_weight(w) / weight
             words.append((w, round(t, 3), round(t + dur, 3)))
             t += dur
         line_times.append({"start": round(start, 3), "end": round(t, 3)})
