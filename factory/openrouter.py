@@ -38,6 +38,16 @@ FALLBACK_MODELS = (
     {"id": "deepseek/deepseek-v3.2", "name": "DeepSeek V3.2"},
 )
 FALLBACK_ORDER = {m["id"] for m in FALLBACK_MODELS}
+# The catalogue is 400+ models: list the families a film team actually reaches for first, then the rest by id.
+FAMILIES = ("deepseek/", "anthropic/", "openai/", "google/", "meta-llama/", "qwen/", "mistralai/", "x-ai/",
+            "nvidia/", "amazon/", "cohere/", "moonshotai/", "z-ai/", "minimax/")
+
+
+def _rank(model_id):
+    for i, fam in enumerate(FAMILIES):
+        if str(model_id).startswith(fam):
+            return (i + 1, str(model_id))
+    return (len(FAMILIES) + 1, str(model_id))
 
 
 class OpenRouterError(RuntimeError):
@@ -99,7 +109,7 @@ def models(refresh=False):
         out = [{"id": m["id"], "name": m.get("name") or m["id"],
                 "context": (m.get("context_length") or 0) // 1000 or None}
                for m in data if isinstance(m, dict) and m.get("id")]
-        out = [m for m in out if m["id"] in FALLBACK_ORDER] + [m for m in out if m["id"] not in FALLBACK_ORDER]
+        out.sort(key=lambda m: (m["id"] != DEFAULT_MODEL, _rank(m["id"])))   # the default, then the usual families
         if out:
             os.makedirs(os.path.dirname(MODELS_CACHE), exist_ok=True)
             with open(MODELS_CACHE, "w") as f:
@@ -107,7 +117,7 @@ def models(refresh=False):
             return out
     except OpenRouterError:
         pass
-    return [dict(m) for m in FALLBACK_MODELS]
+    return sorted((dict(m) for m in FALLBACK_MODELS), key=lambda m: (m["id"] != DEFAULT_MODEL, _rank(m["id"])))
 
 
 def check(key):
