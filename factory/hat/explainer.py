@@ -377,6 +377,24 @@ def composed(mu):
     return (mu or {}).get("source") == "composer"
 
 
+def cut_facts(pid, sp, d=None):
+    """The sound around every cut of the rendered film (qa.audio_facts): a 3 s window, not the whole file."""
+    from .. import qa
+    out = os.path.join(ROOT, "work", "cut-facts.json")
+    try:
+        prev = P.read_artifact(pid, "preview", d) or {}
+        path = os.path.join(ROOT, prev["file"]) if prev.get("file") else None
+        if not path or not os.path.exists(path):
+            return []
+        facts = [qa.audio_facts(path, round(s["start"], 2)) for s in (sp.get("scenes") or [])[1:]]
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        json.dump(facts, open(out, "w"), ensure_ascii=False)
+        return facts
+    except Exception as e:
+        P.event(pid, "cut_facts_skipped", d=d, error=f"{type(e).__name__}: {e}"[:160])
+        return []
+
+
 def compose_music(pid, prompt, secs, line_times, narrated, d=None):
     """An original score on the scene cues (t513), played locally: the music artifact entry, 0 credits."""
     from .. import compose

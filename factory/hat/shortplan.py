@@ -51,17 +51,25 @@ def _script_text(script):
 
 
 def _design_prompt(pid, s, script, board, research, d):
+    from .. import camera_deck
     from . import agent
     p = P.load(pid, d)
     pal = ", ".join(f"{k} {v}" for k, v in (board.get("palette") or {}).items()) or "choose from the brief"
     typ = board.get("type") or {}
     rules = "\n".join(f"- {r.get('what')}: {r.get('says')}" for r in board.get("rules") or [])
+    n = max(3, min(12, round(float(p.get("seconds") or 55) / 6)))
+    deck = camera_deck.deal(n, "standard", seed=pid)
     return f"""{agent.skill(p['line'], 'scene_plan', p)}
 
 # This run: the design system only (nothing is drawn yet)
 Project: {p.get('title')} · {script.get('title') or ''} · {p.get('video_lang', 'tr')} · {p.get('aspect', '9:16')}
 Seconds: {p.get('seconds') or (P.read_artifact(pid, 'proposal', d) or {}).get('seconds')}
 Research insight: {str((research or {}).get('insight') or '')[:600]}
+
+PROPOSED CAMERA DECK (dealt for this film; give each scene the next card, in order)
+{camera_deck.summary(deck, 'en')}
+{chr(10).join(f"- {d['move']} · {d['seconds']:g} s · {d['easing']}" + (" · the one big move" if d['big'] else "")
+              for d in deck)}
 
 APPROVED DIRECTION BOARD (binding)
 Palette: {pal}
