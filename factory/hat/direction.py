@@ -82,12 +82,35 @@ def _scheme(pid, p):
     return SCHEMES[h % len(SCHEMES)]
 
 
+def measured(prop):
+    """What the chosen style's preview frame actually measures (palette, lightness, key light), or None.
+
+    A style card is a description; its committed preview is a picture, so the board can be checked against it
+    (`factory/filmmeasure.py`). A style whose card names fewer than three colours gets its palette from here."""
+    from .. import filmmeasure, filmstyles
+    st = _style(prop)
+    if not st:
+        return None
+    f = filmstyles.preview_file(st["id"])
+    if not f or not os.path.exists(f):
+        return None
+    try:
+        return filmmeasure.measure(f)
+    except Exception:
+        return None
+
+
 def palette(pid, p, prop):
-    """The board's palette tokens: the film style's own card when the look is one, else a stable scheme."""
+    """The board's palette tokens: the film style's card, the measured preview when the card is thin, else a scheme."""
     st = _style(prop)
     card = (st or {}).get("card") or {}
     cols = card.get("palette") or []
-    return _tokens(cols) if len(cols) >= 3 else _scheme(pid, p)
+    if len(cols) >= 3:
+        return _tokens(cols)
+    m = measured(prop)
+    if m and len(m.get("palette") or []) >= 3:
+        return _tokens(m["palette"])
+    return _scheme(pid, p)
 
 
 def fonts(prop):
@@ -285,8 +308,18 @@ def build(pid, d=None):
     board = {"palette": pal, "type": {**fonts(prop), "scale": typography.scale(p.get("aspect", "9:16"))},
              "rules": rules(prop), "references": references(pid, prop, research),
              "style": (_style(prop) or {}).get("id")}
+    m = measured(prop)
+    if m:                                   # the picture behind the card: palette shares, contrast, key light
+        board["measured"] = {"palette": m["palette"], "accent": m["accent"], "l_p50": m["l_p50"],
+                             "contrast": m["contrast"], "warmth": m["warmth"], "key": m["key"],
+                             "patch": filmmeasure_patch(m)}
     board["fingerprint"] = hashlib.sha256(json.dumps(board, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
     return board
+
+
+def filmmeasure_patch(m):
+    from .. import filmmeasure
+    return filmmeasure.look_patch(m)
 
 
 def run(pid, s, note=None, d=None):

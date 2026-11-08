@@ -77,3 +77,21 @@ def test_an_untrusted_source_is_refused_before_ffmpeg():
     for bad in ("https://example.com/a.m3u8", "rtsp://host/live", "/tmp/a.m3u8", "/tmp/a.ffconcat"):
         with pytest.raises(ValueError):
             fftools.check_source(bad)
+
+
+# ---------------------------------------------------------------- the board measures the style's own frame
+def test_the_board_measures_the_style_preview(tmp_path):
+    import os
+    from factory import filmstyles
+    from factory.hat import direction, project as P
+    prev = filmstyles.preview_file("riso_print")
+    if not os.path.exists(prev):
+        pytest.skip("no committed style preview on this machine")
+    pid = P.create("explainer", "t", d=str(tmp_path / "p"))["id"]
+    P.write_artifact(pid, "proposal", {"look": "style.riso_print",
+                                       "concepts": [{"id": "A", "look": "style.riso_print"}]}, str(tmp_path / "p"))
+    board = direction.build(pid, str(tmp_path / "p"))
+    m = board.get("measured") or {}
+    assert len(m.get("palette") or []) == 5 and m.get("accent", "").startswith("#")
+    assert 10 <= m["key"]["elevation_deg"] <= 70 and "patch" in m
+    assert board["palette"]["bg"].startswith("#")          # the card's palette still wins when it is real
