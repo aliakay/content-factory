@@ -183,12 +183,23 @@ def connector_ready():
     return False, None
 
 
+def eleven_via(uid=None):
+    """The creator's ElevenLabs transport choice: 'auto' | 'api' | 'codex' | 'claude'."""
+    from . import accounts
+    return accounts.eleven_settings(uid)["via"]
+
+
 def connector_provider():
     """Which CLI runs an ElevenLabs connector turn: a connector belongs to a CLI login, so an OpenRouter model
-    (which has none) hands these turns back to Claude Code or Codex instead of pretending to run them."""
+    (which has none) hands these turns back to a CLI instead of pretending to run them.
+
+    The creator's choice on Hesaplar wins when the agents run on OpenRouter; 'auto' takes whichever CLI is connected."""
     provider = selected_provider()
     if provider in ("claude", "codex"):
         return provider
+    choice = eleven_via()
+    if choice in ("codex", "claude"):
+        return choice
     ok, which = connector_ready()
     if ok:
         return which

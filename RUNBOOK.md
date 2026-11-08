@@ -235,14 +235,21 @@ searches when it needs to, the platform runs it — native search where the prov
 sources come back as `url_citation` annotations; a search costs OpenRouter credit per request). Default model: `deepseek/deepseek-v4.1-flash-1017` (per-agent overrides still apply). Every
 call's tokens and dollars go into the same `llm_usage` ledger (`source = live_openrouter`).
 
-**ElevenLabs with OpenRouter selected.** A connector lives inside a CLI login, so an API model cannot run one:
-`llm.connector_provider()` hands every connector turn back to the CLI that has ElevenLabs (Codex if its MCP connector is
-logged in, else Claude Code) — the agents write on DeepSeek, the voice/images still come from the connector
-(`llm.connector_ready()` tells the Studio which CLI it will use, shown on Hesaplar). An **API-key account** needs no
-CLI at all, but our REST client (`factory/eleven_api.py`) covers TTS, music and sfx today; images, video, lip-sync and
-avatar uploads are connector-only in the code as it stands — ElevenLabs now exposes `/v1/flows/image` and
-`/v1/flows/video` (queue + poll for `content_url`, references as generation ids or inline base64), so an API-key image
-and video path is a self-contained next step.
+**ElevenLabs with OpenRouter selected.** A connector lives inside a CLI login, so an API model cannot run one. Hesaplar
+shows a **ElevenLabs taşıması** picker whenever the provider is OpenRouter (`accounts.eleven_settings`,
+`POST /api/eleven/settings`): **API** = our own REST client with an API-key account, **Codex** / **Claude** = that CLI's
+connector, **auto** = whichever is connected (`llm.connector_ready()`). The choice is stored per user
+(`users.<id>.eleven_via`) and `llm.connector_provider()` falls back to it, so agents write on DeepSeek while the voice
+and images still come from the connector you picked (the Studio prints which CLI it will use).
+
+The REST path (`factory/eleven_api.py`) covers TTS, music, sfx and — through `/v1/flows/image`, `/v1/flows/video`
+(queue, poll, `content_url`) — images, generated video, talking presenters (`creatify-aurora`, image + speech) and asset
+uploads (`POST /v1/assets`, usable as a reference). References are our own ids (`gen:<id>`, `asset:<id>`) or local
+files sent inline as base64 (25 MB cap). One model family stays connector-only: the dub lip-sync
+(`sync-lipsync-v3`, video-to-video), which the REST media models do not offer. The REST API reports no `credit_cost`,
+so the ledger records the learned per-unit rate; an unmeasured model records the approved ceiling that
+`credits.guard` enforced.
+
 **ElevenLabs accounts** (`data/eleven_accounts.json`, `factory/accounts.py`): `ali` = the owner's connector account (runs
 the MCP calls as the owner even when a member started the job); others = API keys (`factory/eleven_api.py`: TTS, music,
 sfx; voices + balance read live, cached 10 min). Each production has `data.eleven_account` (default: its creator's own);

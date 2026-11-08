@@ -855,7 +855,8 @@ def me(con):
     out = {"id": uid, "name": u.get("name", uid), "role": u.get("role", "owner"), "login": accounts.enabled(),
            "claude": accounts.claude_status(uid), "eleven": accs, "default_eleven": accounts.default_eleven(uid),
            "llm_settings": accounts.llm_settings(uid), "codex_elevenlabs": codex_elevenlabs,
-           "openrouter": accounts.openrouter_status(uid),
+           "openrouter": accounts.openrouter_status(uid), "eleven_settings": accounts.eleven_settings(uid),
+           "eleven_transports": accounts.eleven_transports(uid),
            "llm_models": {p: llm.model_options(p) for p in LLM_PROVIDERS},
            "llm_default_models": {p: {step: llm.default_model(step, p) for step in llm.AGENT_STEPS} for p in LLM_PROVIDERS},
            "llm_agents": [{"id": k, "name": v} for k, v in llm.AGENT_STEPS.items()], "ui_lang": accounts.ui_lang(uid)}
@@ -1285,6 +1286,12 @@ class Handler(shorts.Handler):
                    or model not in allowed_models for step, model in models.items()):
                 raise ValueError("Agent veya model seçimi listede yok")
             return {"llm_settings": accounts.set_llm_settings(uid, provider, models)}
+        if path == "/api/eleven/settings":
+            via = b.get("via")
+            if via not in accounts.ELEVEN_VIA:
+                raise ValueError("ElevenLabs taşıması geçersiz")
+            return {"eleven_settings": accounts.set_eleven_settings(uid, via),
+                    "eleven_transports": accounts.eleven_transports(uid)}
         if path == "/api/openrouter/key":
             key = (b.get("key") or "").strip()
             if not key:                       # an empty box removes the user's own key

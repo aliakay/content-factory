@@ -1303,7 +1303,7 @@ ROUTES["#/hesaplar"] = async () => {
   S.me = await api("/api/me"); const m = S.me; crumb(["Hesaplar"]);
   const cl = m.claude.connected ? `<div class="small">✅ Bağlı · ${esc(m.claude.how)}${m.claude.at ? " · " + esc(m.claude.at) : ""}</div>` : `<div class="small">❌ Bağlı değil.</div>`;
   const lc = m.llm_settings || { provider: "claude", models: {} }, provider = lc.provider || "claude";
-  const orr = m.openrouter || {};
+  const orr = m.openrouter || {}, ev = m.eleven_settings || { via: "auto" }, evt = m.eleven_transports || {};
   const PROVIDER_DEFAULT = { codex: "gpt-6-luna", openrouter: "deepseek/deepseek-v4.1-flash-1017", claude: "opus" };
   const agentModels = (m.llm_agents || []).map((a) => {
     const selected = (lc.models || {})[a.id] || (lc.models || {}).default || "";
@@ -1327,6 +1327,15 @@ ROUTES["#/hesaplar"] = async () => {
     <div class="small">${orr.connected ? (orr.mine ? `✅ Bağlı · anahtar ${esc(orr.tail || "")}${orr.at ? " · " + esc(orr.at) : ""}` : "✅ Sunucudaki OPENROUTER_API_KEY kullanılıyor") : "❌ Bağlı değil"}</div>
     <p class="small muted mt8">Kendi OpenRouter anahtarını gir: <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys ↗</a>. OpenRouter seçildiğinde tüm agent’lar bu anahtarla, varsayılan olarak DeepSeek V4.1 Flash ile çalışır.</p>
     <div class="row nowrap mt8"><input type="password" id="or_key" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false"><button class="btn accent sm" data-act="openrouterKey">Kaydet</button>${orr.mine ? `<button class="btn sm ghost danger" data-act="openrouterClear">Kaldır</button>` : ""}</div></div>
+  ${provider === "openrouter" ? `<div class="card mt16"><h3>🎙 ElevenLabs taşıması</h3>
+    <p class="small muted">Agent’lar OpenRouter’da yazıyor. ElevenLabs işlerini (ses, müzik, efekt, görsel, video, avatar) kimin çalıştıracağını burada seç: <b>API</b> = kendi kodumuz anahtarınla REST’ten üretir; <b>Codex</b>/<b>Claude</b> = o CLI’daki connector üretir. Otomatik, bağlı olanı seçer.</p>
+    <label class="field mt8"><span>Taşıma</span><select id="eleven_via">
+      <option value="auto" ${ev.via === "auto" ? "selected" : ""}>Otomatik (bağlı olan)</option>
+      <option value="api" ${ev.via === "api" ? "selected" : ""}>API anahtarı ${evt.api ? "" : "· hesap yok"}</option>
+      <option value="codex" ${ev.via === "codex" ? "selected" : ""}>Codex CLI ${evt.codex ? "· bağlı" : "· bağlı değil"}</option>
+      <option value="claude" ${ev.via === "claude" ? "selected" : ""}>Claude Code ${evt.claude ? "· bağlı" : "· bağlı değil"}</option>
+    </select></label>
+    <button class="btn accent sm mt8" data-act="elevenVia">Kaydet</button></div>` : ""}
   <div class="card mt16"><h3>🔌 ElevenLabs · Codex connector</h3>
     <div class="small">${m.codex_elevenlabs?.connected ? "✅ Codex CLI’ye bağlı" : "❌ Codex CLI’ye bağlı değil"}</div>
     <p class="small muted mt8">Codex seçildiğinde ses, müzik ve görsel üretimi bu bağlantıdan yapılır. ElevenLabs’te izin verdikten sonra localhost dönüş sayfası açılmasa bile adres çubuğundaki URL’nin tamamını kopyalayıp aşağıya yapıştır.</p>
@@ -1353,6 +1362,13 @@ ACT.llmProvider = (el) => {
     : provider === "openrouter"
     ? "Varsayılan model DeepSeek V4.1 Flash. OpenRouter API anahtarınla çalışır; araçlar sunucudaki fabrika araçları üzerinden yürür, web aramasını OpenRouter’ın sunucu araçları yapar."
     : "Varsayılanlar mevcut Claude agent modelleridir (opus/sonnet gibi); değiştirmediğin seçimler korunur.";
+};
+ACT.elevenVia = async () => {
+  const r = await post("/api/eleven/settings", { via: $("#eleven_via").value });
+  const via = (r.eleven_settings || {}).via, t = r.eleven_transports || {};
+  const missing = via === "api" ? !t.api : via === "codex" ? !t.codex : via === "claude" ? !t.claude : false;
+  toast(missing ? "Kaydedildi ama bu taşıma şu an hazır değil" : "ElevenLabs taşıması kaydedildi", missing ? 1 : 0);
+  route();
 };
 ACT.openrouterKey = async () => {
   const key = ($("#or_key").value || "").trim();

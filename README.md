@@ -42,6 +42,8 @@ factory/coldtest.py     the cold test: one subject from line 1 to the close, the
 factory/camera.py, subjectqc.py, originality.py, determinism.py   what a scene plan must say and prove (move, action,
                         subject, a repeatable render, a film nobody else made)
 factory/words.py, typography.py, licence.py   Turkish/English folding, the type scale, the attribution ledger
+factory/eleven_api.py, eleven.py   ElevenLabs: the REST client (voice, music, image, video, lip-sync) and the
+                        CLI-connector path; the transport is chosen per user when the agents run on OpenRouter
 factory/openrouter.py, mcpclient.py   the OpenRouter provider (an API key, DeepSeek V4.1 Flash) and the MCP client it needs
 ```
 

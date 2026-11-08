@@ -154,6 +154,46 @@ def claude_status(uid=None):
 CLI_PROVIDERS = {"claude", "codex", "openrouter"}
 
 
+# ---------- how ElevenLabs is reached ----------
+ELEVEN_VIA = ("auto", "api", "codex", "claude")
+
+
+def eleven_settings(uid=None):
+    """This user's ElevenLabs transport: 'auto' (whatever is connected), 'api' (our REST client, needs an API key),
+    'codex' or 'claude' (that CLI's connector). It decides who runs a connector turn when the agents run on an API
+    model (OpenRouter), which has no connectors of its own."""
+    uid = uid or current()
+    via = (user(uid) or {}).get("eleven_via") or "auto"
+    return {"via": via if via in ELEVEN_VIA else "auto"}
+
+
+def set_eleven_settings(uid, via):
+    if via not in ELEVEN_VIA:
+        raise ValueError("ElevenLabs taşıması geçersiz")
+    u = users()
+    if uid not in u["users"] and uid != OWNER:
+        raise ValueError("Kullanıcı bulunamadı")
+    u["users"].setdefault(uid, {"name": "Ali", "role": "owner"})["eleven_via"] = via
+    _save(USERS, u)
+    return eleven_settings(uid)
+
+
+def eleven_transports(uid=None):
+    """Which transports can run right now, for the Studio's picker: an API-key account, Codex connector, Claude login."""
+    from . import llm
+    codex = claude = False
+    try:
+        codex = bool(llm.codex_elevenlabs_status().get("connected"))
+    except Exception:
+        pass
+    try:
+        claude = bool(claude_status().get("connectors"))
+    except Exception:
+        pass
+    apikey = any(a.get("type") == "apikey" for a in (eleven_accounts().get("accounts") or {}).values())
+    return {"api": apikey, "codex": codex, "claude": claude}
+
+
 # ---------- OpenRouter per user ----------
 def set_openrouter_key(uid, key):
     """Store this user's OpenRouter API key ("" removes it). Returns the new status."""

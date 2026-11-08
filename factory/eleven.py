@@ -111,6 +111,42 @@ def _account(account):
     return account, acc
 
 
+def via():
+    """This user's ElevenLabs transport choice: 'auto' | 'api' | 'codex' | 'claude' (Hesaplar → ElevenLabs)."""
+    try:
+        return accounts.eleven_settings().get("via") or "auto"
+    except Exception:
+        return "auto"
+
+
+def transport(account=None):
+    """'api' when our REST client does the work, 'cli' when a CLI's connector does.
+
+    An API-key account never needs a CLI; a connector account always does, and `llm.connector_provider()` picks which
+    one (the creator's choice when the agents run on OpenRouter, else the selected CLI)."""
+    _, acc = _account(account)
+    if acc["type"] == "apikey":
+        return "api"
+    if via() == "api":
+        raise ElevenError("ElevenLabs taşıması 'API' seçili ama bu hesap bir connector: Hesaplar → ElevenLabs API "
+                          "anahtarı ekle, ya da taşımayı Codex/Claude CLI yap")
+    return "cli"
+
+
+def _node(prefix, ident):
+    """A reference id our own ids and the API's ids can share: 'gen:<generation id>' / 'asset:<asset id>'."""
+    return f"{prefix}:{ident}" if ident else None
+
+
+def _estimated(kind, model, units, approved):
+    """Credits to write in the ledger for a REST generation: the learned rate, else what the creator approved.
+
+    The REST API reports no `credit_cost` (the connector does), so the ledger keeps the estimate; an unmeasured model
+    records the approved amount, which is exactly the ceiling credits.guard enforced."""
+    est = credits.estimate([{"kind": kind, "model": model, "units": units, "unit": ""}])
+    return float(est["total"]) if not est["unknown"] else float(approved or 0)
+
+
 def _write(data, ext, key):
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, f"{key}.{ext}")
@@ -208,10 +244,18 @@ def image(con, prompt_text, approved, account=None, aspect="9:16", flow_id=None,
         m = json.load(open(meta_path))
         return cached, 0.0, m.get("flow_id"), m.get("node_id")
     account, acc = _account(account)
-    if acc["type"] == "apikey":
-        raise ElevenError("görsel üretimi yalnızca connector hesabıyla yapılabiliyor")
-    credits.guard(con, "image", model, 1, approved, account)
     ratio = "9:16" if aspect == "9:16" else "16:9"
+    if transport(account) == "api":                     # an API key account: the REST flow generation, no CLI
+        credits.guard(con, "image", model, 1, approved, account)
+        data, _, gid = eleven_api.image(acc["key"], prompt_text, model, aspect=ratio, refs=refs)
+        path = _write(data, "png", key)
+        cost = _estimated("image", model, 1, approved)
+        node = _node("gen", gid)
+        json.dump({"flow_id": None, "node_id": node, "prompt": prompt_text, "refs": [str(r) for r in refs]},
+                  open(meta_path, "w"))
+        credits.record(con, "image", model, 1, "img", cost, idea_id, prompt_text[:60], account)
+        return path, cost, None, node
+    credits.guard(con, "image", model, 1, approved, account)
     if refs:
         how = (f"Call creative_edit_image on flow_id \"{flow_id}\" with model_id \"{model}\", connect_from "
                f"{json.dumps(list(refs))} (these nodes are the reference images: keep their characters, faces, outfits, "
@@ -268,8 +312,22 @@ def video(con, prompt_text, approved, seconds, account=None, aspect="9:16", flow
         m = json.load(open(meta_path))
         return cached, 0.0, m.get("flow_id"), m.get("node_id")
     account, acc = _account(account)
-    if acc["type"] == "apikey":
-        raise ElevenError("video üretimi yalnızca connector hesabıyla yapılabiliyor")
+    if transport(account) == "api":                     # an API key account: the REST flow generation, no CLI
+        credits.guard(con, "video", rate_model, seconds, approved, account)
+        if model == AVATAR_MODEL:                       # a talking presenter: the image speaks the audio
+            img = next((n for n, what in inputs.items() if "audio" not in str(what).lower()), None)
+            aud = next((n for n, what in inputs.items() if "audio" in str(what).lower()), None)
+            data, _, gid = eleven_api.lipsync(acc["key"], img, aud, model)
+        else:
+            data, _, gid = eleven_api.video(acc["key"], prompt_text, model, seconds, aspect, start=start,
+                                            images=[n for n in inputs if n != start], audios=[], resolution=resolution,
+                                            generate_audio=audio)
+        path = _write(data, "mp4", key)
+        cost = _estimated("video", rate_model, seconds, approved)
+        node = _node("gen", gid)
+        json.dump({"flow_id": None, "node_id": node, "prompt": prompt_text, "inputs": inputs}, open(meta_path, "w"))
+        credits.record(con, "video", rate_model, seconds, "s", cost, idea_id, prompt_text[:60], account)
+        return path, cost, None, node
     credits.guard(con, "video", rate_model, seconds, approved, account)
     where = f' on flow_id "{flow_id}"' if flow_id else " (it creates a flow)"
     wire = (f", connect_from {json.dumps(list(inputs))} ("
@@ -312,7 +370,9 @@ def avatar(con, image_node, audio_node, flow_id, seconds, approved, account=None
 
 
 def new_flow(account=None, name="factory"):
-    """An empty flow (free) so nodes that feed each other can live together."""
+    """An empty flow (free) so nodes that feed each other can live together. The REST path needs none: None."""
+    if transport(account) == "api":
+        return None
     prompt = f"""Call creative_create_flow once with name "{name}". Reply ONLY JSON: {{"flow_id": "<id>"}}"""
     with _connector_context(account):
         data, _ = llm.ask(prompt, tools=(T + "creative_create_flow",), timeout=300, mcp=True, model=CONNECTOR_MODEL)
@@ -326,9 +386,15 @@ MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp
 
 
 def upload(path, flow_id, account=None, put=None):
-    """Put a local file on flow `flow_id` as a reference node (free): the connector hands out an upload URL, the bytes
+    """Put a local file where a later generation can use it as a reference. Free, and the id comes back as a node.
+
+    REST: `POST /v1/assets` (needs no flow). Connector: an upload URL on flow `flow_id`. The connector path hands out
+    an upload URL, the bytes
     go there with one PUT from here (never through the model), then the upload is finalized onto the flow.
     Returns the node id. Cached per (file content, flow)."""
+    if transport(account) == "api":
+        _, acc = _account(account)
+        return _node("asset", eleven_api.upload(acc["key"], path))
     mime = MIME.get(os.path.splitext(path)[1].lower())
     if not mime:
         raise ElevenError(f"unsupported file type: {os.path.basename(path)}")
@@ -362,6 +428,9 @@ def _put(url, path, mime):
 
 
 def asset_node(asset_id, flow_id, modality="image", account=None):
+    """An already-uploaded API asset as a reference node. REST: the asset id itself; connector: a node on the flow."""
+    if transport(account) == "api":
+        return _node("asset", asset_id)
     """An asset already in the account (a saved presenter photo) placed on `flow_id` as a node (free)."""
     with _connector_context(account):
         data, _ = llm.ask(f"""Call creative_add_flow_asset_node once with flow_id "{flow_id}", modality "{modality}" and
