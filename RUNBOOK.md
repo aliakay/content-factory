@@ -25,6 +25,15 @@ contact sheet, the lint and the measured grade). The gate card shows the score b
 Feedback at a gate re-runs the stage with the note (max 3 revisions); reopening an earlier stage makes later ones
 stale. Frame comments (click a frame or the preview) revise only the scenes they name.
 
+**Karma sağlayıcı (2026-11).** Tek bir CLI seçmek zorunlu değil: Hesaplar → *CLI ve model seçenekleri*'nde yukarıdaki
+kutu **varsayılan**dır, her agent satırındaki soldaki kutu ise o agent'ı başka bir CLI'a gönderir (boş = varsayılan).
+Kayıt `users.<id>.llm_settings.providers` (adım → CLI) ve `.models` (adım → o CLI'ın kataloğundan model);
+`llm.provider_for(step)` sırayla `providers[step]` → `providers.default` → `provider` okur, `llm.selected_model()`
+modeli o CLI'ın kataloğundan seçer (manifestteki `model: opus` yalnız Claude'da geçerlidir). Örnek: senaryo Claude Opus,
+hareket tasarımı Codex GPT-6 Luna, `qa.review`/`agent.review_stage` OpenRouter DeepSeek. Değerlendirici ayrı bir satır
+olduğu için yazarın CLI'ından bağımsız seçilebilir. Sunucu kayıtta modelin o CLI'ın kataloğunda olduğunu doğrular;
+ElevenLabs connector turları CLI'a geri düştüğünde o CLI'ın kendi modeli kullanılır (başka CLI'ın model adı geçmez).
+
 **The look is decided once (2026-11, direction stage).** Between the script and the scene plan the explainer,
 animation and long-explainer lines run `direction` (`factory/hat/direction.py`, a code stage, no credits): it builds
 one board (palette from the chosen film style's card, or a scheme keyed on the project; a type pairing; the light,

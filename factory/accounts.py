@@ -290,16 +290,23 @@ def openrouter_status(uid=None):
 
 
 def llm_settings(uid=None):
-    """Per-user provider and optional model overrides keyed by the calling agent step."""
+    """Per-user default CLI, per-step model overrides, and per-step providers.
+
+    `provider` is the default. `providers[step]` (or `providers.default`) sends one agent to another CLI, so a user
+    can mix: plan and script on Claude, the motion designer on Codex, a cheap checker on OpenRouter. `models[step]`
+    is the model for that step, from its own provider's catalogue."""
     uid = uid or current()
     saved = (user(uid) or {}).get("llm_settings") or {}
     provider = saved.get("provider") if saved.get("provider") in CLI_PROVIDERS else "claude"
     models = saved.get("models") if isinstance(saved.get("models"), dict) else {}
-    return {"provider": provider, "models": {str(k): str(v) for k, v in models.items()
-                                                if isinstance(k, str) and isinstance(v, str)}}
+    provs = saved.get("providers") if isinstance(saved.get("providers"), dict) else {}
+    return {"provider": provider,
+            "models": {str(k): str(v) for k, v in models.items() if isinstance(k, str) and isinstance(v, str)},
+            "providers": {str(k): str(v) for k, v in provs.items()
+                          if isinstance(k, str) and isinstance(v, str) and v in CLI_PROVIDERS}}
 
 
-def set_llm_settings(uid, provider, models):
+def set_llm_settings(uid, provider, models, providers=None):
     if provider not in CLI_PROVIDERS:
         raise ValueError("CLI seçimi geçersiz")
     if not isinstance(models, dict) or len(models) > 80:
@@ -310,11 +317,17 @@ def set_llm_settings(uid, provider, models):
             raise ValueError("Agent model seçimi geçersiz")
         if model:
             clean[step] = model
+    provs = {}
+    for step, p in (providers or {}).items():
+        if not isinstance(step, str) or len(step) > 80 or p not in CLI_PROVIDERS:
+            raise ValueError("Agent CLI seçimi geçersiz")
+        if p:
+            provs[step] = p
     u = users()
     if uid not in u["users"] and uid != OWNER:
         raise ValueError("Kullanıcı bulunamadı")
     rec = u["users"].setdefault(uid, {"name": "Ali", "role": "owner"})
-    rec["llm_settings"] = {"provider": provider, "models": clean}
+    rec["llm_settings"] = {"provider": provider, "models": clean, "providers": provs}
     _save(USERS, u)
     return llm_settings(uid)
 

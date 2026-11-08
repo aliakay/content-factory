@@ -180,6 +180,9 @@ folders.
 
 ## Costs
 
+- **Mixed providers:** the account's default CLI is only the default — each agent can be pointed at Claude Code,
+  Codex CLI or OpenRouter on its own (and at a model from that CLI's catalogue), so a film can be written on Claude,
+  designed on Codex and checked on DeepSeek (`llm.provider_for` / `llm.selected_model`).
 - **Claude:** creative steps (script, motion design, art direction, revise, style) run on Opus. Checks, research
   helpers and tool calls run on Sonnet. Studio → Bütçe → "Claude kullanımı" shows the list-price equivalent per step
   and per video.

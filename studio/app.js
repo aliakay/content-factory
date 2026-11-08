@@ -1313,10 +1313,21 @@ ROUTES["#/hesaplar"] = async () => {
     </select></label>`).join("")}
     <button class="btn accent sm mt8" data-act="mediaSave">Kaydet</button></div>`;
   const PROVIDER_DEFAULT = { codex: "gpt-6-luna", openrouter: "deepseek/deepseek-v4.1-flash-1017", claude: "opus" };
+  const PNAME = { claude: "Claude Code", codex: "Codex CLI", openrouter: "OpenRouter" };
+  const modelOptions = (prov, step, selected) => {
+    const def = (m.llm_default_models[prov] || {})[step] || PROVIDER_DEFAULT[prov] || "opus";
+    return `<option value="">${esc(def)} · varsayılan</option>` + (m.llm_models[prov] || []).map((x) =>
+      `<option value="${esc(x.id)}" ${selected === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("");
+  };
   const agentModels = (m.llm_agents || []).map((a) => {
-    const selected = (lc.models || {})[a.id] || (lc.models || {}).default || "";
-    const defaultModel = (m.llm_default_models[provider] || {})[a.id] || PROVIDER_DEFAULT[provider] || "opus";
-    return `<label class="field"><span>${esc(a.name)}</span><select data-agent-model="${esc(a.id)}"><option value="">${esc(defaultModel)} · varsayılan</option>${(m.llm_models[provider] || []).map((x) => `<option value="${esc(x.id)}" ${selected === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>`;
+    const chosen = ((lc.providers || {})[a.id] || ""), eff = chosen || provider;
+    const selected = (lc.models || {})[a.id] || "";
+    return `<label class="field"><span>${esc(a.name)}</span><div class="row nowrap" style="gap:6px">
+      <select data-agent-provider="${esc(a.id)}" data-change="agentProvider" title="Bu agent hangi CLI'da çalışsın">
+        <option value="">${esc(PNAME[provider] || provider)} · varsayılan</option>
+        ${Object.entries(PNAME).map(([k, n]) => `<option value="${k}" ${chosen === k ? "selected" : ""}>${esc(n)}</option>`).join("")}
+      </select>
+      <select data-agent-model="${esc(a.id)}">${modelOptions(eff, a.id, selected)}</select></div></label>`;
   }).join("");
   const acc = m.eleven.map((a) => { const b = a.balance || {}; const can = a.mine || m.role === "owner";
     return `<div class="card"><div class="row"><b>💳 ${esc(a.name)}</b><span class="sp"></span><span class="badge">${a.type === "connector" ? "connector" : "API " + esc(a.key_tail || "")}</span>${a.id === m.default_eleven ? '<span class="badge ok">varsayılan</span>' : ""}</div>
@@ -1328,6 +1339,7 @@ ROUTES["#/hesaplar"] = async () => {
   <div class="small muted mt8">Giriş yapan: <b>${esc(m.name)}</b> (${m.role === "owner" ? "sahip" : "üye"})</div>
   <div class="card mt16"><h3>⚙️ CLI ve model seçenekleri</h3><p class="small muted">Agent’ların hangi CLI ve modeli kullanacağını seç. Kaydettikten sonra başlayan işlerde uygulanır.</p>
     <label class="field mt12"><span>CLI</span><select id="llm_provider" data-change="llmProvider"><option value="claude" ${provider === "claude" ? "selected" : ""}>Claude Code</option><option value="codex" ${provider === "codex" ? "selected" : ""}>OpenAI Codex CLI</option><option value="openrouter" ${provider === "openrouter" ? "selected" : ""}>OpenRouter API</option></select></label>
+    <div class="small muted mt8">Karma mümkün: her agent için ayrı CLI seçebilirsin (aşağıdaki soldaki kutu). Boş bırakılan agent yukarıdaki varsayılan CLI'da çalışır.</div>
     <div class="small muted mt8" id="llm_provider_note">${provider === "codex" ? "Varsayılan model tüm agent’larda GPT-6-Luna. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs de Codex connector’ı üzerinden çalışır." : provider === "openrouter" ? "Varsayılan model DeepSeek V4.1 Flash. OpenRouter API anahtarınla çalışır; araçlar (sahne, ses, yayın adımları) sunucudaki fabrika araçları üzerinden yürür, web aramasını OpenRouter’ın kendi sunucu araçları yapar (kaynaklar alıntıyla döner). ElevenLabs connector'ı bir CLI girişinde yaşar: OpenRouter seçiliyken de ses/görsel işleri Claude Code ya da Codex'teki connector'a (Hesaplar → ElevenLabs · Codex connector) gider; API anahtarı hesabı ise ses/müzik/efekti doğrudan üretir." : "Varsayılanlar mevcut Claude agent modelleridir (opus/sonnet gibi); değiştirmediğin seçimler korunur."}</div>
     <h3 class="mt16">Agent modelleri</h3><div class="grid mt8" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">${agentModels}</div>
     <button class="btn accent sm mt12" data-act="llmSave">Kaydet</button></div>
@@ -1369,6 +1381,9 @@ ACT.llmProvider = (el) => {
     const def = ((S.me.llm_default_models || {})[provider] || {})[select.dataset.agentModel] || PROVIDER_DEFAULT[provider] || "opus";
     select.innerHTML = `<option value="">${esc(def)} · varsayılan</option>` + options.map((x) => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("");
     if (options.some((x) => x.id === prior)) select.value = prior;
+  }
+  for (const psel of $$('[data-agent-provider]')) {
+    if (!psel.value) ACT.agentProvider(psel);
   }
   $("#llm_provider_note").textContent = provider === "codex"
     ? "Varsayılan model tüm agent’larda GPT-6-Luna. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs de Codex connector’ı üzerinden çalışır."
@@ -1416,10 +1431,21 @@ ACT.openrouterClear = async () => {
   await post("/api/openrouter/key", { key: "" });
   toast("Anahtar kaldırıldı"); route();
 };
+ACT.agentProvider = (el) => {
+  const step = el.dataset.agentProvider, prov = el.value || ((S.me.llm_settings || {}).provider || "claude");
+  const model = document.querySelector(`[data-agent-model="${step}"]`);
+  if (!model) return;
+  const prior = model.value;
+  model.innerHTML = modelOptions(prov, step, prior);
+  if (prior && ![...model.options].some((o) => o.value === prior)) model.value = "";
+};
 ACT.llmSave = async () => {
   const models = Object.fromEntries($$('[data-agent-model]').filter((x) => x.value).map((x) => [x.dataset.agentModel, x.value]));
-  await post("/api/llm/settings", { provider: $("#llm_provider").value, models });
-  toast("CLI ve agent modelleri kaydedildi"); route();
+  const providers = Object.fromEntries($$('[data-agent-provider]').filter((x) => x.value).map((x) => [x.dataset.agentProvider, x.value]));
+  try {
+    await post("/api/llm/settings", { provider: $("#llm_provider").value, models, providers });
+    toast("CLI, agent CLI'ları ve modeller kaydedildi"); route();
+  } catch (e) { toast(e.message, 1); }
 };
 ACT.codexElevenConnect = async () => {
   const r = await post("/api/codex/elevenlabs/start", {});

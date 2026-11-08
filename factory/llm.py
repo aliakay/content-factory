@@ -131,7 +131,8 @@ AGENT_STEPS = {
     "ideas.check_claims": "İddia kontrolü", "qa.review": "Kalite kontrol",
     "discover.make_cards": "Fikir keşfi", "refs.describe": "Referans analizi",
     "refs.describe_recipes": "Referans tarif analizi", "styles.extract": "Stil analizi",
-    "jobs.do_describe": "Klip analizi", "router.suggest": "Hat önerici", "default": "Diğer agent’lar",
+    "jobs.do_describe": "Klip analizi", "router.suggest": "Hat önerici",
+    "agent.review_stage": "Değerlendirici (diğer model)", "default": "Diğer agent’lar",
 }
 CLAUDE_DEFAULT_MODELS = {
     "director.scout": "sonnet", "director.sketch": "sonnet", "ideas.generate": "sonnet",
@@ -163,8 +164,17 @@ def model_options(provider=None):
 
 
 def selected_provider(uid=None):
+    """The user's default CLI (the agents that have no per-step choice)."""
     from . import accounts
     return accounts.llm_settings(uid)["provider"]
+
+
+def provider_for(step, uid=None):
+    """Who runs this step: the per-step CLI when the user mixed providers, else their default CLI."""
+    from . import accounts
+    cfg = accounts.llm_settings(uid)
+    chosen = (cfg.get("providers") or {}).get(step) or (cfg.get("providers") or {}).get("default")
+    return chosen if chosen in ("claude", "codex", "openrouter") else cfg["provider"]
 
 
 def connector_ready():
@@ -218,15 +228,21 @@ def default_model(step, provider):
     return CLAUDE_DEFAULT_MODELS.get(step, MODEL)
 
 
-def selected_model(step, requested=None, uid=None):
+def selected_model(step, requested=None, uid=None, provider=None):
+    """The model for this step: the user's override (from that step's own CLI catalogue), else the CLI's default.
+
+    `provider` is the CLI that will actually run it, which differs from the step's choice on a connector turn: an
+    ElevenLabs call is handed back to a CLI, and that CLI cannot run the other's model names."""
     from . import accounts
     cfg = accounts.llm_settings(uid)
+    own = provider_for(step, uid)
+    provider = provider or own
     override = cfg["models"].get(step) or cfg["models"].get("default")
-    if override:
+    if override and provider == own:
         return override
-    if cfg["provider"] == "claude":
+    if provider == "claude":
         return requested or MODEL
-    return default_model(step, cfg["provider"])
+    return default_model(step, provider)
 
 
 def _toml(v):
@@ -383,7 +399,7 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
     import time
     from . import accounts
     step = _caller()
-    provider = selected_provider()
+    provider = provider_for(step)          # mixed providers: this step's own CLI, else the user's default
     if mcp:
         provider = connector_provider()      # an ElevenLabs connector turn always runs on a CLI that has the connector
     if provider == "codex" and mcp:
@@ -392,7 +408,8 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
         # Preserve the exact MCP tool allowlist in the request instructions. Codex uses the
         # server's own tool schemas and OAuth session rather than Claude's connector namespace.
         tools = tuple(str(t).rsplit("__", 1)[-1] for t in tools)
-    model = selected_model(step, model) if provider in ("codex", "openrouter") or not mcp else (model or MODEL)
+    model = (selected_model(step, model, provider=provider) if provider in ("codex", "openrouter") or not mcp
+             else (model or MODEL))
     level = min(effort, MAX_EFFORT, key=EFFORTS.index) if effort in EFFORTS else effort_for(step, model)
     if provider == "codex":
         return _codex(prompt, tools, timeout, model, level, step, approve_mcp=mcp, servers=servers)

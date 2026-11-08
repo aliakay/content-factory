@@ -1281,14 +1281,21 @@ class Handler(shorts.Handler):
         if path.startswith("/api/hat/"):
             return hat_api.post(con, path, b, lambda kind, arg: jobs.queue(con, kind, arg))
         if path == "/api/llm/settings":
-            provider, models = b.get("provider"), b.get("models", {})
-            if provider not in LLM_PROVIDERS or not isinstance(models, dict):
+            provider, models, providers = b.get("provider"), b.get("models", {}), b.get("providers", {})
+            if provider not in LLM_PROVIDERS or not isinstance(models, dict) or not isinstance(providers, dict):
                 raise ValueError("CLI veya agent model seçimi geçersiz")
-            allowed_models = {x["id"] for x in llm.model_options(provider)}
-            if any(not isinstance(step, str) or not isinstance(model, str) or step not in llm.AGENT_STEPS
-                   or model not in allowed_models for step, model in models.items()):
-                raise ValueError("Agent veya model seçimi listede yok")
-            return {"llm_settings": accounts.set_llm_settings(uid, provider, models)}
+            for step, chosen in providers.items():
+                if step not in llm.AGENT_STEPS and step != "default":
+                    raise ValueError("Agent seçimi listede yok")
+                if chosen and chosen not in LLM_PROVIDERS:
+                    raise ValueError("Agent CLI seçimi geçersiz")
+            for step, model in models.items():
+                if not isinstance(step, str) or not isinstance(model, str) or step not in llm.AGENT_STEPS:
+                    raise ValueError("Agent veya model seçimi listede yok")
+                own = providers.get(step) or providers.get("default") or provider
+                if model not in {x["id"] for x in llm.model_options(own)}:
+                    raise ValueError(f"'{model}' {own} kataloğunda yok")
+            return {"llm_settings": accounts.set_llm_settings(uid, provider, models, providers)}
         if path == "/api/gemini/key":
             key = (b.get("key") or "").strip()
             if not key:                       # an empty box removes the user's own key
