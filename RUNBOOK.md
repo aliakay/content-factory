@@ -230,7 +230,9 @@ pastes their own key (`data/users.json` → `users.<id>.openrouter`, mode 600; t
 `OPENROUTER_API_KEY` in `config.env`). An OpenRouter model is one HTTP chat completion with no CLI and no MCP client of
 its own, so the provider starts `factory/hat/mcp_server.py` itself (`factory/mcpclient.py`), offers the stage's tools as
 function schemas and runs the calls the model asks for; `Read` is served locally and `WebSearch`/`WebFetch` become
-OpenRouter's own web plugin. Default model: `deepseek/deepseek-v4.1-flash-1017` (per-agent overrides still apply). Every
+OpenRouter's own server tools (`openrouter:web_search`, `openrouter:web_fetch`: the model
+searches when it needs to, the platform runs it — native search where the provider has it, otherwise Exa — and the
+sources come back as `url_citation` annotations; a search costs OpenRouter credit per request). Default model: `deepseek/deepseek-v4.1-flash-1017` (per-agent overrides still apply). Every
 call's tokens and dollars go into the same `llm_usage` ledger (`source = live_openrouter`). ElevenLabs needs an **API key**
 account in this mode: a connector lives inside a CLI login.
 **ElevenLabs accounts** (`data/eleven_accounts.json`, `factory/accounts.py`): `ali` = the owner's connector account (runs

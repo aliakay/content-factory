@@ -6,7 +6,8 @@ HTTP chat completion, so everything a stage agent needs is built here:
 - our own tools (factory/hat/mcp_server.py) are started as a stdio MCP server and offered as function schemas
   (factory/mcpclient.py); the loop runs whatever the model calls until it answers without a call;
 - `Read` is served locally (the same file the CLI would read), and `WebSearch`/`WebFetch` become OpenRouter's own
-  web plugin, which searches and opens pages on the platform's side;
+  *server tools* (`openrouter:web_search`, `openrouter:web_fetch`: the platform runs them, the model decides when and
+  how often to search, and the results come back with `url_citation` annotations);
 - every call's token counts and dollars go into the shared ledger (factory/store.py llm_usage) like the CLI calls.
 
 The key is the user's own (Hesaplar → OpenRouter); the owner may instead set OPENROUTER_API_KEY in config.env. The
@@ -22,7 +23,14 @@ MODELS_CACHE = os.path.join(ROOT, "data", "openrouter_models.json")
 MODELS_TTL = 24 * 3600
 MAX_TURNS = 80                 # one tool call per turn is normal; this only stops a runaway loop
 READ_CHARS = 200_000
-WEB_TOOLS = ("WebSearch", "WebFetch")
+# The CLI's built-in web tools map to OpenRouter's server tools: OpenRouter runs them itself (native search where the
+# provider has it, otherwise Exa) and loops the model over the results, so nothing is executed on this machine.
+SERVER_TOOLS = {
+    "WebSearch": {"type": "openrouter:web_search",
+                   "parameters": {"engine": "auto", "max_results": 6, "max_uses": 8, "max_total_results": 40}},
+    "WebFetch": {"type": "openrouter:web_fetch"},
+}
+WEB_TOOLS = tuple(SERVER_TOOLS)
 FALLBACK_MODELS = (
     {"id": DEFAULT_MODEL, "name": "DeepSeek V4.1 Flash"},
     {"id": "deepseek/deepseek-v4.1-flash", "name": "DeepSeek V4.1 Flash (latest)"},
@@ -165,8 +173,10 @@ def _functions(tools, servers, listing):
     """
     schemas, routes = [], {}
     for name in tools:
-        if name in WEB_TOOLS:
-            continue                                   # the web plugin searches for the model, no function needed
+        if name in SERVER_TOOLS:
+            if SERVER_TOOLS[name] not in schemas:
+                schemas.append(SERVER_TOOLS[name])     # run by OpenRouter, not by us: no route to keep
+            continue
         if name == "Read":
             routes["Read"] = "read"
             schemas.append({"type": "function", "function": {
@@ -215,12 +225,13 @@ def run(prompt, tools=(), timeout=900, model=None, servers=None, budget_usd=None
         listing = {name: s.tools() for name, s in starters.items()}
         schemas, routes = _functions(tools, starters, listing)
         key = api_key()
-        plugins = [{"id": "web", "max_results": 6}] if any(t in WEB_TOOLS for t in tools) else None
+        plugins = None
         messages = [{"role": "system", "content":
                      "You are one stage agent of Content Factory. Do the work with the tools you are given; hand the "
                      "stage output in with submit_artifact and only stop when it is accepted."
-                     + (" You have live web access: search and open pages yourself when the task needs sources."
-                        if plugins else "")},
+                     + (" You have live web access: the web_search and web_fetch tools search and open pages yourself, "
+                        "and every source you use comes back with its citation; use them instead of guessing."
+                        if any(t in WEB_TOOLS for t in tools) else "")},
                     {"role": "user", "content": prompt}]
         spent, turns, reply = 0.0, 0, ""
         for turns in range(1, MAX_TURNS + 1):

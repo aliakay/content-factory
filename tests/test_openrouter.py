@@ -73,7 +73,7 @@ def test_the_cli_choices_still_work(users):
 
 
 # ---------------------------------------------------------------- the call itself
-def test_chat_asks_for_tools_web_and_a_cost(monkeypatch):
+def test_chat_asks_for_tools_and_a_cost(monkeypatch):
     seen = {}
 
     def fake_http(path, body=None, key=None, timeout=120, method=None):
@@ -81,12 +81,21 @@ def test_chat_asks_for_tools_web_and_a_cost(monkeypatch):
         return {"choices": [{"message": {"content": "ok"}}], "usage": {"cost": 0.01}}
 
     monkeypatch.setattr(openrouter, "_http", fake_http)
-    out = openrouter.chat([{"role": "user", "content": "hi"}], "m", tools=[{"type": "function"}],
-                          plugins=[{"id": "web"}], key="k")
+    out = openrouter.chat([{"role": "user", "content": "hi"}], "m", tools=[{"type": "function"}], key="k")
     assert out["choices"][0]["message"]["content"] == "ok"
     assert seen["path"] == "/chat/completions" and seen["key"] == "k"
     assert seen["body"]["usage"] == {"include": True} and seen["body"]["tool_choice"] == "auto"
-    assert seen["body"]["plugins"] == [{"id": "web"}]
+
+
+def test_the_web_tools_are_openrouters_own_server_tools():
+    """WebSearch/WebFetch are run by OpenRouter (server tools), not by this machine: the model calls them itself."""
+    srv = StubServer()
+    schemas, routes = openrouter._functions(["WebSearch", "mcp__factory__submit_artifact"], {"factory": srv},
+                                            {"factory": srv.tools()})
+    kinds = [s["type"] for s in schemas]
+    assert kinds == ["openrouter:web_search", "function"]
+    assert schemas[0]["parameters"]["max_results"] == 6 and "WebSearch" not in routes
+    assert schemas[1]["function"]["name"] == "mcp__factory__submit_artifact"
 
 
 def test_usage_is_mapped_to_the_ledger_columns():
@@ -132,8 +141,9 @@ def test_tools_become_functions_and_read_is_local(tmp_path, monkeypatch):
     srv = StubServer()
     schemas, routes = openrouter._functions(["Read", "WebSearch", "mcp__factory__submit_artifact"],
                                             {"factory": srv}, {"factory": srv.tools()})
-    names = [s["function"]["name"] for s in schemas]
-    assert names == ["Read", "mcp__factory__submit_artifact"]      # web is the plugin, not a function
+    names = [s["function"]["name"] for s in schemas if "function" in s]
+    assert names == ["Read", "mcp__factory__submit_artifact"]      # web is a server tool, not a function
+    assert [s["type"] for s in schemas if "function" not in s] == ["openrouter:web_search"]
     assert routes["mcp__factory__submit_artifact"] == (srv, "submit_artifact")
     assert "hello" in openrouter._run_tool(routes, "Read", {"path": "note.txt"})
     assert "cannot read" in openrouter._run_tool(routes, "Read", {"path": "missing.txt"})
