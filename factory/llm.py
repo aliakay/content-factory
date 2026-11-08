@@ -167,6 +167,35 @@ def selected_provider(uid=None):
     return accounts.llm_settings(uid)["provider"]
 
 
+def connector_ready():
+    """(can a connector turn run now, which CLI). ElevenLabs lives inside a CLI login, never inside an API model."""
+    from . import accounts
+    try:
+        if codex_elevenlabs_status().get("connected"):
+            return True, "codex"
+    except (LLMError, OSError, ValueError):
+        pass
+    try:
+        if accounts.claude_status().get("connectors"):
+            return True, "claude"
+    except Exception:
+        pass
+    return False, None
+
+
+def connector_provider():
+    """Which CLI runs an ElevenLabs connector turn: a connector belongs to a CLI login, so an OpenRouter model
+    (which has none) hands these turns back to Claude Code or Codex instead of pretending to run them."""
+    provider = selected_provider()
+    if provider in ("claude", "codex"):
+        return provider
+    ok, which = connector_ready()
+    if ok:
+        return which
+    raise LLMError("ElevenLabs connector'ı için sunucudaki Claude Code ya da Codex CLI'da ElevenLabs girişi gerekir "
+                   "(Hesaplar → ElevenLabs · Codex connector) — ya da bir ElevenLabs API anahtarı hesabı kullan")
+
+
 def default_model(step, provider):
     if provider == "openrouter":
         from . import openrouter
@@ -344,6 +373,8 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
     from . import accounts
     step = _caller()
     provider = selected_provider()
+    if mcp:
+        provider = connector_provider()      # an ElevenLabs connector turn always runs on a CLI that has the connector
     if provider == "codex" and mcp:
         server = _codex_elevenlabs_server()
         prompt = _codex_mcp_prompt(prompt, tools, server)

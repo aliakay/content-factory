@@ -209,3 +209,42 @@ def test_ask_text_routes_an_openrouter_user_to_openrouter(users, monkeypatch):
         data, meta = llm.ask_text("merhaba", tools=("Read",), mcp=False, servers={"factory": {"command": "x"}})
     assert data == '{"ok": true}' and llm.extract_json(data) == {"ok": True} and meta["cost_usd"] == 0.001
     assert got["model"] == openrouter.DEFAULT_MODEL and got["servers"] == {"factory": {"command": "x"}}
+
+
+# ---------------------------------------------------------------- ElevenLabs: the connector stays on a CLI
+def test_a_connector_turn_never_runs_on_the_api_model(users, monkeypatch):
+    """ElevenLabs lives inside a CLI login: with OpenRouter selected, those turns go back to Claude Code or Codex."""
+    from factory import eleven, llm as L
+
+    accounts.set_llm_settings("cem", "openrouter", {})
+    monkeypatch.setattr(L, "codex_elevenlabs_status", lambda: {"connected": False, "configured": False})
+    monkeypatch.setattr(accounts, "claude_status", lambda uid=None: {"connectors": False})
+    with accounts.as_user("cem"):
+        assert L.connector_ready() == (False, None)
+        with pytest.raises(L.LLMError, match="ElevenLabs"):
+            L.connector_provider()
+        monkeypatch.setattr(accounts, "claude_status", lambda uid=None: {"connectors": True})
+        assert L.connector_provider() == "claude"
+        monkeypatch.setattr(L, "codex_elevenlabs_status", lambda: {"connected": True, "configured": True})
+        assert L.connector_provider() == "codex"          # the CLI that actually has the connector wins
+
+
+def test_the_selected_cli_keeps_its_connector(users, monkeypatch):
+    accounts.set_llm_settings("cem", "codex", {})
+    monkeypatch.setattr(llm, "connector_ready", lambda: (False, None))
+    with accounts.as_user("cem"):
+        assert llm.connector_provider() == "codex"        # no probing: the selected CLI is the answer
+
+
+def test_ask_text_routes_a_connector_turn_to_the_cli(users, monkeypatch):
+    accounts.set_llm_settings("cem", "openrouter", {})
+    seen = {}
+    monkeypatch.setattr(llm, "connector_ready", lambda: (True, "codex"))
+    monkeypatch.setattr(llm, "_codex_elevenlabs_server", lambda: "elevenlabs")
+    monkeypatch.setattr(llm, "_codex", lambda prompt, tools, timeout, model, effort, step, approve_mcp=False,
+                                        servers=None: seen.update({"prompt": prompt, "tools": tools}) or ("ok", {}))
+    monkeypatch.setattr(openrouter, "run", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no API model here")))
+    with accounts.as_user("cem"):
+        text, meta = llm.ask_text("ses üret", tools=("mcp__claude_ai_ElevenLabs__creative_generate_speech",), mcp=True)
+    assert text == "ok" and seen["tools"] == ("creative_generate_speech",)
+    assert "elevenlabs" in seen["prompt"]                 # the Codex MCP prompt names the connector server

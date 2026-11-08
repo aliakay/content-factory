@@ -830,11 +830,13 @@ def eleven_status(aid, uid=None):
     elif provider == "codex":
         connected = llm.codex_elevenlabs_status().get("connected", False)
     elif provider == "openrouter":
-        connected = False       # a connector lives inside a CLI login; OpenRouter has no ElevenLabs connector
+        # a connector lives inside a CLI login: an OpenRouter model hands these turns back to Claude Code / Codex
+        connected = llm.connector_ready()[0]
     else:
         connected = accounts.claude_status(acc.get("owner")).get("connectors", False)
     return {"connected": connected, "images": connected and acc.get("type") == "connector",
-            "provider": provider, "account_type": acc.get("type")}
+            "provider": provider, "account_type": acc.get("type"),
+            "connector_cli": llm.connector_ready()[1] if acc.get("type") == "connector" else None}
 
 
 def me(con):

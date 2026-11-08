@@ -22,8 +22,12 @@ class ElevenError(RuntimeError):
 
 
 def _connector_context(account):
-    """Claude connectors belong to their account owner; Codex MCP uses the selected CLI profile."""
-    if llm.selected_provider() == "codex":
+    """Claude connectors belong to their account owner; Codex MCP uses the CLI's own profile.
+
+    The CLI is the one that carries the ElevenLabs connector (llm.connector_provider()), which is the selected CLI
+    unless the agents run on OpenRouter: an API model has no connectors, so these turns stay on a CLI.
+    """
+    if llm.connector_provider() == "codex":
         return nullcontext()
     acc = accounts.eleven(account)
     return accounts.as_user((acc or {}).get("owner"))
