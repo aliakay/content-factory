@@ -25,6 +25,7 @@ MAX_TURNS = 80                 # one tool call per turn is normal; this only sto
 LOOP_LIMIT = 4                 # the same tool call with the same result this many times is a loop, not work
 EMPTY_RETRIES = 2              # an empty reply (no text, no tool call) is retried this many times before failing
 REQUEST_TIMEOUT = 300          # one HTTP request; a hung socket must not eat the whole stage timeout silently
+TOOL_BUDGET = 40               # tool calls per stage run: past this the agent is wandering, not working
 READ_CHARS = 200_000
 # The CLI's built-in web tools map to OpenRouter's server tools: OpenRouter runs them itself (native search where the
 # provider has it, otherwise Exa) and loops the model over the results, so nothing is executed on this machine.
@@ -256,7 +257,7 @@ def run(prompt, tools=(), timeout=900, model=None, servers=None, budget_usd=None
                         if any(t in WEB_TOOLS for t in tools) else "")},
                     {"role": "user", "content": prompt}]
         spent, turns, reply = 0.0, 0, ""
-        seen, empty = {}, 0
+        seen, empty, calls_made = {}, 0, 0
         for turns in range(1, MAX_TURNS + 1):
             left = timeout - (time.time() - started)
             if left <= 5:
@@ -288,6 +289,10 @@ def run(prompt, tools=(), timeout=900, model=None, servers=None, budget_usd=None
                 except ValueError:
                     args = {}
                 name = fn.get("name") or ""
+                calls_made += 1
+                if calls_made > TOOL_BUDGET:
+                    raise OpenRouterError(f"araç bütçesi doldu ({TOOL_BUDGET} çağrı): aşama kendi kendine "
+                                          f"ilerlemiyor — son araç `{name}`. Girdiyi değiştir ya da dur.")
                 out = _run_tool(routes, name, args if isinstance(args, dict) else {})
                 messages.append({"role": "tool", "tool_call_id": c.get("id") or name or "call", "content": out})
                 # the same call returning the same thing over and over is a loop, not progress: stop and say why
