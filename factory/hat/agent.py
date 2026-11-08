@@ -229,13 +229,20 @@ def _author(pid, s, note=None, d=None, user=None):
     started = time.time()
     P.event(pid, "agent_start", d=d, stage=s["id"], model=model, provider=llm.provider_for(s["id"]),
             model_used=llm.selected_model(s["id"], model), tools=ours + builtins)
+    reply, meta, broke = "", {}, None
     try:
         reply, meta = llm.ask_text(task(pid, s, note, d), tools=tuple(allowed_cli), timeout=s.get("timeout") or TIMEOUT,
                                    model=model, retries=1, servers=servers,
                                    budget_usd=s.get("budget_usd") or BUDGET.get(model, 3.0))
     except llm.LLMError as e:
         raise AgentError(str(e)) from None
+    except Exception as e:                 # the loop/tool budget raised: the work may still have landed
+        broke = f"{type(e).__name__}: {e}"
     written = os.path.exists(art) and os.path.getmtime(art) > before and os.path.getmtime(art) >= started - 1
+    if broke and not written:
+        raise AgentError(broke) from None
+    if broke:
+        P.event(pid, "agent_recovered", d=d, stage=s["id"], reason=broke[:200])
     P.event(pid, "agent_end", d=d, stage=s["id"], seconds=round(time.time() - started), cost_usd=meta.get("cost_usd"),
             submitted=written)
     if not written:
