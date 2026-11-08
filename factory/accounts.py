@@ -71,9 +71,24 @@ class as_user:
         _current.reset(self.tok)
 
 
+def pref_rec(u, uid):
+    """Where this user's preferences live: their own entry, or `owner` while login is off.
+
+    Saving a setting on a fresh install must not create a login (a user without a password would lock the panel out):
+    with no logins at all, the owner's preferences go to their own `owner` bucket and `enabled()` stays false."""
+    if uid in u["users"]:
+        return u["users"][uid]
+    if not u["users"] and uid == OWNER:
+        return u.setdefault("owner", {"name": "Ali", "role": "owner"})
+    raise ValueError("Kullanıcı bulunamadı")
+
+
 def user(uid=None):
     uid = uid or current()
-    return users()["users"].get(uid) or ({"name": "Ali", "role": "owner"} if uid == OWNER else None)
+    u = users()
+    if uid in u["users"]:
+        return u["users"][uid]
+    return (u.get("owner") or {}) if uid == OWNER and not u["users"] else None or ({"name": "Ali", "role": "owner"} if uid == OWNER else None)
 
 
 def name_of(uid):
@@ -161,9 +176,7 @@ def set_gemini_key(uid, key):
     if key and (len(key) < 20 or len(key) > 200 or any(c.isspace() for c in key)):
         raise ValueError("Gemini anahtarı geçersiz görünüyor")
     u = users()
-    if uid not in u["users"] and uid != OWNER:
-        raise ValueError("Kullanıcı bulunamadı")
-    rec = u["users"].setdefault(uid, {"name": "Ali", "role": "owner"})
+    rec = pref_rec(u, uid)
     if key:
         rec["gemini"] = {"key": key, "connected_at": time.strftime("%Y-%m-%d %H:%M")}
     else:
@@ -208,9 +221,7 @@ def set_media_settings(uid, mapping):
             raise ValueError("Medya üreticisi seçimi geçersiz")
         clean[k] = v
     u = users()
-    if uid not in u["users"] and uid != OWNER:
-        raise ValueError("Kullanıcı bulunamadı")
-    rec = u["users"].setdefault(uid, {"name": "Ali", "role": "owner"})
+    rec = pref_rec(u, uid)
     rec["media"] = {**media_settings(uid), **clean}
     _save(USERS, u)
     return media_settings(uid)
@@ -233,9 +244,7 @@ def set_eleven_settings(uid, via):
     if via not in ELEVEN_VIA:
         raise ValueError("ElevenLabs taşıması geçersiz")
     u = users()
-    if uid not in u["users"] and uid != OWNER:
-        raise ValueError("Kullanıcı bulunamadı")
-    u["users"].setdefault(uid, {"name": "Ali", "role": "owner"})["eleven_via"] = via
+    pref_rec(u, uid)["eleven_via"] = via
     _save(USERS, u)
     return eleven_settings(uid)
 
@@ -263,9 +272,7 @@ def set_openrouter_key(uid, key):
     if key and (len(key) < 20 or len(key) > 200 or any(c.isspace() for c in key)):
         raise ValueError("OpenRouter anahtarı geçersiz görünüyor")
     u = users()
-    if uid not in u["users"] and uid != OWNER:
-        raise ValueError("Kullanıcı bulunamadı")
-    rec = u["users"].setdefault(uid, {"name": "Ali", "role": "owner"})
+    rec = pref_rec(u, uid)
     if key:
         rec["openrouter"] = {"key": key, "connected_at": time.strftime("%Y-%m-%d %H:%M")}
     else:
@@ -324,9 +331,7 @@ def set_llm_settings(uid, provider, models, providers=None):
         if p:
             provs[step] = p
     u = users()
-    if uid not in u["users"] and uid != OWNER:
-        raise ValueError("Kullanıcı bulunamadı")
-    rec = u["users"].setdefault(uid, {"name": "Ali", "role": "owner"})
+    rec = pref_rec(u, uid)
     rec["llm_settings"] = {"provider": provider, "models": clean, "providers": provs}
     _save(USERS, u)
     return llm_settings(uid)
@@ -345,9 +350,7 @@ def set_ui_lang(uid, lang):
     if lang not in UI_LANGS:
         raise ValueError("unknown interface language")
     u = users()
-    if uid not in u["users"] and uid != OWNER:
-        raise ValueError("Kullanıcı bulunamadı")
-    u["users"].setdefault(uid, {"name": "Ali", "role": "owner"})["ui_lang"] = lang
+    pref_rec(u, uid)["ui_lang"] = lang
     _save(USERS, u)
     return lang
 
