@@ -8,6 +8,7 @@ the voice is recorded only after that, so the timing you see now is a draft from
 1. Read `proposal` (chosen concept, look, key frame), `script` (the lines) and `research` (figures, visual refs).
 2. Group the script lines into 4-7 scenes, in order, covering every line exactly once: each scene's `lines` = [first,
    last] line index (0-based, inclusive). The first scene starts at line 0, the last ends at the last line.
+   For every scene, state `shows` (the subject and what it does) and `camera` = `{move, seconds, easing, target}`.
 3. Give every scene ONE mechanism from the catalogue below (`mechanism`): how its picture explains its line. Its
    beats are the scene's setup -> action -> resolution. Then pick devices from the `recipes` tool (no ids = the index; with ids = full cards with a working example):
    a proven card beats an invented effect. Adapt the example, keep its timing and avoid its pitfalls.
@@ -19,7 +20,8 @@ the voice is recorded only after that, so the timing you see now is a draft from
    caption band? Is the hook frame strong at its first tenth of a second?
 6. Check it: `layout_lint`; fix every error. Then look again. Two look-and-fix rounds are usually enough.
 7. `submit_artifact` with `concept` (2-3 sentences: the visual idea and why it suits this subject), `palette`,
-   `global_css`, `scenes[{id, lines, trigger, mechanism, html, css, js, notes}]`, `summary` (interface language: the visual
+   `global_css`, `scenes[{id, lines, trigger, mechanism, shows, camera{move, seconds, easing, target}, html, css, js, notes}]`,
+   `summary` (interface language: the visual
    idea, and the scene the creator should look at first).
    Scene ids: lowercase letters, digits, - or _ (e.g. "hook", "threshold", "routes", "cta").
 
@@ -31,3 +33,15 @@ the voice is recorded only after that, so the timing you see now is a draft from
 {{include:factory.motiongrammar:brief}}
 
 {{include:factory.layoutlint:SLOP_BRIEF}}
+
+{{include:factory.camera:brief}}
+
+{{include:factory.subjectqc:brief}}
+
+{{include:factory.typography:brief}}
+
+{{include:factory.determinism:brief}}
+
+{{include:factory.originality:brief}}
+
+{{include:factory.hat.direction:brief}}

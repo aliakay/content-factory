@@ -12,8 +12,8 @@ Detailed operating guide: [RUNBOOK.md](RUNBOOK.md). Art rules for the designers:
 ## Factory v2: production lines
 
 Since v2, every video is a **project** made on a **production line** (`pipelines/<line>.yaml`): a fixed row of
-stages (for the explainer: research → proposal → script → scene_plan → animatic → assets → edit → compose →
-publish). Each
+stages (for the explainer: research → proposal → script → direction → scene_plan → animatic → assets → edit →
+compose → publish). Each
 stage is done by an agent (Claude or Codex, headless) that works only through the factory's tools (an MCP server).
 A reviewer on the other model judges it against the stage's rubric (score ≥ 90, up to two fix rounds) and keeps a
 findings ledger. Then the stage **stops at its gate**: the creator approves it or writes feedback (at most 3
@@ -29,13 +29,20 @@ skills/pipelines/<line>/<stage>.md   the stage briefs; skills/meta/ = stage agen
 factory/hat/
   project.py    a project folder (projects/<id>/: artifacts, checkpoints, events, decisions, renders)
   runner.py     the line manager: run a stage, stop at the gate, approve / feedback / reopen
+  tools.py      the tool registry the agents call; mcp_server.py serves it to Claude / Codex / OpenRouter
+  direction.py  the direction board: palette, type pairing, light/texture and motion rules, drawn as a PNG before a scene
   agent.py      the stage agent + the reviewer (rubric score, fix rounds); gauntlet.py = ledger + fresh render
-  tools.py      the tool registry the agents call; mcp_server.py serves it to Claude / Codex
   explainer.py  the code stages (assets, edit, compose: voice, music, render); longform.py, footage.py, ... per line
   migrate.py    imports the old productions as projects (dry run by default)
 studio/hat.js, hat.css, hat_api.py   the Studio pages: #/uret (start a line), #/uretimler (productions), #/u/<id>
 factory/layoutlint.py   layout + slop lint and the measured grade (Slop / Orta / Maxxed) on every design round
 factory/motiongrammar.py, framenotes.py, sceneedit.py   motion grammar, frame comments, the scene editor
+factory/hookrule.py     the script gate: line 1 lands in 3 s, concrete and on the title's subject
+factory/coldtest.py     the cold test: one subject from line 1 to the close, the title's subject early, the promise kept
+factory/camera.py, subjectqc.py, originality.py, determinism.py   what a scene plan must say and prove (move, action,
+                        subject, a repeatable render, a film nobody else made)
+factory/words.py, typography.py, licence.py   Turkish/English folding, the type scale, the attribution ledger
+factory/openrouter.py, mcpclient.py   the OpenRouter provider (an API key, DeepSeek V4.1 Flash) and the MCP client it needs
 ```
 
 The interface language (TR or EN, per user) is separate from the video language (per project). Projects live in

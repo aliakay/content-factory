@@ -81,3 +81,49 @@ def snap(times, beat_times, max_shift=0.25):
         j = int(np.argmin(np.abs(b - t)))
         out.append(float(b[j]) if abs(b[j] - t) <= max_shift else t)
     return out
+
+
+# ---------------------------------------------------------------- cutting a music-led film to the grid
+
+def snap_holds(holds, bpm, offset=0.0):
+    """Hold each beat of a music-led film for a whole number of beats: every scene starts on the grid.
+
+    Each cumulative boundary is moved to the nearest beat and the holds become the gaps between them, so the total
+    length drifts by at most half a beat no matter how many lines there are (a per-hold rounding would drift by half a
+    beat per line). A hold never collapses: at least one beat."""
+    step = 60.0 / float(bpm)
+    out, t, target = [], 0.0, 0.0
+    for h in holds or []:
+        target += max(float(h), 0.1)
+        k = max(1, int(round((target - offset) / step)))
+        nxt = offset + k * step
+        out.append(round(max(nxt - t, step), 3))
+        t += out[-1]
+    return out
+
+
+def grid_fit(times, beat_times, tol=0.09):
+    """How many of `times` sit on a beat: {share, off, tol}. A cut within `tol` seconds of a beat is on it."""
+    times = [float(t) for t in times or []]
+    b = np.asarray([float(x) for x in beat_times or []])
+    if not times or not len(b):
+        return {"share": 0.0, "off": times, "tol": tol}
+    off = [round(t, 3) for t in times if float(np.min(np.abs(b - t))) > tol]
+    return {"share": round(1 - len(off) / len(times), 3), "off": off, "tol": tol}
+
+
+def problems(cuts, beat_times, tol=0.09, min_share=0.6):
+    """A music-led film whose cuts mostly miss the beat: the picture and the track are not playing together."""
+    fit = grid_fit(cuts, beat_times, tol)
+    if fit["share"] >= min_share:
+        return []
+    return [f"{len(fit['off'])} of {len(cuts)} cuts are off the beat (tolerance {tol:g} s): snap the scene starts "
+            f"to the track's grid"]
+
+
+def bpm_of(path):
+    """Tempo and beat times of an audio file, or None when it cannot be measured here."""
+    try:
+        return beats(path)
+    except Exception:
+        return None

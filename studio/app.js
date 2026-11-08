@@ -1303,9 +1303,11 @@ ROUTES["#/hesaplar"] = async () => {
   S.me = await api("/api/me"); const m = S.me; crumb(["Hesaplar"]);
   const cl = m.claude.connected ? `<div class="small">✅ Bağlı · ${esc(m.claude.how)}${m.claude.at ? " · " + esc(m.claude.at) : ""}</div>` : `<div class="small">❌ Bağlı değil.</div>`;
   const lc = m.llm_settings || { provider: "claude", models: {} }, provider = lc.provider || "claude";
+  const orr = m.openrouter || {};
+  const PROVIDER_DEFAULT = { codex: "gpt-6-luna", openrouter: "deepseek/deepseek-v4.1-flash-1017", claude: "opus" };
   const agentModels = (m.llm_agents || []).map((a) => {
     const selected = (lc.models || {})[a.id] || (lc.models || {}).default || "";
-    const defaultModel = (m.llm_default_models[provider] || {})[a.id] || (provider === "codex" ? "gpt-6-luna" : "opus");
+    const defaultModel = (m.llm_default_models[provider] || {})[a.id] || PROVIDER_DEFAULT[provider] || "opus";
     return `<label class="field"><span>${esc(a.name)}</span><select data-agent-model="${esc(a.id)}"><option value="">${esc(defaultModel)} · varsayılan</option>${(m.llm_models[provider] || []).map((x) => `<option value="${esc(x.id)}" ${selected === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>`;
   }).join("");
   const acc = m.eleven.map((a) => { const b = a.balance || {}; const can = a.mine || m.role === "owner";
@@ -1317,10 +1319,14 @@ ROUTES["#/hesaplar"] = async () => {
   paint(`<div class="row"><h1>Hesap<span class="serif">lar</span></h1><span class="sp"></span>${m.login ? `<button class="btn sm ghost" data-act="logout">Çıkış</button>` : ""}</div>
   <div class="small muted mt8">Giriş yapan: <b>${esc(m.name)}</b> (${m.role === "owner" ? "sahip" : "üye"})</div>
   <div class="card mt16"><h3>⚙️ CLI ve model seçenekleri</h3><p class="small muted">Agent’ların hangi CLI ve modeli kullanacağını seç. Kaydettikten sonra başlayan işlerde uygulanır.</p>
-    <label class="field mt12"><span>CLI</span><select id="llm_provider" data-change="llmProvider"><option value="claude" ${provider === "claude" ? "selected" : ""}>Claude Code</option><option value="codex" ${provider === "codex" ? "selected" : ""}>OpenAI Codex CLI</option></select></label>
-    <div class="small muted mt8" id="llm_provider_note">${provider === "codex" ? "Varsayılan model tüm agent’larda GPT-6-Luna. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs de Codex connector’ı üzerinden çalışır." : "Varsayılanlar mevcut Claude agent modelleridir (opus/sonnet gibi); değiştirmediğin seçimler korunur."}</div>
+    <label class="field mt12"><span>CLI</span><select id="llm_provider" data-change="llmProvider"><option value="claude" ${provider === "claude" ? "selected" : ""}>Claude Code</option><option value="codex" ${provider === "codex" ? "selected" : ""}>OpenAI Codex CLI</option><option value="openrouter" ${provider === "openrouter" ? "selected" : ""}>OpenRouter API</option></select></label>
+    <div class="small muted mt8" id="llm_provider_note">${provider === "codex" ? "Varsayılan model tüm agent’larda GPT-6-Luna. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs de Codex connector’ı üzerinden çalışır." : provider === "openrouter" ? "Varsayılan model DeepSeek V4.1 Flash. OpenRouter API anahtarınla çalışır; araçlar (sahne, ses, yayın adımları) sunucudaki fabrika araçları üzerinden yürür, web erişimi OpenRouter’ın kendi web eklentisinden gelir. Ses ve müzik için ElevenLabs API anahtarı gerekir." : "Varsayılanlar mevcut Claude agent modelleridir (opus/sonnet gibi); değiştirmediğin seçimler korunur."}</div>
     <h3 class="mt16">Agent modelleri</h3><div class="grid mt8" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">${agentModels}</div>
     <button class="btn accent sm mt12" data-act="llmSave">Kaydet</button></div>
+  <div class="card mt16"><h3>🔑 OpenRouter API</h3>
+    <div class="small">${orr.connected ? (orr.mine ? `✅ Bağlı · anahtar ${esc(orr.tail || "")}${orr.at ? " · " + esc(orr.at) : ""}` : "✅ Sunucudaki OPENROUTER_API_KEY kullanılıyor") : "❌ Bağlı değil"}</div>
+    <p class="small muted mt8">Kendi OpenRouter anahtarını gir: <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys ↗</a>. OpenRouter seçildiğinde tüm agent’lar bu anahtarla, varsayılan olarak DeepSeek V4.1 Flash ile çalışır.</p>
+    <div class="row nowrap mt8"><input type="password" id="or_key" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false"><button class="btn accent sm" data-act="openrouterKey">Kaydet</button>${orr.mine ? `<button class="btn sm ghost danger" data-act="openrouterClear">Kaldır</button>` : ""}</div></div>
   <div class="card mt16"><h3>🔌 ElevenLabs · Codex connector</h3>
     <div class="small">${m.codex_elevenlabs?.connected ? "✅ Codex CLI’ye bağlı" : "❌ Codex CLI’ye bağlı değil"}</div>
     <p class="small muted mt8">Codex seçildiğinde ses, müzik ve görsel üretimi bu bağlantıdan yapılır. ElevenLabs’te izin verdikten sonra localhost dönüş sayfası açılmasa bile adres çubuğundaki URL’nin tamamını kopyalayıp aşağıya yapıştır.</p>
@@ -1335,15 +1341,31 @@ ROUTES["#/hesaplar"] = async () => {
 };
 ACT.llmProvider = (el) => {
   const provider = el.value, options = (S.me.llm_models || {})[provider] || [];
+  const PROVIDER_DEFAULT = { codex: "gpt-6-luna", openrouter: "deepseek/deepseek-v4.1-flash-1017", claude: "opus" };
   for (const select of $$('[data-agent-model]')) {
     const prior = select.value;
-    const def = ((S.me.llm_default_models || {})[provider] || {})[select.dataset.agentModel] || (provider === "codex" ? "gpt-6-luna" : "opus");
+    const def = ((S.me.llm_default_models || {})[provider] || {})[select.dataset.agentModel] || PROVIDER_DEFAULT[provider] || "opus";
     select.innerHTML = `<option value="">${esc(def)} · varsayılan</option>` + options.map((x) => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("");
     if (options.some((x) => x.id === prior)) select.value = prior;
   }
   $("#llm_provider_note").textContent = provider === "codex"
     ? "Varsayılan model tüm agent’larda GPT-6-Luna. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs de Codex connector’ı üzerinden çalışır."
+    : provider === "openrouter"
+    ? "Varsayılan model DeepSeek V4.1 Flash. OpenRouter API anahtarınla çalışır; araçlar sunucudaki fabrika araçları üzerinden yürür, web erişimi OpenRouter’ın web eklentisinden gelir."
     : "Varsayılanlar mevcut Claude agent modelleridir (opus/sonnet gibi); değiştirmediğin seçimler korunur.";
+};
+ACT.openrouterKey = async () => {
+  const key = ($("#or_key").value || "").trim();
+  if (!key) return toast("Anahtar boş", 1);
+  const r = await post("/api/openrouter/key", { key });
+  const c = (r.openrouter || {}).check || {};
+  toast(c.ok === false ? "Kaydedildi · " + (c.label || "doğrulanamadı") : "OpenRouter bağlandı");
+  route();
+};
+ACT.openrouterClear = async () => {
+  if (!confirm("OpenRouter anahtarın silinsin mi?")) return;
+  await post("/api/openrouter/key", { key: "" });
+  toast("Anahtar kaldırıldı"); route();
 };
 ACT.llmSave = async () => {
   const models = Object.fromEntries($$('[data-agent-model]').filter((x) => x.value).map((x) => [x.dataset.agentModel, x.value]));

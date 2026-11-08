@@ -63,6 +63,14 @@ scene_plan:
   gate_says: {tr: "Onaylarsan tasarım kilitlenir; varlıklar bu plana göre üretilir.",
               en: "Approving locks the design; assets are made for this plan."}
 
+direction:
+  artifact: direction
+  name: {tr: Yön panosu, en: Direction board}
+  says: {tr: "Filmin görünüşü bir kez karara bağlanır: palet, yazı eşleşmesi, ışık/doku ve hareket kuralları, referanslar. Pano PNG olarak çizilir.",
+         en: "The film's look is decided once: palette, type pairing, light/texture and motion rules, references. The board is drawn as a PNG."}
+  gate_says: {tr: "Onaylarsan sahneler bu panoyla çizilir. Renk ya da yazı tipi adı veren bir not panoyu yeniden çizer.",
+              en: "Approving draws the scenes in this board. A note that names colours or a font redraws the board."}
+
 animatic:
   artifact: animatic
   name: {tr: Animatik, en: Animatic}

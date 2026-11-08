@@ -25,3 +25,7 @@ piece is music-led or narrated; the research (`read_artifact research`) holds th
 `title` (video language, <= 60 characters), `hook` (= line 1), `lines[]`, `narrate`, `holds[]` (music-led only),
 `claims[]`, `caption` (one line for the post, video language), `summary` (interface language: the beats and total
 length, the figure the creator should double-check).
+
+{{include:factory.hookrule:brief}}
+
+{{include:factory.coldtest:brief}}

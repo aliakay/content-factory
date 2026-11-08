@@ -243,6 +243,17 @@ def flags_of(pid, sp, rows, motion, script, d=None):
             add("info", "duration_off", None,
                 f"Film {sp['duration']:.1f} sn, onaylanan öneri {float(planned):.1f} sn: fark %{round(diff * 100)}.",
                 f"The film is {sp['duration']:.1f} s, the approved proposal {float(planned):.1f} s: {round(diff * 100)}% apart.")
+    from .. import beats
+    bpm, offset = X._music_bpm(pid, d)
+    if bpm:
+        starts = [r["start"] for r in rows][1:]
+        fit = beats.grid_fit(starts, beats.grid(bpm, float(sp["duration"]) + 1, offset))
+        if fit["share"] < 0.6:
+            add("warn", "off_beat", None,
+                f"Kesmelerin yalnız %{round(fit['share'] * 100)}'i {bpm:.0f} BPM'lik vuruşta; müzikli film vuruş "
+                f"ızgarasına kesilmeli.",
+                f"Only {round(fit['share'] * 100)}% of the cuts sit on the {bpm:.0f} BPM beat; a music-led film cuts on "
+                f"the grid.")
     return out
 
 
@@ -279,5 +290,7 @@ def run(pid, s, note=None, d=None):
     summary = _summary(sp, rows, flags, lang)
     art = {"file": os.path.relpath(path, ROOT), "duration": sp["duration"], "fps": PREVIEW_FPS,
            "timing": sp.get("timing"), "scenes": rows, "flags": flags, "motion": motion, "summary": summary}
+    from .. import determinism
+    art["fingerprint"] = determinism.fingerprint(sp, X.design(plan))
     return {"artifact": art, "summary": summary, "cost": {"credits": 0, "usd": 0.0},
             "review": {"verdict": "fix" if any(f["level"] == "warn" for f in flags) else "pass", "summary": summary}}

@@ -25,6 +25,31 @@ contact sheet, the lint and the measured grade). The gate card shows the score b
 Feedback at a gate re-runs the stage with the note (max 3 revisions); reopening an earlier stage makes later ones
 stale. Frame comments (click a frame or the preview) revise only the scenes they name.
 
+**The look is decided once (2026-11, direction stage).** Between the script and the scene plan the explainer,
+animation and long-explainer lines run `direction` (`factory/hat/direction.py`, a code stage, no credits): it builds
+one board (palette from the chosen film style's card, or a scheme keyed on the project; a type pairing; the light,
+texture and motion rules; the research's references) and draws it to `projects/<id>/renders/direction.png` with PIL.
+The creator approves it at its gate; the scene plan then receives it as a brief and `direction.problems` refuses
+scenes in colours or type families the board does not name. A note naming hex colours or a font redraws the board;
+any other note is kept as `direction.note`.
+
+**What the gates now refuse, and why (all deterministic, all in `tools._meaning` + `runner.approve`):**
+- `hookrule` (script gate, authored scripts only): line 1 must be sayable in 3 s at the language's rate, carry a
+  figure/name/contrast, not open on a greeting or stock phrasing, and name the title's subject; `hook` = line 1.
+- `coldtest` (script gate): one subject from line 1 to the close, the title's subject in the first third, the promise
+  answered. The agent proves it by running the `cold_test` tool; its `cold_read` verdict carries a fingerprint of the
+  exact title and lines, so editing the script invalidates it.
+- `camera` + `subjectqc` + `originality` + `determinism` (scene plan): every scene names a move (move, seconds,
+  easing, target) and `shows` (subject + action with a verb), the picture carries the line's figure and names, three
+  distinct moves/mechanisms over three scenes, no stock metaphor, and the same moments render identically twice.
+  The human gate re-renders anyway (`runner._verify_scene_determinism`) and also compares the subject's motion.
+- `licence` (publish gate): no asset without a licence, and every required credit is in the description; the complete
+  ledger is written beside the final render as `credits.txt` (`publish.credits_file`).
+- `proposal` for an agent-built proposal: three distinct treatments and `chosen` naming one of them. A code-built
+  proposal uses `proposal_code` (one chosen concept, a film of 4 s or more).
+A derived script (a dub, the creator's own text, a story) is not hook-ruled or cold-tested: those lines keep their own
+words (`hookrule.authored`).
+
 **Operating:**
 - Logs: `projects/<id>/events.jsonl` (every tool call, review, error), `decisions.jsonl` (music ending, budget, ...),
   `checkpoints/<stage>.json`. The provider and model per user: Settings → accounts (`users.json`).
@@ -200,6 +225,14 @@ user:mcp_servers, so the member's own claude.ai connectors work, e.g. their Elev
 bağla" → job `eleven_voices` reads its voices) or **"token"** = `claude setup-token` (user:inference only, no connectors →
 ElevenLabs via API key). Every job carries its user
 (`jobs.user`, env `FACTORY_USER`); `llm.ask_text` adds `CLAUDE_CODE_OAUTH_TOKEN` + `CLAUDE_CONFIG_DIR=~/.claude-profiles/<id>`.
+**OpenRouter API** (`factory/openrouter.py`, third provider next to the two CLIs): Hesaplar → OpenRouter API, the member
+pastes their own key (`data/users.json` → `users.<id>.openrouter`, mode 600; the owner may instead set
+`OPENROUTER_API_KEY` in `config.env`). An OpenRouter model is one HTTP chat completion with no CLI and no MCP client of
+its own, so the provider starts `factory/hat/mcp_server.py` itself (`factory/mcpclient.py`), offers the stage's tools as
+function schemas and runs the calls the model asks for; `Read` is served locally and `WebSearch`/`WebFetch` become
+OpenRouter's own web plugin. Default model: `deepseek/deepseek-v4.1-flash-1017` (per-agent overrides still apply). Every
+call's tokens and dollars go into the same `llm_usage` ledger (`source = live_openrouter`). ElevenLabs needs an **API key**
+account in this mode: a connector lives inside a CLI login.
 **ElevenLabs accounts** (`data/eleven_accounts.json`, `factory/accounts.py`): `ali` = the owner's connector account (runs
 the MCP calls as the owner even when a member started the job); others = API keys (`factory/eleven_api.py`: TTS, music,
 sfx; voices + balance read live, cached 10 min). Each production has `data.eleven_account` (default: its creator's own);

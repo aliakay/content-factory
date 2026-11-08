@@ -125,21 +125,26 @@ def part_problems(outline_scenes, data):
 
 # ---------------------------------------------------------------- chapter cards
 
-def card_scene(ch, chs, lang="en"):
+def card_scene(ch, chs, lang="en", fonts=None):
     """The chapter card: big number, label + title, and the chapter list with this one lit. Drawn from the palette
     tokens, inside the 16:9 safe area (x 80-1840, y 60-850), captions off (the narrator reads the title)."""
     n = ch["n"]
+    fonts = fonts or {"display": "Inter Tight", "body": "Inter Tight"}
+    # Board names come from the style library or a creator note. Keep them inside CSS string literals.
+    import re
+    display = re.sub(r"[^A-Za-z0-9 _-]", "", str(fonts.get("display") or "Inter Tight")).strip() or "Inter Tight"
+    body = re.sub(r"[^A-Za-z0-9 _-]", "", str(fonts.get("body") or "Inter Tight")).strip() or "Inter Tight"
     items = "".join(f'<li class="{"on" if c["n"] == n else "done" if c["n"] < n else ""}"><span>{c["n"]:02d}</span>'
                     f'{H.escape(c["title"])}</li>' for c in chs)
     html = (f'<div class="cc-num">{n:02d}</div><div class="cc-label">{LABEL.get(lang, LABEL["en"])} {n}</div>'
             f'<h1 class="cc-title">{H.escape(ch["title"])}</h1><div class="cc-rule"></div><ol class="cc-list">{items}</ol>')
     css = ("background:var(--bg,#0b0d12);"
-           ".cc-num{position:absolute;left:120px;top:110px;font:900 300px/1 'Inter Tight',sans-serif;color:var(--accent,#2ee6c5);letter-spacing:-.04em}"
-           ".cc-label{position:absolute;left:128px;top:452px;font:700 30px/1 'Inter Tight',sans-serif;letter-spacing:.22em;color:var(--muted,#9aa3b2)}"
-           ".cc-title{position:absolute;left:120px;top:506px;width:960px;margin:0;font:800 80px/1.06 'Inter Tight',sans-serif;color:var(--ink,#fff);letter-spacing:-.015em}"
+           f".cc-num{{position:absolute;left:120px;top:110px;font:900 300px/1 '{display}',sans-serif;color:var(--accent,#2ee6c5);letter-spacing:-.04em}}"
+           f".cc-label{{position:absolute;left:128px;top:452px;font:700 30px/1 '{body}',sans-serif;letter-spacing:.22em;color:var(--muted,#9aa3b2)}}"
+           f".cc-title{{position:absolute;left:120px;top:506px;width:960px;margin:0;font:800 80px/1.06 '{display}',sans-serif;color:var(--ink,#fff);letter-spacing:-.015em}}"
            ".cc-rule{position:absolute;left:1180px;top:150px;width:4px;height:600px;background:var(--accent,#2ee6c5);transform-origin:50% 0}"
            ".cc-list{position:absolute;left:1240px;top:150px;width:580px;margin:0;padding:0;list-style:none}"
-           ".cc-list li{display:flex;gap:18px;align-items:baseline;font:600 30px/1.2 'Inter Tight',sans-serif;color:var(--muted,#9aa3b2);margin:0 0 26px}"
+           f".cc-list li{{display:flex;gap:18px;align-items:baseline;font:600 30px/1.2 '{body}',sans-serif;color:var(--muted,#9aa3b2);margin:0 0 26px}}"
            ".cc-list li span{font-weight:800;font-size:24px;min-width:40px}"
            ".cc-list li.on{color:var(--ink,#fff)}.cc-list li.on span{color:var(--accent,#2ee6c5)}")
     js = ("const s = T.start;"
@@ -183,9 +188,11 @@ def plan(pid, d=None, override=None, keep=None):
     if not outline:
         raise LongError("no outline yet")
     lang = P.load(pid, d).get("video_lang", "en")
+    board = P.read_artifact(pid, "direction", d) or {}
+    card_fonts = board.get("type") or {"display": "Inter Tight", "body": "Inter Tight"}
     chs, scenes = chapters(script), []
     for c in chs:
-        scenes.append(card_scene(c, chs, lang))
+        scenes.append(card_scene(c, chs, lang, card_fonts))
     for part in parts(script):
         k, mine = part["k"], [s for s in outline.get("scenes") or [] if _in(s, part)]
         got = (override or {}).get(k)

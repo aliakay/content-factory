@@ -20,5 +20,13 @@ direction; the research (`read_artifact research`) holds the facts. Write the wo
   with `verified: false`. Wholesale vs retail, intraday vs close, forecast vs fact: say exactly which.
 
 ## Output (`script`)
+Run the `cold_test` tool once before you submit: a model that has not seen the film reads only your lines and says
+what it is about. If its sentence is not your title's subject, the film is about something else.
+
+## Output (`script`)
 `title` (video language, <= 60 characters), `hook` (= line 1), `lines[]`, `claims[]`, `caption` (one line for the
 post, video language), `summary` (interface language: word count and length, the claim the creator should double-check).
+
+{{include:factory.hookrule:brief}}
+
+{{include:factory.coldtest:brief}}

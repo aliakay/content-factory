@@ -23,6 +23,18 @@ research:
       minItems: 2
       items: {type: object, required: [title, grounded_in], properties: {title: {type: string}, grounded_in: {type: string}}}
     visual_refs: {type: array, items: {type: string}}
+    visual_signatures:
+      type: array
+      items:
+        type: object
+        properties:
+          title: {type: string}
+          url: {type: string}
+          palette: {type: array, items: {type: string}}
+          cameras: {type: array, items: {type: [string, "null"]}}
+          mechanisms: {type: array, items: {type: string}}
+          seconds: {type: array, items: {type: [number, "null"]}}
+          composition: {type: array, items: {type: string}}
     summary: {type: string}
 
 proposal:
@@ -39,6 +51,30 @@ proposal:
                      look: {type: string}, why: {type: string}, key_frame: {type: string}}
     chosen: {type: string}
     seconds: {type: number, minimum: 8, maximum: 600}
+    look: {type: string}
+    voice: {type: object}
+    music: {type: object}
+    cost:
+      type: object
+      required: [credits, lines]
+      properties: {credits: {type: number, minimum: 0}, usd: {type: number}, lines: {type: array}}
+    render_time: {type: object}
+    summary: {type: string}
+
+proposal_code:                       # the proposal a code step builds (avatar, character, cinematic, clips,
+  type: object                       # documentary, podcast, screen demo, series, talking head, localize, hybrid,
+  required: [concepts, chosen, seconds, look, cost, summary]     # travel vlog): one chosen concept, not three
+  properties:                        # treatments, and a short film is allowed (>= 4 s)
+    concepts:
+      type: array
+      minItems: 1
+      items:
+        type: object
+        required: [id, title, hook, structure, look]
+        properties: {id: {type: string}, title: {type: string}, hook: {type: string}, structure: {type: string},
+                     look: {type: string}, why: {type: string}, key_frame: {type: string}}
+    chosen: {type: string}
+    seconds: {type: number, minimum: 4, maximum: 600}
     look: {type: string}
     voice: {type: object}
     music: {type: object}
@@ -98,10 +134,13 @@ outline:                             # long_explainer: the design system and eve
       minItems: 4
       items:
         type: object
-        required: [id, lines, brief]
+        required: [id, lines, brief, shows, camera]
         properties: {id: {type: string, pattern: "^[a-z][a-z0-9_-]*$"}, lines: {type: array, minItems: 2, maxItems: 2,
                                                                           items: {type: integer, minimum: 0}},
-                     brief: {type: string, minLength: 10}, device: {type: string}, trigger: {type: string}}
+                     brief: {type: string, minLength: 10}, device: {type: string}, trigger: {type: string},
+                     shows: {type: string, minLength: 12}, camera: {type: object, required: [move, seconds, easing, target],
+                       properties: {move: {type: string}, seconds: {type: number, minimum: 0.5, maximum: 8},
+                                   easing: {type: string}, target: {type: string, minLength: 3}}}}
     summary: {type: string}
 
 scene_part:                          # long_explainer: one builder's scenes (one chapter, or the intro)
@@ -113,10 +152,13 @@ scene_part:                          # long_explainer: one builder's scenes (one
       minItems: 1
       items:
         type: object
-        required: [id, lines, html]
+        required: [id, lines, html, shows, camera]
         properties: {id: {type: string}, lines: {type: array, minItems: 2, maxItems: 2, items: {type: integer, minimum: 0}},
                      trigger: {type: string}, html: {type: string}, css: {type: string}, js: {type: string},
-                     notes: {type: string}, mechanism: {type: string}}
+                     notes: {type: string}, mechanism: {type: string}, shows: {type: string, minLength: 12},
+                     camera: {type: object, required: [move, seconds, easing, target],
+                       properties: {move: {type: string}, seconds: {type: number, minimum: 0.5, maximum: 8},
+                                   easing: {type: string}, target: {type: string, minLength: 3}}}}
     stock: {type: array}
     summary: {type: string}
 
@@ -136,8 +178,39 @@ scene_plan:
         properties: {id: {type: string, pattern: "^[a-z][a-z0-9_-]*$"}, lines: {type: array, minItems: 2, maxItems: 2,
                                                                           items: {type: integer, minimum: 0}},
                      trigger: {type: string}, html: {type: string}, css: {type: string}, js: {type: string},
-                     notes: {type: string}, mechanism: {type: string}}
+                     notes: {type: string}, mechanism: {type: string}, shows: {type: string, minLength: 12},
+                     camera: {type: object, required: [move, seconds, easing, target],
+                       properties: {move: {type: string}, seconds: {type: number, minimum: 0.5, maximum: 8},
+                                   easing: {type: string}, target: {type: string, minLength: 3}}}}
+        anyOf:
+          - required: [card]
+          - required: [shows, camera]
     stock: {type: array}
+    summary: {type: string}
+
+direction:                           # the approved look: palette, type pairing, rules and references, drawn as a board
+  type: object
+  required: [palette, type, rules, summary]
+  properties:
+    palette:
+      type: object
+      required: [bg, ink, accent]
+      properties: {bg: {type: string}, ink: {type: string}, muted: {type: string}, accent: {type: string},
+                   accent2: {type: string}, hot: {type: string}, capInk: {type: string}, capStroke: {type: string},
+                   capActive: {type: string}}
+    type:
+      type: object
+      required: [display, body]
+      properties: {display: {type: string}, body: {type: string}, scale: {type: object}}
+    rules:
+      type: array
+      minItems: 4
+      items: {type: object, required: [what, says], properties: {what: {type: string}, says: {type: string}}}
+    references: {type: array, items: {type: string}}
+    style: {type: ["string", "null"]}
+    image: {type: string}              # the board PNG (renders/direction.png), relative to the factory root
+    note: {type: string}               # the creator's direction note, when the board was redrawn
+    fingerprint: {type: string}
     summary: {type: string}
 
 animatic:                            # the draft render a creator approves before any voice or music is paid for
@@ -164,6 +237,7 @@ animatic:                            # the draft render a creator approves befor
         properties: {level: {type: string, enum: [warn, info]}, code: {type: string},
                      scene: {type: ["string", "null"]}, message: {type: string}}
     motion: {type: object}
+    fingerprint: {type: string}         # a hash of the plan and timing: equal inputs, equal hash (factory/determinism)
     summary: {type: string}
 
 publish:
@@ -173,6 +247,8 @@ publish:
     caption: {type: string, minLength: 5}
     hashtags: {type: array, minItems: 1, items: {type: string, pattern: "^#"}}
     notes: {type: string}
+    credits: {type: string}            # the attribution lines the licence ledger requires (factory/licence.py)
+    credits_file: {type: string}       # complete per-film ledger, written beside the final render at approval
     summary: {type: string}
 
 shot_list:                          # cinematic: own clips and generated shots, in play order

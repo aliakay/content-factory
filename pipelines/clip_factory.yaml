@@ -28,6 +28,7 @@ stages:
     gate: true
     name: {tr: Klip seçimi, en: Clip selection}
     run: code
+    schema: proposal_code
     call: factory.hat.clips:idea
     tools: [align_words]
 

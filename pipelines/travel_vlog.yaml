@@ -27,6 +27,7 @@ stages:
   - id: idea
     gate: true
     run: code
+    schema: proposal_code
     call: factory.hat.footage:idea
     tools: [catalog, memory, estimate_cost]
 

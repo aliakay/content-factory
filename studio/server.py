@@ -797,6 +797,7 @@ def voice_ids(aid):
 
 
 V1_OFF = "Eski (v1) üretim kapalı; yeni üretimi + (Üret) sayfasından v2 akışla başlat"
+LLM_PROVIDERS = ("claude", "codex", "openrouter")     # Claude Code CLI, Codex CLI, OpenRouter API (factory/openrouter.py)
 
 
 def voice_suggestions(q):
@@ -828,6 +829,8 @@ def eleven_status(aid, uid=None):
         connected = bool(acc.get("key"))
     elif provider == "codex":
         connected = llm.codex_elevenlabs_status().get("connected", False)
+    elif provider == "openrouter":
+        connected = False       # a connector lives inside a CLI login; OpenRouter has no ElevenLabs connector
     else:
         connected = accounts.claude_status(acc.get("owner")).get("connectors", False)
     return {"connected": connected, "images": connected and acc.get("type") == "connector",
@@ -850,8 +853,9 @@ def me(con):
     out = {"id": uid, "name": u.get("name", uid), "role": u.get("role", "owner"), "login": accounts.enabled(),
            "claude": accounts.claude_status(uid), "eleven": accs, "default_eleven": accounts.default_eleven(uid),
            "llm_settings": accounts.llm_settings(uid), "codex_elevenlabs": codex_elevenlabs,
-           "llm_models": {p: llm.model_options(p) for p in ("claude", "codex")},
-           "llm_default_models": {p: {step: llm.default_model(step, p) for step in llm.AGENT_STEPS} for p in ("claude", "codex")},
+           "openrouter": accounts.openrouter_status(uid),
+           "llm_models": {p: llm.model_options(p) for p in LLM_PROVIDERS},
+           "llm_default_models": {p: {step: llm.default_model(step, p) for step in llm.AGENT_STEPS} for p in LLM_PROVIDERS},
            "llm_agents": [{"id": k, "name": v} for k, v in llm.AGENT_STEPS.items()], "ui_lang": accounts.ui_lang(uid)}
     if accounts.is_owner(uid):
         out["users"] = [{"id": k, "name": v["name"], "role": v["role"], "claude": accounts.claude_status(k)}
@@ -1272,13 +1276,27 @@ class Handler(shorts.Handler):
             return hat_api.post(con, path, b, lambda kind, arg: jobs.queue(con, kind, arg))
         if path == "/api/llm/settings":
             provider, models = b.get("provider"), b.get("models", {})
-            if provider not in ("claude", "codex") or not isinstance(models, dict):
+            if provider not in LLM_PROVIDERS or not isinstance(models, dict):
                 raise ValueError("CLI veya agent model seçimi geçersiz")
             allowed_models = {x["id"] for x in llm.model_options(provider)}
             if any(not isinstance(step, str) or not isinstance(model, str) or step not in llm.AGENT_STEPS
                    or model not in allowed_models for step, model in models.items()):
                 raise ValueError("Agent veya model seçimi listede yok")
             return {"llm_settings": accounts.set_llm_settings(uid, provider, models)}
+        if path == "/api/openrouter/key":
+            key = (b.get("key") or "").strip()
+            if not key:                       # an empty box removes the user's own key
+                return {"openrouter": accounts.set_openrouter_key(uid, "")}
+            try:
+                from factory import openrouter
+                info = openrouter.check(key)
+            except ValueError as e:
+                raise ValueError(str(e)) from None
+            except Exception as e:            # the key may be good but the network is not: save it anyway
+                info = {"ok": False, "label": "doğrulanamadı: " + str(e)[:120]}
+            st = accounts.set_openrouter_key(uid, key)
+            st["check"] = info
+            return {"openrouter": st}
         if path == "/api/codex/elevenlabs/start":
             if not accounts.is_owner(uid):
                 raise ValueError("Codex ElevenLabs bağlantısını yalnızca hesap sahibi yönetebilir")

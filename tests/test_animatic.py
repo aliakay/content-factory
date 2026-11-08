@@ -195,7 +195,7 @@ def test_duration_far_from_the_approved_proposal_is_reported(d):
 
 def test_revise_moves_the_line_back_and_stales_what_came_after(d):
     pid = P.create("explainer", "t", d=d)["id"]
-    for sid in ("research", "proposal", "script", "scene_plan"):
+    for sid in ("research", "proposal", "script", "direction", "scene_plan"):
         _done(pid, sid, d)
     _run(pid, "animatic", d)
     assert P.next_stage(pid, d) == ("gate", "animatic")
@@ -244,27 +244,22 @@ class Q:
 
 
 def test_the_line_follows_a_note_the_animatic_sends_back(d, monkeypatch):
-    import sys, types, factory.hat
-
-    def fake_agent(pid, s, note=None, d=None):
-        return {"artifact": {"ok": s["id"], "note": note}}
+    import line_fixtures as F
 
     def fake_animatic(pid, s, note=None, d=None):
-        return {"revise": {"stage": A.route(note), "note": note}} if note else {"artifact": {"ok": "animatic"}}
+        return {"revise": {"stage": A.route(note), "note": note}} if note else {"artifact": F.animatic()}
 
-    fake = types.SimpleNamespace(run_stage=fake_agent)
-    monkeypatch.setitem(sys.modules, "factory.hat.agent", fake)
-    monkeypatch.setattr(factory.hat, "agent", fake, raising=False)
+    runner = F.fake_line(monkeypatch, {"script": lambda note: {"artifact": F.script(note)}})
     monkeypatch.setattr(runner, "_code_step",
-                        lambda call: fake_animatic if call.endswith("animatic:run") else fake_agent)
+                        lambda call: fake_animatic if call.endswith("animatic:run") else (lambda *a, **k: {"artifact": F.artifact(*a[1:2])}))
     pid = P.create("explainer", "t", d=d)["id"]
     q = Q(runner, d)
     runner.advance(pid, q, d=d)
-    for sid in ("proposal", "script", "scene_plan"):
+    for sid in ("proposal", "script", "direction", "scene_plan"):
         runner.approve(pid, sid, q, d=d)
     assert P.next_stage(pid, d) == ("gate", "animatic")
     assert runner.feedback(pid, "animatic", "metin çok uzun", q, d=d) == ("gate", "script")
-    assert P.read_artifact(pid, "script", d)["note"] == "metin çok uzun"
+    assert P.read_artifact(pid, "script", d)["lines"][1] == "metin çok uzun"
     assert P.checkpoint(pid, "script", d)["revisions"] == 1
     assert P.checkpoint(pid, "scene_plan", d)["status"] == "stale"
     assert P.checkpoint(pid, "animatic", d)["status"] == "stale"

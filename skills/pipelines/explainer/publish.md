@@ -12,4 +12,6 @@ draft, claims), `research` (sources) and `render` (duration, QA findings, cover 
 - `summary` (interface language): one line on what is ready and one on what to check.
 
 ## Output (`publish`)
-`caption`, `hashtags[]`, `notes`, `summary`.
+`caption`, `hashtags[]`, `notes`, `credits` (the `attribution` tool's `block`, verbatim), `summary`.
+
+{{include:factory.licence:brief}}

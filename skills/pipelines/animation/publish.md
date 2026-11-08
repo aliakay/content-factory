@@ -13,3 +13,5 @@ draft, claims), `research` (sources) and `render` (duration, QA findings, cover 
 
 ## Output (`publish`)
 `caption`, `hashtags[]`, `notes`, `summary`.
+
+{{include:factory.licence:brief}}

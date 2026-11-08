@@ -147,6 +147,7 @@ def _idea(pid, note, d, quotes=0):
     concepts = [{"id": str(c["n"]), "title": c["hook"], "hook": c["hook"], "structure": f'{c["seconds"]:.0f} s · {c["score"]}/10',
                  "look": c["why"]} for c in clips]
     art = {"concepts": concepts, "chosen": "1", "clips": clips, "segments": segs, "seconds": sum(c["seconds"] for c in clips),
+           "look": {"tr": "kaynak görüntüden kesitler", "en": "cuts from the source picture"}[ui],
            "voice": {"use": False}, "music": {"use": False}, "cost": {"credits": 0, "lines": []}, "summary": summary}
     if quotes:
         lines = {x["n"] for x in segs}

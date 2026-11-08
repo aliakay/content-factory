@@ -31,3 +31,7 @@ the hook direction; the research (`read_artifact research`) holds the facts. Wri
 `title` (video language, <= 70 characters), `hook` (= line 1), `lines[]`, `chapters[]`, `claims[]`, `caption` (one
 line for the description, video language), `summary` (interface language: word count and length, the chapter list,
 the claim the creator should double-check).
+
+{{include:factory.hookrule:brief}}
+
+{{include:factory.coldtest:brief}}

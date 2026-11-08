@@ -56,6 +56,9 @@ def _caller():
     return "?"
 
 
+SOURCES = {"codex": "live_codex", "openrouter": "live_openrouter"}
+
+
 def _record(out, model, ok, provider="claude"):
     """One row per headless call in factory.db llm_usage. Never raises."""
     try:
@@ -68,8 +71,8 @@ def _record(out, model, ok, provider="claude"):
                     (now(), _caller(), ",".join(used) or model, os.environ.get("FACTORY_JOB_ID"),
                      os.environ.get("FACTORY_JOB_KIND"), os.environ.get("FACTORY_PROD_ID"), os.environ.get("FACTORY_USER"),
                      u.get("input_tokens", 0), u.get("cache_creation_input_tokens", 0), u.get("cache_read_input_tokens", 0),
-                     u.get("output_tokens", 0), (out or {}).get("total_cost_usd") if provider == "codex" else
-                     ((out or {}).get("total_cost_usd") or 0), int(ok), "live_codex" if provider == "codex" else "live"))
+                     u.get("output_tokens", 0), (out or {}).get("total_cost_usd") if provider != "claude" else
+                     ((out or {}).get("total_cost_usd") or 0), int(ok), SOURCES.get(provider, "live")))
         con.commit()
         con.close()
     except Exception:
@@ -145,6 +148,9 @@ def model_options(provider=None):
     provider = provider or "claude"
     if provider == "claude":
         return [{"id": x, "name": x.capitalize()} for x in ("opus", "sonnet", "haiku")]
+    if provider == "openrouter":
+        from . import openrouter
+        return [{"id": m["id"], "name": m["name"]} for m in openrouter.models()]
     if _CODEX_MODELS is None:
         try:
             p = subprocess.run([CODEX, "debug", "models", "--bundled"], capture_output=True, text=True, timeout=8)
@@ -162,6 +168,9 @@ def selected_provider(uid=None):
 
 
 def default_model(step, provider):
+    if provider == "openrouter":
+        from . import openrouter
+        return openrouter.DEFAULT_MODEL
     if provider == "codex":
         options = model_options("codex")
         return next((m["id"] for m in options if m["id"] == "gpt-6-luna"),
@@ -177,7 +186,7 @@ def selected_model(step, requested=None, uid=None):
         return override
     if cfg["provider"] == "claude":
         return requested or MODEL
-    return default_model(step, "codex")
+    return default_model(step, cfg["provider"])
 
 
 def _toml(v):
@@ -341,10 +350,14 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
         # Preserve the exact MCP tool allowlist in the request instructions. Codex uses the
         # server's own tool schemas and OAuth session rather than Claude's connector namespace.
         tools = tuple(str(t).rsplit("__", 1)[-1] for t in tools)
-    model = selected_model(step, model) if provider == "codex" or not mcp else (model or MODEL)
+    model = selected_model(step, model) if provider in ("codex", "openrouter") or not mcp else (model or MODEL)
     level = min(effort, MAX_EFFORT, key=EFFORTS.index) if effort in EFFORTS else effort_for(step, model)
     if provider == "codex":
         return _codex(prompt, tools, timeout, model, level, step, approve_mcp=mcp, servers=servers)
+    if provider == "openrouter":
+        from . import openrouter
+        return openrouter.run(prompt, tools=tools, timeout=timeout, model=model, servers=servers,
+                              budget_usd=budget_usd, effort=None)
     cmd = [CLAUDE, "-p", prompt, "--output-format", "stream-json", "--verbose", "--allowedTools", ",".join(tools),
            "--disable-slash-commands"]
     if servers:   # only our own servers: no claude.ai connectors next to them

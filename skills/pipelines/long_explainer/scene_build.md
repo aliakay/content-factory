@@ -15,9 +15,10 @@ is a draft from the script.
 3. Look at it: `render_stills` (no times = one settled frame of each of YOUR scenes) and open every PNG with Read.
    Ask: does each frame explain its line at a glance? Is anything clipped, overlapping, unreadable, or in the caption
    band? Does it look like the same film as the kit describes?
-4. Check it: `layout_lint` (your scenes only); fix every error, then look again. Two rounds are usually enough.
+4. Check it: `layout_lint`, `subject_check` and `originality_check` (your scenes only); fix every finding, then look
+   again. Two rounds are usually enough.
    Pass your draft as `plan` = {"scenes": [...]} to check before you submit.
-5. `submit_artifact` with `scenes[{id, lines, trigger, mechanism, html, css, js, notes}]` (exactly your ids and lines) and
+5. `submit_artifact` with `scenes[{id, lines, trigger, shows, camera, mechanism, html, css, js, notes}]` (exactly your ids and lines) and
    `summary` (interface language, one line: what you drew and anything the creator should look at).
 
 ## The rules of the renderer and of good motion (binding)
@@ -28,3 +29,15 @@ is a draft from the script.
 {{include:factory.motiongrammar:brief}}
 
 {{include:factory.layoutlint:SLOP_BRIEF}}
+
+{{include:factory.camera:brief}}
+
+{{include:factory.subjectqc:brief}}
+
+{{include:factory.typography:brief}}
+
+{{include:factory.determinism:brief}}
+
+{{include:factory.originality:brief}}
+
+{{include:factory.hat.direction:brief}}

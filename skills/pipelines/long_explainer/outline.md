@@ -21,6 +21,7 @@ whether the result is one film or a patchwork. Draw nothing yet: decide the desi
    - `id` (lowercase letters, digits, - or _; unique; not starting with "chapter-"), `lines` = [first, last],
    - `brief`: what is on screen and how it moves, which exact number / source / photo it shows, how it connects to
      the scene before. Specific enough that a designer who never saw the rest can draw it.
+   - `shows`: subject plus action; `camera`: `{move, seconds, easing, target}` chosen from the camera vocabulary.
    - `device`: the visual device in two or three words (no two consecutive scenes share one), `trigger`: the spoken
      word the main reveal lands on.
    - `recipes` (optional): 1-3 recipe card ids from the `recipes` tool (e.g. "data.bar_chart", "camera.push_in");
@@ -30,8 +31,21 @@ whether the result is one film or a patchwork. Draw nothing yet: decide the desi
    until it is accepted.
 
 ## Output (`outline`)
-`concept` (2-3 sentences), `palette`, `global_css`, `kit`, `scenes[{id, lines, brief, device, trigger, recipes}]`, `summary`
+`concept` (2-3 sentences), `palette`, `global_css`, `kit`,
+`scenes[{id, lines, brief, shows, camera, device, trigger, recipes}]`, `summary`
 (interface language: the visual idea, the recurring device, the scene count per chapter, the scene to look at first).
 
 ## The renderer's rules the designers will follow (design within them)
 {{include:factory.hat.explainer:design_rules}}
+
+{{include:factory.camera:brief}}
+
+{{include:factory.subjectqc:brief}}
+
+{{include:factory.typography:brief}}
+
+{{include:factory.determinism:brief}}
+
+{{include:factory.originality:brief}}
+
+{{include:factory.hat.direction:brief}}

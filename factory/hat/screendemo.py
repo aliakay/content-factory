@@ -146,8 +146,8 @@ def idea(pid, s, note=None, d=None):
                "structure": f"{len(steps)} steps · ~{secs:.0f} s", "look": survey.get("title") or url, "lines": lines,
                "steps": steps, "key_frame": "", "post": {"caption": data.get("caption") or "",
                                                          "hashtags": data.get("hashtags") or []}}
-    art = {"concepts": [concept], "chosen": "A", "url": url, "seconds": secs, "voice": {"use": voice},
-           "music": {"use": False}, "page": _rel(shot), "cost": cost, "summary": summary}
+    art = {"concepts": [concept], "chosen": "A", "url": url, "seconds": secs, "look": concept["look"],
+           "voice": {"use": voice}, "music": {"use": False}, "page": _rel(shot), "cost": cost, "summary": summary}
     return {"artifact": art, "summary": summary, "cost": {"usd": usd}}
 
 

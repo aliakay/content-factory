@@ -276,6 +276,8 @@ def slop(bundle, lint, aspect="9:16", motion=()):
 GENERIC = re.compile(r"^(default|none|linear|power0|power1|sine|quad)(\.|$)", re.I)
 INTENT = re.compile(r"^(power[234]|cubic|quart|quint|strong|expo|circ|back|elastic|bounce|custom|steps)(\.|\(|$)", re.I)
 LAYOUT = ("safe", "caption", "overlap", "contrast", "tiny")
+TYPE = ("type_sizes", "type_close", "type_flat", "type_line", "type_caps", "type_small_long")   # factory/typography.py
+DETERMINISM = ("non_deterministic",)
 GRADES = ((80, "maxxed"), (55, "orta"), (0, "slop"))
 
 
@@ -311,7 +313,11 @@ def grade(found, motion=(), scenes=1):
     k = [f["kind"] for f in found]
     e = easing(motion)
     parts = {"layout": -min(20, 4 * sum(x in LAYOUT for x in k)),
-             "timing": -min(18, 3 * sum(x not in LAYOUT and x not in SLOP and x != "easing" for x in k)),
+             "type": -min(12, 3 * sum(x in TYPE for x in k)),
+             "determinism": -min(30, 30 * sum(x in DETERMINISM for x in k)),
+             "timing": -min(18, 3 * sum(x not in LAYOUT and x not in SLOP and x not in TYPE
+                                        and x not in DETERMINISM and x != "easing"
+                                        for x in k)),
              "slop": -min(40, 12 * sum(x in ("corner", "template", "flat", "fades") for x in k)
                           + 5 * sum(x in ("counter", "typed", "empty") for x in k)),
              "easing": 0}
@@ -340,7 +346,8 @@ def run(bundle_path, times, outdir, aspect="9:16", hide_caps=(), timing=True, sp
         lint = json.load(open(lint_path)) if lint_path and os.path.exists(lint_path) else {}
     except (OSError, ValueError):
         lint = {}
-    found, motion = check(lint, aspect, hide_caps), []
+    from . import typography
+    found, motion = check(lint, aspect, hide_caps) + typography.check(lint, aspect), []
     if timing:
         try:
             data = htmlmotion.readcheck(bundle_path, span)
@@ -361,7 +368,8 @@ def run(bundle_path, times, outdir, aspect="9:16", hide_caps=(), timing=True, sp
 
 def as_text(findings, limit=14):
     """Short lines for the designer's self-check prompt."""
-    kind = lambda k: "layout" if k in LAYOUT else "slop" if k in SLOP else "timing"
+    kind = lambda k: "layout" if k in LAYOUT else "type" if k in TYPE else "determinism" if k in DETERMINISM \
+        else "slop" if k in SLOP else "timing"
     return [f"{kind(f['kind'])} {f['kind']} @ "
             f"{f['t']:.2f}s scene {f['scene']}: " + (f"'{f['text']}' " if f.get("text") else "") + f"{f['detail']}"
             for f in findings[:limit]]

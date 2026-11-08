@@ -151,7 +151,40 @@ def claude_status(uid=None):
             "connectors": login, "at": c.get("connected_at")}
 
 
-CLI_PROVIDERS = {"claude", "codex"}
+CLI_PROVIDERS = {"claude", "codex", "openrouter"}
+
+
+# ---------- OpenRouter per user ----------
+def set_openrouter_key(uid, key):
+    """Store this user's OpenRouter API key ("" removes it). Returns the new status."""
+    key = (key or "").strip()
+    if key and (len(key) < 20 or len(key) > 200 or any(c.isspace() for c in key)):
+        raise ValueError("OpenRouter anahtarı geçersiz görünüyor")
+    u = users()
+    if uid not in u["users"] and uid != OWNER:
+        raise ValueError("Kullanıcı bulunamadı")
+    rec = u["users"].setdefault(uid, {"name": "Ali", "role": "owner"})
+    if key:
+        rec["openrouter"] = {"key": key, "connected_at": time.strftime("%Y-%m-%d %H:%M")}
+    else:
+        rec.pop("openrouter", None)
+    _save(USERS, u)
+    return openrouter_status(uid)
+
+
+def openrouter_key(uid=None):
+    uid = uid or current()
+    return ((user(uid) or {}).get("openrouter") or {}).get("key") or ""
+
+
+def openrouter_status(uid=None):
+    """This user's OpenRouter key: their own when they saved one, else the owner's OPENROUTER_API_KEY."""
+    uid = uid or current()
+    own = ((user(uid) or {}).get("openrouter") or {})
+    env = os.environ.get("OPENROUTER_API_KEY") or ""
+    key = own.get("key") or env
+    return {"connected": bool(key), "mine": bool(own.get("key")), "env": not own.get("key") and bool(env),
+            "tail": "…" + key[-6:] if own.get("key") else None, "at": own.get("connected_at")}
 
 
 def llm_settings(uid=None):

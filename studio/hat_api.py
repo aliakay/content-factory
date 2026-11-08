@@ -119,9 +119,10 @@ def _public(name, data):
         return data
     data = dict(data)
     if name == "scene_plan":
-        data["scenes"] = [{k: sc.get(k) for k in ("id", "lines", "trigger", "mechanism", "notes")} for sc in data.get("scenes") or []]
+        data["scenes"] = [{k: sc.get(k) for k in ("id", "lines", "trigger", "mechanism", "notes", "shows", "camera")}
+                          for sc in data.get("scenes") or []]
         data.pop("global_css", None)
-    for k in ("preview", "final"):
+    for k in ("preview", "final", "image", "credits_file"):
         if isinstance(data.get(k), str):
             data[k + "_url"] = _media(data[k])
     if isinstance(data.get("file"), str):

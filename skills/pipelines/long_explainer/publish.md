@@ -17,3 +17,5 @@ times measured on the final voice.
 
 ## Output (`publish`)
 `title`, `description`, `caption`, `hashtags[]`, `notes`, `summary`.
+
+{{include:factory.licence:brief}}
