@@ -24,6 +24,7 @@ MODELS_TTL = 24 * 3600
 MAX_TURNS = 80                 # one tool call per turn is normal; this only stops a runaway loop
 LOOP_LIMIT = 4                 # the same tool call with the same result this many times is a loop, not work
 EMPTY_RETRIES = 2              # an empty reply (no text, no tool call) is retried this many times before failing
+REQUEST_TIMEOUT = 300          # one HTTP request; a hung socket must not eat the whole stage timeout silently
 READ_CHARS = 200_000
 # The CLI's built-in web tools map to OpenRouter's server tools: OpenRouter runs them itself (native search where the
 # provider has it, otherwise Exa) and loops the model over the results, so nothing is executed on this machine.
@@ -169,6 +170,9 @@ def chat(messages, model=None, tools=None, plugins=None, timeout=600, key=None, 
             last = str(e)
         if attempt < retries:
             time.sleep(5 * (attempt + 1))
+    if "timed out" in last.lower() or "timeout" in last.lower() or "ulaşılamadı" in last:
+        raise OpenRouterError(f"OpenRouter {REQUEST_TIMEOUT} s içinde yanıt vermedi (istek takıldı); "
+                              f"aşama durduruldu, tekrar denenebilir")
     raise OpenRouterError(last or "OpenRouter çağrısı başarısız")
 
 
@@ -257,7 +261,7 @@ def run(prompt, tools=(), timeout=900, model=None, servers=None, budget_usd=None
             left = timeout - (time.time() - started)
             if left <= 5:
                 raise OpenRouterError(f"OpenRouter turn timed out after {timeout // 60} min")
-            body = chat(messages, model, schemas or None, plugins, timeout=min(600, left), key=key,
+            body = chat(messages, model, schemas or None, plugins, timeout=min(REQUEST_TIMEOUT, left), key=key,
                         max_tokens=max_tokens, reasoning=effort)
             counts, cost = _usage(body.get("usage"))
             spent += cost or 0

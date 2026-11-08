@@ -39,7 +39,28 @@ MOVES = {
                    "once per video and only on a beat; it is a stunt, not a transition"),
 }
 
-EASINGS = ("linear", "ease_in", "ease_out", "ease_in_out", "steps")
+EASINGS = ("linear", "ease_in", "ease_out", "ease_in_out", "inertia", "steps")
+# SPEED: how fast a move may be, measured the way a viewer sees it (cinecode camera-moves.md, kept here as our own
+# vocabulary): the subject changes size by this share per second, or takes this long to cross the frame.
+SPEED = {
+    "slow": {"size_pct_s": (0.0, 10.0), "cross_s": (6.0, None)},
+    "medium": {"size_pct_s": (10.0, 25.0), "cross_s": (3.0, 6.0)},
+    "fast": {"size_pct_s": (25.0, None), "cross_s": (1.5, 3.0)},
+}
+
+
+def inertia(p):
+    """The `inertia` easing: 35 % linear + 65 % smoothstep — moving at frame 0 and still moving at the cut, so a cut
+    inside it is invisible. `motion/templates/fxlib.js` carries the same formula as FX.INERTIA."""
+    t = min(1.0, max(0.0, float(p)))
+    return 0.35 * t + 0.65 * (t * t * (3 - 2 * t))
+
+
+def speed_of(text):
+    """A declared camera speed ('slow', 'medium', 'fast', or its Turkish word) -> the band name, else None."""
+    s = str(text or "").strip().lower()
+    return {"slow": "slow", "yavas": "slow", "yavaş": "slow", "medium": "medium", "orta": "medium",
+            "fast": "fast", "hizli": "fast", "hızlı": "fast"}.get(s)
 BIG = ("orbit", "dolly_zoom")                 # once per video
 HOLD_MAX = 2.5                                # a hold longer than this is a still, not a shot
 SECONDS = (0.5, 8.0)                          # a camera move shorter than this is a cut; longer is a drone shot
@@ -66,6 +87,7 @@ EASING_ALIASES = {
     "ease out": "ease_out", "ease_out": "ease_out", "easeout": "ease_out", "ease-out": "ease_out",
     "power2.out": "ease_out",
     "ease in out": "ease_in_out", "ease_in_out": "ease_in_out", "easeinout": "ease_in_out",
+    "inertia": "inertia", "atalet": "inertia",
     "ease-in-out": "ease_in_out", "power2.inout": "ease_in_out",
     "steps": "steps", "step": "steps", "stepped": "steps",
 }

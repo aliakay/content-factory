@@ -32,6 +32,21 @@ class FFError(RuntimeError):
     pass
 
 
+BAD_SOURCES = frozenset({"hls", "m3u8", "m3u", "pls", "applehttp", "concat", "ffconcat", "dash", "mpd", "mpegdash",
+                         "rtsp", "rtp", "sdp", "tee", "image2pipe_playlist", "libmodplug"})
+
+
+def check_source(path):
+    """Refuse an input that is a playlist/protocol rather than a file (SSRF and local traversal through ffmpeg)."""
+    s = str(path or "")
+    if s.startswith(("http://", "https://", "rtsp://", "rtmp://", "tcp://", "udp://")):
+        raise ValueError(f"uzak akış reddedildi: kaynağı indirip dosya olarak ver ({s[:80]})")
+    ext = os.path.splitext(s)[1].lower().lstrip(".")
+    if ext in BAD_SOURCES:
+        raise ValueError(f"'{ext}' bir oynatma listesi/kapsayıcı biçimi; dosya olarak indir")
+    return s
+
+
 def op(name, group, summary, schema=None, inputs=1, ext="mp4", measure=False):
     """Register fn(ins, a, tmp) -> {"argv": [...], "expect": {...}} (or {"data": ...} for a measure op).
     `ins` are measured inputs (dicts with "path"), `a` the validated arguments with defaults, `tmp` a scratch dir."""
@@ -182,7 +197,7 @@ def _norm_inputs(ins, W, H, fps):
 def _i(ins):
     out = []
     for m in ins:
-        out += ["-i", m["path"]]
+        out += ["-protocol_whitelist", "file,pipe", "-i", m["path"]]
     return out
 
 

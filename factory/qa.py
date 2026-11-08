@@ -19,6 +19,24 @@ CHECKLIST = """- Frame 0 is a real image (it becomes the cover), not black or bl
 - No strangers' faces prominently visible without a reason."""
 
 
+def audio_facts(path, t, window=1.5):
+    """What the sound is doing around `t` seconds (a cut point, a line start): a 3 s window is measured instead of the
+    whole file — silencedetect for holes and astats for level. -> {at, window, rms_db, peak_db, silent_s, speech}."""
+    start = max(0.0, float(t) - window)
+    p = subprocess.run([media.FFMPEG, "-hide_banner", "-ss", f"{start:.3f}", "-t", f"{2 * window:.3f}", "-i", path,
+                        "-vn", "-af", "silencedetect=noise=-40dB:d=0.12,astats=metadata=0:reset=0",
+                        "-f", "null", "-"], capture_output=True, text=True)
+    err = p.stderr or ""
+    holes = [float(x) for x in re.findall(r"silence_duration:\s*([\d.]+)", err)]
+    rms = [float(x) for x in re.findall(r"RMS level dB:\s*([-\d.]+)", err)]
+    peak = [float(x) for x in re.findall(r"Peak level dB:\s*([-\d.]+)", err)]
+    silent = round(sum(holes), 3)
+    level = round(max(rms), 1) if rms else None
+    return {"at": round(float(t), 3), "window": window, "rms_db": level,
+            "peak_db": round(max(peak), 1) if peak else None, "silent_s": silent,
+            "speech": bool(level is not None and level > -35 and silent < 2 * window - 0.2)}
+
+
 def technical(path, expected=None):
     probe = media.probe_video(path)
     out = {"duration": round(probe["duration"], 2)}

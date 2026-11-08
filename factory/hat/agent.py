@@ -92,7 +92,7 @@ def run_stage(pid, s, note=None, d=None, user=None):
 
     0 rounds = the reviewer never runs; 1 (the default) = one pass, which is the useful one; 2 = a fix round when the
     reviewer finds a critical problem or the score misses the pass mark. Returns {artifact, summary, review, cost}."""
-    from ... import accounts
+    from .. import accounts
     cost, rounds, review = 0.0, [], None
     want = min(accounts.review_rounds(user), REVIEW_ROUNDS) if s.get("gate", True) else 0
     # a stage without a gate (research, edit, compose) hands its work straight on: its review was read by nobody and

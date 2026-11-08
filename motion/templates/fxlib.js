@@ -8,6 +8,15 @@
   const frameHooks = [];
   FX._hooks = frameHooks;
   FX.onFrame = (fn) => { fn.scene = FX._scene; frameHooks.push(fn); };   // tagged with the scene being built (motion lint)
+  // inertia: 35 % linear + 65 % smoothstep (mirror of factory/camera.py:inertia) — a cut inside it is invisible
+  FX.INERTIA = (p) => 0.35 * p + 0.65 * (p * p * (3 - 2 * p));
+  // punch-in on an emphasised word/beat: 1.12x over 0.18 s (out-expo), optional 0.04 s hold, settle back in 0.20 s
+  FX.punch = (tl, el, at, o = {}) => {
+    const amount = o.amount ?? 1.12, dur = o.dur ?? 0.18, settle = o.settle ?? 0.20;
+    tl.fromTo(el, { scale: 1 }, { scale: amount, duration: dur, ease: "expo.out" }, at);
+    tl.fromTo(el, { scale: amount }, { scale: 1, duration: settle, ease: "sine.inOut" }, at + dur + (o.hold ?? 0.04));
+    return el;
+  };
   FX.rand = (seed = 1) => () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
   function split(el, by) {

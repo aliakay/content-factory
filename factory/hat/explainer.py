@@ -118,7 +118,9 @@ def spec(pid, plan=None, d=None):
         sc["end"] = scenes[i + 1]["start"] if i + 1 < len(scenes) else total
     chapters = [{"title": c["title"], "start": 0.0 if not c["line"] else round(line_times[c["line"]]["start"] + voice_start, 3)}
                 for c in plan.get("chapters") or [] if 0 <= c.get("line", -1) < n]     # long form (factory/hat/longform.py)
+    from .. import captions as _cap
     return {"name": pid, "words": words, "line_times": line_times, "voice_start": voice_start, "duration": total,
+            "caption_blocks": _cap.blocks(words, p.get("aspect", "9:16")),
             "scenes": scenes, "aspect": p.get("aspect", "9:16"), "lang": p.get("video_lang", "tr"),
             "captions": plan.get("captions") or CAPTIONS, "timing": source, "chapters": chapters,
             "chrome": plan.get("chrome") or {}}

@@ -34,6 +34,18 @@ hareket tasarımı Codex GPT-6 Luna, `qa.review`/`agent.review_stage` OpenRouter
 olduğu için yazarın CLI'ından bağımsız seçilebilir. Sunucu kayıtta modelin o CLI'ın kataloğunda olduğunu doğrular;
 ElevenLabs connector turları CLI'a geri düştüğünde o CLI'ın kendi modeli kullanılır (başka CLI'ın model adı geçmez).
 
+**Alınan teknikler (2026-11, cinecode/otopilot/kurgu incelemesi).**
+- **Altyazı blokları** (`factory/captions.py`): kelime kelime yerine 3 kelime/20 karakter (9:16) veya 7/42 (16:9)
+  bloklar; ≤0,35 s boşluklar kapatılır (ekran boş kalmaz = titreme yok), uzun boşlukta 0,12 s tutuş, blok en az 0,20 s,
+  cümle noktalamasında bölünür. `explainer.spec` artık `caption_blocks` alanını taşıyor (katman bunu kullanabilir).
+- **Kamera sözlüğü**: `inertia` easing (`0,35 linear + 0,65 smoothstep`; `factory/camera.py:inertia`,
+  `FX.INERTIA` ile aynı formül) + ölçülmüş hız kelimeleri `slow ≤%10 boyut/sn · medium %10-25 · fast >%25`
+  (`camera.SPEED`, `camera.speed_of`). `FX.punch` (1,12× / 0,18 s out-expo + 0,20 s settle) vurgu kelimesi için hazır.
+- **Kesim noktası ses olguları** (`qa.audio_facts(path, t, 1.5)`): 3 s'lik pencerede silencedetect+astats → kesimde
+  delik var mı, konuşma var mı. Tüm dosyayı taramaz.
+- **Güvenli kaynak** (`fftools.check_source`): uzak akış ve m3u8/mpd/ffconcat gibi oynatma listeleri reddedilir; ölçülen
+  girdilerde `-protocol_whitelist file,pipe`.
+
 **Sahne planı iki geçiş (2026-11).** Kısa hatlarda (explainer, animation) `scene_plan` artık **kod aşaması**
 (`factory/hat/shortplan.py`): önce tek çağrıda **tasarım sistemi** (palet panodan, global CSS, kit, sahne brifleri:
 `id/lines/shows/camera/mechanism`) yazılır ve `artifacts/design_short.json`'a önbelleklenir (script/pano değişmedikçe
