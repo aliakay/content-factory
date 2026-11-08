@@ -67,6 +67,16 @@ stages:
       - "Layout lint has no errors; text is readable on a phone at a glance"
       - "Every on-screen figure matches the script"
 
+  - id: animatic
+    gate: true
+    run: code
+    call: factory.hat.animatic:run
+    review:
+      - "The whole film at draft timing: half size, 15 fps, silent but for the click track; no credits spent"
+      - "Every scene is long enough to register and short enough for its one idea"
+      - "Every script line is shown by a scene; no scene reads faster than the voice can speak"
+      - "The picture moves in the first two seconds and never sits still for long"
+
   - id: assets
     gate: true
     run: code

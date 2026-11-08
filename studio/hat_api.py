@@ -124,6 +124,8 @@ def _public(name, data):
     for k in ("preview", "final"):
         if isinstance(data.get(k), str):
             data[k + "_url"] = _media(data[k])
+    if isinstance(data.get("file"), str):
+        data["file_url"] = _media(data["file"])          # the animatic: a draft render, not a preview of the final
     if isinstance(data.get("plates"), list):
         data["plate_urls"] = [_media(c) for c in data["plates"]]
     if isinstance(data.get("covers"), list):

@@ -63,6 +63,14 @@ scene_plan:
   gate_says: {tr: "Onaylarsan tasarım kilitlenir; varlıklar bu plana göre üretilir.",
               en: "Approving locks the design; assets are made for this plan."}
 
+animatic:
+  artifact: animatic
+  name: {tr: Animatik, en: Animatic}
+  says: {tr: "Sahne planı taslak zamanlamayla küçük ve sessiz çizilir; her satır başına bir tık, her sahne başına pes bir tık eklenir. Kredi harcanmaz.",
+         en: "The scene plan drawn small and silent at draft timing, with a tick where each line starts and a lower one where each scene starts. No credits."}
+  gate_says: {tr: "Onaylarsan ses ve müzik bu zamanlamayla üretilir. Bir sorun varsa not yaz: animatik notu doğru aşamaya geri gönderir (sahne, kesme, geçiş → sahne planı; metin, süre, ritim → senaryo).",
+              en: "Approving makes the voice and music for this timing. If something is wrong, write a note: the animatic sends it back to the right stage (scene, cut, transition → scene plan; text, timing, pace → script)."}
+
 assets:
   artifact: assets
   name: {tr: Varlıklar, en: Assets}

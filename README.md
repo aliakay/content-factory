@@ -12,7 +12,8 @@ Detailed operating guide: [RUNBOOK.md](RUNBOOK.md). Art rules for the designers:
 ## Factory v2: production lines
 
 Since v2, every video is a **project** made on a **production line** (`pipelines/<line>.yaml`): a fixed row of
-stages (for the explainer: research → proposal → script → scene_plan → assets → edit → compose → publish). Each
+stages (for the explainer: research → proposal → script → scene_plan → animatic → assets → edit → compose →
+publish). Each
 stage is done by an agent (Claude or Codex, headless) that works only through the factory's tools (an MCP server).
 A reviewer on the other model judges it against the stage's rubric (score ≥ 90, up to two fix rounds) and keeps a
 findings ledger. Then the stage **stops at its gate**: the creator approves it or writes feedback (at most 3

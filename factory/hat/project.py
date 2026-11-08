@@ -13,6 +13,7 @@ Gate rules (binding, enforced here, never left to an agent):
   - a stage runs only when every earlier stage is complete (approved or done) and none is stale;
   - a gated stage finishes as `awaiting_approval` and only `approve()` completes it;
   - feedback re-runs that stage with the note, at most MAX_REVISIONS times;
+  - a stage that finds the fault in earlier work sends the note back there (`revise`), on the same revision budget;
   - reopening an earlier stage marks every later stage `stale`, visibly; nothing is deleted.
 """
 import json, os, re, tempfile, unicodedata
@@ -257,6 +258,38 @@ def feedback(pid, sid, note, by=None, d=None):
     _log(cp, "feedback", by, note)
     _write_cp(pid, cp, d)
     event(pid, "feedback", d=d, stage=sid, by=by)
+    return cp
+
+
+def revise(pid, target, note, by=None, d=None):
+    """Send a note back to the stage that caused it. A stage that finished after seeing an earlier stage's work (the
+    animatic) knows which one is at fault; the target waits with that note and every later stage turns stale, so
+    nothing downstream is trusted again. Unlike feedback this works on a stage that is already complete; unlike
+    reopen it re-runs the stage instead of parking it at its gate, because the note says what to change."""
+    note = (note or "").strip()
+    if not note:
+        raise GateError("a revise needs a note")
+    rows = stages(pid, d)
+    ids = [s["id"] for s, _ in rows]
+    if target not in ids:
+        raise GateError(f"{pid}: no stage '{target}'")
+    if any(cp["status"] == "running" for _, cp in rows):
+        raise GateError("a stage is running; wait for it to finish")
+    i = ids.index(target)
+    s, cp = rows[i]
+    if cp["status"] not in COMPLETE and cp["status"] != "awaiting_approval":
+        raise GateError(f"'{target}' has no work to revise (it is {cp['status']})")
+    if cp["revisions"] >= MAX_REVISIONS:
+        raise GateError(f"'{target}' reached {MAX_REVISIONS} revisions; approve what is there or fix it by hand")
+    cp.update(status="pending", note=note, revisions=cp["revisions"] + 1, error=None)
+    _log(cp, "revise", by, note)
+    _write_cp(pid, cp, d)
+    for s2, cp2 in rows[i + 1:]:
+        if cp2["status"] != "pending":
+            cp2["status"] = "stale"
+            _log(cp2, "stale", note=f"'{target}' was sent back")
+            _write_cp(pid, cp2, d)
+    event(pid, "revise", d=d, stage=target, by=by)
     return cp
 
 

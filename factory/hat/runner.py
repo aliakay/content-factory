@@ -84,7 +84,11 @@ def _code_step(call):
 
 
 def execute(pid, sid, d=None):
-    """Run one started stage and record its outcome. Returns the stage's checkpoint."""
+    """Run one started stage and record its outcome. Returns the stage's checkpoint.
+
+    A stage may also return `{"revise": {"stage": sid, "note": text}}`: it saw the finished work, found the fault in
+    an earlier stage, and sends the note back there (factory/hat/project.revise). Nothing new is written; the line
+    then goes back to that stage with the note, which is the point of a stage that reviews earlier work."""
     p = P.load(pid, d)
     s = manifest.stage(manifest.get(p["line"]), sid)
     cp = P.checkpoint(pid, sid, d)
@@ -100,19 +104,25 @@ def execute(pid, sid, d=None):
             framenotes.settle(pid, s, d)      # frame comments (t514): only the commented scenes may change
         else:
             raise P.GateError(f"'{sid}' is not built yet on this line")
-    except Exception as e:
+        cp = P.finish(pid, sid, artifact=out.get("artifact"), review=out.get("review"), cost=out.get("cost"),
+                      summary=out.get("summary"), d=d)
+        r = out.get("revise")
+        if r:                                 # it saw the finished work and found the fault in an earlier stage
+            P.revise(pid, r["stage"], r["note"], by=sid, d=d)
+            cp = P.checkpoint(pid, sid, d)
+    except Exception as e:                    # a stage that cannot record its own result fails with the reason
         traceback.print_exc()
         return P.fail(pid, sid, f"{type(e).__name__}: {e}", d=d)
-    return P.finish(pid, sid, artifact=out.get("artifact"), review=out.get("review"), cost=out.get("cost"),
-                    summary=out.get("summary"), d=d)
+    return cp
 
 
 def run_job(arg, queue, d=None):
     """The `hat_stage` job: run the stage, then keep the line moving until a gate, a failure or the end."""
     o = json.loads(arg)
     pid, sid = o["project"], o["stage"]
-    cp = execute(pid, sid, d)
-    if cp["status"] == "done":
+    execute(pid, sid, d)
+    cp = P.checkpoint(pid, sid, d)            # `revise` may have turned this stage stale after it finished
+    if cp["status"] in ("done", "stale"):
         state, nxt = advance(pid, queue, d=d)
-        return f"{sid}: done -> {state} {nxt or ''}".strip()
+        return f"{sid}: {cp['status']} -> {state} {nxt or ''}".strip()
     return f"{sid}: {cp['status']}"

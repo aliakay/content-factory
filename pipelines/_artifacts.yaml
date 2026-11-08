@@ -140,6 +140,32 @@ scene_plan:
     stock: {type: array}
     summary: {type: string}
 
+animatic:                            # the draft render a creator approves before any voice or music is paid for
+  type: object
+  required: [file, duration, summary]
+  properties:
+    file: {type: string}
+    duration: {type: number, minimum: 0}
+    fps: {type: integer, minimum: 1}
+    timing: {type: string}
+    scenes:
+      type: array
+      items:
+        type: object
+        required: [id, start, end, seconds]
+        properties: {id: {type: string}, start: {type: number}, end: {type: number}, seconds: {type: number},
+                     spoken: {type: number}, lines: {type: array, items: {type: integer}}, words: {type: integer},
+                     wps: {type: number}, flags: {type: array, items: {type: string}}}
+    flags:
+      type: array
+      items:
+        type: object
+        required: [level, code, message]
+        properties: {level: {type: string, enum: [warn, info]}, code: {type: string},
+                     scene: {type: ["string", "null"]}, message: {type: string}}
+    motion: {type: object}
+    summary: {type: string}
+
 publish:
   type: object
   required: [caption, hashtags, summary]

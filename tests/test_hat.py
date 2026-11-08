@@ -22,7 +22,7 @@ def test_every_line_loads_with_both_languages():
             assert s["name"]["tr"] and s["name"]["en"], (m["id"], s["id"])
     ex = lines["explainer"]
     assert ex["status"] == "ready" and [s["id"] for s in ex["stages"] if s["gate"]] == \
-        ["proposal", "script", "scene_plan", "assets", "publish"]
+        ["proposal", "script", "scene_plan", "animatic", "assets", "publish"]
 
 
 def test_localize_picks_one_language():
@@ -200,7 +200,7 @@ def test_line_runs_until_each_gate(d, monkeypatch):
     assert [j[0] for j in q.jobs] == ["hat_stage", "hat_stage"]
     assert runner.approve(pid, "proposal", q, by="ali", d=d) == ("gate", "script")
     assert P.load(pid, d)["budget"]["credits"] == 640                 # the approved proposal fixed the budget
-    for sid in ("script", "scene_plan", "assets"):
+    for sid in ("script", "scene_plan", "animatic", "assets"):
         runner.approve(pid, sid, q, d=d)
     assert P.next_stage(pid, d) == ("gate", "publish")              # edit and compose ran on their own
     runner.approve(pid, "publish", q, d=d)

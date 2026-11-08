@@ -36,10 +36,11 @@ Her hat bu iskeletin bir alt kümesini, bu sırayla kullanır:
 | 2 | **Öneri** | `proposal.json` | 3 farklı konsept, seçilen yol, kalem kalem maliyet ve render süresi | ✅ |
 | 3 | **Senaryo** | `script.json` | Satırlar, süre, vurgu, doğrulanmış iddialar (kaynaklarıyla) | ✅ |
 | 4 | **Sahne planı** | `scene_plan.json` + kareler | Sahne sahne görsel dil, zamanlama, gereken varlıklar; tasarım kareleri | ✅ |
-| 5 | **Varlıklar** | `assets.json` | Ses, müzik, çizimler, video klipler, stok; sahne başına alternatifler + gerçek maliyet | ✅ |
-| 6 | **Kurgu** | `edit.json` | Kesimler, geçişler, altyazı, ses miksi kararları | — |
-| 7 | **Render** | `render.json` + mp4 | Final render + teknik/görsel/ses QA | — |
-| 8 | **Yayın** | `publish.json` | Açıklama, etiketler, kapaklar, platform linkleri | ✅ |
+| 5 | **Animatik** | `animatic.json` + mp4 | Sahne planı taslak zamanlamayla, yarım boy ve 15 fps çizilir; satır başlarına tık, sahne başlarına pes tık. Kredi harcanmaz. Not yazılırsa notu doğru aşamaya geri gönderir | ✅ |
+| 6 | **Varlıklar** | `assets.json` | Ses, müzik, çizimler, video klipler, stok; sahne başına alternatifler + gerçek maliyet | ✅ |
+| 7 | **Kurgu** | `edit.json` | Kesimler, geçişler, altyazı, ses miksi kararları | — |
+| 8 | **Render** | `render.json` + mp4 | Final render + teknik/görsel/ses QA | — |
+| 9 | **Yayın** | `publish.json` | Açıklama, etiketler, kapaklar, platform linkleri | ✅ |
 
 Kurallar:
 - **Kapı bağlayıcıdır.** Manifest'te kapı olan bir aşama, kayıtlı onay olmadan "tamam" yazılamaz (kod bunu reddeder).
@@ -47,6 +48,9 @@ Kurallar:
   (`credits.guard` +%15 kuralı korunur). Varlıklar kapısında *sonuçlar* onaylanır.
 - **Revizyon yalnızca o aşamayı yeniden yapar** (aşama başına en fazla 3). Daha önceki bir aşamaya dönülürse sonraki
   aşamalar "geçersiz" olarak işaretlenir ve bu ekranda açıkça yazar; hiçbir şey sessizce silinmez.
+- **Not, hatanın kaynağına gider.** Animatik kapısında yazılan not yeniden render ettirmez: not neyi anlatıyorsa
+  (sahne/kesme/geçiş → sahne planı, metin/süre/ritim → senaryo) o aşamaya geri gönderilir ve sonraki aşamalar
+  geçersiz olur. Revizyon bütçesi o aşamanın kendi sayacından düşer.
 - **Öz denetim.** Her aşama bittiğinde ajan, manifest'teki `review_focus` maddelerine göre kendi çıktısını en çok
   2 tur denetler (kritik / öneri / ayrıntı). Kritikler düzeltilir, diğerleri not olarak kapıya taşınır.
 
@@ -83,7 +87,7 @@ Her video bir klasördür; SQLite `productions` tablosu yalnızca dizin olarak k
 ```
 projects/<NNN-kisa-ad>/
   project.json            hat, kanal, dil, kadraj, başlık, oluşturan
-  artifacts/              research.json, proposal.json, script.json, scene_plan.json, assets.json, edit.json, render.json, publish.json
+  artifacts/              research.json, proposal.json, script.json, scene_plan.json, animatic.json, assets.json, edit.json, render.json, publish.json
   checkpoints/<aşama>.json  durum (bekliyor/çalışıyor/onay bekliyor/onaylandı/revize/başarısız), denetim notları, maliyet, onay geçmişi
   assets/{audio,music,images,video,stock}/
   stills/                 sahne kareleri (panonun film şeridi)
