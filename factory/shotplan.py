@@ -44,8 +44,12 @@ def timing_problems(scenes, words, starts):
     return out
 
 
-def problems(scenes, lines=None, seconds=None, cards=True, words=None, starts=None):
-    """Structural refusals: coverage and order of the script's lines, and the pace of the plan."""
+def problems(scenes, lines=None, seconds=None, cards=True, words=None, starts=None, partial=False):
+    """Structural refusals: coverage and order of the script's lines, and the pace of the plan.
+
+    `partial=True` checks a slice of the script (one designer's part of a long explainer): its scenes must still be in
+    order, must not overlap or run past the script, but they only cover their own part — the full coverage is checked
+    when the parts are merged."""
     scenes = [sc for sc in (scenes or []) if isinstance(sc, dict)]
     out = []
     if not scenes:
@@ -62,7 +66,7 @@ def problems(scenes, lines=None, seconds=None, cards=True, words=None, starts=No
         if b < a:
             out.append(f"scene {sid}: `lines` runs backwards ({a}..{b})")
             continue
-        if a == 0 and i > 0:
+        if a == 0 and i > 0 and not partial:
             out.append(f"scene {sid}: starts on line 0 again; the film begins once")
         if n_script and b >= n_script:
             out.append(f"scene {sid}: lines {a}..{b} run past the script ({n_script} lines)")
@@ -72,7 +76,7 @@ def problems(scenes, lines=None, seconds=None, cards=True, words=None, starts=No
         shown |= set(range(a, b + 1))
         if not cards and sc.get("card") is None and (b - a + 1) < MIN_WORDS_PER_SCENE:
             out.append(f"scene {sid}: no line of the script lands here")
-    if n_script:
+    if n_script and not partial:
         missing = sorted(set(range(n_script)) - shown)
         if missing:
             out.append(f"the plan never shows line(s) {missing[:5]}" + (" …" if len(missing) > 5 else ""))

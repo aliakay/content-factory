@@ -124,6 +124,13 @@ def test_a_cut_may_not_fall_inside_a_spoken_word_or_make_a_blink():
     assert shotplan.timing_problems([{"id": "s1"}, {"id": "s2"}], [("a", 0.0, 2.0)], [0.0, 2.0]) == []
 
 
+def test_an_ing_verb_with_a_dropped_e_still_counts_as_an_action():
+    from factory import words
+    assert words.has_action("two denial cards sliding in from both sides of the ledger")
+    assert words.has_action("the chip slicing open")
+    assert not words.has_action("two cards and a border")
+
+
 def test_the_scene_library_carries_3d_labels_lights_and_a_voiced_mouth():
     js = open("motion/templates/fxlib.js", encoding="utf-8").read()
     for needle in ("FX.anchor", "FX.lights", "FX.LIGHTS", "studio", "daylight", "night", "FX.blurFly", "FX.mouth"):

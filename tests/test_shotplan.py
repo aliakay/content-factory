@@ -36,6 +36,14 @@ def test_the_count_has_to_fit_the_length():
     assert any("2 scenes for 25 s" in f for f in shotplan.problems(few, SCRIPT["lines"], 25))
 
 
+def test_a_part_of_the_script_covers_only_its_own_lines():
+    part = _plan([(6, 6), (7, 7)])                  # one designer's slice of a long explainer
+    assert any("never shows line" in f for f in shotplan.problems(part, SCRIPT["lines"]))
+    assert shotplan.problems(part, SCRIPT["lines"], partial=True) == []
+    assert any("run past the script" in f for f in shotplan.problems(_plan([(10, 12)]), SCRIPT["lines"], partial=True))
+    assert any("appear twice" in f for f in shotplan.problems(_plan([(6, 7), (7, 7)]), SCRIPT["lines"], partial=True))
+
+
 def test_an_empty_plan_says_so():
     assert shotplan.problems([], SCRIPT["lines"]) == ["the plan has no scenes"]
 

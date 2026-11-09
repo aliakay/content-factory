@@ -177,7 +177,7 @@ def _meaning(ctx, schema, data):
         # Keep them in determinism checks, but don't require a narrative subject, mechanism or camera brief.
         scenes = [sc for sc in data.get("scenes") or [] if not sc.get("card")]
         from .. import shotplan
-        structural = shotplan.problems(data.get("scenes") or [], lines)
+        structural = shotplan.problems(data.get("scenes") or [], lines, partial=schema == "scene_part")
         if structural:
             return structural
         story = data | {"scenes": scenes}

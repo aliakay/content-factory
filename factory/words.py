@@ -108,11 +108,20 @@ def has_number(text, lang="tr"):
     return False
 
 
+def _verb_forms(tok):
+    """The token plus the forms a verb stem can match: English -ing drops a final e (sliding -> slide, slicing -> slice)."""
+    forms = [tok]
+    if tok.endswith("ing") and len(tok) > 5:
+        base = tok[:-3]
+        forms += [base, base + "e"]
+    return forms
+
+
 def has_action(text, lang="tr"):
     """Does this text name something happening (a verb stem of either language)? Stems, so suffixes still match."""
     toks = tokens(text)
     stems = {fold(v) for v in VERBS["tr"] + VERBS["en"]}
-    return any(tok.startswith(stem) for tok in toks for stem in stems if len(stem) >= 3)
+    return any(f.startswith(stem) for tok in toks for f in _verb_forms(tok) for stem in stems if len(stem) >= 3)
 
 
 def has_phrase(text, phrase):

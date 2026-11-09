@@ -63,8 +63,11 @@ def approve(pid, sid, queue, by=None, note=None, d=None):
         P.write_artifact(pid, "publish", art, d)
     P.approve(pid, sid, by=by, note=note, d=d)
     p = P.load(pid, d)       # the approved proposal (whatever the stage is called) fixes the budget every
-    if manifest.stage(manifest.get(p["line"]), sid)["artifact"] == "proposal":   # credit-spending step stays inside
+    art = manifest.stage(manifest.get(p["line"]), sid)["artifact"]
+    if art == "proposal":    # credit-spending step stays inside it
         lock_budget(pid, by, d)
+    elif art == "script":
+        refit_budget(pid, by, d)   # the narrated text now exists: price it, so the voice is not refused later
     return advance(pid, queue, by, d)
 
 
@@ -132,6 +135,55 @@ def lock_budget(pid, by=None, d=None):
                    "approved_by": by, "lines": cost.get("lines") or []}
     P.save(p, d)
     P.decision(pid, "budget", f"{p['budget']['credits']} credits", reason="proposal approved", by=by, d=d)
+
+
+def _voice_chars(script):
+    """Characters the narration request will be charged for: the same pieces `explainer.narrate` sends."""
+    from . import explainer as X
+    lines = script.get("lines") or []
+    starts = [c.get("line") for c in script.get("chapters") or []]
+    return sum(len(" ".join(lines[a:b + 1])) for a, b in X.pieces(lines, starts))
+
+
+def refit_budget(pid, by=None, d=None):
+    """Re-price the narration from the written script at its gate: the proposal priced a script that did not exist.
+
+    The proposal estimates the voice from words per second before a line is written, so the real script can land more
+    than the guard's +15 % above that estimate — and then the assets stage refuses to spend a single credit. Approving
+    the script approves what that script costs: the tts line becomes the measured price and the total moves by the
+    difference. Every other line (music, plates, clips) keeps exactly what the creator approved, and the budget never
+    drops below what is already spent.
+    """
+    from .. import credits, formats
+    from . import explainer as X
+    p = P.load(pid, d)
+    b = p.get("budget") or {}
+    script = P.read_artifact(pid, "script", d) or {}
+    rows = b.get("lines") or []
+    # only the lines whose voice is `explainer.assets` narrating inside this budget: other lines price their own steps
+    if not b.get("credits") or not script.get("lines") or not X.narrated(script):
+        return None
+    if not any(st.get("call") == "factory.hat.explainer:assets" for st in manifest.get(p["line"])["stages"]):
+        return None
+    tts = [i for i, it in enumerate(rows) if it.get("kind") == "tts"]
+    if not tts:
+        return None
+    chars = _voice_chars(script)
+    est = credits.estimate([{"kind": "tts", "model": formats.VOICE_MODEL, "units": chars, "unit": "char",
+                             "label": rows[tts[0]].get("label") or "Narration"}])
+    if est["unknown"] or not est["total"]:
+        return None
+    before = sum(int(rows[i].get("credits") or 0) for i in tts)
+    after = int(est["total"])
+    total = max(int(X.spent_credits(pid, d)), int(b["credits"]) - before + after)
+    fresh, at = dict(est["lines"][0]), tts[0]
+    kept = [fresh if i == at else dict(r) for i, r in enumerate(rows) if i == at or i not in tts]
+    p["budget"] = {**b, "credits": total, "lines": kept}
+    P.save(p, d)
+    P.decision(pid, "budget", f"{total} credits", by=by, d=d,
+               reason=f"script approved: narration {before} -> {after} credits ({chars} characters)")
+    P.event(pid, "budget_refit", d=d, stage="script", before=before, after=after, chars=chars, total=total)
+    return total
 
 
 def _code_step(call):
