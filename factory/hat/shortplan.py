@@ -227,14 +227,18 @@ def build(pid, s, note=None, d=None, ask=None, build=None, parallel=PARALLEL):
     if not script.get("lines"):
         raise ShortError("no script yet: approve the script first")
     board, research = _board(pid, d), P.read_artifact(pid, "research", d) or {}
+    prev_design = P.read_artifact(pid, DESIGN, d) or {}
     design_art = design(pid, s, script, board, research, d, ask, note)
+    # a fresh design pass may rename or re-range the scenes: then every part has to be drawn against it
+    fresh = design_art.get("sig") != prev_design.get("sig")
     briefs = design_art["scenes"]
     current = P.read_artifact(pid, "scene_plan", d) or {}
     keep = {sc["id"]: sc for sc in current.get("scenes") or [] if sc.get("id")}
     groups = parts(briefs, parallel)
     asked = named(note, briefs)
-    # a note that names scenes repairs those parts only; no note (or a note about the film as a whole) draws everything
-    todo = [part for part in groups if asked & {b["id"] for b in part}] if asked else groups
+    # a note that names scenes repairs those parts only — unless the design itself changed (new ids or ranges), in which
+    # case keeping an old scene next to a new design would mix two films: draw every part again
+    todo = groups if (fresh or not asked) else [part for part in groups if asked & {b["id"] for b in part}]
     done, failed = [], []
     if len(todo) > 1:
         import concurrent.futures as cf
@@ -262,6 +266,9 @@ def build(pid, s, note=None, d=None, ask=None, build=None, parallel=PARALLEL):
         raise ShortError("these scenes could not be drawn: " + ", ".join(b["id"] for b, _ in failed)
                          + f" ({type(failed[0][1]).__name__}: {str(failed[0][1])[:200]})")
     drawn = {sc["id"]: sc for run in done for sc in run["scenes"]}
+    missing = [b["id"] for b in briefs if b["id"] not in drawn and b["id"] not in keep]
+    if missing:
+        raise ShortError(f"these scenes would be lost (the design renamed them?): {missing}")
     scenes_out = []
     for b in briefs:                                 # the design pass fixes the order; drawn wins over kept
         sid = b["id"]
