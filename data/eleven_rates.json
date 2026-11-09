@@ -1,8 +1,8 @@
 {
  "tts:eleven_v4": {
   "unit": "char",
-  "rate": 1.1511130602949682,
-  "samples": 19
+  "rate": 1.1188880278295585,
+  "samples": 20
  },
  "tts:eleven_flash_v2_5": {
   "unit": "char",
@@ -17,8 +17,8 @@
  },
  "music:eleven_music_v2_5": {
   "unit": "s",
-  "rate": 32.17501073729421,
-  "samples": 2
+  "rate": 21.45000715819614,
+  "samples": 3
  },
  "image:gpt-image-2": {
   "unit": "img",

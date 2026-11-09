@@ -1473,6 +1473,19 @@ ACT.accAdd = async () => { await post("/api/eleven/accounts/add", { name: $("#ak
 ACT.accConn = async () => { await post("/api/eleven/accounts/add_connector"); toast("Connector eklendi, sesler okunuyor"); route(); };
 ACT.claudeStart = async (el) => { const r = await post("/api/claude/start", { mode: el.dataset.mode }); $("#clflow").innerHTML = `<div class="small">1) Bu linki aç, giriş yap ve izin ver:</div><a class="btn sm mt8" href="${esc(r.url)}" target="_blank" rel="noopener">Claude'da giriş yap ↗</a><div class="small mt12">2) Verilen kodu yapıştır:</div><div class="row nowrap mt8"><input type="text" id="clcode" placeholder="kod"><button class="btn accent sm" data-act="claudeFinish">Bağla</button></div>`; };
 ACT.claudeFinish = async () => { await post("/api/claude/finish", { code: $("#clcode").value }); toast("Claude bağlandı"); route(); };
+ACT.mediaSave = async () => {
+  const media = Object.fromEntries($$('[data-media]').map((x) => [x.dataset.media, x.value]));
+  try {
+    const r = await post("/api/media/settings", { media });
+    const m = r.media_settings || media;
+    toast("Medya üreticisi kaydedildi: " + Object.entries(m).map(([k, v]) => `${k}=${v}`).join(", "));
+    route();
+  } catch (e) { toast(e.message, 1); }
+};
+ACT.geminiKey = async () => { const k = ($("#gm_key").value || "").trim(); if (!k) return toast("Anahtar boş", 1); try { const r = await post("/api/gemini/key", { key: k }); toast(r.gemini?.check?.ok === false ? "Kaydedildi ama doğrulanamadı: " + (r.gemini.check.note || "") : "Gemini anahtarı kaydedildi"); route(); } catch (e) { toast(e.message, 1); } };
+ACT.geminiClear = async () => { await post("/api/gemini/key", { key: "" }); toast("Gemini anahtarı kaldırıldı"); route(); };
+ACT.openrouterKey = async () => { const k = ($("#or_key").value || "").trim(); if (!k) return toast("Anahtar boş", 1); try { const r = await post("/api/openrouter/key", { key: k }); toast(r.openrouter?.check?.ok === false ? "Kaydedildi ama doğrulanamadı: " + (r.openrouter.check.label || "") : "OpenRouter anahtarı kaydedildi"); route(); } catch (e) { toast(e.message, 1); } };
+ACT.openrouterClear = async () => { await post("/api/openrouter/key", { key: "" }); toast("OpenRouter anahtarı kaldırıldı"); route(); };
 ROUTES["#/sinyal"] = async () => {
   const prof = q("p") || "travel"; const s = await api("/api/signals?profile=" + prof); const r = s.runs[0]; crumb(["Sinyaller"]);
   paint(`<div class="row"><div><h1>Sinyal<span class="serif">ler</span></h1><p class="lead">YouTube Radar (küçük kanalda patlayan videolar) ve Google Trends: fikir üretimine giden veri.</p></div><span class="sp"></span>
