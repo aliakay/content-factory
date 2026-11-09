@@ -19,7 +19,32 @@ def _ranges(scenes):
     return out
 
 
-def problems(scenes, lines=None, seconds=None, cards=True):
+MIN_SCENE_S = 1.0                # a scene shorter than this is a blink, not a scene
+
+
+def timing_problems(scenes, words, starts):
+    """Cut laws that need real timing: a cut may not land inside a spoken word, no scene under a second.
+
+    `words` are (word, start, end) with the voice start already folded in, `starts` the scene starts in order
+    (the last scene's start is its own; its end is the film's end, so it is not checked).
+    """
+    out = []
+    spans = [(s, starts[i + 1] if i + 1 < len(starts) else None) for i, s in enumerate(starts or [])]
+    for i, (a, b) in enumerate(spans):
+        if b is None:
+            continue
+        if b - a < MIN_SCENE_S:
+            out.append(f"scene {scenes[i].get('id') if i < len(scenes) else i + 1}: {b - a:.2f} s long; "
+                       f"a scene needs at least {MIN_SCENE_S:g} s")
+        for w, ws, we in words or []:
+            if ws < b < we:
+                out.append(f"the cut at {b:.2f} s falls inside the word '{w}' ({ws:.2f}-{we:.2f} s): "
+                           f"cut on a pause, not mid-word")
+                break
+    return out
+
+
+def problems(scenes, lines=None, seconds=None, cards=True, words=None, starts=None):
     """Structural refusals: coverage and order of the script's lines, and the pace of the plan."""
     scenes = [sc for sc in (scenes or []) if isinstance(sc, dict)]
     out = []
@@ -54,6 +79,8 @@ def problems(scenes, lines=None, seconds=None, cards=True):
     order = [r[1] for r in _ranges(scenes)]
     if order != sorted(order):
         out.append("the scenes are not in script order: line ranges must rise from scene to scene")
+    if words and starts:
+        out += timing_problems(scenes, words, starts)
     if seconds and n_script:
         lo, hi = COUNT_PER_SHOT
         want_lo, want_hi = max(3, int(float(seconds) / hi)), max(6, int(float(seconds) / lo))

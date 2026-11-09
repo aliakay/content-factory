@@ -53,6 +53,30 @@ def draft_timing(lines, lang="tr"):
     return words, line_times, round(max(t - PAUSE, 0.0), 3)
 
 
+def mouth_block(pid, d=None):
+    """{"mouth": {fps, open, shape}} when the voice file exists — the drawn mouth follows the real sound."""
+    from .. import mouthcurve
+    assets = P.read_artifact(pid, "assets", d) or {}
+    f = (assets.get("voice") or {}).get("file")
+    if not f:
+        return {}
+    path = os.path.join(ROOT, f)
+    if not os.path.exists(path):
+        return {}
+    cache = P.path(pid, "work", "mouth.json", d=d)
+    try:
+        meta = json.load(open(cache)) if os.path.exists(cache) else {}
+        if meta.get("for") == [f, os.path.getmtime(path)]:
+            return {"mouth": meta["curve"]}
+        curve = mouthcurve.curve(path)
+        os.makedirs(os.path.dirname(cache), exist_ok=True)
+        json.dump({"for": [f, os.path.getmtime(path)], "curve": curve}, open(cache, "w"))
+        return {"mouth": curve}
+    except Exception as e:
+        P.event(pid, "mouth_skipped", d=d, error=f"{type(e).__name__}: {e}"[:160])
+        return {}
+
+
 def narrated(script):
     return (script or {}).get("narrate", True) is not False
 
@@ -131,7 +155,7 @@ def spec(pid, plan=None, d=None):
                 for c in plan.get("chapters") or [] if 0 <= c.get("line", -1) < n]     # long form (factory/hat/longform.py)
     from .. import captions as _cap
     return {"name": pid, "words": words, "line_times": line_times, "voice_start": voice_start, "duration": total,
-            "caption_blocks": _cap.blocks(words, p.get("aspect", "9:16")),
+            "caption_blocks": _cap.blocks(words, p.get("aspect", "9:16")), **mouth_block(pid, d),
             "scenes": scenes, "aspect": p.get("aspect", "9:16"), "lang": p.get("video_lang", "tr"),
             "captions": plan.get("captions") or CAPTIONS, "timing": source, "chapters": chapters,
             "chrome": plan.get("chrome") or {}}

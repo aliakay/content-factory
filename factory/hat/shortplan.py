@@ -194,12 +194,15 @@ def scenes(pid, s, design_art, part, script, note=None, d=None, ask=None, build=
     return {"ids": want, "scenes": filled, "usd": (meta or {}).get("cost_usd") or 0}
 
 
-def validate(plan, script, board, refs=()):
+def validate(plan, script, board, refs=(), sp=None):
     """Everything the gate would refuse, in one list (camera, subject, mechanism, determinism, originality, board)."""
     from .. import camera, determinism, motiongrammar, originality, shotplan, subjectqc
     lines = script.get("lines") or []
     scenes_ = plan.get("scenes") or []
-    found = shotplan.problems(scenes_, lines) or T.validate_artifact("scene_plan", plan)
+    words = (sp or {}).get("words") or []
+    starts = [sc.get("start") for sc in (sp or {}).get("scenes") or []]
+    found = (shotplan.problems(scenes_, lines, words=words, starts=starts if all(s is not None for s in starts) else None)
+             or T.validate_artifact("scene_plan", plan))
     found += camera.problems(scenes_) or motiongrammar.problems(scenes_) or subjectqc.problems(scenes_, lines) \
         or determinism.problems(plan) or originality.problems(plan, lines, refs) \
         or direction_problems(plan, board)
@@ -267,7 +270,11 @@ def build(pid, s, note=None, d=None, ask=None, build=None, parallel=PARALLEL):
             "parts": {"rebuilt": sorted(drawn), "kept": sorted(set(keep) & {b["id"] for b in briefs} - set(drawn))}}
     if current.get("edits"):
         plan["edits"] = current["edits"]
-    problems = validate(plan, script, board)
+    try:
+        sp = X.spec(pid, plan, d)
+    except Exception:
+        sp = None
+    problems = validate(plan, script, board, sp=sp)
     plan["checked"] = problems[:12]
     try:                                            # the layout lint needs a browser; its absence is not a failure
         rep = {}

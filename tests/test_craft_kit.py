@@ -110,3 +110,35 @@ def test_pause_trim_and_retake_flags_read_the_project_transcript(tmp_path):
     assert trim["saved_s"] > 2.0 and trim["intervals"] and "filter" in trim
     flags = T.call("retake_flags", ctx, {})
     assert flags["count"] == 0 and "bayrak yok" in flags["summary"]
+
+
+# ---------------------------------------------------------------- motionforge: plan laws, 3D labels, blur, mouth
+def test_a_cut_may_not_fall_inside_a_spoken_word_or_make_a_blink():
+    from factory import shotplan
+    words = [("elektrik", 0.0, 2.0), ("fatura", 2.0, 3.2)]
+    scenes = [{"id": "s1"}, {"id": "s2"}]
+    found = shotplan.timing_problems(scenes, words, [0.0, 1.9])
+    assert any("falls inside the word 'elektrik'" in f for f in found)
+    blink = shotplan.timing_problems([{"id": "s1"}, {"id": "s2"}], [("a", 0.0, 2.0)], [0.0, 0.6])
+    assert any("a scene needs at least 1 s" in f for f in blink)
+    assert shotplan.timing_problems([{"id": "s1"}, {"id": "s2"}], [("a", 0.0, 2.0)], [0.0, 2.0]) == []
+
+
+def test_the_scene_library_carries_3d_labels_lights_and_a_voiced_mouth():
+    js = open("motion/templates/fxlib.js", encoding="utf-8").read()
+    for needle in ("FX.anchor", "FX.lights", "FX.LIGHTS", "studio", "daylight", "night", "FX.blurFly", "FX.mouth"):
+        assert needle in js
+    assert "scaleY(" in js and "1.25em" in js
+
+
+def test_the_spec_and_the_bundle_carry_the_mouth_curve(tmp_path, monkeypatch):
+    import json
+    from factory import mouthcurve
+    from factory.hat import explainer as X, project as P
+    d = str(tmp_path / "p")
+    pid = P.create("explainer", "t", d=d)["id"]
+    wav = mouthcurve.write_wav(str(tmp_path / "voice.wav"), 1.0)
+    P.write_artifact(pid, "assets", {"voice": {"file": wav}}, d)
+    block = X.mouth_block(pid, d)
+    assert block and len(block["mouth"]["open"]) == 30
+    assert X.mouth_block(pid, d)["mouth"] == block["mouth"]        # cached: same numbers, no second measurement
