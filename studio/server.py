@@ -713,8 +713,10 @@ def voice_suggestions(q):
     the cached library list for that language is old, a background job refreshes it (the next call is richer)."""
     one = lambda k, d="": (q.get(k) or [d])[0]  # noqa: E731
     lang = one("lang", "tr")
-    out = {"language": lang, "kind": one("kind", "social"), "voices": voices.suggest(
-        lang, one("kind", "social"), one("gender") or None, 3)}
+    exclude = tuple(x for x in one("exclude").split(",") if x)
+    out = {"language": lang, "kind": one("kind", "social"), "account": one("account") or accounts.default_eleven(),
+           "voices": voices.suggest(lang, one("kind", "social"), one("gender") or None, 3,
+                                    account=one("account") or None, exclude=exclude)}
     if voices.stale(lang) and lang not in voices.SEED and lang != "en":
         out["refreshing"] = True
     return out
