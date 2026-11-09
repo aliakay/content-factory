@@ -2536,3 +2536,48 @@ def test_api_voice_pick_from_suggestions(api, monkeypatch, tmp_path):
     out = hat_api.post(None, "/api/hat/projects", {"line": "explainer", "brief": "Kiralık daire tanıtımı", "video_lang": "tr",
                                                    "voice_id": "uxXY4QvpsdWFe6Yigtlq"}, q)
     assert P.load(out["id"])["voice_id"] == "uxXY4QvpsdWFe6Yigtlq"
+
+
+# ---------------------------------------------------------------- the budget follows the written script
+def _budgeted(d, line="explainer"):
+    pid = P.create(line, "Seslendirme bütçesi", d=d)["id"]
+    p = P.load(pid, d)
+    p["budget"] = {"credits": 777, "usd": 0.0, "approved_by": "ali",
+                   "lines": [{"kind": "tts", "model": "eleven_v4", "units": 675, "unit": "char",
+                              "label": "Seslendirme", "credits": 777, "rate": 1.151}]}
+    P.save(p, d)
+    return pid
+
+
+def test_the_script_gate_prices_the_voice_from_the_written_text(d, monkeypatch):
+    """The report from production: proposal priced 675 characters, the script had 805, the voice was refused."""
+    from factory import credits
+    from factory.hat import runner
+    pid = _budgeted(d)
+    script = {"title": "t", "hook": "a", "lines": ["kırk karakterlik bir cümle burada duruyor"] * 20}
+    P.write_artifact(pid, "script", script, d)
+    seen = {}
+
+    def estimate(items):
+        seen["chars"] = items[0]["units"]
+        return {"total": items[0]["units"], "unknown": [], "lines": [{**items[0], "credits": items[0]["units"]}]}
+
+    monkeypatch.setattr(credits, "estimate", estimate)
+    total = runner.refit_budget(pid, "ali", d)
+    chars = sum(len(x) for x in script["lines"]) + len(script["lines"]) - 1     # the same join `narrate` sends
+    assert seen["chars"] == chars and total == chars
+    b = P.load(pid, d)["budget"]
+    assert b["credits"] == chars and b["lines"] == [{**b["lines"][0], "kind": "tts", "units": chars, "credits": chars}]
+    assert any(e["kind"] == "budget_refit" and e.get("after") == chars for e in P.tail(pid, d=d))
+
+
+def test_a_music_only_script_and_a_line_that_prices_its_own_voice_are_left_alone(d):
+    from factory.hat import runner
+    pid = _budgeted(d)
+    P.write_artifact(pid, "script", {"title": "t", "lines": ["x" * 900], "narrate": False}, d)
+    assert runner.refit_budget(pid, "ali", d) is None
+    assert P.load(pid, d)["budget"]["credits"] == 777
+    other = _budgeted(d, "avatar")                       # avatar prices its own tts: the proposal number is not the price
+    P.write_artifact(other, "script", {"lines": ["x" * 900]}, d)
+    assert runner.refit_budget(other, "ali", d) is None
+    assert P.load(other, d)["budget"]["credits"] == 777
