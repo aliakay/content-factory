@@ -50,7 +50,7 @@ def _script_text(script):
     return "\n".join(f"{i + 1}. {x}" for i, x in enumerate(script.get("lines") or []))
 
 
-def _design_prompt(pid, s, script, board, research, d):
+def _design_prompt(pid, s, script, board, research, d, note=None):
     from .. import camera_deck
     from . import agent
     p = P.load(pid, d)
@@ -89,7 +89,8 @@ Reply ONLY JSON:
   "scenes": [{{"id": "lower-case-id", "lines": [first, last], "brief": "what this scene must make the viewer see",
               "shows": "the subject and what it does (an action verb)", "mechanism": "one catalogue mechanism",
               "camera": {{"move": "push_in", "seconds": 1.5, "easing": "ease_out", "target": "what it lands on"}}}}]}}
-Use the board's palette and type pairing exactly; no other colour, no other font."""
+Use the board's palette and type pairing exactly; no other colour, no other font.
+{("The creator's note about this film (it may ask to move where the scenes cut): " + str(note)) if note else ""}"""
 
 
 def _scene_prompt(pid, s, design, part, script, d):
@@ -120,14 +121,18 @@ Reply ONLY JSON: {{"scenes": [{{"id": "...", "lines": [a, b], "mechanism": "..."
 `data-e` numbers on every visible element; no Math.random, no Date.now, no network; text stays out of the caption band."""
 
 
-def design(pid, s, script, board, research, d=None, ask=None):
-    """The design system + the scene briefs (cached while the script and the board are unchanged)."""
-    sig = _hash([script.get("title"), script.get("lines"), board.get("fingerprint")])
+def design(pid, s, script, board, research, d=None, ask=None, note=None):
+    """The design system + the scene briefs.
+
+    Cached while the script and the board are unchanged — unless a note comes with the repair: the cut laws live in
+    the scene `lines` ranges, so a note that names where the cuts land has to re-decide them here, not only inside the
+    scenes."""
+    sig = _hash([script.get("title"), script.get("lines"), board.get("fingerprint"), note or ""])
     cur = P.read_artifact(pid, DESIGN, d) or {}
     if cur.get("sig") == sig and cur.get("scenes"):
         return cur
     ask = ask or _ask
-    out, _meta = _call(ask, _design_prompt(pid, s, script, board, research, d))
+    out, _meta = _call(ask, _design_prompt(pid, s, script, board, research, d, note))
     if not out.get("scenes"):
         raise ShortError("the design pass returned no scene list")
     art = {"sig": sig, "concept": out.get("concept"), "palette": out.get("palette") or board.get("palette") or {},
@@ -222,7 +227,7 @@ def build(pid, s, note=None, d=None, ask=None, build=None, parallel=PARALLEL):
     if not script.get("lines"):
         raise ShortError("no script yet: approve the script first")
     board, research = _board(pid, d), P.read_artifact(pid, "research", d) or {}
-    design_art = design(pid, s, script, board, research, d, ask)
+    design_art = design(pid, s, script, board, research, d, ask, note)
     briefs = design_art["scenes"]
     current = P.read_artifact(pid, "scene_plan", d) or {}
     keep = {sc["id"]: sc for sc in current.get("scenes") or [] if sc.get("id")}
