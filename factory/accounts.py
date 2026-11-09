@@ -302,58 +302,6 @@ def account_voices(acc, lang=None):
     return sorted(vs, key=lambda v: (order.get(v.get("category"), 3), v.get("name") or ""))
 
 
-# ---------- chosen narrator per account ----------
-DEFAULTS = os.path.join(ROOT, "data", "eleven_defaults.json")
-
-
-def voice_defaults():
-    """{account id: {lang: voice_id}} — the narrator the creator picked for a language, per ElevenLabs account."""
-    try:
-        return json.load(open(DEFAULTS))
-    except (OSError, ValueError):
-        return {}
-
-
-def default_voice_for(aid, lang):
-    return (voice_defaults().get(aid) or {}).get(lang)
-
-
-def set_default_voice(aid, lang, voice_id):
-    if lang not in ("tr", "en"):
-        raise ValueError("Bilinmeyen dil")
-    d = voice_defaults()
-    d.setdefault(aid, {})[lang] = voice_id
-    os.makedirs(os.path.dirname(DEFAULTS), exist_ok=True)
-    with open(DEFAULTS, "w") as f:
-        json.dump(d, f, ensure_ascii=False, indent=1)
-    return d[aid]
-
-
-
-
-
-def media_settings(uid=None):
-    """Per capability, who generates it: ElevenLabs or Gemini (Hesaplar → Medya üreticisi)."""
-    uid = uid or current()
-    saved = (user(uid) or {}).get("media") or {}
-    return {k: (saved.get(k) if saved.get(k) in MEDIA_PROVIDERS else "elevenlabs") for k in MEDIA_KINDS}
-
-
-def set_media_settings(uid, mapping):
-    if not isinstance(mapping, dict) or not mapping:
-        raise ValueError("Medya üreticisi seçimi geçersiz")
-    clean = {}
-    for k, v in mapping.items():
-        if k not in MEDIA_KINDS or v not in MEDIA_PROVIDERS:
-            raise ValueError("Medya üreticisi seçimi geçersiz")
-        clean[k] = v
-    u = users()
-    rec = pref_rec(u, uid)
-    rec["media"] = {**media_settings(uid), **clean}
-    _save(USERS, u)
-    return media_settings(uid)
-
-
 # ---------- how ElevenLabs is reached ----------
 # ---------- OpenRouter per user ----------
 def set_openrouter_key(uid, key):
