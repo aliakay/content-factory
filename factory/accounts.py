@@ -299,56 +299,7 @@ def set_default_voice(aid, lang, voice_id):
     return d[aid]
 
 
-# ---------- Google Gemini per user ----------
-def set_gemini_key(uid, key):
-    """Store this user's Gemini API key ("" removes it)."""
-    key = (key or "").strip()
-    if key and (len(key) < 20 or len(key) > 200 or any(c.isspace() for c in key)):
-        raise ValueError("Gemini anahtarı geçersiz görünüyor")
-    u = users()
-    rec = pref_rec(u, uid)
-    if key:
-        rec["gemini"] = {"key": key, "connected_at": time.strftime("%Y-%m-%d %H:%M")}
-    else:
-        rec.pop("gemini", None)
-    _save(USERS, u)
-    return gemini_status(uid)
 
-
-def gemini_key(uid=None):
-    uid = uid or current()
-    return ((user(uid) or {}).get("gemini") or {}).get("key") or ""
-
-
-def gemini_status(uid=None):
-    """This user's Gemini key: their own when they saved one, else the owner's GEMINI_API_KEY."""
-    uid = uid or current()
-    own = ((user(uid) or {}).get("gemini") or {})
-    env = os.environ.get("GEMINI_API_KEY") or ""
-    key = own.get("key") or env
-    return {"connected": bool(key), "mine": bool(own.get("key")), "env": not own.get("key") and bool(env),
-            "tail": "…" + key[-4:] if own.get("key") else None, "at": own.get("connected_at")}
-
-
-def review_rounds(uid=None):
-    """How many reviewer rounds one stage may use: 0 = no reviewer, 1 = one pass (the default), 2 = a fix round too."""
-    uid = uid or current()
-    n = (user(uid) or {}).get("review_rounds")
-    return n if n in REVIEW_ROUNDS else 1
-
-
-def set_review_rounds(uid, n):
-    if n not in REVIEW_ROUNDS:
-        raise ValueError("Denetim turu geçersiz")
-    u = users()
-    pref_rec(u, uid)["review_rounds"] = n
-    _save(USERS, u)
-    return n
-
-
-# ---------- who makes the media ----------
-MEDIA_KINDS = ("voice", "music", "image", "video")
-MEDIA_PROVIDERS = ("elevenlabs", "gemini")
 
 
 def media_settings(uid=None):
