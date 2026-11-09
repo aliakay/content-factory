@@ -90,11 +90,55 @@ def _score(v, kind, gender):
     return s
 
 
-def suggest(lang, kind="social", gender=None, n=3):
-    """Up to n voices for `lang`, best match first, mixed on purpose (not three near-identical male voices):
-    after the best match come the best voices of a different gender / tone. Each: voice_id, name, gender, note,
-    sample (URL path under /media, or None when no sample is available yet)."""
+ROTATION = os.path.join(ROOT, "data", "voice_rotation.json")
+
+
+def _rotate(key, pool, n, exclude=()):
+    """Take the next `n` voices from `pool`, moving a persistent mark so the next call shows different ones.
+
+    The curated seed list is three voices and does not change, which is why the picker kept offering the same three.
+    An API-key account has its own list (a couple of dozen), so we walk it: the mark per (account, language) advances
+    by how many were shown, and the pool skips the voice the project already uses."""
+    if not pool:
+        return []
+    try:
+        marks = json.load(open(ROTATION))
+    except (OSError, ValueError):
+        marks = {}
+    start = int(marks.get(key) or 0) % len(pool)
+    out = []
+    for step in range(len(pool)):
+        v = pool[(start + step) % len(pool)]
+        if v["voice_id"] in exclude or v["voice_id"] in {x["voice_id"] for x in out}:
+            continue
+        out.append(v)
+        if len(out) >= n:
+            break
+    marks[key] = (start + max(1, len(out))) % len(pool)
+    try:
+        os.makedirs(os.path.dirname(ROTATION), exist_ok=True)
+        json.dump(marks, open(ROTATION, "w"))
+    except OSError:
+        pass
+    return out
+
+
+def suggest(lang, kind="social", gender=None, n=3, account=None, exclude=()):
+    """Up to n voices for `lang`, fresh on every call, with a sample to listen to.
+
+    An API-key account is asked first: its own voices are the only ones it can speak with, so the picker walks that
+    list (rotating, skipping the voice the project already uses) instead of offering the same three curated ids —
+    which, on such an account, all resolved to one voice after the fallback.
+    """
+    from . import accounts
     lang = lang if lang in dict(formats.ELEVEN_LANGUAGES) else "en"
+    acc = accounts.eleven(account or accounts.default_eleven()) or {}
+    if acc.get("type") == "apikey":
+        mine = accounts.account_voices(acc, lang)
+        if mine:
+            pool = [{"voice_id": v["voice_id"], "name": v["name"], "gender": "", "note": v.get("note") or "",
+                     "kinds": []} for v in mine]
+            return _shape(_rotate(f"{acc.get('id') or account}|{lang}", pool, n, exclude), lang)
     pool = [dict(v, lang=lang) for v in SEED.get(lang, [])]
     seen = {v["voice_id"] for v in pool}
     pool += [dict(v, lang=lang) for v in (_cache().get(lang) or {}).get("voices", []) if v["voice_id"] not in seen]
@@ -113,8 +157,12 @@ def suggest(lang, kind="social", gender=None, n=3):
             break
         if v not in picked:
             picked.append(v)
+    return _shape(picked[:n], lang)
+
+
+def _shape(picked, lang):
     out = []
-    for v in picked[:n]:
+    for v in picked:
         has = _fetch(v)
         out.append({"voice_id": v["voice_id"], "name": v["name"], "gender": v.get("gender") or "",
                     "note": v.get("note") or "", "language": lang,

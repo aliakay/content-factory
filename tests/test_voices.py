@@ -11,8 +11,12 @@ def _tmp_cache(tmp_path, monkeypatch):
     monkeypatch.setattr(voices, "CACHE", str(tmp_path / "sug.json"))
 
 
-def test_turkish_gets_three_mixed_voices_with_samples():
-    out = voices.suggest("tr", "ad")
+def test_turkish_gets_three_mixed_voices_with_samples(monkeypatch):
+    from factory import accounts
+    # the seed list is the fallback for a machine with no API-key account; here we ask for it explicitly
+    monkeypatch.setattr(accounts, "default_eleven", lambda uid=None: "none")
+    monkeypatch.setattr(accounts, "eleven", lambda aid=None: {})
+    out = voices.suggest("tr", "ad", account="none")
     assert len(out) == 3 and len({v["voice_id"] for v in out}) == 3
     assert out[0]["name"] == "Orçun Togan"              # best match for an ad
     assert {v["gender"] for v in out} >= {"male", "female"}   # not three near-identical voices
@@ -21,8 +25,24 @@ def test_turkish_gets_three_mixed_voices_with_samples():
     assert all(v["sample"].startswith("/media/assets/voice_samples/") for v in out)
 
 
-def test_kind_changes_the_order():
-    assert voices.suggest("tr", "explainer")[0]["name"] == "Doğa"
+def test_kind_changes_the_order(monkeypatch):
+    from factory import accounts
+    monkeypatch.setattr(accounts, "eleven", lambda aid=None: {})
+    assert voices.suggest("tr", "explainer", account="none")[0]["name"] == "Doğa"
+
+
+def test_an_api_account_offers_its_own_voices_and_keeps_rotating(monkeypatch):
+    """The picker kept offering the same three curated ids; on an API account they all resolved to one voice."""
+    from factory import accounts
+    monkeypatch.setattr(accounts, "eleven", lambda aid=None: {"id": "acc", "type": "apikey", "key": "k"})
+    monkeypatch.setattr(accounts, "account_voices",
+                        lambda acc, lang=None: [{"voice_id": f"v{i}", "name": f"S{i}"} for i in range(1, 7)])
+    monkeypatch.setattr(voices, "ROTATION", "/tmp/voice_rotation_test.json")
+    a = [v["voice_id"] for v in voices.suggest("tr", account="acc")]
+    b = [v["voice_id"] for v in voices.suggest("tr", account="acc")]
+    assert a != b and len(set(a) | set(b)) >= 4          # fresh options on the next call
+    c = [v["voice_id"] for v in voices.suggest("tr", account="acc", exclude=("v1",))]
+    assert "v1" not in c
 
 
 def test_language_without_seed_falls_back_to_the_default_narrator():

@@ -122,7 +122,9 @@ def ensure_voice(account, voice_id, lang="tr"):
     mine = accounts.account_voices(acc, lang)
     if not mine:
         raise ElevenError(f"bu hesapta {lang} sesi yok; Hesaplar → ElevenLabs'te bir ses ekle")
-    return mine[0]["voice_id"], "account-default"
+    # deterministic but varied: two films that both lost their voice should not end up with the same narrator
+    pick = mine[int(hashlib.sha1(f"{voice_id}|{lang}".encode()).hexdigest()[:6], 16) % len(mine)]
+    return pick["voice_id"], "account-default"
 
 
 def tts(con, text, voice_id, model="eleven_v4", idea_id=None, approved=None, account=None):
