@@ -12,7 +12,7 @@ deciding the palette over and over; a fix round then rewrites every scene for on
 A re-run with a note that names scenes rebuilds only the parts those scenes live in; every other scene is kept exactly
 as the creator saw it. `ask` is injectable so the flow is testable without a model.
 """
-import hashlib, json, os, re
+import hashlib, json, os, re, time
 
 from . import project as P
 from . import tools as T
@@ -284,7 +284,9 @@ def build(pid, s, note=None, d=None, ask=None, build=None, parallel=PARALLEL):
     try:                                            # the layout lint needs a browser; its absence is not a failure
         rep = {}
         b = X.bundle(pid, plan, d)
-        stills, errs, found = layoutlint.run(b, X.scene_times(pid, plan, d), P.path(pid, "stills", "plan-lint", d=d),
+        # the Studio reads the newest `stills/<stage>-*` folder: name it after the stage so the frames show on the card
+        stills, errs, found = layoutlint.run(b, X.scene_times(pid, plan, d),
+                                             P.path(pid, "stills", f"{s['id']}-{int(time.time())}", d=d),
                                              p.get("aspect", "9:16"), report=rep)
         plan["lint"] = {"layout": len(found), "js_errors": errs[:6], "grade": rep.get("grade"),
                         "score": rep.get("score"), "text": layoutlint.as_text(found)}
