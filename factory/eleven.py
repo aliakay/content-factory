@@ -101,6 +101,30 @@ def _estimated(kind, model, units, approved):
 
 
 # ---------------------------------------------------------------- voice
+def ensure_voice(account, voice_id, lang="tr"):
+    """Resolve the chosen voice against this account: keep it when the account has it, add it from the Voice Library
+    when the id is a library voice, else fall back to one of the account's own voices for the language.
+
+    -> (voice_id, how) with how in ("account", "library", "account-default"). The built-in narrators belong to someone
+    else's account, so a project that pins one gets the account's own voice here instead of a failed take.
+    """
+    acc = accounts.eleven(account) or {}
+    have = {v["voice_id"] for v in accounts.account_voices(acc, None)}
+    if voice_id in have:
+        return voice_id, "account"
+    shared = eleven_api.shared_voice(acc.get("key"), voice_id) if acc.get("type") == "apikey" else None
+    if shared:
+        try:
+            added = eleven_api.add_shared_voice(acc["key"], shared["public_owner_id"], voice_id, shared["name"])
+            return added["voice_id"], "library"
+        except eleven_api.ApiError:
+            pass
+    mine = accounts.account_voices(acc, lang)
+    if not mine:
+        raise ElevenError(f"bu hesapta {lang} sesi yok; Hesaplar → ElevenLabs'te bir ses ekle")
+    return mine[0]["voice_id"], "account-default"
+
+
 def tts(con, text, voice_id, model="eleven_v4", idea_id=None, approved=None, account=None):
     """Speech for `text` (one take). Returns (mp3_path, credit_cost). Cached by (text, voice, model).
     `approved`: the credit amount the user approved; credits.guard refuses without it."""
@@ -116,6 +140,8 @@ def tts(con, text, voice_id, model="eleven_v4", idea_id=None, approved=None, acc
         path = _write(data, _pick_ext(mime, "wav"), gkey)
         _gemini_cost(con, "voice", gmodel, len(text), "char", gemini.price("voice", gmodel, len(text)), text[:60])
         return path, 0.0
+    account0 = account or accounts.default_eleven()
+    voice_id, how = ensure_voice(account0, voice_id)
     key = "tts_" + hashlib.sha1(f"{model}|{voice_id}|{text}".encode()).hexdigest()[:16]
     cached = os.path.join(OUT, f"{key}.mp3")
     if os.path.exists(cached):

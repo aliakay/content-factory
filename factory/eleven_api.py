@@ -56,6 +56,27 @@ def info(key, fresh=False):
     return data
 
 
+def shared_voice(key, voice_id):
+    """A Voice Library voice by id -> {public_owner_id, voice_id, name}, or None (the id is not in the library)."""
+    try:
+        out = _req(key, f"/v1/shared-voices?page_size=30&search={voice_id}", timeout=30)
+    except ApiError:
+        return None
+    for v in out.get("voices") or []:
+        if v.get("voice_id") == voice_id and v.get("public_owner_id"):
+            return {"public_owner_id": v["public_owner_id"], "voice_id": voice_id,
+                    "name": v.get("name") or voice_id[:6]}
+    return None
+
+
+def add_shared_voice(key, public_owner_id, voice_id, name=None):
+    """Add a Voice Library voice to this account -> the account's own copy {voice_id, name}."""
+    out = _req(key, f"/v1/voices/add/{public_owner_id}/{voice_id}", {"new_name": (name or voice_id)[:60]}, timeout=60)
+    if not out.get("voice_id"):
+        raise ApiError(f"ses hesaba eklenemedi: {json.dumps(out)[:200]}")
+    return {"voice_id": out["voice_id"], "name": name or voice_id}
+
+
 def tts(key, text, voice_id, model):
     """mp3 bytes + the character cost the API reports (falls back to the text length)."""
     data, headers = _req(key, f"/v1/text-to-speech/{voice_id}?output_format=mp3_44100_128",
