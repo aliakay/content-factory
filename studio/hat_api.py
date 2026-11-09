@@ -485,11 +485,19 @@ def _post(con, path, b, queue):
 
 
 def _voice(vid, account):
-    """A narrator id the creator picked: a suggested/known voice or one in the account's list; library suggestions are
-    added to the account first."""
-    from factory import accounts, voices
+    """A narrator id the creator picked, resolved against the account that will speak.
+
+    An API-key account has its own voice list (29 voices is normal), so a curated suggestion that is not in it is
+    either a Voice Library voice (added to the account) or replaced by one of the account's own voices for the
+    language. `factory/eleven.ensure_voice` decides, and the id it returns is the one stored on the project."""
+    from factory import accounts, eleven, voices
     if not re.fullmatch(r"[A-Za-z0-9]{10,40}", vid):
         raise ValueError({"tr": "Geçersiz ses.", "en": "Invalid voice."}[lang()])
+    if (accounts.eleven(account) or {}).get("type") == "apikey":
+        try:
+            return eleven.ensure_voice(account, vid)[0]
+        except eleven.ElevenError as e:
+            raise ValueError(str(e)) from None
     mine = {v["voice_id"] for v in (accounts.eleven(account) or {}).get("voices") or []}
     if account == accounts.OWNER:        # the owner's voices live in data/eleven_profile.json
         try:
