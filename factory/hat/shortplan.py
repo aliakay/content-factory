@@ -25,6 +25,17 @@ class ShortError(RuntimeError):
     pass
 
 
+# a note about WHERE the film cuts needs the design pass again (the scene line ranges live there); a note about how one
+# scene looks does not, so it only redraws that part
+DESIGN_WORDS = ("kesim", "cut", "satır", "line", "aralık", "range", "süre", "second", "zaman", "timing", "böl",
+                "kaydır", "move the")
+
+
+def needs_design(note):
+    low = str(note or "").lower()
+    return bool(low) and any(w in low for w in DESIGN_WORDS)
+
+
 def _hash(*parts):
     return hashlib.sha1(json.dumps(parts, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()[:12]
 
@@ -228,7 +239,7 @@ def build(pid, s, note=None, d=None, ask=None, build=None, parallel=PARALLEL):
         raise ShortError("no script yet: approve the script first")
     board, research = _board(pid, d), P.read_artifact(pid, "research", d) or {}
     prev_design = P.read_artifact(pid, DESIGN, d) or {}
-    design_art = design(pid, s, script, board, research, d, ask, note)
+    design_art = design(pid, s, script, board, research, d, ask, note if needs_design(note) else None)
     # a fresh design pass may rename or re-range the scenes: then every part has to be drawn against it
     fresh = design_art.get("sig") != prev_design.get("sig")
     briefs = design_art["scenes"]
