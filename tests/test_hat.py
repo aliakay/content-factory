@@ -449,6 +449,8 @@ def test_rubric_score_below_the_bar_goes_back_to_the_author(d, skills, monkeypat
     assert skills.rubric(s["review"], [10]) == (None, None) and skills.rubric(s["review"], ["x"] * n) == (None, None)
     assert skills.rubric(s["review"], [99] + [-3] * (n - 1))[0][1]["score"] == 0
     calls = {"author": [], "review": []}
+    from factory import accounts as _acc
+    _acc.set_review_rounds("ali", 2)                    # this test drives two verdicts: two repair rounds
     low = [2] + [10] * (n - 1)
     verdicts = iter([json.dumps({"verdict": "pass", "scores": low, "summary": "Zayıf.", "findings": [
                          {"severity": "suggestion", "item": "sources", "problem": "eski", "fix": "yenile"}]}),
@@ -463,13 +465,13 @@ def test_rubric_score_below_the_bar_goes_back_to_the_author(d, skills, monkeypat
         return "submitted", {"cost_usd": 0.1}
     monkeypatch.setattr(llm, "ask_text", fake_cli)
     out = skills.run_stage(pid, s, d=d)
-    assert f"{n} marks in `scores`" in calls["review"][0] and "Pass mark: 90/100" in calls["review"][0]
+    assert f"{n} marks in `scores`" in calls["review"][0] and "Pass mark: 85/100" in calls["review"][0]
     assert "1. " + s["review"][0] in calls["review"][0]
     expected = round(10 * sum(low) / n)
-    assert expected < 90 and f"rubric score is {expected}/100; 90 is needed" in calls["author"][1]
+    assert expected < 85 and f"rubric score is {expected}/100; 85 is needed" in calls["author"][1]
     assert f"- {s['review'][0]}: 2/10" in calls["author"][1] and "eski -> yenile" in calls["author"][1]
     r = out["review"]
-    assert r["score"] == 100 and r["verdict"] == "pass" and r["rounds"] == 2 and r["pass_score"] == 90
+    assert r["score"] == 100 and r["verdict"] == "pass" and r["rounds"] == 2 and r["pass_score"] == 85
     assert [x["score"] for x in r["rubric"]] == [10] * n
     ev = [json.loads(x) for x in open(P.path(pid, "events.jsonl", d=d))]
     assert [e.get("score") for e in ev if e["kind"] == "review"] == [expected, 100]
@@ -503,6 +505,8 @@ def test_gauntlet_ledger_must_close_earlier_findings(d, skills, monkeypatch):
         {"scores": [10] * n, "findings": [{"severity": "suggestion", "item": "angles", "problem": "a", "fix": "b"}],
          "ledger": [{"id": "f1", "status": "fixed"}, {"id": "zz", "status": "fixed"}]}])
     prompts = {"author": [], "review": []}
+    from factory import accounts as _acc
+    _acc.set_review_rounds("ali", 2)                    # the ledger is walked over two repair rounds
 
     def fake_cli(prompt, **k):
         if "REVIEWER CONTRACT" in prompt:
@@ -516,7 +520,7 @@ def test_gauntlet_ledger_must_close_earlier_findings(d, skills, monkeypatch):
     assert len(prompts["author"]) == 3 and "Ledger" not in prompts["review"][0]
     assert "- f1 [critical] sources: 3 kaynak -> 5 yap" in prompts["review"][1] and "ton" not in prompts["review"][1]
     assert "Still open in the review ledger" in prompts["author"][2] and "f1 [sources]" in prompts["author"][2]
-    assert "Still open in the review ledger" not in prompts["author"][1]          # round 1's own critical is listed once
+    assert "Still open in the review ledger" not in prompts["author"][1]
     r = out["review"]
     assert r["verdict"] == "pass" and r["rounds"] == 3 and r["open_critical"] == 0
     assert (r["ledger"]["fixed"], r["ledger"]["open"]) == (1, 1) and [e["id"] for e in r["ledger"]["entries"]] == ["f1", "f2"]
@@ -526,7 +530,8 @@ def test_gauntlet_ledger_must_close_earlier_findings(d, skills, monkeypatch):
     G._save(pid, "research", {"entries": [{"id": "f9", "review": 1, "run": 0, "round": 1, "status": "open",
                                            "severity": "critical", "item": "x", "problem": "y", "fix": "z"}],
                               "reviews": 1}, d)
-    monkeypatch.setattr(skills, "REVIEW_ROUNDS", 0)
+    from factory import accounts as _acc
+    _acc.set_review_rounds("ali", 1)                    # one review, and it must not pass over an open critical
     monkeypatch.setattr(llm, "ask_text", lambda prompt, **k: (json.dumps({"scores": [10] * n, "findings": []}), {})
                         if "REVIEWER CONTRACT" in prompt else (T.call("submit_artifact", T.Ctx(pid, "research", d),
                                                                      {"data": GOOD_RESEARCH}) and "ok", {}))

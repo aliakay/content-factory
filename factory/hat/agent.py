@@ -94,12 +94,13 @@ def run_stage(pid, s, note=None, d=None, user=None):
     reviewer finds a critical problem or the score misses the pass mark. Returns {artifact, summary, review, cost}."""
     from .. import accounts
     cost, rounds, review = 0.0, [], None
-    want = min(accounts.review_rounds(user), REVIEW_ROUNDS) if s.get("gate", True) else 0
-    # a stage without a gate (research, edit, compose) hands its work straight on: its review was read by nobody and
-    # cost a third of the stage's time (measured on the 001 run)
+    want = min(accounts.review_rounds(user), REVIEW_ROUNDS)
+    # the reviewer runs wherever the manifest lists review lines: the rubric and the findings ledger are how a stage
+    # learns, and the ledger's open findings follow the stage into later rounds. The cheap lever is the round count
+    # (Hesaplar -> Denetim: 0/1/2) and the reviewer's output cap, not skipping stages.
     author_note = note
     out = None
-    for rnd in range(max(1, want)):
+    for rnd in range(max(1, want + 1)):      # want = how many FIX rounds: 0 = no reviewer, 1 = one repair
         try:
             out = _author(pid, s, author_note, d, user)
         except AgentError as e:
@@ -120,7 +121,7 @@ def run_stage(pid, s, note=None, d=None, user=None):
         if held and review["verdict"] == "pass":
             review["verdict"] = "fix"                   # an earlier critical the reviewer did not close blocks a pass
         low = review.get("score") is not None and review["score"] < review["pass_score"]
-        if not (critical or held or low) or rnd == want - 1:
+        if not (critical or held or low) or rnd >= want:
             break
         P.event(pid, "review_fix", d=d, stage=s["id"], round=rnd + 1, critical=len(critical), score=review.get("score"))
         author_note = ((note + "\n\n") if note else "") + _fix_note(review, critical, gauntlet.fix_lines(pid, s, d))
