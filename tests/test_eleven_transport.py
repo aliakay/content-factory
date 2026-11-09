@@ -172,3 +172,31 @@ def test_a_failed_generation_reports_the_reason(monkeypatch):
     monkeypatch.setattr(eleven_api.time, "sleep", lambda s: None)
     with pytest.raises(eleven_api.ApiError, match="moderated"):
         eleven_api.image("k", "x", "gpt-image-2")
+
+
+# ---------------------------------------------------------------- the voice must exist in THIS account
+def test_a_voice_of_the_account_is_used_as_it_is(apikey, monkeypatch):
+    monkeypatch.setattr(accounts, "account_voices", lambda acc, lang=None: [{"voice_id": "v1", "name": "A"}])
+    assert eleven.ensure_voice("ali-key", "v1") == ("v1", "account")
+
+
+def test_a_library_voice_is_added_to_the_account(apikey, monkeypatch):
+    monkeypatch.setattr(accounts, "account_voices", lambda acc, lang=None: [{"voice_id": "own", "name": "B"}])
+    monkeypatch.setattr(eleven_api, "shared_voice", lambda key, vid: {"public_owner_id": "pub", "voice_id": vid, "name": "N"})
+    seen = {}
+    monkeypatch.setattr(eleven_api, "add_shared_voice",
+                        lambda key, pub, vid, name=None: seen.update(pub=pub, vid=vid) or {"voice_id": "new", "name": name})
+    assert eleven.ensure_voice("ali-key", "lib123") == ("new", "library")
+    assert seen == {"pub": "pub", "vid": "lib123"}
+
+
+def test_a_voice_that_is_not_anywhere_falls_back_to_the_accounts_own(apikey, monkeypatch):
+    monkeypatch.setattr(accounts, "account_voices", lambda acc, lang=None: [{"voice_id": "own", "name": "B"}])
+    monkeypatch.setattr(eleven_api, "shared_voice", lambda key, vid: None)
+    assert eleven.ensure_voice("ali-key", "ghost") == ("own", "account-default")
+
+
+def test_the_default_narrator_is_one_the_account_has(apikey, monkeypatch):
+    from factory import formats
+    monkeypatch.setattr(accounts, "account_voices", lambda acc, lang=None: [{"voice_id": "mine", "name": "M"}])
+    assert formats.default_voice("tr", "ali-key") == "mine"

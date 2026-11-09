@@ -171,6 +171,21 @@ EFFORT_LEVELS = ("low", "medium", "high")     # what the settings page offers pe
 REVIEW_ROUNDS = (0, 1, 2)                      # how many review rounds a stage may use (0 = no reviewer)
 
 
+def account_voices(acc, lang=None):
+    """An API-key account's own voices (cached 10 min), cloned/professional first, filtered by 2-letter language."""
+    from . import eleven_api
+    if not acc or acc.get("type") != "apikey" or not acc.get("key"):
+        return []
+    try:
+        vs = eleven_api.info(acc["key"])["voices"]
+    except Exception:
+        return []
+    if lang:
+        vs = [v for v in vs if (v.get("language") or "en")[:2] == lang]
+    order = {"cloned": 0, "professional": 1, "generated": 2}
+    return sorted(vs, key=lambda v: (order.get(v.get("category"), 3), v.get("name") or ""))
+
+
 # ---------- chosen narrator per account ----------
 DEFAULTS = os.path.join(ROOT, "data", "eleven_defaults.json")
 
@@ -270,6 +285,21 @@ def set_media_settings(uid, mapping):
     rec["media"] = {**media_settings(uid), **clean}
     _save(USERS, u)
     return media_settings(uid)
+
+
+def account_voices(acc, lang=None):
+    """An API-key account's own voices (cached 10 min), cloned/professional first, filtered by 2-letter language."""
+    from . import eleven_api
+    if not acc or acc.get("type") != "apikey" or not acc.get("key"):
+        return []
+    try:
+        vs = eleven_api.info(acc["key"])["voices"]
+    except Exception:
+        return []
+    if lang:
+        vs = [v for v in vs if (v.get("language") or "en")[:2] == lang]
+    order = {"cloned": 0, "professional": 1, "generated": 2}
+    return sorted(vs, key=lambda v: (order.get(v.get("category"), 3), v.get("name") or ""))
 
 
 # ---------- chosen narrator per account ----------

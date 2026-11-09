@@ -61,6 +61,14 @@ def default_voice(lang=None, account=None):
             mine = None
         if mine:
             return mine
+    # the built-in narrator is an ElevenLabs voice that belongs to someone else's account: with an API-key account we
+    # must use one of ITS voices, or the voice "does not resolve" at the first take
+    from . import accounts as A
+    acc = A.eleven(account) if account else None
+    if acc and acc.get("type") == "apikey":
+        mine = A.account_voices(acc, lang if lang in DEFAULT_VOICES else "en")
+        if mine:
+            return mine[0]["voice_id"]
     return DEFAULT_VOICES.get(lang, DEFAULT_VOICES["en"])["voice_id"]
 VOICE_MODEL = "eleven_v4"
 # output canvases: vertical for TikTok / Shorts / Reels, horizontal for regular YouTube videos
