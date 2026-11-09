@@ -107,8 +107,16 @@ Use the board's palette and type pairing exactly; no other colour, no other font
 def _scene_prompt(pid, s, design, part, script, d):
     from . import agent
     p = P.load(pid, d)
-    briefs = "\n".join(json.dumps({k: sc.get(k) for k in ("id", "lines", "brief", "shows", "mechanism", "camera")},
-                                  ensure_ascii=False) for sc in part)
+    from .. import words as _w
+    def must(sc):
+        a, b = (sc.get("lines") or [0, 0])[:2]
+        text = " ".join(str(x) for x in (script.get("lines") or [])[a:b + 1])
+        import re as _re
+        nums = _re.findall(r"\d[\d.,]*", text)
+        names = [n for n in _w.proper_nouns(text) if len(n) > 2]
+        return [x for x in dict.fromkeys(nums + names)][:6]
+    briefs = "\n".join(json.dumps({**{k: sc.get(k) for k in ("id", "lines", "brief", "shows", "mechanism", "camera")},
+                                    "shows_must_name": must(sc)}, ensure_ascii=False) for sc in part)
     return f"""{agent.skill(p['line'], 'scene_plan', p)}
 
 # This run: the scenes {[sc['id'] for sc in part]}
@@ -129,6 +137,8 @@ Your scenes (draw exactly these, in this order):
 Reply ONLY JSON: {{"scenes": [{{"id": "...", "lines": [a, b], "mechanism": "...", "shows": "...",
   "camera": {{"move": "...", "seconds": 1.5, "easing": "...", "target": "..."}},
   "html": "<div class=\\"w\\">…</div>", "css": "scene-only CSS", "js": "timeline code using T.start"}}]}}
+Every scene's `shows` is one line: the subject, an action verb (rises, splits, fills, travels, appears, drops, counts
+up), and every figure or proper name its lines say — the list in `shows_must_name` is the minimum.
 `data-e` numbers on every visible element; no Math.random, no Date.now, no network; text stays out of the caption band."""
 
 
@@ -215,9 +225,12 @@ def validate(plan, script, board, refs=(), sp=None):
     from .. import camera, determinism, motiongrammar, originality, shotplan, subjectqc
     lines = script.get("lines") or []
     scenes_ = plan.get("scenes") or []
-    words = (sp or {}).get("words") or []
+    # the cut laws need the voice: a draft's word positions are an estimate, and cutting against them would refuse
+    # every plan before the voice exists (the animatic gate checks them again on real timing)
+    voiced = (sp or {}).get("timing") == "voice"
+    words = (sp or {}).get("words") or [] if voiced else []
     starts = [sc.get("start") for sc in (sp or {}).get("scenes") or []]
-    found = (shotplan.problems(scenes_, lines, words=words, starts=starts if all(s is not None for s in starts) else None)
+    found = (shotplan.problems(scenes_, lines, words=words, starts=starts if words and all(s is not None for s in starts) else None)
              or T.validate_artifact("scene_plan", plan))
     found += camera.problems(scenes_) or motiongrammar.problems(scenes_) or subjectqc.problems(scenes_, lines) \
         or determinism.problems(plan) or originality.problems(plan, lines, refs) \
