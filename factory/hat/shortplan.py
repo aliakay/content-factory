@@ -122,7 +122,7 @@ def _scene_prompt(pid, s, design, part, script, d):
 # This run: the scenes {[sc['id'] for sc in part]}
 The design system is approved and fixed — use its palette, its CSS and its kit, invent nothing else.
 
-Palette: {json.dumps(design.get('palette') or {{}}, ensure_ascii=False)}
+Palette: {json.dumps(design.get('palette') or {}, ensure_ascii=False)}
 Global CSS:
 {design.get('global_css') or ''}
 
