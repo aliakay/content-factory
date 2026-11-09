@@ -114,7 +114,8 @@ def idea(pid, s, note=None, d=None):
                     "en": " The lip-sync price is not known yet: a ceiling is reserved."}[ui]
     concept = {"id": "A", "title": p["title"], "hook": segs[0]["text"], "look": {"tr": "aynı görüntü", "en": "the same picture"}[ui],
                "structure": f"{len(segs)} lines · {dur:.0f} s · {frm}→{to}", "lines": [x["text"] for x in segs]}
-    art = {"concepts": [concept], "chosen": "A", "seconds": round(dur, 1), "from": frm, "to": to, "segments": segs,
+    art = {"concepts": [concept], "chosen": "A", "seconds": round(dur, 1), "look": concept["look"],
+           "from": frm, "to": to, "segments": segs,
            "lipsync": lip, "voice": {"use": True}, "music": {"use": False}, "cost": cost, "summary": summary}
     return {"artifact": art, "summary": summary}
 

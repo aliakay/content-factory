@@ -1,5 +1,10 @@
 # Explainer · Publish
 
+## Hard limits (the gate refuses these)
+- `credits` is the `attribution` tool's block verbatim; no asset without a licence reaches the description.
+- Caption in the video's language, under 150 characters, ending with a question; 3-5 hashtags.
+
+
 The video is rendered and checked. Write what goes with it when the creator posts it. Read `script` (title, caption
 draft, claims), `research` (sources) and `render` (duration, QA findings, cover candidates).
 
@@ -12,4 +17,6 @@ draft, claims), `research` (sources) and `render` (duration, QA findings, cover 
 - `summary` (interface language): one line on what is ready and one on what to check.
 
 ## Output (`publish`)
-`caption`, `hashtags[]`, `notes`, `summary`.
+`caption`, `hashtags[]`, `notes`, `credits` (the `attribution` tool's `block`, verbatim), `summary`.
+
+{{include:factory.licence:brief}}

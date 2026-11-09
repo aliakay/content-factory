@@ -1,0 +1,144 @@
+"""What we took from cinecode/otopilot/kurgu: caption blocks, camera inertia + speed words, windowed audio facts,
+and the guard on untrusted ffmpeg sources."""
+import subprocess
+
+import pytest
+
+from factory import camera, captions, fftools, qa
+from factory.config import FFMPEG
+
+
+# ---------------------------------------------------------------- captions: no blink between blocks
+def test_a_short_gap_is_closed_and_a_long_one_keeps_a_hold():
+    words = [("Merhaba", 1.0, 1.4), ("çağrı", 1.65, 2.0), ("için", 2.1, 2.5), ("dört", 2.55, 2.9)]
+    blocks = captions.blocks(words, "9:16")
+    assert blocks[0]["text"] == "Merhaba çağrı için"
+    assert blocks[0]["end"] == 2.55                    # 0.05 s gap: held until the next block starts (no empty frame)
+    far = captions.blocks([("a", 1.0, 1.4), ("b", 2.2, 2.6)], "9:16")
+    assert far[0]["end"] == pytest.approx(1.52)        # 0.8 s gap: 0.12 s hold, not 0.8
+
+
+def test_blocks_break_on_words_chars_and_punctuation():
+    three = [("bir", 0.0, 0.2), ("iki", 0.2, 0.4), ("üç", 0.4, 0.6), ("dört", 0.6, 0.8)]
+    assert [b["text"] for b in captions.blocks(three, "9:16")] == ["bir iki üç", "dört"]   # 3 words a line on 9:16
+    assert len(captions.blocks(three, "16:9")) == 1                                        # 7 a line on 16:9
+    sentence = [("geldi.", 0.0, 0.3), ("sonra", 0.31, 0.6)]
+    assert [b["text"] for b in captions.blocks(sentence, "16:9")] == ["geldi.", "sonra"]
+
+
+def test_a_block_never_shows_for_less_than_five_frames():
+    blocks = captions.blocks([("a", 1.0, 1.05)], "9:16")
+    assert blocks[0]["end"] - blocks[0]["start"] == pytest.approx(captions.MIN_S)
+
+
+def test_scene_windows_pick_their_blocks():
+    blocks = captions.blocks([("a", 0.0, 0.3), ("b", 1.0, 1.3), ("c", 5.0, 5.3)], "9:16")
+    assert [b["text"] for b in captions.overlapping(blocks, 0.9, 2.0)] == ["b"]
+
+
+# ---------------------------------------------------------------- camera: the inertia curve and speed words
+def test_inertia_is_a_third_linear_and_two_thirds_smoothstep():
+    assert camera.inertia(0.0) == 0.0 and camera.inertia(1.0) == 1.0
+    assert camera.inertia(0.25) == pytest.approx(0.35 * 0.25 + 0.65 * (0.25 * 0.25 * (3 - 2 * 0.25)))
+    assert camera.inertia(0.25) < 0.25          # slower than linear at the start, catches up at the end
+
+
+def test_the_inertia_easing_is_part_of_the_vocabulary():
+    cam = {"move": "push_in", "seconds": 1.2, "easing": "inertia", "target": "the number"}
+    assert camera.problems([{"id": "s1", "camera": cam}]) == []
+    assert camera.parse(cam)["easing"] == "inertia"
+    assert camera.speed_of("Hızlı") == camera.speed_of("fast") == "fast"
+    assert camera.speed_of("") is None
+
+
+def test_the_scene_library_carries_the_same_curve_and_a_punch():
+    js = open("motion/templates/fxlib.js", encoding="utf-8").read()
+    assert "FX.INERTIA" in js and "0.35 * p + 0.65" in js
+    assert "FX.punch" in js and "1.12" in js and "0.18" in js and "0.20" in js
+
+
+# ---------------------------------------------------------------- audio facts at a cut point
+@pytest.fixture
+def tone(tmp_path):
+    path = str(tmp_path / "t.wav")
+    subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=420:duration=6", path], check=True)
+    return path
+
+
+def test_a_cut_point_reports_level_and_holes(tone):
+    facts = qa.audio_facts(tone, 3.0, window=1.0)
+    assert facts["at"] == 3.0 and facts["window"] == 1.0
+    assert facts["rms_db"] is not None and facts["peak_db"] is not None
+    assert facts["silent_s"] == 0 and facts["speech"] is True
+
+
+def test_an_untrusted_source_is_refused_before_ffmpeg():
+    assert fftools.check_source("/tmp/clip.mp4") == "/tmp/clip.mp4"
+    for bad in ("https://example.com/a.m3u8", "rtsp://host/live", "/tmp/a.m3u8", "/tmp/a.ffconcat"):
+        with pytest.raises(ValueError):
+            fftools.check_source(bad)
+
+
+# ---------------------------------------------------------------- the board measures the style's own frame
+def test_the_board_measures_the_style_preview(tmp_path):
+    import os
+    from factory import filmstyles
+    from factory.hat import direction, project as P
+    prev = filmstyles.preview_file("riso_print")
+    if not os.path.exists(prev):
+        pytest.skip("no committed style preview on this machine")
+    pid = P.create("explainer", "t", d=str(tmp_path / "p"))["id"]
+    P.write_artifact(pid, "proposal", {"look": "style.riso_print",
+                                       "concepts": [{"id": "A", "look": "style.riso_print"}]}, str(tmp_path / "p"))
+    board = direction.build(pid, str(tmp_path / "p"))
+    m = board.get("measured") or {}
+    assert len(m.get("palette") or []) == 5 and m.get("accent", "").startswith("#")
+    assert 10 <= m["key"]["elevation_deg"] <= 70 and "patch" in m
+    assert board["palette"]["bg"].startswith("#")          # the card's palette still wins when it is real
+
+
+# ---------------------------------------------------------------- the own-footage tools (footagecut)
+def test_pause_trim_and_retake_flags_read_the_project_transcript(tmp_path):
+    import json
+    from factory.hat import project as P, tools as T
+    d = str(tmp_path / "projects")
+    pid = P.create("travel_vlog", "t", d=d)["id"]
+    words = [["bir", 0.0, 0.4], ["iki", 0.45, 0.9], ["üç", 14.0, 14.4], ["dört", 14.45, 14.9]]
+    P.write_artifact(pid, "transcript", {"words": words, "duration": 16.0}, d)
+    ctx = T.Ctx(pid, "scene_plan", d)
+    trim = T.call("pause_trim", ctx, {})
+    assert trim["saved_s"] > 2.0 and trim["intervals"] and "filter" in trim
+    flags = T.call("retake_flags", ctx, {})
+    assert flags["count"] == 0 and "bayrak yok" in flags["summary"]
+
+
+# ---------------------------------------------------------------- motionforge: plan laws, 3D labels, blur, mouth
+def test_a_cut_may_not_fall_inside_a_spoken_word_or_make_a_blink():
+    from factory import shotplan
+    words = [("elektrik", 0.0, 2.0), ("fatura", 2.0, 3.2)]
+    scenes = [{"id": "s1"}, {"id": "s2"}]
+    found = shotplan.timing_problems(scenes, words, [0.0, 1.9])
+    assert any("falls inside the word 'elektrik'" in f for f in found)
+    blink = shotplan.timing_problems([{"id": "s1"}, {"id": "s2"}], [("a", 0.0, 2.0)], [0.0, 0.6])
+    assert any("a scene needs at least 1 s" in f for f in blink)
+    assert shotplan.timing_problems([{"id": "s1"}, {"id": "s2"}], [("a", 0.0, 2.0)], [0.0, 2.0]) == []
+
+
+def test_the_scene_library_carries_3d_labels_lights_and_a_voiced_mouth():
+    js = open("motion/templates/fxlib.js", encoding="utf-8").read()
+    for needle in ("FX.anchor", "FX.lights", "FX.LIGHTS", "studio", "daylight", "night", "FX.blurFly", "FX.mouth"):
+        assert needle in js
+    assert "scaleY(" in js and "1.25em" in js
+
+
+def test_the_spec_and_the_bundle_carry_the_mouth_curve(tmp_path, monkeypatch):
+    import json
+    from factory import mouthcurve
+    from factory.hat import explainer as X, project as P
+    d = str(tmp_path / "p")
+    pid = P.create("explainer", "t", d=d)["id"]
+    wav = mouthcurve.write_wav(str(tmp_path / "voice.wav"), 1.0)
+    P.write_artifact(pid, "assets", {"voice": {"file": wav}}, d)
+    block = X.mouth_block(pid, d)
+    assert block and len(block["mouth"]["open"]) == 30
+    assert X.mouth_block(pid, d)["mouth"] == block["mouth"]        # cached: same numbers, no second measurement

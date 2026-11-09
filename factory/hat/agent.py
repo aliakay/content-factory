@@ -80,17 +80,27 @@ Aspect: {p.get('aspect')} · Earlier artifacts you can read: {', '.join(earlier)
 
 
 REVIEW_ROUNDS = 2
-PASS_SCORE = 90                                  # rubric points (of 100) a stage output needs from the reviewer (t515)
+PASS_SCORE = 85                                  # rubric points (of 100) a stage output needs from the reviewer;
+# 85 not 90 (2026-11): a stage with no critical finding and 85+ passes, and the suggestions stay on the gate card as
+# notes — a 88/100 with no critical used to send the whole stage back for a rewrite nobody needed.
 OTHER_MODEL = {"opus": "sonnet", "sonnet": "opus", "haiku": "sonnet"}
 SEVERITIES = ("critical", "suggestion", "nitpick")
 
 
 def run_stage(pid, s, note=None, d=None, user=None):
-    """Author -> reviewer, at most REVIEW_ROUNDS times while the reviewer finds critical problems.
-    Returns {artifact: None (already written), summary, review, cost}."""
+    """Author, then the reviewer — as many review rounds as the creator allows (Hesaplar → Denetim).
+
+    0 rounds = the reviewer never runs; 1 (the default) = one pass, which is the useful one; 2 = a fix round when the
+    reviewer finds a critical problem or the score misses the pass mark. Returns {artifact, summary, review, cost}."""
+    from .. import accounts
     cost, rounds, review = 0.0, [], None
+    want = min(accounts.review_rounds(user), REVIEW_ROUNDS)
+    # the reviewer runs wherever the manifest lists review lines: the rubric and the findings ledger are how a stage
+    # learns, and the ledger's open findings follow the stage into later rounds. The cheap lever is the round count
+    # (Hesaplar -> Denetim: 0/1/2) and the reviewer's output cap, not skipping stages.
     author_note = note
-    for rnd in range(REVIEW_ROUNDS + 1):
+    out = None
+    for rnd in range(max(1, want + 1)):      # want = how many FIX rounds: 0 = no reviewer, 1 = one repair
         try:
             out = _author(pid, s, author_note, d, user)
         except AgentError as e:
@@ -99,7 +109,7 @@ def run_stage(pid, s, note=None, d=None, user=None):
             P.event(pid, "review_fix_failed", d=d, stage=s["id"], error=str(e)[:300])   # keep the accepted output
             break
         cost += out["cost"]["usd"]
-        if not s["review"]:
+        if not s["review"] or want == 0:
             break
         review = review_stage(pid, s, d, user, rnd)
         cost += review.pop("cost_usd", 0) or 0
@@ -111,7 +121,7 @@ def run_stage(pid, s, note=None, d=None, user=None):
         if held and review["verdict"] == "pass":
             review["verdict"] = "fix"                   # an earlier critical the reviewer did not close blocks a pass
         low = review.get("score") is not None and review["score"] < review["pass_score"]
-        if not (critical or held or low) or rnd == REVIEW_ROUNDS:
+        if not (critical or held or low) or rnd >= want:
             break
         P.event(pid, "review_fix", d=d, stage=s["id"], round=rnd + 1, critical=len(critical), score=review.get("score"))
         author_note = ((note + "\n\n") if note else "") + _fix_note(review, critical, gauntlet.fix_lines(pid, s, d))
@@ -126,6 +136,9 @@ def _fix_note(review, critical, ledger=()):
     """What the author is told after a review that did not pass: the critical findings, the rubric items that
     scored below full marks with the findings on them, and every ledger entry still open."""
     out = []
+    out.append("PATCH MODE: your previous artifact is on disk — read it (`read_artifact`) and change ONLY what the "
+               "findings below name. Keep every other scene, line, colour, font and field exactly as it is: a full "
+               "rewrite is only right when a finding says the structure or the hook itself is wrong.")
     if critical:
         out.append("A reviewer found these critical problems in your submission; fix every one and submit again:\n"
                    + "\n".join(f"- [{f['item']}] {f['problem']} -> {f['fix']}" for f in critical))
@@ -181,7 +194,8 @@ def review_stage(pid, s, d=None, user=None, rnd=0):
     try:
         text, meta = llm.ask_text(review_task(pid, s, d, render), tools=tuple([f"mcp__{SERVER}__{n}" for n in ours] + builtins
                                                                          + ["Read"]),
-                                  timeout=1200, model=model, retries=1, servers=servers, budget_usd=BUDGET.get(model, 2.0))
+                                  timeout=1200, model=model, retries=1, servers=servers,
+                                  budget_usd=BUDGET.get(model, 2.0), max_output=2500)   # a rubric + findings, not an essay
         r = llm.extract_json(text)
     except (llm.LLMError, ValueError) as e:   # a broken review never blocks the stage: the gate shows it as missing
         P.event(pid, "review_error", d=d, stage=s["id"], error=str(e)[:300])
@@ -197,6 +211,7 @@ def review_stage(pid, s, d=None, user=None, rnd=0):
         else "pass"
     P.event(pid, "review", d=d, stage=s["id"], model=model, verdict=verdict, findings=len(findings), score=score)
     return {"verdict": verdict, "findings": findings, "summary": str(r.get("summary", ""))[:800], "model": model,
+            "model_used": llm.selected_model("agent.review_stage", model, provider=llm.provider_for("agent.review_stage")),
             "rubric": marks, "score": score, "pass_score": need, "cost_usd": meta.get("cost_usd") or 0,
             "ledger_marks": [x for x in (r.get("ledger") or []) if isinstance(x, dict)],
             "render": {"sheet": render["sheet"], "stills": len(render["stills"]), "grade": render.get("grade")}
@@ -213,14 +228,22 @@ def _author(pid, s, note=None, d=None, user=None):
     art = P.path(pid, "artifacts", s["artifact"] + ".json", d=d)
     before = os.path.getmtime(art) if os.path.exists(art) else 0
     started = time.time()
-    P.event(pid, "agent_start", d=d, stage=s["id"], model=model, tools=ours + builtins)
+    P.event(pid, "agent_start", d=d, stage=s["id"], model=model, provider=llm.provider_for(s["id"]),
+            model_used=llm.selected_model(s["id"], model), tools=ours + builtins)
+    reply, meta, broke = "", {}, None
     try:
         reply, meta = llm.ask_text(task(pid, s, note, d), tools=tuple(allowed_cli), timeout=s.get("timeout") or TIMEOUT,
                                    model=model, retries=1, servers=servers,
                                    budget_usd=s.get("budget_usd") or BUDGET.get(model, 3.0))
     except llm.LLMError as e:
         raise AgentError(str(e)) from None
+    except Exception as e:                 # the loop/tool budget raised: the work may still have landed
+        broke = f"{type(e).__name__}: {e}"
     written = os.path.exists(art) and os.path.getmtime(art) > before and os.path.getmtime(art) >= started - 1
+    if broke and not written:
+        raise AgentError(broke) from None
+    if broke:
+        P.event(pid, "agent_recovered", d=d, stage=s["id"], reason=broke[:200])
     P.event(pid, "agent_end", d=d, stage=s["id"], seconds=round(time.time() - started), cost_usd=meta.get("cost_usd"),
             submitted=written)
     if not written:

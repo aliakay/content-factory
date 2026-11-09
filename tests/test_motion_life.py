@@ -3,6 +3,7 @@ motion study and the measured motion gates the designer checks before a preview.
 import math, os, re, subprocess
 
 import numpy as np
+import pytest
 
 from factory import capabilities, motiondesign, motionref, qa
 from factory.config import FFMPEG
@@ -190,7 +191,10 @@ def test_motion_lint_reports_how_each_scene_comes_in():
         p = os.path.join(out, "bundle.json")
         json.dump({"palette": {}, "global_css": "", "words": [], "scenes": sc, "duration": 5.0, "w": 1080, "h": 1920,
                    "captions": {}, "lang": "en", "chapters": [], "chrome": {}}, open(p, "w"))
-        motion = htmlmotion.readcheck(p)["motion"]
+        try:
+            motion = htmlmotion.readcheck(p)["motion"]
+        except FileNotFoundError:            # the read needs a headless browser; a machine without one skips here
+            pytest.skip("headless browser (node + Chromium) not available on this machine")
         from factory import layoutlint
         rep = {}
         stills, errs, found = layoutlint.run(p, [0.6, 1.6], os.path.join(out, "lint"), report=rep)

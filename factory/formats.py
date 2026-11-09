@@ -50,7 +50,11 @@ def default_voice(lang=None, account=None):
     """voice_id of the default narrator for `lang` ("tr" / "en"; anything else = English). On the owner's account the
     machine's own profile default ("varsayılan yap", e.g. the creator's clone) comes first; a member's account or a
     machine without one gets the built-in narrators."""
-    if account == "ali":   # accounts.OWNER: data/eleven_profile.json describes the owner's connector
+    from . import accounts as A
+    picked = A.default_voice_for(account, lang if lang in DEFAULT_VOICES else "en") if account else None
+    if picked:
+        return picked
+    if account == "ali":   # the old connector profile still holds the owner's own pick
         try:
             mine = (json.load(open(PROFILE)).get("defaults") or {}).get(lang if lang in DEFAULT_VOICES else "en")
         except (OSError, ValueError):

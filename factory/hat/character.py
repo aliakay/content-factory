@@ -250,8 +250,8 @@ def proposal(pid, s, note=None, d=None):
                "structure": story["logline"], "look": "character", "key_frame": story["places"][0]["prompt"] if story["places"] else "",
                "characters": [{"id": c["id"], "name": c["name"], "look": c["look"]} for c in story["characters"]],
                "story": story}
-    art = {"concepts": [concept], "chosen": "A", "seconds": secs, "voice": {"use": True}, "music": story["music"],
-           "cost": cost, "summary": summary}
+    art = {"concepts": [concept], "chosen": "A", "seconds": secs, "look": story.get("art_style") or "character",
+           "voice": {"use": True}, "music": story["music"], "cost": cost, "summary": summary}
     return {"artifact": art, "summary": summary, "cost": {"usd": usd}}
 
 

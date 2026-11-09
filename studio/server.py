@@ -31,98 +31,6 @@ MAX_UPLOAD = 600 * 1024 * 1024
 OUT = os.path.join(ROOT, "out")
 TAILNET = shorts.TAILNET
 thumb_lock = threading.Lock()
-CODEX_MCP_LOCK = threading.Lock()
-CODEX_MCP_FLOW = {"status": "idle", "url": None, "state": None, "callback_url": None,
-                  "process": None, "error": None, "owner": None}
-CODEX_MCP_CALLBACK = "/api/codex/elevenlabs/callback"
-
-
-def codex_public_url():
-    """HTTPS tailnet URL used as the OAuth redirect target (Tailscale Serve fronts this app)."""
-    configured = os.environ.get("CF_PUBLIC_URL", "").rstrip("/")
-    if configured.startswith("https://"):
-        return configured
-    try:
-        serve = subprocess.run(["tailscale", "serve", "status", "--json"], capture_output=True,
-                               text=True, timeout=5)
-        serve_config = json.loads(serve.stdout or "{}") if serve.returncode == 0 else {}
-    except (OSError, subprocess.TimeoutExpired, ValueError):
-        serve_config = {}
-    if not serve_config:
-        raise ValueError("Hesaplar → Tailscale Serve'de HTTPS'i etkinleştir; OAuth dönüş adresi için güvenli bağlantı gerekiyor")
-    try:
-        p = subprocess.run(["tailscale", "status", "--json"], capture_output=True, text=True, timeout=5)
-        name = json.loads(p.stdout).get("Self", {}).get("DNSName", "").rstrip(".") if p.returncode == 0 else ""
-        if name:
-            return "https://" + name
-    except (OSError, subprocess.TimeoutExpired, ValueError):
-        pass
-    raise ValueError("Güvenli OAuth dönüş adresi bulunamadı (CF_PUBLIC_URL veya Tailscale Serve gerekli)")
-
-
-def _read_codex_oauth(proc, ready):
-    """Keep the CLI login alive, expose only its authorization URL, and track completion."""
-    try:
-        for line in iter(proc.stdout.readline, ""):
-            if "elevenlabs.io/app/oauth/authorize?" in line:
-                url = line.strip()
-                parsed = urllib.parse.urlsplit(url)
-                state = (urllib.parse.parse_qs(parsed.query).get("state") or [None])[0]
-                with CODEX_MCP_LOCK:
-                    if CODEX_MCP_FLOW.get("process") is proc:
-                        CODEX_MCP_FLOW.update(url=url, state=state, status="waiting", error=None)
-                ready.set()
-            if proc.poll() is not None:
-                break
-        rc = proc.wait(timeout=10)
-        with CODEX_MCP_LOCK:
-            if CODEX_MCP_FLOW.get("process") is proc:
-                CODEX_MCP_FLOW.update(status="connected" if rc == 0 and llm.codex_elevenlabs_status().get("connected")
-                                      else "error", url=None,
-                                      error=None if rc == 0 else "Codex OAuth girişi tamamlanamadı", process=None)
-    except Exception as exc:
-        with CODEX_MCP_LOCK:
-            if CODEX_MCP_FLOW.get("process") is proc:
-                CODEX_MCP_FLOW.update(status="error", error=f"Codex OAuth: {exc}", process=None, url=None)
-
-
-def start_codex_oauth(uid):
-    if not accounts.is_owner(uid):
-        raise ValueError("Codex ElevenLabs bağlantısını yalnızca hesap sahibi yönetebilir")
-    status = llm.codex_elevenlabs_status()
-    if status.get("connected"):
-        return {"connected": True}
-    with CODEX_MCP_LOCK:
-        proc = CODEX_MCP_FLOW.get("process")
-        if proc and proc.poll() is None and CODEX_MCP_FLOW.get("url"):
-            return {"url": CODEX_MCP_FLOW["url"]}
-        if proc and proc.poll() is None:
-            raise ValueError("Codex bağlantı penceresi hazırlanıyor; birkaç saniye sonra tekrar dene")
-    server_name = status.get("name") or "elevenlabs"
-    # ElevenLabs does not support dynamic client registration. Codex CIMD mode
-    # uses its documented no-browser callback URL input, which works from phones
-    # where the OAuth browser cannot reach the server's loopback address.
-    cmd = [llm.CODEX, "mcp", "login", server_name, "--no-browser", "--oauth-client-registration", "cimd"]
-    try:
-        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                text=True, bufsize=1, cwd=ROOT)
-    except OSError as exc:
-        raise ValueError(f"Codex CLI başlatılamadı: {exc}") from None
-    ready = threading.Event()
-    with CODEX_MCP_LOCK:
-        CODEX_MCP_FLOW.update(status="starting", url=None, state=None, callback_url=None,
-                              process=proc, error=None, owner=uid)
-    threading.Thread(target=_read_codex_oauth, args=(proc, ready), daemon=True).start()
-    if not ready.wait(20):
-        with CODEX_MCP_LOCK:
-            error = CODEX_MCP_FLOW.get("error")
-        raise ValueError(error or "Codex OAuth bağlantısı başlatılamadı")
-    with CODEX_MCP_LOCK:
-        if CODEX_MCP_FLOW.get("status") != "waiting":
-            raise ValueError(CODEX_MCP_FLOW.get("error") or "Codex OAuth bağlantısı başlatılamadı")
-        return {"url": CODEX_MCP_FLOW["url"]}
-
-
 # ---------- read models ----------
 def job_rows(con, limit=10):
     out = []
@@ -797,6 +705,7 @@ def voice_ids(aid):
 
 
 V1_OFF = "Eski (v1) üretim kapalı; yeni üretimi + (Üret) sayfasından v2 akışla başlat"
+LLM_PROVIDERS = ("claude", "codex", "openrouter")     # Claude Code CLI, Codex CLI, OpenRouter API (factory/openrouter.py)
 
 
 def voice_suggestions(q):
@@ -821,17 +730,11 @@ def voice_ready(d):
 
 
 def eleven_status(aid, uid=None):
-    """Availability of the selected ElevenLabs account through the selected CLI or API key."""
+    """Availability of the selected ElevenLabs account (API keys only; the CLI connector was removed)."""
     acc = accounts.eleven(aid) or {}
-    provider = accounts.llm_settings(uid)["provider"]
-    if acc.get("type") == "apikey":
-        connected = bool(acc.get("key"))
-    elif provider == "codex":
-        connected = llm.codex_elevenlabs_status().get("connected", False)
-    else:
-        connected = accounts.claude_status(acc.get("owner")).get("connectors", False)
-    return {"connected": connected, "images": connected and acc.get("type") == "connector",
-            "provider": provider, "account_type": acc.get("type")}
+    connected = bool(acc.get("key")) and acc.get("type") == "apikey"
+    return {"connected": connected, "images": connected, "account_type": acc.get("type"),
+            "provider": accounts.llm_settings(uid)["provider"]}
 
 
 def me(con):
@@ -843,15 +746,15 @@ def me(con):
         a.update(balance=i.get("balance"), error=i.get("error"), voices=len(i["voices"]))
         if not a["mine"] and a.get("member_month_cap") is not None:
             a["my_month"] = round(credits.month_spent(con, a["id"], uid))
-    codex_elevenlabs = llm.codex_elevenlabs_status()
-    with CODEX_MCP_LOCK:
-        codex_elevenlabs["flow"] = CODEX_MCP_FLOW.get("status")
-        codex_elevenlabs["error"] = CODEX_MCP_FLOW.get("error")
     out = {"id": uid, "name": u.get("name", uid), "role": u.get("role", "owner"), "login": accounts.enabled(),
            "claude": accounts.claude_status(uid), "eleven": accs, "default_eleven": accounts.default_eleven(uid),
-           "llm_settings": accounts.llm_settings(uid), "codex_elevenlabs": codex_elevenlabs,
-           "llm_models": {p: llm.model_options(p) for p in ("claude", "codex")},
-           "llm_default_models": {p: {step: llm.default_model(step, p) for step in llm.AGENT_STEPS} for p in ("claude", "codex")},
+           "llm_settings": accounts.llm_settings(uid), "review_rounds": accounts.review_rounds(uid),
+           "review_options": list(accounts.REVIEW_ROUNDS),
+           "openrouter": accounts.openrouter_status(uid), "gemini": accounts.gemini_status(uid),
+           "gemini_spend": (lambda: __import__("factory.gemini", fromlist=["gemini"]).month_usd(con))(),
+           "media_settings": accounts.media_settings(uid), "media_kinds": list(accounts.MEDIA_KINDS),
+           "llm_models": {p: llm.model_options(p) for p in LLM_PROVIDERS},
+           "llm_default_models": {p: {step: llm.default_model(step, p) for step in llm.AGENT_STEPS} for p in LLM_PROVIDERS},
            "llm_agents": [{"id": k, "name": v} for k, v in llm.AGENT_STEPS.items()], "ui_lang": accounts.ui_lang(uid)}
     if accounts.is_owner(uid):
         out["users"] = [{"id": k, "name": v["name"], "role": v["role"], "claude": accounts.claude_status(k)}
@@ -995,51 +898,10 @@ class Handler(shorts.Handler):
 
     def do_GET(self):
         path = urllib.parse.urlsplit(self.path).path
-        if self.allowed() and path == CODEX_MCP_CALLBACK:
-            return self.codex_oauth_callback()
         if self.allowed() and self.gate(False):
             self.route(head=False)
         elif not self.allowed():
             self.send_bytes(403, b"Forbidden\n", "text/plain; charset=utf-8", False)
-
-    def codex_oauth_callback(self):
-        """Pass the OAuth redirect URL to Codex CLI, which validates state and exchanges the code."""
-        parsed = urllib.parse.urlsplit(self.path)
-        params = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
-        state = (params.get("state") or [None])[0]
-        with CODEX_MCP_LOCK:
-            flow = CODEX_MCP_FLOW
-            proc = flow.get("process")
-            if not proc or proc.poll() is not None or flow.get("status") != "waiting":
-                return self.send_bytes(400, b"OAuth flow expired. Return to Content Factory and try again.\n",
-                                       "text/plain; charset=utf-8", False)
-            if not state or not flow.get("state") or not secrets.compare_digest(state, flow["state"]):
-                return self.send_bytes(400, b"OAuth state mismatch. Return to Content Factory and try again.\n",
-                                       "text/plain; charset=utf-8", False)
-            if params.get("error"):
-                flow.update(status="error", error="ElevenLabs yetkilendirmesi reddedildi", url=None)
-                try:
-                    proc.stdin.close()
-                except Exception:
-                    pass
-                return self.send_bytes(400, b"ElevenLabs connection was cancelled. Return to Content Factory.\n",
-                                       "text/plain; charset=utf-8", False)
-            callback = urllib.parse.urlsplit(flow.get("callback_url") or "")
-            try:
-                full_url = urllib.parse.urlunsplit((callback.scheme, callback.netloc, callback.path, parsed.query, ""))
-                proc.stdin.write(full_url + "\n")
-                proc.stdin.flush()
-                flow.update(status="finishing", url=None, state=None)
-            except (OSError, BrokenPipeError, AttributeError):
-                flow.update(status="error", error="Codex OAuth akışı kapandı", process=None)
-                return self.send_bytes(500, b"Codex could not finish the ElevenLabs connection.\n",
-                                       "text/plain; charset=utf-8", False)
-        html = ("<!doctype html><meta name=viewport content='width=device-width'><title>Bağlandı</title>"
-                "<body style='font:16px system-ui;background:#101116;color:#eee;padding:32px'>"
-                "<h2>ElevenLabs izni alındı</h2><p>Content Factory bağlantıyı tamamlıyor.</p>"
-                "<a style='color:#8eb7ff' href='/#/hesaplar'>Hesaplara dön</a>"
-                "<script>setTimeout(()=>location.replace('/#/hesaplar'),1500)</script></body>").encode()
-        return self.send_bytes(200, html, "text/html; charset=utf-8", False)
 
     def do_HEAD(self):
         if self.allowed() and self.gate(True):
@@ -1271,50 +1133,61 @@ class Handler(shorts.Handler):
         if path.startswith("/api/hat/"):
             return hat_api.post(con, path, b, lambda kind, arg: jobs.queue(con, kind, arg))
         if path == "/api/llm/settings":
-            provider, models = b.get("provider"), b.get("models", {})
-            if provider not in ("claude", "codex") or not isinstance(models, dict):
+            provider, models, providers = b.get("provider"), b.get("models", {}), b.get("providers", {})
+            effort = b.get("effort", {})
+            if provider not in LLM_PROVIDERS or not isinstance(models, dict) or not isinstance(providers, dict) \
+                    or not isinstance(effort, dict):
                 raise ValueError("CLI veya agent model seçimi geçersiz")
-            allowed_models = {x["id"] for x in llm.model_options(provider)}
-            if any(not isinstance(step, str) or not isinstance(model, str) or step not in llm.AGENT_STEPS
-                   or model not in allowed_models for step, model in models.items()):
-                raise ValueError("Agent veya model seçimi listede yok")
-            return {"llm_settings": accounts.set_llm_settings(uid, provider, models)}
-        if path == "/api/codex/elevenlabs/start":
-            if not accounts.is_owner(uid):
-                raise ValueError("Codex ElevenLabs bağlantısını yalnızca hesap sahibi yönetebilir")
-            status = llm.codex_elevenlabs_status()
-            if not status.get("configured"):
-                try:
-                    subprocess.run([llm.CODEX, "mcp", "add", "elevenlabs", "--url", "https://api.elevenlabs.io/v1/mcp"],
-                                   stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30, check=False)
-                except (OSError, subprocess.TimeoutExpired):
-                    raise ValueError("Codex ElevenLabs connector kaydedilemedi") from None
-            return start_codex_oauth(uid)
-        if path == "/api/codex/elevenlabs/finish":
-            if not accounts.is_owner(uid):
-                raise ValueError("Codex ElevenLabs bağlantısını yalnızca hesap sahibi yönetebilir")
-            callback_url = (b.get("url") or "").strip()
-            parsed = urllib.parse.urlsplit(callback_url)
-            params = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
-            state = (params.get("state") or [None])[0]
-            if (parsed.scheme != "http" or parsed.hostname not in ("localhost", "127.0.0.1", "::1")
-                    or parsed.path != "/callback" or not params.get("code") or not state):
-                raise ValueError("Codex'in yönlendirdiği tam localhost callback URL'sini yapıştır")
-            with CODEX_MCP_LOCK:
-                flow = CODEX_MCP_FLOW
-                proc = flow.get("process")
-                if not proc or proc.poll() is not None or flow.get("status") != "waiting":
-                    raise ValueError("Codex OAuth akışı sona ermiş; yeniden bağlan")
-                if not flow.get("state") or not secrets.compare_digest(state, flow["state"]):
-                    raise ValueError("OAuth state eşleşmedi; yeni bağlantı başlat")
-                try:
-                    proc.stdin.write(callback_url + "\n")
-                    proc.stdin.flush()
-                    flow.update(status="finishing", url=None, state=None)
-                except (OSError, BrokenPipeError, AttributeError):
-                    flow.update(status="error", error="Codex OAuth akışı kapandı", process=None, url=None)
-                    raise ValueError("Codex OAuth akışı kapandı; yeniden bağlan") from None
-            return {"ok": True}
+            for step, level in effort.items():
+                if step not in llm.AGENT_STEPS or level not in accounts.EFFORT_LEVELS:
+                    raise ValueError("Agent düşünme seviyesi geçersiz")
+            for step, chosen in providers.items():
+                if step not in llm.AGENT_STEPS and step != "default":
+                    raise ValueError("Agent seçimi listede yok")
+                if chosen and chosen not in LLM_PROVIDERS:
+                    raise ValueError("Agent CLI seçimi geçersiz")
+            for step, model in models.items():
+                if not isinstance(step, str) or not isinstance(model, str) or step not in llm.AGENT_STEPS:
+                    raise ValueError("Agent veya model seçimi listede yok")
+                own = providers.get(step) or providers.get("default") or provider
+                if model not in {x["id"] for x in llm.model_options(own)}:
+                    raise ValueError(f"'{model}' {own} kataloğunda yok")
+            if "review_rounds" in b:
+                accounts.set_review_rounds(uid, int(b.get("review_rounds")))
+            return {"llm_settings": accounts.set_llm_settings(uid, provider, models, providers, effort),
+                    "review_rounds": accounts.review_rounds(uid)}
+        if path == "/api/gemini/key":
+            key = (b.get("key") or "").strip()
+            if not key:                       # an empty box removes the user's own key
+                return {"gemini": accounts.set_gemini_key(uid, "")}
+            try:
+                from factory import gemini
+                info = gemini.check(key)
+            except ValueError as e:
+                raise ValueError(str(e)) from None
+            except Exception as e:            # the key may be good but the network is not: save it anyway
+                info = {"ok": False, "models": 0, "note": "doğrulanamadı: " + str(e)[:120]}
+            st = accounts.set_gemini_key(uid, key)
+            st["check"] = info
+            return {"gemini": st}
+        if path == "/api/media/settings":
+            from factory import mediaprov
+            return {"media_settings": mediaprov.set_settings(uid, b.get("media") or {}),
+                    "media_ready": mediaprov.ready(uid)}
+        if path == "/api/openrouter/key":
+            key = (b.get("key") or "").strip()
+            if not key:                       # an empty box removes the user's own key
+                return {"openrouter": accounts.set_openrouter_key(uid, "")}
+            try:
+                from factory import openrouter
+                info = openrouter.check(key)
+            except ValueError as e:
+                raise ValueError(str(e)) from None
+            except Exception as e:            # the key may be good but the network is not: save it anyway
+                info = {"ok": False, "label": "doğrulanamadı: " + str(e)[:120]}
+            st = accounts.set_openrouter_key(uid, key)
+            st["check"] = info
+            return {"openrouter": st}
         if path == "/api/claude/start":
             if accounts.is_owner(uid):
                 raise ValueError("Sahip VM'deki Claude girişini kullanıyor")
@@ -1529,12 +1402,13 @@ class Handler(shorts.Handler):
             jobs.queue(con, "voice_suggest", lang)
             return {"ok": True}
         if path == "/api/eleven/default":
-            prof = eleven_profile()
-            if b.get("voice_id") not in {v["voice_id"] for v in prof["voices"]} or b.get("lang") not in ("en", "tr"):
+            aid = b.get("account") or accounts.default_eleven(uid)
+            if not accounts.can_use(aid):
+                raise ValueError("Bu ElevenLabs hesabını kullanamazsın")
+            voices = {v["voice_id"] for v in eleven_info(aid)["voices"]}
+            if b.get("voice_id") not in voices or b.get("lang") not in ("en", "tr"):
                 raise ValueError("Bilinmeyen ses veya dil")
-            prof.setdefault("defaults", {})[b["lang"]] = b["voice_id"]
-            json.dump(prof, open(PROFILE, "w"), ensure_ascii=False, indent=1)
-            return {"ok": True}
+            return {"defaults": accounts.set_default_voice(aid, b["lang"], b["voice_id"])}
         if path == "/api/eleven/voices/add":
             if not accounts.is_owner(uid):
                 raise ValueError("Ses eklemek sahibin işi")
@@ -1807,14 +1681,11 @@ class Handler(shorts.Handler):
             return usage.summary(con)
         if path == "/api/refs":
             return {"refs": refs.library(con), "themes": refs.THEMES}
+        if path == "/api/reviewstats":
+            from factory.hat import reviewstats
+            return reviewstats.report()
         if path == "/api/me":
             return me(con)
-        if path == "/api/codex/elevenlabs/status":
-            state = llm.codex_elevenlabs_status()
-            with CODEX_MCP_LOCK:
-                state["flow"] = CODEX_MCP_FLOW.get("status")
-                state["error"] = CODEX_MCP_FLOW.get("error")
-            return state
         if path == "/api/eleven":
             aid = (q.get("account") or [accounts.default_eleven()])[0]
             if not accounts.can_use(aid):

@@ -25,21 +25,56 @@ def _htmlmotion():
     return htmlmotion
 
 
+def _word_weight(w):
+    """How much of a line's time a word takes: its letters (at least two) plus the pause its punctuation asks for.
+
+    A long word is not just longer on screen, it is spoken longer; a full stop carries a breath a comma does not. The
+    line's total time stays the speaking rate's — the weights only decide where inside the line each word lands, which
+    is what a cue (and the caption block) reads (`motionforge tools/word_timings.py` does the same for its fallback)."""
+    letters = max(2, sum(1 for c in w if c.isalnum()))
+    tail = w[-1] if w else ""
+    return letters + 1.5 + (1.2 if tail in ".!?…" else 0.6 if tail in ",;:" else 0.0)
+
+
 def draft_timing(lines, lang="tr"):
-    """Words [(w, s, e)] and line times for `lines` at the language's speaking rate."""
+    """Words [(w, s, e)] and line times for `lines` at the language's speaking rate, weighted per word."""
     wps = WPS.get(lang, 2.5)
     t, words, line_times = 0.0, [], []
     for line in lines:
         ws = line.split()
         start, span = t, len(ws) / wps                 # the line lasts words / rate ...
-        weight = sum(len(w) + 1 for w in ws) or 1
-        for w in ws:                                    # ... shared by word length
-            dur = span * (len(w) + 1) / weight
+        weight = sum(_word_weight(w) for w in ws) or 1
+        for w in ws:                                    # ... shared by weight, not equally
+            dur = span * _word_weight(w) / weight
             words.append((w, round(t, 3), round(t + dur, 3)))
             t += dur
         line_times.append({"start": round(start, 3), "end": round(t, 3)})
         t += PAUSE
     return words, line_times, round(max(t - PAUSE, 0.0), 3)
+
+
+def mouth_block(pid, d=None):
+    """{"mouth": {fps, open, shape}} when the voice file exists — the drawn mouth follows the real sound."""
+    from .. import mouthcurve
+    assets = P.read_artifact(pid, "assets", d) or {}
+    f = (assets.get("voice") or {}).get("file")
+    if not f:
+        return {}
+    path = os.path.join(ROOT, f)
+    if not os.path.exists(path):
+        return {}
+    cache = P.path(pid, "work", "mouth.json", d=d)
+    try:
+        meta = json.load(open(cache)) if os.path.exists(cache) else {}
+        if meta.get("for") == [f, os.path.getmtime(path)]:
+            return {"mouth": meta["curve"]}
+        curve = mouthcurve.curve(path)
+        os.makedirs(os.path.dirname(cache), exist_ok=True)
+        json.dump({"for": [f, os.path.getmtime(path)], "curve": curve}, open(cache, "w"))
+        return {"mouth": curve}
+    except Exception as e:
+        P.event(pid, "mouth_skipped", d=d, error=f"{type(e).__name__}: {e}"[:160])
+        return {}
 
 
 def narrated(script):
@@ -60,8 +95,28 @@ def beat_timing(lines, holds=None):
     return words, line_times, round(t, 3)
 
 
+def _music_bpm(pid, d=None):
+    """The tempo a music-led film is cut to: the generated track's measured bpm, else the proposal's declared one."""
+    if narrated(P.read_artifact(pid, "script", d) or {}):
+        return None, 0.0
+    assets = P.read_artifact(pid, "assets", d) or {}
+    mu = assets.get("music") or {}
+    if mu.get("bpm"):
+        return float(mu["bpm"]), float(mu.get("offset") or 0.0)
+    prop = P.read_artifact(pid, "proposal", d) or {}
+    pm = prop.get("music") or {}
+    try:
+        bpm = float(pm.get("bpm") or 0)
+    except (TypeError, ValueError):
+        bpm = 0.0
+    return (bpm, float(pm.get("offset") or 0.0)) if bpm > 0 else (None, 0.0)
+
+
 def timing(pid, d=None):
-    """The real voice timing when the assets stage made it, else the draft from the script."""
+    """The real voice timing when the assets stage made it, else the draft from the script.
+
+    A music-led film's holds are snapped to the track's beat grid (factory/beats.snap_holds) as soon as a tempo is
+    known, so every scene starts on a beat; the total length moves by at most half a beat."""
     p = P.load(pid, d)
     assets = P.read_artifact(pid, "assets", d) or {}
     voice = assets.get("voice") or {}
@@ -69,7 +124,12 @@ def timing(pid, d=None):
         return [tuple(w) for w in voice["words"]], voice["line_times"], voice["duration"], "voice"
     script = P.read_artifact(pid, "script", d) or {}
     if not narrated(script):
-        words, lt, dur = beat_timing(script.get("lines") or [], script.get("holds"))
+        holds = script.get("holds")
+        bpm, offset = _music_bpm(pid, d)
+        if bpm and holds:
+            from .. import beats
+            holds = beats.snap_holds(holds, bpm, offset)
+        words, lt, dur = beat_timing(script.get("lines") or [], holds)
         return words, lt, dur, "beats"
     words, lt, dur = draft_timing(script.get("lines") or [], p.get("video_lang", "tr"))
     return words, lt, dur, "draft"
@@ -81,18 +141,21 @@ def spec(pid, plan=None, d=None):
     plan = plan or P.read_artifact(pid, "scene_plan", d) or {}
     words, line_times, dur, source = timing(pid, d)
     silent = source == "beats" or not narrated(P.read_artifact(pid, "script", d))
-    total = round(dur + VOICE_START + TAIL, 3)
+    voice_start = 0.0 if silent else VOICE_START
+    total = round(dur + voice_start + TAIL, 3)
     scenes, n = [], len(line_times)
     for i, sc in enumerate(plan.get("scenes") or []):
         a, b = (sc.get("lines") or [0, 0])[:2]
         a, b = max(0, min(a, n - 1)), max(0, min(b, n - 1))
-        start = 0.0 if i == 0 else round(line_times[a]["start"] + VOICE_START, 3)
+        start = 0.0 if i == 0 else round(line_times[a]["start"] + voice_start, 3)
         scenes.append({"id": sc["id"], "lines": [a, b], "start": start, "hide_captions": silent or bool(sc.get("hide_captions"))})
     for i, sc in enumerate(scenes):
         sc["end"] = scenes[i + 1]["start"] if i + 1 < len(scenes) else total
-    chapters = [{"title": c["title"], "start": 0.0 if not c["line"] else round(line_times[c["line"]]["start"] + VOICE_START, 3)}
+    chapters = [{"title": c["title"], "start": 0.0 if not c["line"] else round(line_times[c["line"]]["start"] + voice_start, 3)}
                 for c in plan.get("chapters") or [] if 0 <= c.get("line", -1) < n]     # long form (factory/hat/longform.py)
-    return {"name": pid, "words": words, "line_times": line_times, "voice_start": VOICE_START, "duration": total,
+    from .. import captions as _cap
+    return {"name": pid, "words": words, "line_times": line_times, "voice_start": voice_start, "duration": total,
+            "caption_blocks": _cap.blocks(words, p.get("aspect", "9:16")), **mouth_block(pid, d),
             "scenes": scenes, "aspect": p.get("aspect", "9:16"), "lang": p.get("video_lang", "tr"),
             "captions": plan.get("captions") or CAPTIONS, "timing": source, "chapters": chapters,
             "chrome": plan.get("chrome") or {}}
@@ -187,7 +250,8 @@ def _render_spec(pid, plan, d=None, final=False):
     edit = P.read_artifact(pid, "edit", d) or {}
     v, mu = assets.get("voice") or {}, assets.get("music")
     sp.update(name=pid, voice={"file": v["file"]} if v.get("file") else None,
-              music={"file": mu["file"], "db": mu.get("db", -22), "seek": mu.get("seek", 0)} if mu and mu.get("file")
+              music={"file": mu["file"], "db": mu.get("db", -22), "seek": mu.get("seek", 0),
+                     "auto": bool(v.get("file"))} if mu and mu.get("file")
               else None,
               sound=edit.get("sound") or {"level": "full"}, voice_chain=edit.get("voice_chain") or "clean",
               post_fx=edit.get("post_fx") if final else None, motion_blur=edit.get("motion_blur") if final else None)
@@ -263,6 +327,7 @@ def assets(pid, s, note=None, d=None):
                 mpath = loop_music(mpath, secs, P.path(pid, "work", "music-long.m4a", d=d))
             music = end_on_card(pid, {"file": _rel(mpath), "prompt": prompt, "credits": round(mcost), "db": -22},
                                 times, d)
+        music = _tempo(music)
     art = {"voice": voice, "music": music}
     P.write_artifact(pid, "assets", art, d)          # the preview reads the real timing from here
     res, sp = _render(pid, final=False, d=d)
@@ -347,6 +412,22 @@ def composed(mu):
     return (mu or {}).get("source") == "composer"
 
 
+def cut_facts(path, sp, pid=None, d=None):
+    """The sound around every cut of a rendered film (qa.audio_facts): a 3 s window per cut, not the whole file."""
+    from .. import qa
+    out = os.path.join(ROOT, "work", "cut-facts.json")
+    try:
+        if not path or not os.path.exists(path):
+            return []
+        facts = [qa.audio_facts(path, round(s["start"], 2)) for s in (sp.get("scenes") or [])[1:]]
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        json.dump(facts, open(out, "w"), ensure_ascii=False)
+        return facts
+    except Exception as e:
+        P.event(pid, "cut_facts_skipped", d=d, error=f"{type(e).__name__}: {e}"[:160])
+        return []
+
+
 def compose_music(pid, prompt, secs, line_times, narrated, d=None):
     """An original score on the scene cues (t513), played locally: the music artifact entry, 0 credits."""
     from .. import compose
@@ -402,6 +483,20 @@ def end_on_card(pid, music, line_times, d=None):
     return music
 
 
+def _tempo(music):
+    """Measure a generated track and record its tempo and first-beat offset, so the cut can snap to its grid."""
+    from .. import beats
+    if not music or not music.get("file"):
+        return music
+    info = beats.bpm_of(os.path.join(ROOT, music["file"]))
+    if not info or not info.get("bpm"):
+        return music
+    step = 60.0 / info["bpm"]
+    first = (info.get("beats") or [0.0])[0]
+    music.update(bpm=round(info["bpm"], 1), offset=round(first % step, 3), measured=info.get("duration"))
+    return music
+
+
 def _music_only(pid, p, prop, con, account, d=None):
     from .. import eleven, productions
     _, _, dur, _ = timing(pid, d)
@@ -419,6 +514,7 @@ def _music_only(pid, p, prop, con, account, d=None):
                                        approved=remaining_budget(pid, d), account=account)
         music = end_on_card(pid, {"file": _rel(mpath), "prompt": prompt, "credits": round(mcost), "db": -10},
                             timing(pid, d)[1], d)
+    music = _tempo(music)
     art = {"voice": None, "music": music}
     P.write_artifact(pid, "assets", art, d)
     res, sp = _render(pid, final=False, d=d)
@@ -437,7 +533,15 @@ def edit(pid, s, note=None, d=None):
     post, blur = look.get("post_fx") or None, look.get("motion_blur")
     art = {"sound": {"level": "full"}, "voice_chain": "clean", "post_fx": post, "motion_blur": blur,
            "summary": "", "note": note}
-    P.decision(pid, "edit", "sound full, voice chain clean" + (", film post" if post else ""), d=d)
+    from .. import beats
+    bpm, offset = _music_bpm(pid, d)
+    if bpm:
+        starts = [sc["start"] for sc in spec(pid, None, d)["scenes"]][1:]
+        fit = beats.grid_fit(starts, beats.grid(bpm, max(starts or [0]) + 1, offset))
+        art["beat_fit"] = fit | {"bpm": bpm}
+        art["findings"] = beats.problems(starts, beats.grid(bpm, max(starts or [0]) + 1, offset))
+    P.decision(pid, "edit", "sound full, voice chain clean" + (", film beat grid" if bpm else "")
+               + (", film post" if post else ""), d=d)
     return {"artifact": art, "summary": ""}
 
 
@@ -456,6 +560,14 @@ def compose(pid, s, note=None, d=None):
             sl = craftcheck.scene_loudness(res["file"], starts)
             sound["findings"] += sl["findings"]
             sound["metrics"]["scenes"] = sl["scenes"]
+        cuts = cut_facts(res["file"], sp, pid, d)
+        if cuts:                                   # each cut: is there a hole, is anyone speaking
+            sound["cuts"] = cuts
+            silent = [c for c in cuts if c["silent_s"] > 1.0]
+            if silent:
+                sound["findings"].append({"kind": "cut_hole",
+                                          "detail": f"{len(silent)} kesimde >1 s sessizlik: "
+                                                    f"{[c['at'] for c in silent][:4]}"})
     except Exception as e:
         sound = {"error": f"{type(e).__name__}: {e}"[:300]}
     script = P.read_artifact(pid, "script", d) or {}
@@ -470,4 +582,13 @@ def compose(pid, s, note=None, d=None):
     art = {"final": _rel(res["file"]), "duration": sp["duration"], "qa": {"technical": tech, "sound": sound},
            "covers": [_rel(c) for c in covers], "render": {k: res[k] for k in ("cues", "music_cuts", "capture_s", "parts") if k in res},
            "summary": summary}
+    from .. import determinism
+    from .. import originality
+    edit = P.read_artifact(pid, "edit", d) or {}
+    art["fingerprint"] = determinism.fingerprint(sp, design(plan))
+    art["originality_signature"] = originality.signature(plan, script.get("lines") or [])
+    if edit.get("beat_fit"):
+        art["beat_fit"] = edit["beat_fit"]
+    if edit.get("findings"):
+        art["qa"]["beat_grid"] = edit["findings"]
     return {"artifact": art, "summary": summary}

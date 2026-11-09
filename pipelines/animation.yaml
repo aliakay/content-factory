@@ -48,24 +48,48 @@ stages:
     gate: true
     run: agent
     model: opus
-    tools: [read_artifact, web_search, web_fetch, proof_check, words_check]
+    tools: [read_artifact, web_search, web_fetch, proof_check, words_check, cold_test]
     review:
       - "Music-led: every line is short on-screen text (<= 7 words) with a hold in seconds; holds add up to the approved length within 10%"
       - "Narrated: word count fits the approved length within 10%"
       - "The first beat lands the hook in under 1.5 seconds"
       - "Every figure is a verified claim with a source"
+      - "The hook rule holds: line 1 lands in 3 s, is concrete and shares the title's subject"
+      - "The cold test passes: a stranger's one sentence about the lines is the title's subject"
+
+  - id: direction
+    gate: true
+    run: code
+    call: factory.hat.direction:run
+    review:
+      - "One look: palette, type pairing and four rules taken from the chosen style or a stable scheme"
+      - "Every scene will be drawn in this board; a note naming colours or a font redraws it"
 
   - id: scene_plan
     gate: true
-    run: agent
+    run: code
+    call: factory.hat.shortplan:build
     model: opus
-    tools: [read_artifact, catalog, recipes, stock_search, render_stills, layout_lint, contact_sheet, proof_check, rhythm_check, beat_frames]
+    tools: [read_artifact, catalog, recipes, stock_search, render_stills, layout_lint, contact_sheet, proof_check, rhythm_check, beat_frames, subject_check, originality_check]
     review:
       - "Motion leads: every scene has one clear movement idea, not a static card"
       - "No two consecutive scenes use the same visual device"
       - "rhythm_check is clean: scene lengths vary with the idea (spread >= 0.30, no run of five alike)"
       - "Layout lint has no errors; text is readable on a phone at a glance"
+      - "The repeated-render determinism check gives identical frames"
       - "Every on-screen figure matches the script"
+      - "Every scene names its camera (move, seconds, easing, target) and its `shows` (subject + action)"
+      - "No stock metaphor stands in for the idea; originality_check scores distinct and the board's palette/type are kept"
+
+  - id: animatic
+    gate: true
+    run: code
+    call: factory.hat.animatic:run
+    review:
+      - "The whole film at draft timing: half size, 15 fps, silent but for the click track; no credits spent"
+      - "Every scene is long enough to register and short enough for its one idea"
+      - "Every script line is shown by a scene; no scene reads faster than the voice can speak"
+      - "The picture moves in the first two seconds and never sits still for long"
 
   - id: assets
     gate: true
@@ -89,7 +113,8 @@ stages:
     gate: true
     run: agent
     model: sonnet
-    tools: [read_artifact, proof_check, safe_area]
+    tools: [read_artifact, proof_check, safe_area, attribution]
     review:
       - "Caption in the video's language, under 150 characters, ends with a question"
       - "3–5 hashtags that match the topic"
+      - "`credits` is the attribution tool's block verbatim; no asset is unlicensed"

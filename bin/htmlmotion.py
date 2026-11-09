@@ -34,6 +34,7 @@ def make_bundle(spec, design):
             "scenes": scenes, "duration": spec["duration"], "w": w, "h": h, "captions": spec.get("captions") or {},
             "lang": spec.get("lang", "en"),   # sets <html lang>: CSS uppercase then maps i -> İ in Turkish
             "chapters": spec.get("chapters") or [], "chrome": spec.get("chrome") or {},   # long form: progress bar
+            **({"mouth": spec["mouth"]} if spec.get("mouth") else {}),
             **beat_grid(spec)}
 
 

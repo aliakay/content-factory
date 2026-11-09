@@ -27,6 +27,7 @@ stages:
   - id: proposal
     gate: true
     run: code
+    schema: proposal_code
     call: factory.hat.character:proposal
 
   - id: script

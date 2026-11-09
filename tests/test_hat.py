@@ -22,7 +22,7 @@ def test_every_line_loads_with_both_languages():
             assert s["name"]["tr"] and s["name"]["en"], (m["id"], s["id"])
     ex = lines["explainer"]
     assert ex["status"] == "ready" and [s["id"] for s in ex["stages"] if s["gate"]] == \
-        ["proposal", "script", "scene_plan", "assets", "publish"]
+        ["proposal", "script", "direction", "scene_plan", "animatic", "assets", "publish"]   # the look is approved first
 
 
 def test_localize_picks_one_language():
@@ -164,21 +164,9 @@ def test_planned_stages_cannot_run(d, monkeypatch, tmp_path):
 
 # ---------------------------------------------------------------- the line manager
 
-def _fake_line(monkeypatch, outputs, fail_on=()):
-    """Stand in for the stage agent and the code steps: each stage returns outputs[sid] (or a default)."""
-    from factory.hat import runner
-
-    def fake_agent(pid, s, note=None, d=None):
-        if s["id"] in fail_on:
-            raise RuntimeError(f"{s['id']} broke")
-        out = outputs.get(s["id"], {"artifact": {"ok": s["id"], "note": note}})
-        return out(note) if callable(out) else out
-    import types, sys, factory.hat
-    fake = types.SimpleNamespace(run_stage=fake_agent)
-    monkeypatch.setitem(sys.modules, "factory.hat.agent", fake)
-    monkeypatch.setattr(factory.hat, "agent", fake, raising=False)   # `from . import agent` reads the package first
-    monkeypatch.setattr(runner, "_code_step", lambda call: fake_agent)
-    return runner
+from line_fixtures import (BOARD, board as _board, cold_evidence as _cold_evidence,  # noqa: E402
+                           fake_line as _fake_line, direction as _direction, plan as _plan_fixture,
+                           script as _script_fixture)
 
 
 class Q:
@@ -200,24 +188,25 @@ def test_line_runs_until_each_gate(d, monkeypatch):
     assert [j[0] for j in q.jobs] == ["hat_stage", "hat_stage"]
     assert runner.approve(pid, "proposal", q, by="ali", d=d) == ("gate", "script")
     assert P.load(pid, d)["budget"]["credits"] == 640                 # the approved proposal fixed the budget
-    for sid in ("script", "scene_plan", "assets"):
-        runner.approve(pid, sid, q, d=d)
+    for sid in ("script", "direction", "scene_plan", "animatic", "assets"):
+        runner.approve(pid, sid, q, d=d)      # the look board is approved before a scene is drawn
     assert P.next_stage(pid, d) == ("gate", "publish")              # edit and compose ran on their own
     runner.approve(pid, "publish", q, d=d)
     assert P.next_stage(pid, d) == ("done", None)
 
 
 def test_feedback_reaches_the_stage_and_failures_wait(d, monkeypatch):
-    runner = _fake_line(monkeypatch, {"script": lambda note: {"artifact": {"lines": [note or "ilk"]}}},
+    runner = _fake_line(monkeypatch, {"script": lambda note: {"artifact": _script_fixture(note)}},
                         fail_on=("scene_plan",))
     pid = P.create("explainer", "t", d=d)["id"]
     q = Q(runner, d)
     runner.advance(pid, q, d=d)
     runner.approve(pid, "proposal", q, d=d)
-    assert P.read_artifact(pid, "script", d)["lines"] == ["ilk"]
-    assert runner.feedback(pid, "script", "daha kısa", q, d=d) == ("gate", "script")
-    assert P.read_artifact(pid, "script", d)["lines"] == ["daha kısa"]
-    assert runner.approve(pid, "script", q, d=d) == ("failed", "scene_plan")
+    assert P.read_artifact(pid, "script", d)["lines"][1] == "Depolar boşaldı, musluklar kapandı"
+    assert runner.feedback(pid, "script", "Depolar boşaldı, kimse ölçmedi", q, d=d) == ("gate", "script")
+    assert P.read_artifact(pid, "script", d)["lines"][1] == "Depolar boşaldı, kimse ölçmedi"
+    assert runner.approve(pid, "script", q, d=d) == ("gate", "direction")
+    assert runner.approve(pid, "direction", q, d=d) == ("failed", "scene_plan")
     assert "broke" in P.checkpoint(pid, "scene_plan", d)["error"]
     assert runner.back(pid, "script", d=d) == ("gate", "script")
 
@@ -409,7 +398,8 @@ def test_cli_commands_attach_our_server(monkeypatch, tmp_path):
     import subprocess
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(llm, "_record", lambda *a, **k: None)
-    monkeypatch.setattr(llm, "selected_provider", lambda *a, **k: "claude")
+    monkeypatch.setattr(llm, "selected_provider", lambda *a, **k: "claude")   # and the per-step choice
+    monkeypatch.setattr(llm, "provider_for", lambda *a, **k: "claude")        # (the VM user may have saved another)
     monkeypatch.setattr(accounts, "claude_env", lambda: {})
     monkeypatch.setattr(llm, "WORKDIR", str(tmp_path))
     monkeypatch.setattr(llm, "ask_text", _REAL_ASK_TEXT)      # subprocess is faked above, so nothing real runs
@@ -459,6 +449,8 @@ def test_rubric_score_below_the_bar_goes_back_to_the_author(d, skills, monkeypat
     assert skills.rubric(s["review"], [10]) == (None, None) and skills.rubric(s["review"], ["x"] * n) == (None, None)
     assert skills.rubric(s["review"], [99] + [-3] * (n - 1))[0][1]["score"] == 0
     calls = {"author": [], "review": []}
+    from factory import accounts as _acc
+    _acc.set_review_rounds("ali", 2)                    # this test drives two verdicts: two repair rounds
     low = [2] + [10] * (n - 1)
     verdicts = iter([json.dumps({"verdict": "pass", "scores": low, "summary": "Zayıf.", "findings": [
                          {"severity": "suggestion", "item": "sources", "problem": "eski", "fix": "yenile"}]}),
@@ -473,13 +465,13 @@ def test_rubric_score_below_the_bar_goes_back_to_the_author(d, skills, monkeypat
         return "submitted", {"cost_usd": 0.1}
     monkeypatch.setattr(llm, "ask_text", fake_cli)
     out = skills.run_stage(pid, s, d=d)
-    assert f"{n} marks in `scores`" in calls["review"][0] and "Pass mark: 90/100" in calls["review"][0]
+    assert f"{n} marks in `scores`" in calls["review"][0] and "Pass mark: 85/100" in calls["review"][0]
     assert "1. " + s["review"][0] in calls["review"][0]
     expected = round(10 * sum(low) / n)
-    assert expected < 90 and f"rubric score is {expected}/100; 90 is needed" in calls["author"][1]
+    assert expected < 85 and f"rubric score is {expected}/100; 85 is needed" in calls["author"][1]
     assert f"- {s['review'][0]}: 2/10" in calls["author"][1] and "eski -> yenile" in calls["author"][1]
     r = out["review"]
-    assert r["score"] == 100 and r["verdict"] == "pass" and r["rounds"] == 2 and r["pass_score"] == 90
+    assert r["score"] == 100 and r["verdict"] == "pass" and r["rounds"] == 2 and r["pass_score"] == 85
     assert [x["score"] for x in r["rubric"]] == [10] * n
     ev = [json.loads(x) for x in open(P.path(pid, "events.jsonl", d=d))]
     assert [e.get("score") for e in ev if e["kind"] == "review"] == [expected, 100]
@@ -513,6 +505,8 @@ def test_gauntlet_ledger_must_close_earlier_findings(d, skills, monkeypatch):
         {"scores": [10] * n, "findings": [{"severity": "suggestion", "item": "angles", "problem": "a", "fix": "b"}],
          "ledger": [{"id": "f1", "status": "fixed"}, {"id": "zz", "status": "fixed"}]}])
     prompts = {"author": [], "review": []}
+    from factory import accounts as _acc
+    _acc.set_review_rounds("ali", 2)                    # the ledger is walked over two repair rounds
 
     def fake_cli(prompt, **k):
         if "REVIEWER CONTRACT" in prompt:
@@ -526,7 +520,7 @@ def test_gauntlet_ledger_must_close_earlier_findings(d, skills, monkeypatch):
     assert len(prompts["author"]) == 3 and "Ledger" not in prompts["review"][0]
     assert "- f1 [critical] sources: 3 kaynak -> 5 yap" in prompts["review"][1] and "ton" not in prompts["review"][1]
     assert "Still open in the review ledger" in prompts["author"][2] and "f1 [sources]" in prompts["author"][2]
-    assert "Still open in the review ledger" not in prompts["author"][1]          # round 1's own critical is listed once
+    assert "Still open in the review ledger" not in prompts["author"][1]
     r = out["review"]
     assert r["verdict"] == "pass" and r["rounds"] == 3 and r["open_critical"] == 0
     assert (r["ledger"]["fixed"], r["ledger"]["open"]) == (1, 1) and [e["id"] for e in r["ledger"]["entries"]] == ["f1", "f2"]
@@ -536,7 +530,8 @@ def test_gauntlet_ledger_must_close_earlier_findings(d, skills, monkeypatch):
     G._save(pid, "research", {"entries": [{"id": "f9", "review": 1, "run": 0, "round": 1, "status": "open",
                                            "severity": "critical", "item": "x", "problem": "y", "fix": "z"}],
                               "reviews": 1}, d)
-    monkeypatch.setattr(skills, "REVIEW_ROUNDS", 0)
+    from factory import accounts as _acc
+    _acc.set_review_rounds("ali", 1)                    # one review, and it must not pass over an open critical
     monkeypatch.setattr(llm, "ask_text", lambda prompt, **k: (json.dumps({"scores": [10] * n, "findings": []}), {})
                         if "REVIEWER CONTRACT" in prompt else (T.call("submit_artifact", T.Ctx(pid, "research", d),
                                                                      {"data": GOOD_RESEARCH}) and "ok", {}))
@@ -866,7 +861,7 @@ def test_beats_hold_their_seconds_and_hide_captions(d):
     plan = {"scenes": [{"id": "s1", "lines": [0, 1]}, {"id": "s2", "lines": [2, 2]}]}
     sp = X.spec(pid, plan, d)
     assert sp["timing"] == "beats" and all(s["hide_captions"] for s in sp["scenes"])
-    assert sp["scenes"][1]["start"] == round(2 + X.VOICE_START, 3)
+    assert sp["voice_start"] == 0.0 and sp["scenes"][1]["start"] == 2.0   # music-led: the film starts on the beat
     P.write_artifact(pid, "script", {"lines": ["a b", "c"]}, d)               # narrated: captions stay
     assert not any(s["hide_captions"] for s in X.spec(pid, {"scenes": [{"id": "s1", "lines": [0, 1]}]}, d)["scenes"])
 
@@ -1654,7 +1649,8 @@ def test_documentary_narrated_montage(d, monkeypatch, tmp_path):
     fin = "/" + P.read_artifact(pid, "render", d)["final"]
     assert abs(talk.probe(fin)["duration"] - 9.8) < 0.15
     pub = P.read_artifact(pid, "publish", d)
-    assert "Ayşe A (Wikimedia Commons, CC BY-SA 4.0)" in pub["caption"] and len(pub["credits"]) == 3
+    assert "Ayşe A (Wikimedia Commons, CC BY-SA 4.0)" in pub["caption"]                 # the credit reaches the caption
+    assert len(pub["credits"].splitlines()) == 3 and all(f"Ayşe {x}" in pub["credits"] for x in "ABC")
 
 
 def test_documentary_music_only_has_beat_captions(d, monkeypatch, tmp_path):
@@ -1963,6 +1959,14 @@ def test_proof_numbers_are_read_in_digits_and_words():
         == "Kaynak: TÜİK"
 
 
+def _cold_evidence(pid, d, artifact="script"):
+    """What the agent's `cold_test` call leaves behind: a passing verdict about these exact lines."""
+    from factory import coldtest
+    art = P.read_artifact(pid, artifact, d) or {}
+    P.write_artifact(pid, "cold_read", {"fingerprint": coldtest.fingerprint(art),
+                                        "result": {"ok": True, "one_sentence": str(art.get("title") or "")}}, d)
+
+
 def _proof_project(d, proof=True):
     pid = P.create("explainer", "Konut", d=d, extra={"proof": proof, "ui_lang": "en"})["id"]
     run(pid, "research", d, {"insight": "Housing", "sources": [{"url": "https://data.tuik.gov.tr/x", "title": "TÜİK"}],
@@ -1979,11 +1983,12 @@ def test_proof_mode_blocks_a_gate_until_every_number_has_a_source(d):
     from factory import proof as X
     from factory.hat import runner
     pid = _proof_project(d)
-    run(pid, "script", d, {"title": "t", "hook": "h", "claims": [], "lines": [
-        "2024'te bir buçuk milyon değil, tam 1,48 milyon konut satıldı.", "Yabancıların payı yüzde 1,6."]})
+    run(pid, "script", d, {"title": "Konut satışı", "hook": "2024'te 1,48 milyon konut satıldı",
+                           "claims": [], "lines": ["2024'te 1,48 milyon konut satıldı", "Yabancıların payı yüzde 1,6."]})
+    _cold_evidence(pid, d)
     r = X.check(pid, "script", d)
-    assert [x["text"] for x in r["items"]] == ["2024", "1,48 milyon", "bir buçuk milyon", "yüzde 1,6"]
-    assert r["unmatched"] == 1 and r["items"][3]["problem"] == "no_source"      # the 1.6% figure names no source
+    assert [x["text"] for x in r["items"]] == ["2024", "1,48 milyon", "yüzde 1,6"]
+    assert r["unmatched"] == 1 and r["items"][2]["problem"] == "no_source"      # the 1.6% figure names no source
     with pytest.raises(P.GateError, match="1 number"):
         runner.approve(pid, "script", lambda *a: None, d=d)
     assert P.checkpoint(pid, "script", d)["status"] == "awaiting_approval"
@@ -1994,6 +1999,12 @@ def test_proof_mode_blocks_a_gate_until_every_number_has_a_source(d):
     assert X.check(pid, "script", d)["ok"]
     runner.approve(pid, "script", lambda *a: None, by="ali", d=d)
     assert P.checkpoint(pid, "script", d)["status"] == "approved"
+    # the look board comes before the scenes now: hand it in and approve it to reach the scene plan
+    P.finish(pid, "direction", {"palette": {"bg": "#101418", "ink": "#F2F0E9", "accent": "#FFD93D"},
+                                "type": {"display": "Anton", "body": "Inter Tight"},
+                                "rules": [{"what": w, "says": "x"} for w in ("light", "texture", "motion", "type")],
+                                "summary": "s"}, d=d)
+    runner.approve(pid, "direction", lambda *a: None, d=d)
 
     # scenes: the number must be said in the script, and the scene must name and show its source
     scene = {"id": "s1", "lines": [0, 1], "html": "<div class='big'>1,48 milyon</div><div>%1,6</div><div>%9</div>"}
@@ -2033,7 +2044,7 @@ def test_proof_mode_is_off_by_default_and_reaches_agent_and_board(d, monkeypatch
 
 def _scene_gate(d):
     pid = P.create("explainer", "Sahne", d=d, extra={"ui_lang": "tr"})["id"]
-    for sid in ("research", "proposal", "script"):
+    for sid in ("research", "proposal", "script", "direction"):
         cp = run(pid, sid, d, {"lines": ["a", "b"]} if sid == "script" else {"x": 1})
         if cp["status"] == "awaiting_approval":
             P.approve(pid, sid, d=d)
@@ -2090,7 +2101,7 @@ def test_scene_editor_trims_on_the_timeline_by_moving_the_cut(d):
     from factory import sceneedit as S
     from factory.hat import manifest
     pid = P.create("explainer", "Kesme", d=d, extra={"ui_lang": "tr"})["id"]
-    for sid in ("research", "proposal", "script"):
+    for sid in ("research", "proposal", "script", "direction"):
         cp = run(pid, sid, d, {"lines": ["bir", "iki", "üç", "dört"]} if sid == "script" else {"x": 1})
         if cp["status"] == "awaiting_approval":
             P.approve(pid, sid, d=d)
@@ -2290,9 +2301,12 @@ def test_motion_grammar_reaches_the_designers_and_submit_checks_mechanisms(d):
     assert "MOTION GRAMMAR" in anim and "MECHANISM CATALOGUE" not in anim
     assert any("motion grammar" in r for r in manifest.stage(manifest.get("explainer"), "scene_plan")["review"])
     pid = P.create("explainer", "m", d=d)["id"]
+    cam = {"move": "push_in", "seconds": 1.5, "easing": "ease_out", "target": "the question"}
     plan = {"concept": "c", "palette": {}, "summary": "s", "scenes": [
-        {"id": "hook", "lines": [0, 0], "html": "<h1>a</h1>", "mechanism": "hook_question"},
-        {"id": "end", "lines": [1, 1], "html": "<h1>b</h1>"}]}
+        {"id": "hook", "lines": [0, 0], "html": "<h1>a</h1>", "mechanism": "hook_question",
+         "shows": "a hook question appears over a dark ground", "camera": cam},
+        {"id": "end", "lines": [1, 1], "html": "<h1>b</h1>",
+         "shows": "a closing line lands under the figure", "camera": {**cam, "move": "pan_left", "easing": "ease_in_out"}}]}
     r = T.call("submit_artifact", T.Ctx(pid, "scene_plan", d), {"data": plan})
     assert not r["accepted"] and "scene end: name its `mechanism`" in r["problems"][0]
     plan["scenes"][1]["mechanism"] = "cta_end"

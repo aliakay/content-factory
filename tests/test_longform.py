@@ -26,19 +26,29 @@ LINES = ["Gas crossed one hundred euros today.", "Here is why, and what comes ne
          "Part one: why it rose.", "Storage was low after a cold March.", "Then a pipeline stopped for repairs.",
          "Part two: who pays.", "Factories pay first.", "Households pay later.",
          "Part three: what next.", "Summer refills decide the winter.", "Watch the storage number.", "Subscribe for more."]
+def _cam(move, target):
+    return {"move": move, "seconds": 1.5, "easing": "ease_out", "target": target}
+
+
 SCRIPT = {"title": "Gas at 100", "hook": LINES[0], "lines": LINES, "summary": "s", "claims": [],
           "chapters": [{"title": "Why it rose", "line": 2}, {"title": "Who pays", "line": 5}, {"title": "What next", "line": 8}]}
 OUTLINE = {"concept": "c", "palette": {"bg": "#0b0d12", "ink": "#ffffff", "accent": "#2ee6c5"}, "global_css": "",
            "kit": "Titles 72px Inter Tight 800; figures 160px accent; sources 22px muted bottom left.", "summary": "s",
-           "scenes": [{"id": "hook", "lines": [0, 1], "brief": "the price ticker climbs past 100"},
-                      {"id": "storage", "lines": [3, 4], "brief": "storage gauge drains, a pipe closes"},
-                      {"id": "factories", "lines": [6, 6], "brief": "a factory roof with a meter"},
-                      {"id": "homes", "lines": [7, 7], "brief": "a house with a bill arriving"},
-                      {"id": "refill", "lines": [9, 11], "brief": "a tank refills over the summer months"}]}
+           "scenes": [{"id": "hook", "lines": [0, 1], "brief": "the price ticker climbs past 100",
+                       "shows": "the ticker climbs past the 100 line", "camera": _cam("push_in", "the 100 line")},
+                      {"id": "storage", "lines": [3, 4], "brief": "storage gauge drains, a pipe closes",
+                       "shows": "the march storage gauge drains while a pipe closes", "camera": _cam("pan_left", "the pipe")},
+                      {"id": "factories", "lines": [6, 6], "brief": "a factory roof with a meter",
+                       "shows": "a factory meter climbs past 100 on the wall", "camera": _cam("tilt_up", "the meter")},
+                      {"id": "homes", "lines": [7, 7], "brief": "a house with a bill arriving",
+                       "shows": "a household bill drops through the door showing 60 euros", "camera": _cam("pull_out", "the door")},
+                      {"id": "refill", "lines": [9, 11], "brief": "a tank refills over the summer months",
+                       "shows": "a tank fills month by month through the summer", "camera": _cam("zoom_to", "the tank")}]}
 
 
-def _scene(sc, text=None):
-    return {"id": sc["id"], "lines": list(sc["lines"]), "trigger": "", "mechanism": "build_up",
+def _scene(sc, text=None, mechanism="build_up"):
+    return {"id": sc["id"], "lines": list(sc["lines"]), "trigger": "", "mechanism": mechanism,
+            "shows": sc["shows"], "camera": dict(sc["camera"]),
             "html": f'<h1 style="position:absolute;left:200px;top:300px;color:#fff;font-size:80px">{text or sc["id"]}</h1>',
             "css": "", "js": ""}
 
@@ -163,8 +173,10 @@ def test_build_scenes_retries_once_then_stops(d, monkeypatch):
 
 
 def test_submit_artifact_checks_scripts_outlines_and_parts(d):
+    import line_fixtures as F
     from factory.hat import tools as T
     pid = _project(d)
+    F.cold_evidence(pid, d)                      # the agent's `cold_test` verdict on these exact lines
     bad = {**SCRIPT, "chapters": SCRIPT["chapters"][:2] + [{"title": "Again", "line": 5}]}
     r = T.call("submit_artifact", T.Ctx(pid, "script", d), {"data": bad})
     assert not r["accepted"] and any("rise strictly" in x for x in r["problems"])
@@ -175,7 +187,9 @@ def test_submit_artifact_checks_scripts_outlines_and_parts(d):
     ctx = T.Ctx(pid, "scene_plan", d, part=2)
     r = T.call("submit_artifact", ctx, {"data": {"scenes": [_scene(OUTLINE["scenes"][2])], "summary": "x"}})
     assert not r["accepted"]
-    r = T.call("submit_artifact", ctx, {"data": {"scenes": [_scene(s) for s in OUTLINE["scenes"][2:4]], "summary": "x"}})
+    r = T.call("submit_artifact", ctx, {"data": {"scenes": [_scene(OUTLINE["scenes"][2], mechanism="chart_build"),
+                                                           _scene(OUTLINE["scenes"][3], mechanism="cause_chain")],
+                                                  "summary": "x"}})
     assert r == {"accepted": True, "artifact": "scene_part_2"} and not P.read_artifact(pid, "scene_plan", d)
 
 

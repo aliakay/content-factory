@@ -137,7 +137,7 @@ def summary(con):
         names = {r[0]: r[1] for r in con.execute(f"SELECT prod_id, COALESCE(title, name) FROM productions WHERE prod_id IN ({q})",
                                                  list(by_prod))}
     cal = calibration()
-    return {"totals": tot, "estimated": any(r["source"] not in ("live", "live_codex") for r in rows),
+    return {"totals": tot, "estimated": any(not str(r["source"]).startswith("live") for r in rows),
             "by_step": sorted(([k, round(v, 2)] for k, v in by_step.items()), key=lambda x: -x[1]),
             "by_model": {k: round(v, 2) for k, v in by_model.items()},
             "by_prod": sorted(([k, names.get(k) or f"#{k}", round(v, 2)] for k, v in by_prod.items()), key=lambda x: -x[2])[:10],

@@ -124,7 +124,7 @@ def idea(pid, s, note=None, d=None):
     concept = {"id": "A", "title": data.get("title") or p["title"], "hook": lines[0], "lines": lines, "beats": beats,
                "structure": f"{len(beats)} beats · ~{secs:.0f} s", "look": how, "key_frame": beats[0]["look"],
                "post": {"caption": data.get("caption") or "", "hashtags": data.get("hashtags") or []}}
-    art = {"concepts": [concept], "chosen": "A", "seconds": secs, "voice": {"use": narrated},
+    art = {"concepts": [concept], "chosen": "A", "seconds": secs, "look": how, "voice": {"use": narrated},
            "music": {"use": music, "prompt": str(mu.get("prompt") or "")}, "cost": cost, "summary": summary}
     return {"artifact": art, "summary": summary, "cost": {"usd": usd}}
 
@@ -441,5 +441,5 @@ def publish(pid, s, note=None, d=None):
              "en": "CC BY / CC BY-SA footage needs credit: keep the line in the caption. The full list is below."}[ui]
     summary = {"tr": "Açıklama, etiketler ve görüntü kaynakları hazır.", "en": "Caption, hashtags and footage credits ready."}[ui]
     art = {"caption": f"{caption}\n\n{short}"[:2200], "hashtags": tags or ["#belgesel"], "notes": notes,
-           "credits": [archive.credit(x) for x in clips], "summary": summary}
+           "credits": "\n".join(archive.credit(x) for x in clips), "summary": summary}
     return {"artifact": art, "summary": summary}

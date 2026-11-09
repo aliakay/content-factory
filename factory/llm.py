@@ -56,7 +56,10 @@ def _caller():
     return "?"
 
 
-def _record(out, model, ok, provider="claude"):
+SOURCES = {"codex": "live_codex", "openrouter": "live_openrouter"}
+
+
+def _record(out, model, ok, provider="claude", step=None):
     """One row per headless call in factory.db llm_usage. Never raises."""
     try:
         from .store import connect, now
@@ -65,11 +68,11 @@ def _record(out, model, ok, provider="claude"):
         con = connect()
         con.execute("INSERT INTO llm_usage (at, step, model, job_id, job_kind, prod_id, user, input, cache_write, cache_read,"
                     " output, cost_usd, ok, source) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (now(), _caller(), ",".join(used) or model, os.environ.get("FACTORY_JOB_ID"),
+                    (now(), step or _caller(), ",".join(used) or model, os.environ.get("FACTORY_JOB_ID"),
                      os.environ.get("FACTORY_JOB_KIND"), os.environ.get("FACTORY_PROD_ID"), os.environ.get("FACTORY_USER"),
                      u.get("input_tokens", 0), u.get("cache_creation_input_tokens", 0), u.get("cache_read_input_tokens", 0),
-                     u.get("output_tokens", 0), (out or {}).get("total_cost_usd") if provider == "codex" else
-                     ((out or {}).get("total_cost_usd") or 0), int(ok), "live_codex" if provider == "codex" else "live"))
+                     u.get("output_tokens", 0), (out or {}).get("total_cost_usd") if provider != "claude" else
+                     ((out or {}).get("total_cost_usd") or 0), int(ok), SOURCES.get(provider, "live")))
         con.commit()
         con.close()
     except Exception:
@@ -128,7 +131,8 @@ AGENT_STEPS = {
     "ideas.check_claims": "İddia kontrolü", "qa.review": "Kalite kontrol",
     "discover.make_cards": "Fikir keşfi", "refs.describe": "Referans analizi",
     "refs.describe_recipes": "Referans tarif analizi", "styles.extract": "Stil analizi",
-    "jobs.do_describe": "Klip analizi", "router.suggest": "Hat önerici", "default": "Diğer agent’lar",
+    "jobs.do_describe": "Klip analizi", "router.suggest": "Hat önerici",
+    "agent.review_stage": "Değerlendirici (diğer model)", "default": "Diğer agent’lar",
 }
 CLAUDE_DEFAULT_MODELS = {
     "director.scout": "sonnet", "director.sketch": "sonnet", "ideas.generate": "sonnet",
@@ -145,6 +149,9 @@ def model_options(provider=None):
     provider = provider or "claude"
     if provider == "claude":
         return [{"id": x, "name": x.capitalize()} for x in ("opus", "sonnet", "haiku")]
+    if provider == "openrouter":
+        from . import openrouter
+        return [{"id": m["id"], "name": m["name"]} for m in openrouter.models()]
     if _CODEX_MODELS is None:
         try:
             p = subprocess.run([CODEX, "debug", "models", "--bundled"], capture_output=True, text=True, timeout=8)
@@ -157,11 +164,23 @@ def model_options(provider=None):
 
 
 def selected_provider(uid=None):
+    """The user's default CLI (the agents that have no per-step choice)."""
     from . import accounts
     return accounts.llm_settings(uid)["provider"]
 
 
+def provider_for(step, uid=None):
+    """Who runs this step: the per-step CLI when the user mixed providers, else their default CLI."""
+    from . import accounts
+    cfg = accounts.llm_settings(uid)
+    chosen = (cfg.get("providers") or {}).get(step) or (cfg.get("providers") or {}).get("default")
+    return chosen if chosen in ("claude", "codex", "openrouter") else cfg["provider"]
+
+
 def default_model(step, provider):
+    if provider == "openrouter":
+        from . import openrouter
+        return openrouter.DEFAULT_MODEL
     if provider == "codex":
         options = model_options("codex")
         return next((m["id"] for m in options if m["id"] == "gpt-6-luna"),
@@ -169,15 +188,31 @@ def default_model(step, provider):
     return CLAUDE_DEFAULT_MODELS.get(step, MODEL)
 
 
-def selected_model(step, requested=None, uid=None):
+def selected_model(step, requested=None, uid=None, provider=None):
+    """The model for this step: the user's override (from that step's own CLI catalogue), else the CLI's default.
+
+    `provider` is the CLI that actually runs it (a caller may override the step's choice)."""
     from . import accounts
     cfg = accounts.llm_settings(uid)
+    own = provider_for(step, uid)
+    provider = provider or own
     override = cfg["models"].get(step) or cfg["models"].get("default")
-    if override:
+    if override and provider == own:
         return override
-    if cfg["provider"] == "claude":
+    if provider == "claude":
         return requested or MODEL
-    return default_model(step, "codex")
+    return default_model(step, provider)
+
+
+def effort_choice(step, uid=None):
+    """This agent's reasoning effort: the user's per-agent choice, else the step table, else medium.
+
+    A CLI is capped at MAX_EFFORT (the owner's cost rule); an API model is not, because its output price is a
+    fraction of a subscription turn and the creator asked for that agent explicitly."""
+    from . import accounts
+    env = os.environ.get("CF_EFFORT_" + re.sub(r"\W", "_", step).upper()) or os.environ.get("CF_EFFORT")
+    chosen = (accounts.llm_settings(uid).get("effort") or {}).get(step)
+    return env if env in EFFORTS else (chosen if chosen in EFFORTS else (EFFORT.get(step) or "medium"))
 
 
 def _toml(v):
@@ -241,51 +276,6 @@ def _codex(prompt, tools, timeout, model, effort, step, approve_mcp=False, serve
     return reply, {"cost_usd": None, "turns": 1, "effort": effort}
 
 
-def codex_elevenlabs_status():
-    """Return the ElevenLabs MCP server and OAuth state configured in this Codex CLI profile."""
-    try:
-        p = subprocess.run([CODEX, "mcp", "list", "--json"], capture_output=True, text=True, timeout=10)
-        servers = json.loads(p.stdout) if p.returncode == 0 else []
-    except (OSError, subprocess.TimeoutExpired, ValueError):
-        servers = []
-    if isinstance(servers, dict):
-        servers = servers.get("servers", [])
-    for server in servers if isinstance(servers, list) else []:
-        if isinstance(server, dict) and "elevenlabs" in json.dumps(server).lower():
-            name = server.get("name")
-            if name:
-                auth_status = str(server.get("auth_status") or "unknown").lower()
-                return {"configured": True, "name": name,
-                        # Current Codex CLI serializes its logged-in OAuth enum as
-                        # `o_auth`; older versions used `logged_in`.
-                        "connected": auth_status in ("logged_in", "o_auth", "oauth"),
-                        "auth_status": auth_status}
-    return {"configured": False, "name": None, "connected": False, "auth_status": "not_configured"}
-
-
-def _codex_elevenlabs_server():
-    """Find the ElevenLabs MCP server configured in this Codex CLI profile."""
-    status = codex_elevenlabs_status()
-    if status["configured"]:
-        return status["name"]
-    raise LLMError("Codex CLI'da ElevenLabs connector bulunamadı. Bir kez şu komutları çalıştırıp ElevenLabs'e giriş yap: "
-                   "codex mcp add elevenlabs --url https://api.elevenlabs.io/v1/mcp; codex mcp login elevenlabs")
-
-
-def _codex_mcp_prompt(prompt, tools, server):
-    """Translate Claude's connector-qualified tool list into instructions for Codex MCP tools."""
-    names = []
-    for tool in tools:
-        # Claude names are mcp__claude_ai_ElevenLabs__<tool>; Codex exposes the same MCP tool names
-        # under the configured server and discovers the actual schema directly from that server.
-        name = str(tool).rsplit("__", 1)[-1]
-        if name not in names:
-            names.append(name)
-    allow = ", ".join(names)
-    return (f"Use the ElevenLabs MCP server named {server!r}. Its available tool names for this step are: {allow}. "
-            f"Call only the needed tools from that list and follow the request exactly.\n\n{prompt}")
-
-
 def extract_json(text):
     """First JSON object/array in `text` (handles ```json fences and surrounding prose)."""
     m = re.search(r"```(?:json)?\s*(.+?)```", text, re.S)
@@ -322,7 +312,7 @@ def ask(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=False, 
 
 
 def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=False, effort=None, servers=None,
-             budget_usd=None):
+             budget_usd=None, max_output=None):
     """Run one headless Claude turn; ask() returns (parsed_json, meta), ask_text() the raw reply text.
 
     Slim mode: no skills/slash commands and no MCP connectors are loaded (the craft rules travel in the prompt),
@@ -334,26 +324,28 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
     import time
     from . import accounts
     step = _caller()
-    provider = selected_provider()
-    if provider == "codex" and mcp:
-        server = _codex_elevenlabs_server()
-        prompt = _codex_mcp_prompt(prompt, tools, server)
-        # Preserve the exact MCP tool allowlist in the request instructions. Codex uses the
-        # server's own tool schemas and OAuth session rather than Claude's connector namespace.
-        tools = tuple(str(t).rsplit("__", 1)[-1] for t in tools)
-    model = selected_model(step, model) if provider == "codex" or not mcp else (model or MODEL)
+    provider = provider_for(step)          # mixed providers: this step's own CLI, else the user's default
+    model = (selected_model(step, model, provider=provider) if provider in ("codex", "openrouter") or not mcp
+             else (model or MODEL))
     level = min(effort, MAX_EFFORT, key=EFFORTS.index) if effort in EFFORTS else effort_for(step, model)
     if provider == "codex":
         return _codex(prompt, tools, timeout, model, level, step, approve_mcp=mcp, servers=servers)
+    if provider == "openrouter":
+        from . import openrouter
+        # an API model gets the agent's own level (low/medium/high); the CLI cap does not apply to it
+        own = effort if effort in EFFORTS else effort_choice(step)
+        return openrouter.run(prompt, tools=tools, timeout=timeout, model=model, servers=servers,
+                              budget_usd=budget_usd, effort=own if own in ("low", "medium", "high") else None,
+                              step=step, max_tokens=max_output)
     cmd = [CLAUDE, "-p", prompt, "--output-format", "stream-json", "--verbose", "--allowedTools", ",".join(tools),
            "--disable-slash-commands"]
-    if servers:   # only our own servers: no claude.ai connectors next to them
+    if servers:   # only our own servers
         os.makedirs(WORKDIR, exist_ok=True)
         cfg = os.path.join(WORKDIR, f"mcp-{os.getpid()}-{abs(hash(json.dumps(servers, sort_keys=True))) % 10**8}.json")
         with open(cfg, "w") as f:
             json.dump({"mcpServers": {n: {"type": "stdio", **s} for n, s in servers.items()}}, f)
         cmd += ["--mcp-config", cfg, "--strict-mcp-config"]
-    elif not mcp:  # connectors (e.g. ElevenLabs) are only loaded when a step needs them
+    else:
         cmd.append("--strict-mcp-config")
     if budget_usd:
         cmd += ["--max-budget-usd", str(budget_usd)]
@@ -367,8 +359,6 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
         env = {**os.environ, **accounts.claude_env()}   # the member's own Claude subscription, if a member started it
     except accounts.NoClaude as e:
         raise LLMError(str(e)) from None
-    if mcp and env.get("CLAUDE_CODE_OAUTH_TOKEN"):
-        raise LLMError("claude.ai connectors only work on the owner's login; use an ElevenLabs API-key account")
     last = ""
     for attempt in range(retries + 1):
         try:

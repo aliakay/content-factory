@@ -35,11 +35,27 @@ Her hat bu iskeletin bir alt kümesini, bu sırayla kullanır:
 | 1 | **Araştırma** | `research.json` | Kaynaklı veri noktaları, açılar, yaygın yanlışlar, görsel referanslar | — |
 | 2 | **Öneri** | `proposal.json` | 3 farklı konsept, seçilen yol, kalem kalem maliyet ve render süresi | ✅ |
 | 3 | **Senaryo** | `script.json` | Satırlar, süre, vurgu, doğrulanmış iddialar (kaynaklarıyla) | ✅ |
-| 4 | **Sahne planı** | `scene_plan.json` + kareler | Sahne sahne görsel dil, zamanlama, gereken varlıklar; tasarım kareleri | ✅ |
-| 5 | **Varlıklar** | `assets.json` | Ses, müzik, çizimler, video klipler, stok; sahne başına alternatifler + gerçek maliyet | ✅ |
-| 6 | **Kurgu** | `edit.json` | Kesimler, geçişler, altyazı, ses miksi kararları | — |
-| 7 | **Render** | `render.json` + mp4 | Final render + teknik/görsel/ses QA | — |
-| 8 | **Yayın** | `publish.json` | Açıklama, etiketler, kapaklar, platform linkleri | ✅ |
+| 4 | **Yön panosu** | `direction.json` + `renders/direction.png` | Filmin görünüşü bir kez karara bağlanır: palet (stil kartından ya da projeye özgü şemadan), yazı eşleşmesi, ışık/doku ve hareket kuralları, referanslar. Pano PIL ile çizilir; kredi harcanmaz | ✅ |
+| 5 | **Sahne planı** | `scene_plan.json` + kareler | Sahne sahne görsel dil, zamanlama, gereken varlıklar; her sahne kamerasını (hareket, süre, easing, hedef) ve `shows`'unu (özne + eylem) yazar; tasarım kareleri panonun paletinde çizilir | ✅ |
+| 6 | **Animatik** | `animatic.json` + mp4 | Sahne planı taslak zamanlamayla, yarım boy ve 15 fps çizilir; satır başlarına tık, sahne başlarına pes tık. Kredi harcanmaz. Not yazılırsa notu doğru aşamaya geri gönderir | ✅ |
+| 7 | **Varlıklar** | `assets.json` | Ses, müzik, çizimler, video klipler, stok; sahne başına alternatifler + gerçek maliyet | ✅ |
+| 8 | **Kurgu** | `edit.json` | Kesimler, geçişler, altyazı, ses miksi kararları | — |
+| 9 | **Render** | `render.json` + mp4 | Final render + teknik/görsel/ses QA | — |
+| 10 | **Yayın** | `publish.json` | Açıklama, etiketler, kapaklar, platform linkleri | ✅ |
+
+Kapı kuralları (kodda, deterministik):
+- **Kanca kuralı** (senaryo): ilk satır 3 saniyede söylenebilmeli, somut bir şey taşımalı (rakam, ad ya da karşıtlık),
+  selamlamayla/stok cümleyle açılmamalı ve başlığın konusunu adlandırmalı; `hook` = 1. satır.
+- **Soğuk test** (senaryo): filmi görmemiş biri tek cümlede konusunu söyleyebilmeli; ajan bunu `cold_test` aracıyla
+  kanıtlar ve kanıt, tam bu başlık+satırların parmak izini taşır (metin değişirse kanıt geçersiz).
+- **Sahne planı**: kamera + `shows` + mekanizma, üç farklı hareket/mekanizma, stok metafor yok, aynı anlar iki taze
+  render'da aynı (determinism) ve panonun paleti/yazı eşleşmesi korunur.
+- **Lisans defteri** (yayın): lisansı bilinmeyen varlık kapıyı geçemez, gereken künye açıklamada yoksa kapı kapanır;
+  tam defter final render'ın yanına `credits.txt` olarak yazılır.
+- **Öneri**: ajan önerisi üç ayrı kurgu ister (`proposal`); kodun kurduğu öneriler tek seçili konseptle `proposal_code`
+  şemasını kullanır ve 4 saniyeden kısa film önermez.
+- Türetilmiş metinler (dublaj, yaratıcının kendi konuşması, hikâye) kanca kuralına ve soğuk testine tabi değildir
+  (`hookrule.authored`).
 
 Kurallar:
 - **Kapı bağlayıcıdır.** Manifest'te kapı olan bir aşama, kayıtlı onay olmadan "tamam" yazılamaz (kod bunu reddeder).
@@ -47,6 +63,9 @@ Kurallar:
   (`credits.guard` +%15 kuralı korunur). Varlıklar kapısında *sonuçlar* onaylanır.
 - **Revizyon yalnızca o aşamayı yeniden yapar** (aşama başına en fazla 3). Daha önceki bir aşamaya dönülürse sonraki
   aşamalar "geçersiz" olarak işaretlenir ve bu ekranda açıkça yazar; hiçbir şey sessizce silinmez.
+- **Not, hatanın kaynağına gider.** Animatik kapısında yazılan not yeniden render ettirmez: not neyi anlatıyorsa
+  (sahne/kesme/geçiş → sahne planı, metin/süre/ritim → senaryo) o aşamaya geri gönderilir ve sonraki aşamalar
+  geçersiz olur. Revizyon bütçesi o aşamanın kendi sayacından düşer.
 - **Öz denetim.** Her aşama bittiğinde ajan, manifest'teki `review_focus` maddelerine göre kendi çıktısını en çok
   2 tur denetler (kritik / öneri / ayrıntı). Kritikler düzeltilir, diğerleri not olarak kapıya taşınır.
 
@@ -83,7 +102,7 @@ Her video bir klasördür; SQLite `productions` tablosu yalnızca dizin olarak k
 ```
 projects/<NNN-kisa-ad>/
   project.json            hat, kanal, dil, kadraj, başlık, oluşturan
-  artifacts/              research.json, proposal.json, script.json, scene_plan.json, assets.json, edit.json, render.json, publish.json
+  artifacts/              research.json, proposal.json, script.json, scene_plan.json, animatic.json, assets.json, edit.json, render.json, publish.json
   checkpoints/<aşama>.json  durum (bekliyor/çalışıyor/onay bekliyor/onaylandı/revize/başarısız), denetim notları, maliyet, onay geçmişi
   assets/{audio,music,images,video,stock}/
   stills/                 sahne kareleri (panonun film şeridi)

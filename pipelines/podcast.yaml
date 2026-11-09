@@ -28,6 +28,7 @@ stages:
     gate: true
     name: {tr: Klip ve alıntı seçimi, en: Clips and quotes}
     run: code
+    schema: proposal_code
     call: factory.hat.podcast:idea
     tools: [align_words]
 

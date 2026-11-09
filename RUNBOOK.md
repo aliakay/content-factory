@@ -25,6 +25,69 @@ contact sheet, the lint and the measured grade). The gate card shows the score b
 Feedback at a gate re-runs the stage with the note (max 3 revisions); reopening an earlier stage makes later ones
 stale. Frame comments (click a frame or the preview) revise only the scenes they name.
 
+**Karma sağlayıcı (2026-11).** Tek bir CLI seçmek zorunlu değil: Hesaplar → *CLI ve model seçenekleri*'nde yukarıdaki
+kutu **varsayılan**dır, her agent satırındaki soldaki kutu ise o agent'ı başka bir CLI'a gönderir (boş = varsayılan).
+Kayıt `users.<id>.llm_settings.providers` (adım → CLI) ve `.models` (adım → o CLI'ın kataloğundan model);
+`llm.provider_for(step)` sırayla `providers[step]` → `providers.default` → `provider` okur, `llm.selected_model()`
+modeli o CLI'ın kataloğundan seçer (manifestteki `model: opus` yalnız Claude'da geçerlidir). Örnek: senaryo Claude Opus,
+hareket tasarımı Codex GPT-6 Luna, `qa.review`/`agent.review_stage` OpenRouter DeepSeek. Değerlendirici ayrı bir satır
+olduğu için yazarın CLI'ından bağımsız seçilebilir. Sunucu kayıtta modelin o CLI'ın kataloğunda olduğunu doğrular;
+ElevenLabs connector turları CLI'a geri düştüğünde o CLI'ın kendi modeli kullanılır (başka CLI'ın model adı geçmez).
+
+**Alınan teknikler (2026-11, cinecode/otopilot/kurgu incelemesi).**
+- **Altyazı blokları** (`factory/captions.py`): kelime kelime yerine 3 kelime/20 karakter (9:16) veya 7/42 (16:9)
+  bloklar; ≤0,35 s boşluklar kapatılır (ekran boş kalmaz = titreme yok), uzun boşlukta 0,12 s tutuş, blok en az 0,20 s,
+  cümle noktalamasında bölünür. `explainer.spec` artık `caption_blocks` alanını taşıyor (katman bunu kullanabilir).
+- **Kamera sözlüğü**: `inertia` easing (`0,35 linear + 0,65 smoothstep`; `factory/camera.py:inertia`,
+  `FX.INERTIA` ile aynı formül) + ölçülmüş hız kelimeleri `slow ≤%10 boyut/sn · medium %10–25 · fast >%`
+  (`camera.SPEED`, `camera.speed_of`). `FX.punch` (1,12× / 0,18 s out-expo + 0,20 s settle) vurgu kelimesi için hazır.
+- **Kesim noktası ses olguları** (`qa.audio_facts(path, t, 1.5)`): 3 s'lik pencerede silencedetect+astats → kesimde
+  delik var mı, konuşma var mı. Tüm dosyayı taramaz.
+- **Güvenli kaynak** (`fftools.check_source`): uzak akış ve m3u8/mpd/ffconcat gibi oynatma listeleri reddedilir; ölçülen
+  girdilerde `-protocol_whitelist file,pipe`.
+
+**Sahne planı iki geçiş (2026-11).** Kısa hatlarda (explainer, animation) `scene_plan` artık **kod aşaması**
+(`factory/hat/shortplan.py`): önce tek çağrıda **tasarım sistemi** (palet panodan, global CSS, kit, sahne brifleri:
+`id/lines/shows/camera/mechanism`) yazılır ve `artifacts/design_short.json`'a önbelleklenir (script/pano değişmedikçe
+tekrar üretilmez); sonra sahneler **2'şer paralel** ajanla çizilir (4 çekirdek: stills render'ı çakışmasın diye 2);
+sonunda deterministik kontroller (kamera, özne, mekanizma, determinizm, özgünlük, pano) + `layoutlint` birleşik plana
+uygulanır. Not bir sahneyi adlandırıyorsa (`s2`, `sahne 3`) **yalnız o parça** yeniden çizilir, kalan sahneler bayt bayt
+korunur. Uzun anlatımda aynı fikir zaten vardı (`longform.build_scenes`, PARALLEL=3).
+
+**Denetim eşiği ve yama turu (2026-11).** `PASS_SCORE` 90 → **85**: kritik bulgu yoksa ve skor ≥85 ise aşama geçer,
+öneriler kapı kartında not olarak kalır. Düzeltme turu **yama modunda**: yazar önceki artifact'ı okuyup yalnız bulgu
+maddelerini değiştirir (araştırmayı/senaryoyu baştan yazmaz). Denetçi artık yalnız **kapısı olan** aşamalarda koşar
+(araştırma/kurgu/render'da kimse okumuyordu; ölçümde bir aşamanın süresinin ~%48'iydi).
+
+**İnceleme sayfası (`#/inceleme`, `factory/hat/reviewstats.py`).** Projelerin `events.jsonl`'inden aşama süreleri, en sık
+kapı reddi ve denetim kararları; `python -m factory.hat.reviewstats` aynı raporu + "skill'e eklenecek satırlar" önerisini
+basar.
+
+**The look is decided once (2026-11, direction stage).** Between the script and the scene plan the explainer,
+animation and long-explainer lines run `direction` (`factory/hat/direction.py`, a code stage, no credits): it builds
+one board (palette from the chosen film style's card, or a scheme keyed on the project; a type pairing; the light,
+texture and motion rules; the research's references) and draws it to `projects/<id>/renders/direction.png` with PIL.
+The creator approves it at its gate; the scene plan then receives it as a brief and `direction.problems` refuses
+scenes in colours or type families the board does not name. A note naming hex colours or a font redraws the board;
+any other note is kept as `direction.note`.
+
+**What the gates now refuse, and why (all deterministic, all in `tools._meaning` + `runner.approve`):**
+- `hookrule` (script gate, authored scripts only): line 1 must be sayable in 3 s at the language's rate, carry a
+  figure/name/contrast, not open on a greeting or stock phrasing, and name the title's subject; `hook` = line 1.
+- `coldtest` (script gate): one subject from line 1 to the close, the title's subject in the first third, the promise
+  answered. The agent proves it by running the `cold_test` tool; its `cold_read` verdict carries a fingerprint of the
+  exact title and lines, so editing the script invalidates it.
+- `camera` + `subjectqc` + `originality` + `determinism` (scene plan): every scene names a move (move, seconds,
+  easing, target) and `shows` (subject + action with a verb), the picture carries the line's figure and names, three
+  distinct moves/mechanisms over three scenes, no stock metaphor, and the same moments render identically twice.
+  The human gate re-renders anyway (`runner._verify_scene_determinism`) and also compares the subject's motion.
+- `licence` (publish gate): no asset without a licence, and every required credit is in the description; the complete
+  ledger is written beside the final render as `credits.txt` (`publish.credits_file`).
+- `proposal` for an agent-built proposal: three distinct treatments and `chosen` naming one of them. A code-built
+  proposal uses `proposal_code` (one chosen concept, a film of 4 s or more).
+A derived script (a dub, the creator's own text, a story) is not hook-ruled or cold-tested: those lines keep their own
+words (`hookrule.authored`).
+
 **Operating:**
 - Logs: `projects/<id>/events.jsonl` (every tool call, review, error), `decisions.jsonl` (music ending, budget, ...),
   `checkpoints/<stage>.json`. The provider and model per user: Settings → accounts (`users.json`).
@@ -200,6 +263,30 @@ user:mcp_servers, so the member's own claude.ai connectors work, e.g. their Elev
 bağla" → job `eleven_voices` reads its voices) or **"token"** = `claude setup-token` (user:inference only, no connectors →
 ElevenLabs via API key). Every job carries its user
 (`jobs.user`, env `FACTORY_USER`); `llm.ask_text` adds `CLAUDE_CODE_OAUTH_TOKEN` + `CLAUDE_CONFIG_DIR=~/.claude-profiles/<id>`.
+**OpenRouter API** (`factory/openrouter.py`, third provider next to the two CLIs): Hesaplar → OpenRouter API, the member
+pastes their own key (`data/users.json` → `users.<id>.openrouter`, mode 600; the owner may instead set
+`OPENROUTER_API_KEY` in `config.env`). An OpenRouter model is one HTTP chat completion with no CLI and no MCP client of
+its own, so the provider starts `factory/hat/mcp_server.py` itself (`factory/mcpclient.py`), offers the stage's tools as
+function schemas and runs the calls the model asks for; `Read` is served locally and `WebSearch`/`WebFetch` become
+OpenRouter's own server tools (`openrouter:web_search`, `openrouter:web_fetch`: the model
+searches when it needs to, the platform runs it — native search where the provider has it, otherwise Exa — and the
+sources come back as `url_citation` annotations; a search costs OpenRouter credit per request). Default model: `deepseek/deepseek-v4.1-flash-1017` (per-agent overrides still apply). Every
+call's tokens and dollars go into the same `llm_usage` ledger (`source = live_openrouter`).
+
+**ElevenLabs: API yolu (2026-11 — CLI connector kaldırıldı).** Ses, müzik, efekt, görsel, üretilen video, konuşan
+sunucu ve varlık yüklemesi artık yalnız REST API'den gider (`factory/eleven.py` + `factory/eleven_api.py`); CLI
+oturumuna/connector'a gerek yok. Hesap tipi **API anahtarı** olmalı (`data/eleven_accounts.json`; connector tipi
+hesaplar listede görünmez ve kullanılırsa açık hata verir). Varsayılan hesap kullanıcı tercihiyle seçilir
+(`users.<id>.default_eleven`, `accounts.set_default_eleven`); Hesaplar sayfasındaki "Ses & avatar" bölümü hesabın
+**kendi seslerini önizleme oynatıcısıyla** listeler ve "varsayılan yap" ile dil başına ses seçilir
+(`data/eleven_defaults.json`, `formats.default_voice`). Her çağrı onaylanan krediyle sınırlanır (`credits.guard`,
+canlı bakiye) ve kredi defterine yazılır; dosyalar girdiye göre önbelleklenir. Bir yetenek Gemini'ye çevrilebilir
+(Hesaplar → Medya üreticisi, `factory/mediaprov.py`).
+
+**Denetim (reviewer) turu.** Hesaplar → CLI ve model seçenekleri'nde "Denetim" kutusu: **yok / 1 tur (varsayılan) /
+2 tur**. `accounts.review_rounds`, `agent.run_stage` içinde okunur: 0 = denetçi hiç çalışmaz, 1 = tek geçiş,
+2 = kritik bulgu ya da eşik altı skorda bir düzeltme turu daha.
+
 **ElevenLabs accounts** (`data/eleven_accounts.json`, `factory/accounts.py`): `ali` = the owner's connector account (runs
 the MCP calls as the owner even when a member started the job); others = API keys (`factory/eleven_api.py`: TTS, music,
 sfx; voices + balance read live, cached 10 min). Each production has `data.eleven_account` (default: its creator's own);

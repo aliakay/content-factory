@@ -15,11 +15,14 @@ more ground than a short: enough distinct sub-topics for 3-9 chapters, each with
   a chapter on their own: background / how it works / what changed / who it affects / what comes next.
 - How others already explained it on YouTube, the metaphors they used and the clichés to avoid; put that in
   `visual_refs`, plus 4-6 original visual devices (a diagram that builds over a chapter, a map, a running counter ...).
+- For any specific film or video the creator names as a visual reference, record an observed signature in
+  `visual_signatures`: title/URL plus palette, camera order, visual mechanisms, beat lengths and compositions you can
+  actually verify. Leave a field empty rather than inventing a measurement.
 - Dates matter: use `today` from `project_info` and state how fresh each figure is.
 
 ## Output (`research`)
 - `insight`, `misconception`, `sources[{url, title}]`, `data_points[{claim, value, source}]`,
-  `angles[{title, grounded_in}]`, `visual_refs[]`, `summary`.
+  `angles[{title, grounded_in}]`, `visual_refs[]`, optional `visual_signatures[]`, `summary`.
 - Write the research itself in English (sources may be in any language). `summary` is for the creator, in the
   interface language: the insight, the strongest numbers, the sub-topics that could become chapters, anything uncertain.
 - Never invent a figure. If something important cannot be confirmed, say so in `summary` instead of guessing.

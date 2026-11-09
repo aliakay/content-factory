@@ -8,6 +8,61 @@
   const frameHooks = [];
   FX._hooks = frameHooks;
   FX.onFrame = (fn) => { fn.scene = FX._scene; frameHooks.push(fn); };   // tagged with the scene being built (motion lint)
+  // inertia: 35 % linear + 65 % smoothstep (mirror of factory/camera.py:inertia) — a cut inside it is invisible
+  FX.INERTIA = (p) => 0.35 * p + 0.65 * (p * p * (3 - 2 * p));
+  // punch-in on an emphasised word/beat: 1.12x over 0.18 s (out-expo), optional 0.04 s hold, settle back in 0.20 s
+  FX.punch = (tl, el, at, o = {}) => {
+    const amount = o.amount ?? 1.12, dur = o.dur ?? 0.18, settle = o.settle ?? 0.20;
+    tl.fromTo(el, { scale: 1 }, { scale: amount, duration: dur, ease: "expo.out" }, at);
+    tl.fromTo(el, { scale: amount }, { scale: 1, duration: settle, ease: "sine.inOut" }, at + dur + (o.hold ?? 0.04));
+    return el;
+  };
+  // springs (motionforge): closed form, so a layer drawn per frame is deterministic whatever order frames seek in
+  FX.SPRINGS = { ui: { k: 340, d: 30 }, card: { k: 180, d: 24 }, heavy: { k: 95, d: 18 }, bouncy: { k: 260, d: 12 } };
+  FX.spring = (t, s = FX.SPRINGS.card) => {
+    const k = s.k ?? 180, d = s.d ?? 24, m = s.m ?? 1;
+    if (t <= 0) return 0;
+    const w = Math.sqrt(k / m), z = d / (2 * Math.sqrt(k * m));
+    if (z < 1) { const wd = w * Math.sqrt(1 - z * z); return 1 - Math.exp(-z * w * t) * (Math.cos(wd * t) + (z * w / wd) * Math.sin(wd * t)); }
+    if (z === 1) return 1 - Math.exp(-w * t) * (1 + w * t);
+    const r1 = -w * (z - Math.sqrt(z * z - 1)), r2 = -w * (z + Math.sqrt(z * z - 1)), k2 = r1 / (r1 - r2);
+    return 1 - ((1 - k2) * Math.exp(r1 * t) + k2 * Math.exp(r2 * t));
+  };
+  FX.springTo = (t, changes, s = FX.SPRINGS.card) =>   // a target re-aimed mid-scene: contributions add up, value stays continuous
+    (changes || []).reduce((v, c, i) => i ? v + (c[1] - changes[i - 1][1]) * FX.spring(t - c[0], s) : c[1], 0);
+  FX.keys = (t, list) => {           // piecewise keyframes; the easing on a key shapes the segment ENDING there
+    const pts = list || [];
+    if (!pts.length) return 0;
+    if (t <= pts[0][0]) return pts[0][1];
+    for (let i = 1; i < pts.length; i++) {
+      if (t <= pts[i][0]) {
+        const [t0, v0] = pts[i - 1], [t1, v1, e] = pts[i], p = (t - t0) / Math.max(1e-6, t1 - t0);
+        const f = e === "linear" ? p : e === "out" ? 1 - Math.pow(1 - p, 3) : e === "in" ? p * p * p : (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+        return Array.isArray(v0) ? v0.map((x, j) => x + (v1[j] - x) * f) : v0 + (v1 - v0) * f;
+      }
+    }
+    return pts[pts.length - 1][1];
+  };
+  FX.pulse = (t, start, end, fadeIn = 0.3, fadeOut = 0.3) =>   // 0 -> 1 -> 0 envelope (glow, highlight, spotlight)
+    Math.max(0, Math.min((t - start) / Math.max(1e-6, fadeIn), 1 - Math.max(0, t - (end - fadeOut)) / Math.max(1e-6, fadeOut)));
+  FX.cue = (words, prefix, after = 0) => {   // a cue that throws when its word is gone: a changed script breaks the build
+    const hit = (words || []).find((w) => String(w && w[0] || "").toLowerCase().startsWith(String(prefix).toLowerCase()));
+    if (!hit) throw new Error(`cue "${prefix}" is not in the words: the script changed`);
+    return Number(hit[1]) + after;
+  };
+  /* a mouth driven by the voice: frames = {fps, open:[0..1], shape:[closed|open|wide|round]} (factory/mouthcurve.py).
+     Pure per frame, so a re-render draws the same mouth. */
+  FX.mouth = (el, frames, o = {}) => {
+    const fps = (frames && frames.fps) || 30, open = (frames && frames.open) || [], shape = (frames && frames.shape) || [];
+    const lo = o.closed ?? 0.3, hi = o.open ?? 1.0;
+    FX.onFrame((t) => {
+      const i = Math.max(0, Math.min(open.length - 1, Math.round(t * fps)));
+      const v = open[i] ?? 0;
+      el.style.transform = `scaleY(${(lo + (hi - lo) * v).toFixed(3)})`;
+      if (shape[i] && el.dataset.shape !== shape[i]) { el.dataset.shape = shape[i]; el.style.width = shape[i] === "wide" ? "1.25em" : shape[i] === "round" ? "0.7em" : "0.95em"; }
+    });
+    return el;
+  };
   FX.rand = (seed = 1) => () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
   function split(el, by) {
@@ -29,6 +84,17 @@
      typewriter, scramble (decodes into the final word). All return the spans. */
   FX.blurWords = (tl, el, at, o = {}) => { const w = split(el, o.by || "words"); tl.fromTo(w, { opacity: 0, filter: "blur(14px)", y: 18 }, { opacity: 1, filter: "blur(0px)", y: 0, duration: o.dur || 0.55, stagger: o.stagger ?? 0.06, ease: "power3.out" }, at); return w; };
   FX.rise = (tl, el, at, o = {}) => { const w = split(el, o.by || "words"); w.forEach((s) => { const m = document.createElement("span"); m.style.display = "inline-block"; m.style.overflow = "hidden"; m.style.verticalAlign = "bottom"; s.parentNode.insertBefore(m, s); m.appendChild(s); }); tl.fromTo(w, { yPercent: 110 }, { yPercent: 0, duration: o.dur || 0.6, stagger: o.stagger ?? 0.05, ease: "expo.out" }, at); return w; };
+  /* speed-coupled entrance: the blur rides the SPEED of the move, so it clears before the element settles
+     (a fixed blur tied to the tween stops with the motion and reads soft). 0.28 s ramp, 16 px blur, 0.35 stretch. */
+  FX.blurFly = (tl, el, at, o = {}) => {
+    const dur = o.dur ?? 0.5, ramp = o.ramp ?? 0.28, blurMax = o.blur ?? 16, stretch = o.stretch ?? 0.35;
+    const fromX = o.fromX ?? 0, fromY = o.fromY ?? 60;
+    tl.fromTo(el, { x: fromX, y: fromY, scaleX: 1 + stretch, scaleY: 1 / (1 + stretch * 0.4), opacity: 0,
+                    filter: `blur(${blurMax}px)` },
+                  { x: 0, y: 0, scaleX: 1, scaleY: 1, opacity: 1, duration: dur, ease: o.ease || "power3.out" }, at);
+    tl.to(el, { filter: "blur(0px)", duration: ramp, ease: "power1.out" }, at);
+    return el;
+  };
   FX.pop = (tl, el, at, o = {}) => { const w = split(el, o.by || "words"); tl.fromTo(w, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: o.dur || 0.45, stagger: o.stagger ?? 0.05, ease: "back.out(2)" }, at); return w; };
   FX.typewriter = (tl, el, at, o = {}) => { const c = split(el, "chars"); tl.fromTo(c, { opacity: 0 }, { opacity: 1, duration: 0.01, stagger: o.cps ? 1 / o.cps : 0.035, ease: "none" }, at); return c; };
   FX.scramble = (tl, el, at, o = {}) => {
@@ -159,6 +225,32 @@
     const fns = [];
     FX.onFrame((t) => { if (t < T.start - 0.1 || t > T.end + 0.1) return; const lt = t - T.start; for (const f of fns) f(lt, t); renderer.render(scene, camera); });
     return { THREE, scene, camera, renderer, frame: (fn) => fns.push(fn) };
+  };
+  /* a 3D point -> CSS pixels, so an HTML label stays glued to the mesh through the whole move.
+     Call it inside k.frame() (after the camera is placed for that frame). Returns {x, y, visible}. */
+  FX.anchor = (k, point) => {
+    const W = k.renderer.domElement.clientWidth || 1080, H = k.renderer.domElement.clientHeight || 1920;
+    const v = (point.isVector3 ? point.clone() : new k.THREE.Vector3(point[0] || 0, point[1] || 0, point[2] || 0)).project(k.camera);
+    const x = (v.x * 0.5 + 0.5) * W, y = (-v.y * 0.5 + 0.5) * H;
+    const m = 0.05 * Math.max(W, H);
+    return { x, y, visible: v.z < 1 && x > -m && x < W + m && y > -m && y < H + m };
+  };
+  /* Three named light rigs, with the numbers a studio set uses (motionforge lighting presets). */
+  FX.LIGHTS = {
+    studio: { key: [0xfff4e6, 2.6, [-4, 7, 5]], fill: [0xdfe8ff, 0.7, [4, 2, 6]], rim: [0xffffff, 1.8, [1, 5, -7]] },
+    daylight: { key: [0xffe8cc, 3.0, [-10, 14, 8]], fill: [0xdfe8ff, 0.5, [10, 6, 6]], rim: [0xffffff, 0.8, [0, 8, -10]] },
+    night: { key: [0xb8ccff, 1.4, [-3, 6, 4]], fill: [0xb8ccff, 0.25, [3, 1, 6]], rim: [0xffb066, 1.2, [1, 4, -6]] },
+  };
+  FX.lights = (k, preset = "studio", o = {}) => {
+    const { THREE, scene } = k, rig = FX.LIGHTS[preset] || FX.LIGHTS.studio, out = [];
+    scene.add(new THREE.AmbientLight(0xffffff, o.ambient ?? (preset === "night" ? 0.18 : 0.35)));
+    for (const [role, [color, intensity, pos]] of Object.entries(rig)) {
+      const l = new THREE.DirectionalLight(color, intensity * (o.gain ?? 1));
+      l.position.set(pos[0], pos[1], pos[2]);
+      scene.add(l);
+      out.push(l);
+    }
+    return out;
   };
   FX.globe = (root, T, o = {}) => {   // a lit sphere with a lat/long grid that turns toward a target longitude
     const tall = (root.clientHeight || 1920) > (root.clientWidth || 1080);
