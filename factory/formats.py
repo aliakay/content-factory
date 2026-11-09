@@ -51,7 +51,8 @@ def default_voice(lang=None, account=None):
     machine's own profile default ("varsayılan yap", e.g. the creator's clone) comes first; a member's account or a
     machine without one gets the built-in narrators."""
     from . import accounts as A
-    picked = A.default_voice_for(account, lang if lang in DEFAULT_VOICES else "en") if account else None
+    account = account or A.default_eleven()      # a caller without an account still gets a voice this account has
+    picked = A.default_voice_for(account, lang if lang in DEFAULT_VOICES else "en")
     if picked:
         return picked
     if account == "ali":   # the old connector profile still holds the owner's own pick
