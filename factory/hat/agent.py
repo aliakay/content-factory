@@ -87,6 +87,12 @@ OTHER_MODEL = {"opus": "sonnet", "sonnet": "opus", "haiku": "sonnet"}
 SEVERITIES = ("critical", "suggestion", "nitpick")
 
 
+def review_enabled():
+    """The reviewer can be switched off for the whole studio: CF_HAT_REVIEW=0 in config.env (default on). Off, every
+    stage goes from its author straight to its gate (or the next stage); gates, budgets and proof mode still apply."""
+    return os.environ.get("CF_HAT_REVIEW", "1").strip().lower() not in ("0", "false", "no", "off")
+
+
 def run_stage(pid, s, note=None, d=None, user=None):
     """Author, then the reviewer — as many review rounds as the creator allows (Hesaplar → Denetim).
 
@@ -110,6 +116,9 @@ def run_stage(pid, s, note=None, d=None, user=None):
             break
         cost += out["cost"]["usd"]
         if not s["review"] or want == 0:
+            break
+        if not review_enabled():
+            P.event(pid, "review_skipped", d=d, stage=s["id"], reason="CF_HAT_REVIEW=0")
             break
         review = review_stage(pid, s, d, user, rnd)
         cost += review.pop("cost_usd", 0) or 0
