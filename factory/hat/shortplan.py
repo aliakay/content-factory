@@ -102,10 +102,35 @@ def rebase_one_based(scenes, n_lines):
     return True
 
 
-def _brief_problems(briefs, lines):
-    """The structural checks on the design pass's briefs, before any scene is drawn from them."""
-    from .. import shotplan
-    return shotplan.problems(briefs, lines)
+def _brief_problems(briefs, lines, novelty=None, board=None, pid=None, d=None):
+    """The structural checks on the design pass's briefs, before any scene is drawn from them — and the novelty brief's
+    two (a required under-used recipe is assigned; the previous film's signature is not repeated), so a design that
+    ignores the brief is refused while it is one cheap call, not after seven scenes are drawn."""
+    from .. import memory, shotplan
+    found = shotplan.problems(briefs, lines)
+    if novelty and not found:
+        found = memory.plan_problems({"scenes": briefs, "palette": (board or {}).get("palette") or {}}, novelty, pid=pid, d=d)
+    return found
+
+
+def _novelty(pid, d=None):
+    """This film's novelty brief ({} on any failure or for an empty history): factory/memory.py, frozen per project."""
+    from .. import memory
+    try:
+        return memory.project_brief(pid, d)
+    except Exception:
+        return {}
+
+
+def _novelty_block(nov):
+    """The brief in the design prompt: its lines, then one line per required recipe (id, name, when to use it)."""
+    from .. import recipes as R
+    if not nov.get("text"):
+        return ""
+    cards = [R.get(i) for i in nov.get("recipes") or []]
+    return (nov["text"] + "\n" + "\n".join(f"  {c['id']} — {c['name']['en']}: {c['use']['en']}" for c in cards if c)
+            + ("\nGive each scene `recipes`: the card ids it is built with; at least one scene carries a required one. "
+               "Every scene drawer gets the full card." if cards else "")) + "\n\n"
 
 
 def _design_prompt(pid, s, script, board, research, d, note=None):
@@ -116,11 +141,13 @@ def _design_prompt(pid, s, script, board, research, d, note=None):
     typ = board.get("type") or {}
     rules = "\n".join(f"- {r.get('what')}: {r.get('says')}" for r in board.get("rules") or [])
     n = max(3, min(12, round(float(p.get("seconds") or 55) / 6)))
-    deck = camera_deck.deal(n, "standard", seed=pid)
+    nov = _novelty(pid, d)
+    tired = [a[5:] for a in nov.get("avoid") or [] if a.startswith("move:")]       # the recent films' overused moves
+    deck = camera_deck.deal(n, "standard", seed=pid, memory=tired)
     return f"""{agent.skill(p['line'], 'scene_plan', p)}
 
 # This run: the design system only (nothing is drawn yet)
-Project: {p.get('title')} · {script.get('title') or ''} · {p.get('video_lang', 'tr')} · {p.get('aspect', '9:16')}
+{_novelty_block(nov)}Project: {p.get('title')} · {script.get('title') or ''} · {p.get('video_lang', 'tr')} · {p.get('aspect', '9:16')}
 Seconds: {p.get('seconds') or (P.read_artifact(pid, 'proposal', d) or {}).get('seconds')}
 Research insight: {str((research or {}).get('insight') or '')[:600]}
 
@@ -147,6 +174,7 @@ Reply ONLY JSON:
   "kit": "the reusable components every scene uses (title block, figure, label, chart, source line) as one paragraph",
   "scenes": [{{"id": "lower-case-id", "lines": [first, last] (0-based indices, inclusive), "brief": "what this scene must make the viewer see",
               "shows": "the subject and what it does (an action verb)", "mechanism": "one catalogue mechanism",
+              "recipes": ["card.id"],
               "camera": {{"move": "push_in", "seconds": 1.5, "easing": "ease_out", "target": "what it lands on"}}}}]}}
 Use the board's palette and type pairing exactly; no other colour, no other font.
 Give the camera moves different lengths (a quick 1.5 s push, a long 5 s pull-back): a film where every move lasts the
@@ -165,13 +193,15 @@ def _scene_prompt(pid, s, design, part, script, d):
         nums = _re.findall(r"\d[\d.,]*", text)
         names = [n for n in _w.proper_nouns(text) if len(n) > 2]
         return [x for x in dict.fromkeys(nums + names)][:6]
-    briefs = "\n".join(json.dumps({**{k: sc.get(k) for k in ("id", "lines", "brief", "shows", "mechanism", "camera")},
+    from .. import recipes as R
+    cards = R.card_text([i for sc in part for i in sc.get("recipes") or []])
+    briefs = "\n".join(json.dumps({**{k: sc.get(k) for k in ("id", "lines", "brief", "shows", "mechanism", "camera", "recipes")},
                                     "shows_must_name": must(sc)}, ensure_ascii=False) for sc in part)
     return f"""{agent.skill(p['line'], 'scene_plan', p)}
 
 # This run: the scenes {[sc['id'] for sc in part]}
 The design system is approved and fixed — use its palette, its CSS and its kit, invent nothing else.
-
+{("RECIPE CARDS for your scenes (build the scene with the card's call; adapt its example, keep its timing):" + chr(10) + cards + chr(10)) if cards else ""}
 Palette: {json.dumps(design.get('palette') or {}, ensure_ascii=False)}
 Global CSS:
 {design.get('global_css') or ''}
@@ -268,12 +298,14 @@ def scenes(pid, s, design_art, part, script, note=None, d=None, ask=None, build=
             sc["lines"] = list(b["lines"])
         sc.setdefault("shows", b.get("shows"))
         sc.setdefault("mechanism", b.get("mechanism"))
+        if b.get("recipes"):
+            sc.setdefault("recipes", list(b["recipes"]))
         sc.setdefault("camera", b.get("camera"))
         filled.append(sc)
     return {"ids": want, "scenes": filled, "usd": (meta or {}).get("cost_usd") or 0}
 
 
-def validate(plan, script, board, refs=(), sp=None, lang="tr"):
+def validate(plan, script, board, refs=(), sp=None, lang="tr", novelty=None, pid=None, d=None):
     """Everything the gate would refuse, in one list (camera, subject, mechanism, determinism, originality, board)."""
     from .. import camera, determinism, motiongrammar, originality, shotplan, subjectqc
     lines = script.get("lines") or []
@@ -288,6 +320,9 @@ def validate(plan, script, board, refs=(), sp=None, lang="tr"):
     found += camera.problems(scenes_) or motiongrammar.problems(scenes_) or subjectqc.problems(scenes_, lines, lang) \
         or determinism.problems(plan) or originality.problems(plan, lines, refs) \
         or direction_problems(plan, board)
+    if novelty and not found:
+        from .. import memory
+        found = memory.plan_problems(plan, novelty, pid=pid, d=d)
     return found
 
 
@@ -308,13 +343,14 @@ def _designed(pid, s, script, board, research, d, ask, note):
         if rebase_one_based(art.get("scenes") or [], len(lines)):
             P.event(pid, "lines_rebased", d=d, stage=s["id"], where="design", attempt=attempt + 1)
             P.write_artifact(pid, DESIGN, art, d)          # the cache must hold the corrected ranges too
-        found = _brief_problems(art.get("scenes") or [], lines)
+        found = _brief_problems(art.get("scenes") or [], lines, _novelty(pid, d), board, pid, d)
         if not found:
             return art
         if attempt:
-            raise ShortError("the design pass did not fix the scene `lines`: " + "; ".join(found[:6]))
-        art = design(pid, s, script, board, research, d, ask,
-                     "\n".join(x for x in (note, _line_note(found, len(lines))) if x))
+            raise ShortError("the design pass did not fix its scene list: " + "; ".join(found[:6]))
+        fix = (_line_note(found, len(lines)) if any("line" in f for f in found) else
+               "The checks refused the last answer; fix exactly this: " + "; ".join(found[:4]))
+        art = design(pid, s, script, board, research, d, ask, "\n".join(x for x in (note, fix) if x))
     raise ShortError("the design pass did not return usable scene lines")
 
 
@@ -440,11 +476,12 @@ def build(pid, s, note=None, d=None, ask=None, build=None, parallel=PARALLEL):
         refs = T._refs(T.Ctx(pid, s["id"], d))
     except Exception:
         refs = ()
-    problems = validate(plan, script, board, refs=refs, sp=sp, lang=video_lang)
+    nov = _novelty(pid, d)
+    problems = validate(plan, script, board, refs=refs, sp=sp, lang=video_lang, novelty=nov, pid=pid, d=d)
     if problems:                                   # one redraw of the scenes the checks named, then the checks again
         problems = _repair_once(pid, s, script, design_art, briefs, groups, drawn, keep, plan, problems, d, ask, build)
         if problems is None:
-            problems = validate(plan, script, board, refs=refs, sp=sp, lang=video_lang)
+            problems = validate(plan, script, board, refs=refs, sp=sp, lang=video_lang, novelty=nov, pid=pid, d=d)
     plan["checked"] = problems[:12]
     try:                                            # the layout lint needs a browser; its absence is not a failure
         rep = {}

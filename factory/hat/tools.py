@@ -187,7 +187,8 @@ def _meaning(ctx, schema, data):
                      or subjectqc.problems(scenes, lines, p.get("video_lang") or "tr")
                      or determinism.problems(data)
                      or originality.problems(story, lines, _refs(ctx))
-                     or direction_problems(ctx, story))
+                     or direction_problems(ctx, story)
+                     or (novelty_plan_problems(ctx, story) if schema == "scene_plan" else []))
         if found:
             return found
     if schema in ("script", "long_script") and hookrule.authored(p["line"], ctx.stage):
@@ -204,7 +205,7 @@ def _meaning(ctx, schema, data):
         if found:
             return found
     if schema == "proposal":
-        return proposal_problems(data)
+        return proposal_problems(data) or novelty_proposal_problems(ctx, data)
     if schema == "outline":
         found = longform.outline_problems(script, data)
         if not found and p["line"] in camera.LINES:
@@ -262,6 +263,26 @@ def proposal_problems(data):
     return out
 
 
+def _novelty(ctx):
+    from .. import memory
+    try:
+        return memory.project_brief(ctx.pid, ctx.d) if P.load(ctx.pid, ctx.d).get("line") == "explainer" else {}
+    except Exception:
+        return {}
+
+
+def novelty_proposal_problems(ctx, data):
+    """The novelty brief binds the proposal: the chosen look comes from the least-used film styles (factory/memory.py)."""
+    from .. import memory
+    return memory.proposal_problems(data, _novelty(ctx))
+
+
+def novelty_plan_problems(ctx, plan):
+    """...and the scene plan: one of the under-used recipes is used, and the previous film's signature is not repeated."""
+    from .. import memory
+    return memory.plan_problems(plan, _novelty(ctx), pid=ctx.pid, d=ctx.d)
+
+
 def direction_problems(ctx, plan):
     """The scene plan must be drawn in the approved board's palette and type pairing."""
     from . import direction
@@ -275,8 +296,16 @@ def direction_problems(ctx, plan):
       "for a kind of video, so a proposal only uses what the factory can render.",
       schema={"type": "object", "properties": {"kind": {"type": "string", "enum": ["topic", "footage", "talk", "series"]}}})
 def catalog(ctx, kind="topic"):
+    """The catalogue with this film's novelty brief applied: the least-used film styles first and marked `use_now`, the
+    off-the-table looks marked `avoid` (they are still listed: the creator may name one)."""
     from .. import capabilities
-    return capabilities.catalogue(kind)
+    rows = capabilities.catalogue(kind)
+    b = _novelty(ctx)
+    if not b.get("styles") and not b.get("avoid"):
+        return rows
+    now, off = {"style." + x for x in b.get("styles") or []}, {a.replace(":", ".", 1) for a in b.get("avoid") or []}
+    rows = [r | ({"use_now": True} if r["id"] in now else {}) | ({"avoid": True} if r["id"] in off else {}) for r in rows]
+    return sorted(rows, key=lambda r: not r.get("use_now"))
 
 
 @tool("recipes", "planning", "The motion recipe cards (text, annotation, data, camera, transition, set piece, "
@@ -298,7 +327,9 @@ def recipes(ctx, ids=None, family=None):
 def memory(ctx):
     from .. import memory as M
     from ..store import connect
-    return M.brief(connect())
+    out = M.brief(connect(), v2=True, d=ctx.d, pid=ctx.pid)
+    b = _novelty(ctx)
+    return out | ({"novelty": b} if b.get("text") else {})
 
 
 @tool("estimate_cost", "planning", "ElevenLabs credits for planned generations, from rates learned on real runs. "

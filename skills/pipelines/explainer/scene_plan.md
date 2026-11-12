@@ -7,6 +7,9 @@
   with the same device; no stock metaphor standing in for the idea.
 - Every number on screen exists in the script at that line; every proper name the line says is named in `shows`.
 - Palette and type pairing come from the approved direction board: no other hex, no other font family.
+- The novelty brief in your prompt is binding (unless the creator named a look): at least one scene lists one of its
+  required under-used recipes in `recipes` and is built with that card's call, and the film does not repeat the
+  previous film's palette / camera order / mechanism order / timing.
 - No nondeterminism: no `Math.random`, no `Date.now`, no network fetch in scene code (the same moment must render
   identically twice).
 - Run `render_stills` + `layout_lint` on your scenes before submitting: no error findings, no text in the caption band.
@@ -32,7 +35,7 @@ the voice is recorded only after that, so the timing you see now is a draft from
    caption band? Is the hook frame strong at its first tenth of a second?
 6. Check it: `layout_lint`; fix every error. Then look again. Two look-and-fix rounds are usually enough.
 7. `submit_artifact` with `concept` (2-3 sentences: the visual idea and why it suits this subject), `palette`,
-   `global_css`, `scenes[{id, lines, trigger, mechanism, shows, camera{move, seconds, easing, target}, html, css, js, notes}]`,
+   `global_css`, `scenes[{id, lines, trigger, mechanism, shows, camera{move, seconds, easing, target}, recipes[card ids], html, css, js, notes}]`,
    `summary` (interface language: the visual
    idea, and the scene the creator should look at first).
    Scene ids: lowercase letters, digits, - or _ (e.g. "hook", "threshold", "routes", "cta").

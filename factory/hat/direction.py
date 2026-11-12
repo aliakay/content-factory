@@ -298,16 +298,36 @@ def draw(board, title, out):
 
 # ---------------------------------------------------------------- the stage
 
+def novel_look(pid, prop, d=None):
+    """The film style the novelty brief picks when the proposal's look is not a film style and the creator named none:
+    the least recently used one (the brief is frozen per project, so the same project always gets the same board).
+    '' when the look is already a style, the creator named one (a note or the brief wins) or there is no history."""
+    from .. import memory
+    if _style(prop):
+        return ""
+    try:
+        b = memory.project_brief(pid, d)
+    except Exception:
+        return ""
+    if b.get("yielded"):                      # the creator named a look: a named style is theirs, anything else keeps the scheme
+        named = str(b["yielded"])
+        return named[6:] if named.startswith("style:") else ""
+    return (b.get("styles") or [""])[0]
+
+
 def build(pid, d=None):
     """The board for this project as data (no file written): palette, type, rules, references, fingerprint."""
     from .. import typography
     p = P.load(pid, d)
     prop = P.read_artifact(pid, "proposal", d) or {}
+    novel = novel_look(pid, prop, d)
+    if novel and _style({"look": "style." + novel}):
+        prop = {**prop, "look": "style." + novel}      # the board only; the proposal artifact the creator approved is untouched
     research = P.read_artifact(pid, "research", d) or {}
     pal = palette(pid, p, prop)
     board = {"palette": pal, "type": {**fonts(prop), "scale": typography.scale(p.get("aspect", "9:16"))},
              "rules": rules(prop), "references": references(pid, prop, research),
-             "style": (_style(prop) or {}).get("id")}
+             "style": (_style(prop) or {}).get("id"), **({"chosen_by": "novelty brief"} if novel else {})}
     m = measured(prop)
     if m:                                   # the picture behind the card: palette shares, contrast, key light
         board["measured"] = {"palette": m["palette"], "accent": m["accent"], "l_p50": m["l_p50"],
@@ -339,7 +359,8 @@ def run(pid, s, note=None, d=None):
                         "en": f"Direction board ready: {board['type']['display']} + {board['type']['body']}"
                               f"{f' · from the {st} style' if st else ''}. The palette and rules go to the scene plan."}[ui]
     P.decision(pid, "direction", st or "scheme", d=d, palette=board["palette"], fonts=board["type"],
-               reason="film style card" if st else "deterministic scheme from the project")
+               reason=("novelty brief: the least recently used film style" if board.get("chosen_by") else "film style card")
+               if st else "deterministic scheme from the project")
     return {"artifact": board, "summary": board["summary"], "cost": {"credits": 0, "usd": 0.0}}
 
 
