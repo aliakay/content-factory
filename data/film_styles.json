@@ -752,6 +752,140 @@
      "avoid": "Hand-drawn cartoon, anti-aliasing, gradients, blur."
     }
    }
+  },
+  {
+   "id": "line_art",
+   "name": "Line art, ink on paper",
+   "tr": "Çizgi animasyon, kâğıtta mürekkep",
+   "essence": "A hand-inked animated drawing: near-black pen lines on warm paper, thin little people who really walk, tip their hats and wave, towns that breathe (smoke, laundry, trees in the wind) and a day that turns to night. The line is the picture; colour is a rare accent.",
+   "not": "Not a flat vector icon set, not a cartoon with thick uniform outlines, not a photo with a filter. No gradients on figures, no drop shadows, no ruler-straight lines, no shaded 3D.",
+   "render": "Use the line-art kit: const LA = FX.ink; S = LA.stage(root, T, {ground: 0.8}) draws everything in figure units with the ink wobble filter; people via LA.figure(...).walk/act, places via LA.street / LA.room / LA.building / LA.tree, explanations via LA.drawIn, LA.label, LA.arrow, LA.circleAround, LA.bars, LA.drivetrain. Paper #fdfcf8, ink #1c1b19. Reveal a new place stroke by stroke with LA.drawIn before the people enter. Text is hand lettering in Instrument Serif italic.",
+   "composition": "A wide low horizon with small people in a big quiet world; the ground line is a real line the feet stand on; the top third is air for sky and title, the lower third stays free for captions. Two to four people at once, each on its own schedule, one of them the story.",
+   "colour": "Ink on paper, one accent only (brick red #b3412d) for what the eye must find, plus two or three muted flats (clay, sage, sand) for walls and doors. At night the paper turns deep blue (#1b2140), the ink turns pale, and lit windows and lamps glow warm yellow: the one moment colour is allowed to be loud.",
+   "type": "Hand lettering in Instrument Serif italic, small, near the thing it names; never a heavy sans title. Captions on the free lower third in the same pen voice.",
+   "motion": "Alive but slow: real gait with planted feet, a spring in sleeves and scarves, trees and laundry answering the wind, smoke rising, a cat flicking its tail. Every move is a pure function of time. Never everyone at once, never everyone in the same direction.",
+   "camera": "Mostly locked wide; a slow lateral pan following the walker; a push into the one gesture that matters. Establish with a stroke-by-stroke draw-on, end on the drawing finishing itself.",
+   "transitions": "The scene is drawn on or wiped away like erased pencil; a slow day-to-night dissolve of the paper colour; a walker leaves frame and the next scene opens on the same ground line. Never a flash or a zoom blur.",
+   "sound": "Quiet and domestic: soft footsteps, a pizzicato or nylon-guitar line, a distant bird, pen-scratch for the draw-ons; room tone, no big hits.",
+   "post": {
+    "grain": 0.12
+   },
+   "card": {
+    "palette": [
+     "#fdfcf8",
+     "#1c1b19",
+     "#b3412d",
+     "#d9a066",
+     "#1b2140"
+    ],
+    "fonts": [
+     "Instrument Serif"
+    ],
+    "tr": {
+     "look": "Kâğıda elle çizilmiş mürekkep çizgi: ince insanlar yürür, şapka kaldırır, sokak nefes alır; renk sadece tek bir vurgu.",
+     "type": "Küçük, el yazısı gibi italik serif; nesnenin yanında.",
+     "motion": "Yavaş ve canlı: gerçek yürüyüş, rüzgâra karşılık veren ağaçlar ve çamaşırlar, çizilerek açılan sahneler.",
+     "sound": "Sessiz ve evsel: adım sesi, pizzicato, uzak kuş.",
+     "avoid": "Düz vektör ikonlar, kalın tek tip kontur, gölge, cetvelle çekilmiş çizgi."
+    },
+    "en": {
+     "look": "Hand-inked line on warm paper: thin people walk, tip hats, the street breathes; colour only as one accent.",
+     "type": "Small italic serif that reads as pen lettering, beside what it names.",
+     "motion": "Slow and alive: real gait, trees and laundry answering the wind, scenes drawn on stroke by stroke.",
+     "sound": "Quiet and domestic: footsteps, pizzicato, a distant bird.",
+     "avoid": "Flat vector icons, thick uniform outlines, shadows, ruler-straight lines."
+    }
+   }
+  },
+  {
+   "id": "clay_3d",
+   "name": "Clay 3D",
+   "tr": "Kil 3B",
+   "essence": "A soft, tactile 3D world in real WebGL: matte clay-like objects with rounded edges, one warm key light and a big soft shadow on the floor; the idea is built as objects you could pick up (columns that grow, piles of coins, a globe, layered slabs, a block city, heavy extruded words).",
+   "not": "Not glossy chrome or neon, not a CSS card tilted in perspective, not a flat vector chart, not photoreal; no textures with noise, no hard black shadows, no more than one 3D stage per scene.",
+   "render": "Use the 3D kit: k = FX.stage3(tl, root, T, {look: 'clay'}); then one builder per idea: k.text3d / k.number3d for the big word or number, k.bars, k.stack, k.city, k.globe, k.explode, k.product, k.flythrough, k.swarm; k.move('push_in'|'orbit'|'pull_out'|..., {at, dur}) for the camera. Leave the background to the scene's CSS (the canvas is transparent in clay). Labels are the kit's DOM tags; small explanatory text in the DOM around the stage, never over it. Budget: one stage per scene, about 0.3-0.6 s per 1080x1920 frame.",
+   "composition": "One hero object or group centred in the safe area, a third of the frame of air above it for the title, the lower band free for captions; the floor shadow anchors everything.",
+   "colour": "The film palette on clay: accent for the hero, accent2 for the rest, hot for the one thing to find; a calm, slightly lighter background (a radial gradient from the scene's bg) so the soft shadow reads.",
+   "type": "Extruded Anton for the one headline or number per scene (two-tone: ink face, accent sides); everything else in Inter Tight 700-800 tags.",
+   "motion": "Things arrive with weight: grow with back.out, drop with a bounce, rise in a wave from the centre; then a slow orbit or push keeps the camera alive. Nothing hard-cuts within a scene.",
+   "camera": "A three-quarter view from slightly above; slow orbit of 20-30 degrees per scene, push_in on the reveal, pull_out to show scale; a fly-through between cards for timelines.",
+   "transitions": "Cut on the motion of the 3D camera (an orbit that continues into the next scene), or a pull-out that becomes the next scene's establishing shot. No flashy 2D wipes.",
+   "sound": "Soft, rounded and playful: wooden and felt percussion, marimba, soft plucks; a soft thud on every landing, a coin clink for piles.",
+   "post": {
+    "grain": 0.08
+   },
+   "card": {
+    "palette": [
+     "#20243a",
+     "#ffb347",
+     "#7c5cff",
+     "#ff5a5f",
+     "#f4efe6"
+    ],
+    "fonts": [
+     "Anton",
+     "Inter Tight"
+    ],
+    "tr": {
+     "look": "Gerçek 3B, mat kil gibi yumuşak nesneler: yuvarlak kenarlar, sıcak tek ışık, yerde büyük yumuşak gölge.",
+     "type": "Sahne başına bir kalın 3B başlık ya da rakam; gerisi küçük, temiz etiketler.",
+     "motion": "Nesneler ağırlıkla gelir: büyür, düşer, dalga gibi yükselir; kamera yavaşça döner.",
+     "sound": "Ahşap ve keçe vurmalılar, marimba, yumuşak düşme sesleri.",
+     "avoid": "Parlak krom, neon, düz vektör grafik, sert siyah gölge."
+    },
+    "en": {
+     "look": "Real 3D, soft matte clay objects: rounded edges, one warm light, a big soft floor shadow.",
+     "type": "One heavy 3D headline or number per scene; small clean tags for the rest.",
+     "motion": "Things arrive with weight: they grow, drop, rise in a wave; the camera orbits slowly.",
+     "sound": "Wooden and felt percussion, marimba, soft landing thuds.",
+     "avoid": "Glossy chrome, neon, flat vector charts, hard black shadows."
+    }
+   }
+  },
+  {
+   "id": "wireframe_3d",
+   "name": "Wireframe 3D",
+   "tr": "Tel kafes 3B",
+   "essence": "An engineer's 3D world in real WebGL: every object drawn as crisp glowing edges over a faint translucent fill, on a deep dark ground with a floor grid; data and mechanisms explained like a technical model that turns in space.",
+   "not": "Not clay or plastic, not a flat 2D blueprint (that is the 'blueprint' style), not a hologram HUD full of fake numbers; no textures, no soft shadows, no clutter of random lines.",
+   "render": "Use the 3D kit: k = FX.stage3(tl, root, T, {look: 'blueprint'}) for ink-blue edges, or {look: 'neon'} for glowing accent edges on black; builders k.bars, k.city, k.explode, k.globe, k.swarm, k.text3d, k.number3d, k.product; k.ground() draws the floor grid. Camera with k.move. Text as the kit's tags in Inter Tight (tabular figures for numbers). Budget: one stage per scene, about 0.3-0.6 s per 1080x1920 frame.",
+   "composition": "The model floats centred over the grid, generous dark space around it; labels hang off the model with leader lines; the lower band stays free for captions.",
+   "colour": "Dark ground (the film's bg, deepened), edges in accent and accent2, the one highlight in hot; fills at 10-20 % opacity so the hidden edges show through.",
+   "type": "Inter Tight 700 tags with tabular figures for numbers; extruded 3D words only as wireframe text, one per film.",
+   "motion": "Precise and mechanical: parts slide apart on power3.inOut, columns grow, particles assemble into a figure; a constant slow orbit like a model on a turntable.",
+   "camera": "Steady orbit and slow push_in; a rack_focus to the next part; a dolly_zoom for the one dramatic reveal.",
+   "transitions": "The model explodes into the next scene's parts; the grid slides; particles of one shape become the next. No cross-dissolves.",
+   "sound": "Clean electronic: soft synth pulses, clicks on every part that locks, a low drone under the orbit.",
+   "post": {
+    "grain": 0.06
+   },
+   "card": {
+    "palette": [
+     "#0b1020",
+     "#5ad1ff",
+     "#7c5cff",
+     "#ff5a5f",
+     "#e8f1ff"
+    ],
+    "fonts": [
+     "Inter Tight",
+     "Anton"
+    ],
+    "tr": {
+     "look": "Koyu zeminde parlayan kenar çizgileriyle çizilmiş gerçek 3B modeller, yerde ızgara.",
+     "type": "Temiz etiketler, rakamlar için eşit genişlikli rakamlar.",
+     "motion": "Hassas ve mekanik: parçalar ayrılır, sütunlar büyür, parçacıklar şekle dönüşür; sürekli yavaş dönüş.",
+     "sound": "Temiz elektronik: synth darbeleri, kilitlenme klikleri, alçak drone.",
+     "avoid": "Kil ya da plastik doku, yumuşak gölge, sahte HUD rakamları, karmaşık çizgiler."
+    },
+    "en": {
+     "look": "Real 3D models drawn as glowing edges on a dark ground, a floor grid below.",
+     "type": "Clean tags, tabular figures for numbers.",
+     "motion": "Precise and mechanical: parts slide apart, columns grow, particles assemble; a constant slow orbit.",
+     "sound": "Clean electronic: synth pulses, lock-in clicks, a low drone.",
+     "avoid": "Clay or plastic surfaces, soft shadows, fake HUD numbers, clutter."
+    }
+   }
   }
  ]
 }

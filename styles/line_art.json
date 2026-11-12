@@ -1,0 +1,5 @@
+{
+ "seconds": 3,
+ "css": "position:absolute;inset:0;background:#fdfcf8",
+ "js": "const LA = FX.ink, k = 1.05, S = LA.stage(root, T, {figure: k, ground: 0.64, seed: 5});\nLA.sky(S, {clouds: 2});\nLA.street(S, {seed: 7, trees: true});\nLA.birds(S, {n: 6, y: S.h * 0.16, speed: 12});\nLA.cat(S, S.w * 0.18, S.gy + 6 * k, {patch: '#d9a066'});\nLA.laundry(S, [S.w * 0.55, S.gy - 38 * k], [S.w * 0.85, S.gy - 40 * k], {sag: 3});\nconst a = LA.figure(S, {who: 'man', hat: 'bowler', prop: 'briefcase', x: S.w * 0.06, y: S.gy + 10 * k});\na.walk(0, S.w * 0.34, {pace: 1.2});\nconst b = LA.figure(S, {who: 'woman', prop: 'bag', x: S.w * 0.9, y: S.gy + 26 * k, dir: -1, scale: 1.1, scarf: '#b3412d'});\nconst e = b.walk(0, S.w * 0.8, {pace: 1.1}); b.act(e + 0.1, 'wave');\nconst c = LA.figure(S, {who: 'child', hat: 'cap', x: S.w * 0.4, y: S.gy + 40 * k, prop: 'balloon', propColour: '#c8473c'});\nc.walk(0.2, S.w * 0.56, {pace: 1});\n"
+}

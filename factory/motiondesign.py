@@ -93,6 +93,10 @@ FX_DOC = """FX LIBRARY (available in every scene's JS as `FX`; deterministic, us
   surfaces/backgrounds: FX.glass(el) · FX.aurora(root, T, {colors, seed}) · FX.particles(root, T, {n, color, seed})
   3D (Three.js, rendered per frame): k = FX.three(root, T) -> {THREE, scene, camera, frame(fn(localT))} ·
           FX.globe(root, T, {color, grid, turn}) · per-frame canvas drawing: FX.onFrame(fn(t)) · seeded random: FX.rand(seed)
+  REAL 3D KIT (lit, shadowed WebGL sets in one or two lines; prefer it to FX.three): k = FX.stage3(tl, root, T, {look:
+          clay|studio|paper|blueprint|neon}); k.text3d / k.number3d / k.bars / k.globe / k.product / k.explode / k.city /
+          k.flythrough / k.swarm / k.stack (tl, at, ...); k.move(push_in|orbit|pull_out|..., {at, dur}); one stage per
+          scene, 0.3-0.8 s a frame; full API, budget and rules in the three.* recipe cards (ask for them)
   maths + science (Manim-style): FX.math(tl, root, at, "LaTeX", {x, y, size, mark}) (KaTeX, written term by term;
           \\hl{...} lights a part at `mark`) · FX.eqSteps(tl, root, [{tex, at}], {y, size}) (a derivation, older lines move
           up and dim) · FX.plot(tl, root, {box: [x, y, w, h], x: [min, max, step], y: [..], fns: [{f: (x) => .., at, dur,

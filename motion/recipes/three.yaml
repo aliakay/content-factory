@@ -1,0 +1,132 @@
+# Real 3D (WebGL, Three.js r170) through the kit in motion/templates/fx3d.js: k = FX.stage3(tl, root, T, {look}).
+# The kit note (motion/recipes/three_note.md) rides along with these cards to the scene designer. Demos work on 9:16 and 16:9.
+- id: three.bars
+  name: {tr: "3B büyüyen sütunlar", en: "3D growing columns"}
+  use: {tr: "Birkaç değeri ağırlıkla karşılaştırmak: yıllara göre büyüme, biri ötekileri ezip geçer.", en: "Comparing a few values with weight: growth over the years, one value dwarfs the rest."}
+  call: "k = FX.stage3(tl, root, T, {look: 'clay'|'studio'|'paper'|'blueprint'|'neon'}); k.bars(tl, at, [{v, label}], {highlight, prefix, suffix, decimals}); k.move('orbit', {at, turn})"
+  timing: {tr: "Sütun başına 0.9 s büyüme, 0.12 s arayla; vurgulanan sütun söylenirken bitsin. Yavaş bir orbit (20-30 derece) derinliği gösterir.", en: "0.9 s growth per column, 0.12 s apart; the highlighted one lands as it is named. A slow orbit (20-30 degrees) shows the depth."}
+  pitfalls:
+    tr: ["En çok 6 sütun; daha fazlası telefonda okunmaz.", "Değer ve etiketler DOM etiketidir (lint görür); kendi yazını 3B sahnenin üstüne koyma.", "Bir sahnede tek FX.stage3: tek tuval vardır."]
+    en: ["6 columns at most; more is unreadable on a phone.", "Values and labels are DOM tags (the lint sees them); do not lay your own text over the 3D set.", "One FX.stage3 per scene: there is one canvas."]
+  seconds: 4
+  demo: |
+    const k = FX.stage3(tl, root, T, {look: 'clay'});
+    k.bars(tl, 0.3, [{v: 12, label: '2019'}, {v: 19, label: '2020'}, {v: 31, label: '2021'}, {v: 58, label: '2022'}], {highlight: 3, suffix: 'M'});
+    k.move('orbit', {at: 0.2, turn: 25});
+- id: three.text3d
+  name: {tr: "3B kalın başlık", en: "Extruded 3D headline"}
+  use: {tr: "Filmin ana fikrini tek iki kelimeyle ağır ve fiziksel söylemek: bölüm başı, hook, final sözü.", en: "Saying the film's big idea in one or two words, heavy and physical: a chapter opener, the hook, the last word."}
+  call: "k = FX.stage3(tl, root, T, {look}); k.text3d(tl, at, 'BIG\\nIDEA', {font: 'anton'|'poppins'|'serif', anim: 'rise'|'drop'|'spin'|'pop', color, side, y}); k.move('push_in', {at, dur, amount: 0.85})"
+  timing: {tr: "Harf başına 0.06 s, satır başına 0.15 s gecikme; kelime 0.6-0.9 s içinde oturur. Ardından yavaş push_in (2-3 s).", en: "0.06 s per letter, 0.15 s per line; the word lands in 0.6-0.9 s. Then a slow push_in (2-3 s)."}
+  pitfalls:
+    tr: ["En çok iki satır, satırda 8 harf: daha uzunu küçülür ve okunmaz.", "Yalnız projenin fontları (anton, poppins, serif) çıkarılabilir; Türkçe harfler fontta var.", "Yazı WebGL'de çizilir, görünmez bir DOM ikizi lint'e kendini bildirir; aynı yazıyı DOM'da tekrar yazma."]
+    en: ["Two lines at most, 8 letters a line: longer words shrink until unreadable.", "Only the project fonts (anton, poppins, serif) extrude; they carry Turkish letters.", "The text is drawn in WebGL; an invisible DOM twin reports it to the lint: do not write the same words again in the DOM."]
+  seconds: 4
+  demo: |
+    const k = FX.stage3(tl, root, T, {look: 'clay'});
+    k.text3d(tl, 0.2, 'BIG\nIDEA', {anim: 'rise'});
+    k.move('push_in', {at: 0.3, dur: 3.4, amount: 0.86});
+- id: three.number3d
+  name: {tr: "Sayan 3B rakam", en: "Counting 3D number"}
+  use: {tr: "Tek büyük sayı hikâyenin kendisiyken: para, nüfus, yüzde. Rakamlar ağırlıkla sayar ve yerine oturur.", en: "When one big number is the story: money, population, a percentage. The digits count up with weight and land."}
+  call: "k.number3d(tl, at, value, {prefix, suffix, decimals, from, dur, font, color, side})"
+  timing: {tr: "Sayma 1.4-2 s (power3.out: hızlı başlar, yavaş oturur); son rakam söylenirken bitsin.", en: "Count for 1.4-2 s (power3.out: fast, then settles); finish as the number is said."}
+  pitfalls:
+    tr: ["Kısa yaz: 2400000 yerine 2.4 + suffix 'M' (6 karakterden uzun sayı dikeyde küçülür).", "Rakamlar her karede t'den hesaplanır; sayacı kendin artırma.", "Altına açıklama gerekiyorsa k.tag kullan, 3B rakamın üstüne yazı bindirme."]
+    en: ["Keep it short: 2.4 with suffix 'M', not 2400000 (over 6 characters shrinks on a portrait stage).", "Digits are computed from t every frame; never step a counter yourself.", "For a caption under it use k.tag; never lay text over the 3D digits."]
+  seconds: 4
+  demo: |
+    const k = FX.stage3(tl, root, T, {look: 'studio', cam: {el: 0.22, az: 0.45}});
+    k.number3d(tl, 0.3, 2.4, {prefix: '$', suffix: 'M', decimals: 1, dur: 1.8});
+    k.tag(tl, 1.9, [0, -2.6, 0], 'raised in one weekend', {size: FX._W < FX._H ? 52 : 40, weight: 600, color: 'var(--muted)'});
+    k.move('orbit', {at: 0.3, turn: -30});
+- id: three.globe
+  name: {tr: "Rotalı 3B dünya", en: "3D globe with routes"}
+  use: {tr: "Bir şeyin dünyada nereden nereye gittiği: uçuş, ticaret, göç, internet kablosu. Yer adı ve mesafe hissi.", en: "Where something goes around the world: a flight, trade, migration, a cable. Place names and a sense of distance."}
+  call: "g = k.globe(tl, at, {focus: [lon, lat], routes: [{from: [lon, lat], to: [lon, lat], at, fromLabel, toLabel}], marks: [{p: [lon, lat], label, at}]}); g.turn(at, [lon, lat]); g.route(at, a, b, {fromLabel, toLabel}); g.mark(at, p, label)"
+  timing: {tr: "Küre 0.7 s'de belirir ve 1.6 s'de odağa döner; rota 1.2 s'de çizilir, varış etiketi rotanın sonunda. Rota başına 2 s ayır.", en: "The globe pops in over 0.7 s and turns to its focus in 1.6 s; a route draws in 1.2 s, the arrival label at its end. Allow 2 s per route."}
+  pitfalls:
+    tr: ["Koordinatlar [boylam, enlem] (önce boylam!). New York [-74, 40.7].", "Kıtalar kaba çizimdir: sınır ya da küçük ülke gösterme.", "Odağı rotanın ortasına ver, yoksa uç nokta kürenin kenarında kalır."]
+    en: ["Coordinates are [lon, lat] (longitude first!). New York is [-74, 40.7].", "The continents are coarse: never show borders or small countries.", "Focus on the middle of the route, or an end sits on the globe's rim."]
+  seconds: 5
+  demo: |
+    const k = FX.stage3(tl, root, T, {look: 'clay'});
+    const g = k.globe(tl, 0.2, {focus: [-38, 38], routes: [{from: [-74, 40.7], to: [2.35, 48.8], at: 1.4, fromLabel: 'New York', toLabel: 'Paris'}]});
+    g.turn(3.2, [-20, 30], 1.6);
+    k.move('push_in', {at: 1.0, dur: 3.5, amount: 0.86});
+- id: three.product
+  name: {tr: "Dönen ürün (turntable)", en: "Product turntable"}
+  use: {tr: "Bir nesneyi kahraman gibi tanıtmak ve parçalarını adlandırmak: telefon, kutu, kutu içecek, laptop, şişe.", en: "Introducing an object like a hero and naming its parts: a phone, a parcel, a can, a laptop, a bottle."}
+  call: "g = k.product(tl, at, 'phone'|'can'|'box'|'laptop'|'bottle', {color, label, callouts: [{part, label, side: 'left'|'right', at}], turn, face})"
+  timing: {tr: "Nesne 1.3 s'de dönerek gelir, sonra yavaşça döner (3 s'de 40 derece). Etiketler 1.4 s'den sonra, 0.4 s arayla.", en: "The object spins in over 1.3 s, then turns slowly (40 degrees per 3 s). Callouts from 1.4 s, 0.4 s apart."}
+  pitfalls:
+    tr: ["Ürünler ilkel şekillerden yapılır: marka logosu ya da gerçek model iddia etme.", "Parça adları: phone screen/camera/button, can top/label, box label/top, laptop screen/keyboard, bottle cap/label.", "En çok 3 etiket; arkada kalan parçayı (telefon kamerası) etiketleme, yön 'face' ile çevrilir."]
+    en: ["Products are built from primitives: never claim a brand logo or a real model.", "Part names: phone screen/camera/button, can top/label, box label/top, laptop screen/keyboard, bottle cap/label.", "3 callouts at most; do not label a part that faces away (the phone camera) unless 'face' turns it round."]
+  seconds: 4.5
+  demo: |
+    const k = FX.stage3(tl, root, T, {look: 'studio'});
+    k.product(tl, 0.2, 'can', {label: 'FIZZ', callouts: [{part: 'top', label: 'Ring-pull lid', side: 'left', at: 1.6}, {part: 'label', label: '330 ml', at: 2.0}]});
+- id: three.explode
+  name: {tr: "Patlatılmış görünüm", en: "Exploded view"}
+  use: {tr: "Bir şeyin katmanlarını göstermek: telefonun içi, bir pilin yapısı, bir sistemin katmanları, bir pastanın katları.", en: "Showing what something is made of in layers: inside a phone, a battery, the layers of a system, of a cake."}
+  call: "k.explode(tl, at, [{label, color, th, shape: 'slab'|'disc', glass}], {gap, w, stagger})   // top layer first"
+  timing: {tr: "Katmanlar 1 s'de ayrılır, 0.08 s arayla; etiketler ayrılmanın ortasından itibaren. 3-6 katman.", en: "Layers separate over 1 s, 0.08 s apart; labels arrive from the middle of the move. 3-6 layers."}
+  pitfalls:
+    tr: ["En çok 6 katman: dikeyde etiketler sıkışır.", "Etiketler sağa yaslanır; yatayda sahnenin sağ yarısını boş bırak.", "Katman adı 2-3 kelime; uzun açıklama ayrı sahnede."]
+    en: ["6 layers at most: the labels crowd on a portrait stage.", "Labels sit on the right; on a landscape stage keep the right half free.", "A layer name is 2-3 words; long explanations get their own scene."]
+  seconds: 4
+  demo: |
+    const k = FX.stage3(tl, root, T, {look: 'studio'});
+    k.explode(tl, 0.5, [{label: 'Glass'}, {label: 'Touch layer'}, {label: 'OLED panel'}, {label: 'Battery'}, {label: 'Frame'}]);
+    k.move('orbit', {at: 0.4, turn: 14});
+- id: three.city
+  name: {tr: "Veri şehri (izometrik)", en: "Data city (isometric)"}
+  use: {tr: "Bir ızgara üzerinde yoğunluk ya da büyüklük: şehir merkezi, ısı haritası, piyasa, nüfus. Dalga gibi yükselir.", en: "Density or size on a grid: a downtown, a heat map, a market, population. Rises like a wave."}
+  call: "g = k.city(tl, at, {n: 9, data: [[0..1]], mark: [[i, j, label]], low, high, wave}); k.move('orbit', {at, turn: 30})"
+  timing: {tr: "Dalga merkezden kenara 1 s (wave), blok başına 0.7 s yükselme. Yavaş orbit 30 derece.", en: "The wave takes 1 s from the centre out (wave), each block rises in 0.7 s. A slow 30-degree orbit."}
+  pitfalls:
+    tr: ["n en çok 12 (144 blok): daha fazlası yavaşlar ve okunmaz.", "data verirsen değerler 0..1 arası olmalı (en büyüğe böl).", "İşaretli blok kırmızıdır; tek işaret, en çok iki."]
+    en: ["n 12 at most (144 blocks): more gets slow and unreadable.", "With data, values must be 0..1 (divide by the largest).", "The marked block turns red; one mark, two at most."]
+  seconds: 4
+  demo: |
+    const k = FX.stage3(tl, root, T, {look: 'clay'});
+    k.city(tl, 0.2, {n: 9, mark: [[4, 4, 'Downtown']]});
+    k.move('orbit', {at: 0.2, turn: 30});
+- id: three.flythrough
+  name: {tr: "Kartlar arasında uçuş", en: "Fly-through over cards"}
+  use: {tr: "Zaman çizelgesi ya da adım listesi: kamera bir karttan ötekine uçar, her birinde durur. Tarihler, aşamalar, sıralama.", en: "A timeline or a list of steps: the camera flies from one card to the next and holds on each. Dates, stages, a ranking."}
+  call: "k.flythrough(tl, at, [{kicker, title, sub, color}], {every, hold, zigzag})"
+  timing: {tr: "Kart başına 'every' saniye (varsayılan sahne süresi / kart sayısı); süresinin 0.55'i duruş, kalanı uçuş. Kart başına 1.5-2.5 s.", en: "'every' seconds per card (default: the scene length / the number of cards); 0.55 of it holds, the rest flies. 1.5-2.5 s per card."}
+  pitfalls:
+    tr: ["En çok 5 kart; başlık en çok 12 harf (otomatik küçülür ama kısa olan güçlü).", "Kamera kendi rayında: bu sahnede k.move kullanma.", "Kart yazısı WebGL dokusu, DOM ikizi lint'e bildirir; üstüne DOM yazı koyma."]
+    en: ["5 cards at most; a title of 12 letters at most (it shrinks to fit, but short is strong).", "The camera rides its own rail: no k.move in this scene.", "Card text is a WebGL texture with a DOM twin for the lint; never put DOM text over it."]
+  seconds: 5
+  demo: |
+    const k = FX.stage3(tl, root, T, {look: 'studio'});
+    k.flythrough(tl, 0.2, [{kicker: '1971', title: 'EMAIL', sub: 'The first message'}, {kicker: '1991', title: 'THE WEB', sub: 'Pages for everyone'}, {kicker: '2007', title: 'SMARTPHONE', sub: 'The web in a pocket'}]);
+- id: three.swarm
+  name: {tr: "Parçacıklar şekle dönüşür", en: "Particles form a shape"}
+  use: {tr: "Dağınıklıktan düzene: binlerce parça bir sayıya ya da kelimeye toplanır, sonra başka bir şekle dağılır. Veri, kalabalık, birleşme.", en: "From chaos to order: thousands of pieces gather into a number or a word, then scatter into another shape. Data, crowds, coming together."}
+  call: "k.swarm(tl, at, {text: '87%' | shape: 'sphere'|'ring'|'grid'|'cube', n, color, color2, then: {at, text | shape}})"
+  timing: {tr: "Toplanma 1.6 s + 0.7 s dağılım (parça başına gecikme); şekil 1 s okunsun, sonra 'then' ile dönüşsün.", en: "Gathering takes 1.6 s + 0.7 s spread (per-particle delay); let the shape read for 1 s, then morph with 'then'."}
+  pitfalls:
+    tr: ["Yazı en çok 4-5 karakter: parçacıkla uzun kelime okunmaz.", "n en çok 3000 (her karede hepsi hesaplanır).", "neon ya da koyu zeminde en iyi görünür; açık zeminde color'ı koyu ver."]
+    en: ["Text of 4-5 characters at most: long words do not read in particles.", "n 3000 at most (every particle is computed each frame).", "Best on neon or a dark ground; on a light ground pass a dark color."]
+  seconds: 5
+  demo: |
+    const k = FX.stage3(tl, root, T, {look: 'neon'});
+    k.swarm(tl, 0.2, {text: '87%', then: {at: 3.0, shape: 'sphere'}});
+    k.move('push_in', {at: 0.2, dur: 4.6, amount: 0.9});
+- id: three.stack
+  name: {tr: "Ölçek yığınları", en: "Piles for scale"}
+  use: {tr: "Büyüklük farkını fiziksel göstermek: senin maaşın ile CEO'nunki, bir ülke ile ötekisi. Paralar ya da bloklar düşüp yığılır.", en: "Showing a difference in size physically: your pay against the CEO's, one country against another. Coins or blocks drop and pile up."}
+  call: "k.stack(tl, at, [{n, label, value}], {unit: 'coin'|'cash'|'block', prefix, suffix, highlight, cap})"
+  timing: {tr: "Sütun başına 0.35 s gecikme; parça başına en çok 0.06 s, sütun 1.4 s'de dolar. Büyük sütunu sona koy.", en: "0.35 s between columns; at most 0.06 s per piece, a column fills in 1.4 s. Put the big one last."}
+  pitfalls:
+    tr: ["n parça sayısıdır (en çok 60 görünür): oranı koru, gerçek değeri 'value' ile yaz.", "En çok 4 sütun.", "Oran 1:100'den büyükse yığın değil, ölçek değişimi (camera.zoom_to) kullan."]
+    en: ["n is the number of pieces (60 at most are drawn): keep the ratio, write the real amount in 'value'.", "4 columns at most.", "Beyond a 1:100 ratio a pile fails: use a change of scale (camera.zoom_to) instead."]
+  seconds: 4
+  demo: |
+    const k = FX.stage3(tl, root, T, {look: 'studio'});
+    k.stack(tl, 0.3, [{n: 3, label: 'You', value: 40}, {n: 14, label: 'Average', value: 180}, {n: 40, label: 'CEO', value: 500}], {unit: 'coin', prefix: '$', suffix: 'k', highlight: 2});
+    k.move('orbit', {at: 0.3, turn: -12});

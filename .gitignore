@@ -57,3 +57,5 @@ __pycache__/
 assets/sfx/takes/
 data/talk/
 data/own_styles/
+data/gemini_busy.json
+data/gemini_text_models.json
