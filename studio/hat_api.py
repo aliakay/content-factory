@@ -347,6 +347,9 @@ def get(con, path, q):
     if path == "/api/hat/recipes":          # t510: the shotbook, every motion recipe card with its demo clip
         from factory import recipes
         return recipes.listing(lang())
+    if path == "/api/hat/lab":              # the Lab: sources, newest cases, candidates with their checks, lessons
+        from factory import lab
+        return lab.page(lang())
     m = re.fullmatch(r"/api/hat/ownstyle/(own_[a-z0-9_]+)", path)
     if m:
         from factory import ownstyles
@@ -386,6 +389,9 @@ def _post(con, path, b, queue):
         from factory import recipes
         ids = [x for x in b.get("ids") or [] if recipes.get(x)] or None
         return {"job_id": queue("recipe_demos", json.dumps({"ids": ids, "force": bool(b.get("force"))}))}
+    if path == "/api/hat/lab":              # approve / reject one candidate of the Lab, then the page again
+        from factory import lab
+        return lab.studio(b, lang())
     if path == "/api/hat/suggest":          # t604: which line makes this brief, and how (one quick call, no credits)
         from factory.hat import router
         return router.suggest(b.get("brief"), lang(), imgs=b.get("images"))
