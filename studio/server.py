@@ -705,7 +705,7 @@ def voice_ids(aid):
 
 
 V1_OFF = "Eski (v1) üretim kapalı; yeni üretimi + (Üret) sayfasından v2 akışla başlat"
-LLM_PROVIDERS = ("claude", "codex", "openrouter")     # Claude Code CLI, Codex CLI, OpenRouter API (factory/openrouter.py)
+LLM_PROVIDERS = ("claude", "codex", "openrouter", "gemini")   # Claude Code CLI, Codex CLI, OpenRouter API, Gemini API
 
 
 def voice_suggestions(q):
@@ -752,6 +752,7 @@ def me(con):
            "claude": accounts.claude_status(uid), "eleven": accs, "default_eleven": accounts.default_eleven(uid),
            "llm_settings": accounts.llm_settings(uid), "review_rounds": accounts.review_rounds(uid),
            "review_options": list(accounts.REVIEW_ROUNDS),
+           "light_mode": accounts.light_mode(uid), "light_modes": list(accounts.LIGHT_MODES),
            "openrouter": accounts.openrouter_status(uid), "gemini": accounts.gemini_status(uid),
            "gemini_spend": (lambda: __import__("factory.gemini", fromlist=["gemini"]).month_usd(con))(),
            "media_settings": accounts.media_settings(uid), "media_kinds": list(accounts.MEDIA_KINDS),
@@ -1156,6 +1157,8 @@ class Handler(shorts.Handler):
                     raise ValueError(f"'{model}' {own} kataloğunda yok")
             if "review_rounds" in b:
                 accounts.set_review_rounds(uid, int(b.get("review_rounds")))
+            if b.get("light_mode"):
+                accounts.set_light_mode(uid, b["light_mode"])
             return {"llm_settings": accounts.set_llm_settings(uid, provider, models, providers, effort),
                     "review_rounds": accounts.review_rounds(uid)}
         if path == "/api/gemini/key":

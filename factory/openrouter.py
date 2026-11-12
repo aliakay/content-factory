@@ -188,16 +188,24 @@ def _read(path):
     return text[:READ_CHARS] + ("\n…[truncated]" if len(text) > READ_CHARS else "")
 
 
-def _functions(tools, servers, listing):
-    """(OpenAI function schemas, {local name: 'read' | (server, tool)}) for this step's tool list.
+def _functions(tools, servers, listing, server_tools=None, local=None):
+    """(OpenAI function schemas, {local name: 'read' | (server, tool) | ('local', fn)}) for this step's tool list.
 
-    `listing` is {server name: [tool dicts]}, read from each server once per run.
+    `listing` is {server name: [tool dicts]}, read from each server once per run. `server_tools` are the provider's
+    own tools (OpenRouter's web search: the platform runs them); `local` are tools this process serves itself
+    ({name: (json schema, description, fn(args, step))}: Gemini's WebSearch/WebFetch).
     """
     schemas, routes = [], {}
+    server_tools = SERVER_TOOLS if server_tools is None else server_tools
     for name in tools:
-        if name in SERVER_TOOLS:
-            if SERVER_TOOLS[name] not in schemas:
-                schemas.append(SERVER_TOOLS[name])     # run by OpenRouter, not by us: no route to keep
+        if name in (local or {}):
+            schema, desc, fn = local[name]
+            routes[name] = ("local", fn)
+            schemas.append({"type": "function", "function": {"name": name, "description": desc, "parameters": schema}})
+            continue
+        if name in server_tools:
+            if server_tools[name] not in schemas:
+                schemas.append(server_tools[name])     # run by the provider, not by us: no route to keep
             continue
         if name == "Read":
             routes["Read"] = "read"
@@ -223,12 +231,17 @@ def _functions(tools, servers, listing):
     return schemas, routes
 
 
-def _run_tool(routes, name, arguments):
+def _run_tool(routes, name, arguments, step=None):
     route = routes.get(name)
     if route == "read":
         return _read(str((arguments or {}).get("path") or ""))
     if not isinstance(route, tuple):
         return f"unknown tool {name}"
+    if route[0] == "local":
+        try:
+            return str(route[1](arguments or {}, step)) or "(empty result)"
+        except Exception as e:
+            return f"ERROR: {type(e).__name__}: {e}"
     server, tool = route
     try:
         text, failed = server.call(tool, arguments or {})
@@ -237,17 +250,40 @@ def _run_tool(routes, name, arguments):
     return ("ERROR: " + text if failed else text) or "(empty result)"
 
 
+IMAGE_EXT = (".png", ".jpg", ".jpeg", ".webp")
+
+
+def _image_message(paths):
+    """The pictures an agent opened with Read, as one user message after the tool results: a text tool result
+    cannot carry an image, and a vision model judging stills must see them, not their bytes as text."""
+    import base64
+    parts = [{"type": "text", "text": "The image(s) you opened with Read, in order: "
+              + ", ".join(os.path.basename(p) for p in paths)}]
+    for p in paths:
+        ext = os.path.splitext(p)[1].lower()
+        mime = "image/jpeg" if ext in (".jpg", ".jpeg") else "image/webp" if ext == ".webp" else "image/png"
+        parts.append({"type": "image_url", "image_url": {
+            "url": f"data:{mime};base64," + base64.b64encode(open(p, "rb").read()).decode()}})
+    return {"role": "user", "content": parts}
+
+
 def run(prompt, tools=(), timeout=900, model=None, servers=None, budget_usd=None, effort=None, step=None,
-        max_tokens=None):
-    """One OpenRouter agent turn -> (reply text, meta). Runs the model's tool calls until it answers."""
+        max_tokens=None, backend=None):
+    """One API agent turn -> (reply text, meta). Runs the model's tool calls until it answers.
+
+    This is the one agent loop for every HTTP provider: OpenRouter by default; `backend` swaps the transport
+    ({label, provider, chat, key, server_tools, local, error}: factory/gemini_text.BACKEND)."""
     from . import llm, mcpclient
+    be = backend or {}
+    label, Err = be.get("label") or "OpenRouter", be.get("error") or OpenRouterError
+    send = be.get("chat") or (lambda *a, **k: chat(*a, **k))   # looked up per call: tests swap `chat`
     started = time.time()
     model = model or DEFAULT_MODEL
     starters = mcpclient.open_servers(servers)
     try:
         listing = {name: s.tools() for name, s in starters.items()}
-        schemas, routes = _functions(tools, starters, listing)
-        key = api_key()
+        schemas, routes = _functions(tools, starters, listing, be.get("server_tools"), be.get("local"))
+        key = (be.get("key") or api_key)()
         plugins = None
         messages = [{"role": "system", "content":
                      "You are one stage agent of Content Factory. Do the work with the tools you are given; hand the "
@@ -261,12 +297,16 @@ def run(prompt, tools=(), timeout=900, model=None, servers=None, budget_usd=None
         for turns in range(1, MAX_TURNS + 1):
             left = timeout - (time.time() - started)
             if left <= 5:
-                raise OpenRouterError(f"OpenRouter turn timed out after {timeout // 60} min")
-            body = chat(messages, model, schemas or None, plugins, timeout=min(REQUEST_TIMEOUT, left), key=key,
-                        max_tokens=max_tokens, reasoning=effort)
+                raise Err(f"{label} turn timed out after {timeout // 60} min")
+            kw = {"step": step} if backend else {}
+            body = send(messages, model, schemas or None, plugins, timeout=min(REQUEST_TIMEOUT, left), key=key,
+                        max_tokens=max_tokens, reasoning=effort, **kw)
+            model = body.get("model") or model               # a backend may have fallen back to another model
             counts, cost = _usage(body.get("usage"))
             spent += cost or 0
-            llm._record({"usage": counts, "total_cost_usd": cost}, model, True, provider="openrouter", step=step)
+            if not body.get("recorded"):                     # a backend that wrote its own ledger rows says so
+                llm._record({"usage": counts, "total_cost_usd": cost}, model, True,
+                            provider=be.get("provider") or "openrouter", step=step)
             msg = ((body.get("choices") or [{}])[0].get("message") or {})
             calls = [c for c in (msg.get("tool_calls") or []) if isinstance(c, dict)]
             reply = str(msg.get("content") or "").strip()
@@ -277,11 +317,13 @@ def run(prompt, tools=(), timeout=900, model=None, servers=None, budget_usd=None
                         time.sleep(2 * empty)
                         continue
                     finish = ((body.get("choices") or [{}])[0]).get("finish_reason")
-                    raise OpenRouterError(f"OpenRouter boş yanıt döndü ({EMPTY_RETRIES} deneme"
+                    raise Err(f"{label} boş yanıt döndü ({EMPTY_RETRIES} deneme"
                                           + (f", finish_reason={finish}" if finish else "") + ")")
                 return reply, {"cost_usd": round(spent, 4), "turns": turns, "effort": effort, "model": model}
             empty = 0
-            messages.append({"role": "assistant", "content": msg.get("content") or "", "tool_calls": calls})
+            messages.append({"role": "assistant", "content": msg.get("content") or "", "tool_calls": calls,
+                             **({"_native": msg["_native"]} if msg.get("_native") else {})})
+            opened = []
             for c in calls:
                 fn = c.get("function") or {}
                 try:
@@ -291,19 +333,28 @@ def run(prompt, tools=(), timeout=900, model=None, servers=None, budget_usd=None
                 name = fn.get("name") or ""
                 calls_made += 1
                 if calls_made > TOOL_BUDGET:
-                    raise OpenRouterError(f"araç bütçesi doldu ({TOOL_BUDGET} çağrı): aşama kendi kendine "
+                    raise Err(f"araç bütçesi doldu ({TOOL_BUDGET} çağrı): aşama kendi kendine "
                                           f"ilerlemiyor — son araç `{name}`. Girdiyi değiştir ya da dur.")
-                out = _run_tool(routes, name, args if isinstance(args, dict) else {})
+                args = args if isinstance(args, dict) else {}
+                path = str(args.get("path") or "")
+                if routes.get(name) == "read" and path.lower().endswith(IMAGE_EXT) and os.path.isfile(
+                        path if os.path.isabs(path) else os.path.join(WORK, path)):
+                    opened.append(path if os.path.isabs(path) else os.path.join(WORK, path))
+                    out = "(image: it is attached in the next message)"
+                else:
+                    out = _run_tool(routes, name, args, step)
                 messages.append({"role": "tool", "tool_call_id": c.get("id") or name or "call", "content": out})
                 # the same call returning the same thing over and over is a loop, not progress: stop and say why
                 sig = (name, json.dumps(args, sort_keys=True, ensure_ascii=False)[:400], out[:400])
                 seen[sig] = seen.get(sig, 0) + 1
                 if seen[sig] >= LOOP_LIMIT:
-                    raise OpenRouterError(
+                    raise Err(
                         f"döngü: `{name}` {seen[sig]} kez aynı sonucu verdi — aynı cevabı tekrar denemek yerine "
                         f"girdiyi değiştir. Son sonuç: {out[:200]}")
+            if opened:
+                messages.append(_image_message(opened[:8]))
             if budget_usd and spent > float(budget_usd):
-                raise OpenRouterError(f"OpenRouter bütçesi aşıldı: ${spent:.2f} > ${float(budget_usd):.2f}")
-        raise OpenRouterError(f"OpenRouter {MAX_TURNS} turda bitmedi (son söz: {reply[-200:]})")
+                raise Err(f"{label} bütçesi aşıldı: ${spent:.2f} > ${float(budget_usd):.2f}")
+        raise Err(f"{label} {MAX_TURNS} turda bitmedi (son söz: {reply[-200:]})")
     finally:
         mcpclient.close_servers(starters)

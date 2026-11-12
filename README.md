@@ -15,8 +15,8 @@ Since v2, every video is a **project** made on a **production line** (`pipelines
 stages (for the explainer: research → proposal → script → direction → scene_plan → animatic → assets → edit →
 compose → publish). Each
 stage is done by an agent (Claude or Codex, headless) that works only through the factory's tools (an MCP server).
-A reviewer on the other model judges it against the stage's rubric (score ≥ 90, up to two fix rounds) and keeps a
-findings ledger. Then the stage **stops at its gate**: the creator approves it or writes feedback (at most 3
+A reviewer judges it against the stage's rubric in one call (score ≥ 90; the lines a program can measure are scored
+by code) and keeps a findings ledger. Then the stage **stops at its gate**: the creator approves it or writes feedback (at most 3
 revisions). Nothing spends ElevenLabs credits beyond the budget locked when the proposal is approved. The design
 is in [docs/HAT_V2.md](docs/HAT_V2.md).
 
@@ -47,7 +47,32 @@ factory/eleven_api.py, eleven.py   ElevenLabs: the REST client (voice, music, im
 factory/gemini.py, mediaprov.py   Google Gemini as the other media provider (Interactions API: speech, music, image,
                         video) and the per-capability routing between the two (Hesaplar → Medya üreticisi)
 factory/openrouter.py, mcpclient.py   the OpenRouter provider (an API key, DeepSeek V4.1 Flash) and the MCP client it needs
+factory/gemini_text.py  Gemini as a text/agent provider (JSON, images, search grounding, tools); the light steps run on it
+factory/hat/rubriccheck.py   the rubric lines a program can measure, scored by code instead of a reviewer model
+factory/memory.py       novelty: what the last films looked like and what the next one must do differently
+factory/lab.py, labscan.py   the Lab: reads public galleries, distils new techniques, builds and proves recipe cards
+motion/templates/lineart.js, fx3d.js   the line-art kit (FX.ink) and the Three.js kit (FX.stage3)
 ```
+
+**New pictures, and a factory that does not repeat itself** (branch `feat/factory-next`):
+
+- **Line-art animation** (`FX.ink`, 10 recipe cards `lineart.*`, film style `line_art`): hand-inked figures that
+  walk, greet and cycle, streets, day to night, wind, a mechanism explained in ink. Ported from
+  JDhruv14/line-art-animation (MIT, see [THIRD_PARTY.md](THIRD_PARTY.md)) and rebuilt so every frame is a pure
+  function of time.
+- **Real 3D** (`FX.stage3` on Three.js, 10 recipe cards `three.*`, film styles `clay_3d` and `wireframe_3d`):
+  extruded type and numbers, growing bar charts, a globe with routes, a product turntable, exploded layers, a block
+  city, a camera fly-through, particle swarms, stacks for scale. A 3D frame costs 0.3-0.8 s against 0.1 s for a DOM
+  frame; the budget is in `motion/recipes/three_note.md`.
+- **Novelty brief** (`memory.novelty_brief`): before a proposal and a scene plan, the factory reads what its last
+  films used (style, recipe families, camera moves) and names what this one must use instead; the gate refuses a
+  look outside the brief. The creator overrides it by naming a style, or with `novelty: off` in the brief.
+- **The Lab** (Studio → Atölye, `python -m factory.lab run`, [docs/LAB.md](docs/LAB.md)): scans public prompt
+  galleries, distils techniques the catalogue lacks, has a model write a recipe card with a demo, and proves it by
+  code (renders twice, deterministic, not blank, moves, no forbidden calls). A card reaches the designer only after
+  the owner approves it. Generated code runs in a sandboxed page: no keys, no network (`motion/render.mjs`).
+- **Limit savings** ([docs/LIMIT.md](docs/LIMIT.md)): single-shot reviewer, rubric lines scored by code, fewer
+  author turns, light steps on the Gemini API, `python -m factory.usage --project ID`.
 
 The interface language (TR or EN, per user) is separate from the video language (per project). Projects live in
 `projects/` (not in git; `CF_PROJECTS` points to another folder for trials).
@@ -183,6 +208,9 @@ folders.
 - **Mixed providers:** the account's default CLI is only the default — each agent can be pointed at Claude Code,
   Codex CLI or OpenRouter on its own (and at a model from that CLI's catalogue), so a film can be written on Claude,
   designed on Codex and checked on DeepSeek (`llm.provider_for` / `llm.selected_model`).
+- **Light steps** (cold test, discovery cards, line picker, image tagging, the Lab) run on the Gemini API when a key
+  exists and on the cheapest Claude model otherwise (Hesaplar → "Hafif işler"). The reviewer is one call without
+  tools and stays on Claude until a Gemini reviewer is proven as strict (docs/LIMIT.md).
 - **Claude:** creative steps (script, motion design, art direction, revise, style) run on Opus. Checks, research
   helpers and tool calls run on Sonnet. Studio → Bütçe → "Claude kullanımı" shows the list-price equivalent per step
   and per video.

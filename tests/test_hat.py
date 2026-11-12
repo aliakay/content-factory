@@ -344,9 +344,10 @@ def skills(tmp_path, monkeypatch):
 
 
 GOOD_RESEARCH = {"insight": "TTF crossed 100 EUR/MWh intraday", "summary": "Kaynaklar hazır.",
-                 "sources": [{"url": f"https://x.org/{i}", "title": "x"} for i in range(3)],
+                 "sources": [{"url": f"https://x.org/{i}", "title": "x"} for i in range(5)],   # rubriccheck counts
                  "data_points": [{"claim": "100.425 EUR/MWh", "source": "https://x.org/0"}],
-                 "angles": [{"title": "a", "grounded_in": "x"}, {"title": "b", "grounded_in": "y"}]}
+                 "angles": [{"title": "a", "grounded_in": "x"}, {"title": "b", "grounded_in": "y"},
+                            {"title": "c", "grounded_in": "z"}]}
 
 
 def test_agent_stage_counts_only_a_submitted_artifact(d, skills, monkeypatch):
@@ -433,7 +434,7 @@ def test_reviewer_sends_critical_findings_back_once(d, skills, monkeypatch):
     monkeypatch.setattr(llm, "ask_text", fake_cli)
     out = skills.run_stage(pid, s, d=d)
     assert len(calls["author"]) == 2 and "only 3 sources -> add two more" in calls["author"][1]
-    assert calls["review"] == ["opus", "opus"]                      # sonnet wrote it, opus reviews it
+    assert calls["review"] == ["sonnet", "sonnet"]                  # the reviewer is never dearer than the author
     assert out["review"]["verdict"] == "pass" and out["review"]["open_critical"] == 0 and out["review"]["rounds"] == 2
     assert P.checkpoint(pid, "research", d)["revisions"] == 0      # internal rounds cost the creator nothing
 
@@ -451,7 +452,7 @@ def test_rubric_score_below_the_bar_goes_back_to_the_author(d, skills, monkeypat
     calls = {"author": [], "review": []}
     from factory import accounts as _acc
     _acc.set_review_rounds("ali", 2)                    # this test drives two verdicts: two repair rounds
-    low = [2] + [10] * (n - 1)
+    low = [10, 2] + [10] * (n - 2)        # line 1 (sources) is settled by code: the reviewer's mark there is ignored
     verdicts = iter([json.dumps({"verdict": "pass", "scores": low, "summary": "Zayıf.", "findings": [
                          {"severity": "suggestion", "item": "sources", "problem": "eski", "fix": "yenile"}]}),
                      json.dumps({"verdict": "pass", "scores": [10] * n, "summary": "Tamam.", "findings": []})])
@@ -465,11 +466,12 @@ def test_rubric_score_below_the_bar_goes_back_to_the_author(d, skills, monkeypat
         return "submitted", {"cost_usd": 0.1}
     monkeypatch.setattr(llm, "ask_text", fake_cli)
     out = skills.run_stage(pid, s, d=d)
-    assert f"{n} marks in `scores`" in calls["review"][0] and "Pass mark: 85/100" in calls["review"][0]
-    assert "1. " + s["review"][0] in calls["review"][0]
+    assert f"{n - 1} marks in `scores`" in calls["review"][0] and "Pass mark: 85/100" in calls["review"][0]
+    assert "1. " + s["review"][1] in calls["review"][0] and "Settled by code" in calls["review"][0]
+    assert "- " + s["review"][0] + ": 10/10" in calls["review"][0]
     expected = round(10 * sum(low) / n)
     assert expected < 85 and f"rubric score is {expected}/100; 85 is needed" in calls["author"][1]
-    assert f"- {s['review'][0]}: 2/10" in calls["author"][1] and "eski -> yenile" in calls["author"][1]
+    assert f"- {s['review'][1]}: 2/10" in calls["author"][1] and "eski -> yenile" in calls["author"][1]
     r = out["review"]
     assert r["score"] == 100 and r["verdict"] == "pass" and r["rounds"] == 2 and r["pass_score"] == 85
     assert [x["score"] for x in r["rubric"]] == [10] * n
@@ -1830,7 +1832,7 @@ def test_character_spans_hold_a_pose_until_the_next_line():
 
 def test_every_film_style_has_a_card_in_both_languages_and_a_scene():
     from factory import filmstyles as styles
-    assert len(styles.ids()) == 17
+    assert len(styles.ids()) == 20   # 17 + line_art, clay_3d, wireframe_3d
     for sid in styles.ids():
         tr, en = styles.card(styles.get(sid), "tr"), styles.card(styles.get(sid), "en")
         for k in ("look", "type", "motion", "sound", "avoid"):
@@ -1929,7 +1931,7 @@ def test_own_style_from_a_blank_page_through_the_api(own, monkeypatch):
     v = post("/api/hat/ownstyles", name="Plain", base="blank")
     sid = v["id"]
     assert v["base"] == "blank" and set(v["missing"]) == {"look", "motion", "sound", "avoid"}
-    assert v["questions"][0]["q"].startswith("What should it look like") and len(v["bases"]) == 17
+    assert v["questions"][0]["q"].startswith("What should it look like") and len(v["bases"]) == 20
     with pytest.raises(ValueError, match="Answer every question"):
         post(f"/api/hat/ownstyle/{sid}", action="sample")
     for k, val in (("look", "Flat colour"), ("motion", "slow"), ("sound", "piano"), ("avoid", "gradients")):

@@ -7,7 +7,7 @@ and go back (reopen an earlier stage).
 
 `queue(kind, arg) -> job id` is passed in, so the Studio uses factory/jobs.queue and local callers use a list.
 """
-import importlib, json, time, traceback
+import importlib, json, os, time, traceback
 
 from . import manifest, project as P
 
@@ -202,6 +202,20 @@ def execute(pid, sid, d=None):
     cp = P.checkpoint(pid, sid, d)
     if cp["status"] != "running":
         raise P.GateError(f"'{sid}' was not started (it is {cp['status']})")
+    # every model call of this stage (in this process, the agent CLI and its MCP server) lands in the usage ledger
+    # under this project, the way FACTORY_PROD_ID tags a v1 production
+    before = os.environ.get("FACTORY_PROJECT")
+    os.environ["FACTORY_PROJECT"] = pid
+    try:
+        return _execute(pid, sid, p, s, cp, d)
+    finally:
+        if before is None:
+            os.environ.pop("FACTORY_PROJECT", None)
+        else:
+            os.environ["FACTORY_PROJECT"] = before
+
+
+def _execute(pid, sid, p, s, cp, d=None):
     try:
         if s["run"] == "code":
             out = _code_step(s["call"])(pid, s, note=cp.get("note"), d=d) or {}

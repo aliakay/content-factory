@@ -67,6 +67,13 @@ def connect(path=DB):
     for col in ("qa", "cost_usd"):
         if col not in cols:
             con.execute(f"ALTER TABLE ideas ADD COLUMN {col} TEXT")
+    # `project`: the v2 project id a model call worked for (prod_id is the v1 production and stays empty for v2)
+    if "project" not in {r[1] for r in con.execute("PRAGMA table_info(llm_usage)")}:
+        try:
+            con.execute("ALTER TABLE llm_usage ADD COLUMN project TEXT")
+            con.execute("CREATE INDEX IF NOT EXISTS llm_usage_project ON llm_usage(project)")
+        except sqlite3.OperationalError:          # another process added it a moment ago
+            pass
     return con
 
 

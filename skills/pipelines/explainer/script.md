@@ -29,8 +29,8 @@ direction; the research (`read_artifact research`) holds the facts. Write the wo
   research or one you checked now (WebSearch / WebFetch). An unverifiable claim is cut from the script, not kept
   with `verified: false`. Wholesale vs retail, intraday vs close, forecast vs fact: say exactly which.
 
-## Output (`script`)
-Run the `cold_test` tool once before you submit: a model that has not seen the film reads only your lines and says
+## Cold test
+Run the `cold_test` tool once, after your last edit and right before you submit: a model that has not seen the film reads only your lines and says
 what it is about. If its sentence is not your title's subject, the film is about something else.
 
 ## Output (`script`)

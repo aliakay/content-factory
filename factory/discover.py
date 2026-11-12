@@ -11,7 +11,7 @@ cards are enriched through OpenAlex (DOI, open-access PDF) so the research step 
 Nothing here spends ElevenLabs credits. Cost is one headless Claude call per scan (no web tools, stories come in the
 prompt). Tables: `disc_runs`, `disc_cards` (with `channel_id` once a pick is filed under a channel).
 """
-import json, re, urllib.parse, urllib.request
+import json, os, re, urllib.parse, urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 
@@ -612,11 +612,29 @@ def set_status(con, card_id, status, prod_job=None, channel_id=None):
     con.commit()
 
 
+# Cadence: each scheduled run is one model call (~$0.10 on sonnet, ~$0.005 on a Gemini flash through the light-step
+# rule in llm.py). The crontab ran five a day (07:40-10:20 and 20:30, one per topic); three a day are plenty for a
+# 30 s explainer queue. The cap applies to scheduled runs (this CLI); the Studio button is the creator's own call.
+MAX_PER_DAY = int(os.environ.get("CF_DISCOVER_MAX_PER_DAY", "3"))
+
+
+def runs_last_day(con):
+    ensure(con)
+    since = (datetime.now(timezone.utc) - timedelta(hours=24)).replace(microsecond=0).isoformat()
+    return con.execute("SELECT COUNT(*) FROM disc_runs WHERE at >= ?", (since,)).fetchone()[0]
+
+
 if __name__ == "__main__":
     import argparse
     from .store import connect
     ap = argparse.ArgumentParser(description="Discovery scan (Keşif)")
     ap.add_argument("--region", choices=sorted(REGIONS), help="only one tag: global or tr")
     ap.add_argument("--only", help="comma-separated category ids, e.g. tr_spor")
+    ap.add_argument("--force", action="store_true", help=f"run even after {MAX_PER_DAY} runs in the last 24 h")
     a = ap.parse_args()
-    print("run", scan(connect(), region=a.region, only=a.only.split(",") if a.only else None))
+    con = connect()
+    done = runs_last_day(con)
+    if not a.force and done >= MAX_PER_DAY:
+        print(f"skip: {done} discovery runs in the last 24 h (cap CF_DISCOVER_MAX_PER_DAY={MAX_PER_DAY})")
+    else:
+        print("run", scan(con, region=a.region, only=a.only.split(",") if a.only else None))

@@ -56,7 +56,8 @@ def _caller():
     return "?"
 
 
-SOURCES = {"codex": "live_codex", "openrouter": "live_openrouter"}
+SOURCES = {"codex": "live_codex", "openrouter": "live_openrouter", "gemini": "live_gemini"}
+PROVIDERS = ("claude", "codex", "openrouter", "gemini")
 
 
 def _record(out, model, ok, provider="claude", step=None):
@@ -66,13 +67,15 @@ def _record(out, model, ok, provider="claude", step=None):
         u = (out or {}).get("usage") or {}
         used = list(((out or {}).get("modelUsage") or {}).keys())
         con = connect()
+        # `project`: the v2 project this call worked for (hat/runner.py exports FACTORY_PROJECT while a stage runs)
         con.execute("INSERT INTO llm_usage (at, step, model, job_id, job_kind, prod_id, user, input, cache_write, cache_read,"
-                    " output, cost_usd, ok, source) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    " output, cost_usd, ok, source, project) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (now(), step or _caller(), ",".join(used) or model, os.environ.get("FACTORY_JOB_ID"),
                      os.environ.get("FACTORY_JOB_KIND"), os.environ.get("FACTORY_PROD_ID"), os.environ.get("FACTORY_USER"),
                      u.get("input_tokens", 0), u.get("cache_creation_input_tokens", 0), u.get("cache_read_input_tokens", 0),
                      u.get("output_tokens", 0), (out or {}).get("total_cost_usd") if provider != "claude" else
-                     ((out or {}).get("total_cost_usd") or 0), int(ok), SOURCES.get(provider, "live")))
+                     ((out or {}).get("total_cost_usd") or 0), int(ok), SOURCES.get(provider, "live"),
+                     os.environ.get("FACTORY_PROJECT") or os.environ.get("HAT_PROJECT") or None))
         con.commit()
         con.close()
     except Exception:
@@ -132,8 +135,75 @@ AGENT_STEPS = {
     "discover.make_cards": "Fikir keşfi", "refs.describe": "Referans analizi",
     "refs.describe_recipes": "Referans tarif analizi", "styles.extract": "Stil analizi",
     "jobs.do_describe": "Klip analizi", "router.suggest": "Hat önerici",
-    "agent.review_stage": "Değerlendirici (diğer model)", "default": "Diğer agent’lar",
+    "agent.review_stage": "Değerlendirici (diğer model)", "coldtest._ask": "Soğuk test okuyucusu",
+    "default": "Diğer agent’lar",
 }
+# Light steps judge, tag or summarise: they must not burn the Claude subscription. Unless the creator routed the step
+# themselves (Hesaplar: a provider or a model picked for it), it runs on a cheap Gemini model when a Gemini key exists
+# (Hesaplar -> "Hafif işler": otomatik / Gemini / Claude), and on the cheapest Claude model that does the job when not.
+LIGHT_STEPS = ("agent.review_stage", "coldtest._ask", "discover.make_cards", "router.suggest", "qa.review",
+               "jobs.do_describe", "refs.describe")
+LIGHT_PREFIXES = ("lab.",)
+# (model, thinking level). The reviewer and visual QA judge quality: the best flash, the reviewer thinking "high".
+# Reading a script cold, tagging clips and picking a line are reading tasks: flash-lite, 2.5x cheaper on output.
+GEMINI_LIGHT = {"agent.review_stage": ("gemini-3.8-flash", "high"), "qa.review": ("gemini-3.8-flash", "medium"),
+                "discover.make_cards": ("gemini-3.8-flash", "low"), "coldtest._ask": ("gemini-3.5-flash-lite", "low"),
+                "router.suggest": ("gemini-3.5-flash-lite", "low"), "jobs.do_describe": ("gemini-3.5-flash-lite", "low"),
+                "refs.describe": ("gemini-3.5-flash-lite", "low")}
+GEMINI_LIGHT_DEFAULT = ("gemini-3.8-flash", "medium")      # lab.* and any light step added later
+# A judge must not silently degrade: when every full flash is busy the reviewer does not drop to flash-lite (on
+# project 121 a lite reviewer told the writer to put digits in narration); it fails over to the cheap Claude path.
+# 3.6-flash is left out: on project 121 it gave 10/10 on every item three times out of three, where the recorded
+# opus/sonnet reviews had found real gaps.
+FULL_FLASH = ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3-flash-preview")
+GEMINI_CHAIN = {"agent.review_stage": FULL_FLASH, "qa.review": FULL_FLASH}
+CLAUDE_LIGHT = {"agent.review_stage": "sonnet", "qa.review": "sonnet", "router.suggest": "sonnet",
+                "discover.make_cards": "haiku", "coldtest._ask": "haiku", "jobs.do_describe": "haiku",
+                "refs.describe": "haiku"}
+CLAUDE_RANK = ("haiku", "sonnet", "opus")
+# The two judges that hold the gates stay on Claude in "otomatik": the trial on project 121 (2026-11-12) never got an
+# answer from 3.8-flash (the key's daily quota was gone) and the flash models that did answer passed everything, so a
+# Gemini reviewer as strict as the old one is unproven. The single-shot sonnet review found what the recorded reviews
+# found at about a third of their cost. "Hafif işler: Gemini" still sends them to Gemini; run the trial again
+# (docs/LIMIT.md) before making that the default.
+AUTO_KEEPS_CLAUDE = ("agent.review_stage", "qa.review")
+
+
+def base_step(step):
+    """'agent._author:script' -> 'agent._author': the ledger keeps the stage, routing and settings use the agent."""
+    return str(step or "").split(":")[0]
+
+
+def is_light(step):
+    b = base_step(step)
+    return b in LIGHT_STEPS or b.startswith(LIGHT_PREFIXES)
+
+
+def cheaper(a, b):
+    """The cheaper of two Claude model names (unknown names count as opus)."""
+    rank = lambda m: CLAUDE_RANK.index(m) if m in CLAUDE_RANK else len(CLAUDE_RANK)  # noqa: E731
+    return a if rank(a) <= rank(b) else b
+
+
+def _explicit(step, cfg):
+    b = base_step(step)
+    return b in (cfg.get("providers") or {}) or b in (cfg.get("models") or {})
+
+
+def light_provider(step, uid=None):
+    """'gemini' when this light step goes to Gemini, else None (it then follows the creator's normal routing on the
+    cheapest Claude model). A step the creator routed themselves is never moved."""
+    from . import accounts
+    if not is_light(step):
+        return None
+    cfg = accounts.llm_settings(uid)
+    if _explicit(step, cfg):
+        return None
+    mode = accounts.light_mode(uid)
+    if mode == "gemini" or (mode == "auto" and base_step(step) not in AUTO_KEEPS_CLAUDE
+                            and accounts.gemini_status(uid)["connected"]):
+        return "gemini"
+    return None
 CLAUDE_DEFAULT_MODELS = {
     "director.scout": "sonnet", "director.sketch": "sonnet", "ideas.generate": "sonnet",
     "ideas.check_claims": "sonnet", "productions.plan_edit": "sonnet", "qa.review": "sonnet",
@@ -152,6 +222,9 @@ def model_options(provider=None):
     if provider == "openrouter":
         from . import openrouter
         return [{"id": m["id"], "name": m["name"]} for m in openrouter.models()]
+    if provider == "gemini":
+        from . import gemini_text
+        return [{"id": m["id"], "name": m["name"]} for m in gemini_text.models()]
     if _CODEX_MODELS is None:
         try:
             p = subprocess.run([CODEX, "debug", "models", "--bundled"], capture_output=True, text=True, timeout=8)
@@ -173,11 +246,18 @@ def provider_for(step, uid=None):
     """Who runs this step: the per-step CLI when the user mixed providers, else their default CLI."""
     from . import accounts
     cfg = accounts.llm_settings(uid)
+    step = base_step(step)
+    if light_provider(step, uid):
+        return "gemini"
     chosen = (cfg.get("providers") or {}).get(step) or (cfg.get("providers") or {}).get("default")
-    return chosen if chosen in ("claude", "codex", "openrouter") else cfg["provider"]
+    return chosen if chosen in PROVIDERS else cfg["provider"]
 
 
 def default_model(step, provider):
+    step = base_step(step)
+    if provider == "gemini":
+        from . import gemini_text
+        return (GEMINI_LIGHT.get(step) or GEMINI_LIGHT_DEFAULT)[0] if is_light(step) else gemini_text.DEFAULT_MODEL
     if provider == "openrouter":
         from . import openrouter
         return openrouter.DEFAULT_MODEL
@@ -196,11 +276,14 @@ def selected_model(step, requested=None, uid=None, provider=None):
     cfg = accounts.llm_settings(uid)
     own = provider_for(step, uid)
     provider = provider or own
-    override = cfg["models"].get(step) or cfg["models"].get("default")
-    if override and provider == own:
+    step = base_step(step)
+    light = is_light(step) and not _explicit(step, cfg)
+    override = cfg["models"].get(step) or (None if light else cfg["models"].get("default"))
+    if override and provider == own and (provider != "gemini" or override.startswith("gemini")):
         return override
     if provider == "claude":
-        return requested or MODEL
+        # a light step on Claude: the cheapest model that does the job, never dearer than what the caller asked for
+        return cheaper(requested or MODEL, CLAUDE_LIGHT.get(step, "sonnet")) if light else (requested or MODEL)
     return default_model(step, provider)
 
 
@@ -272,7 +355,7 @@ def _codex(prompt, tools, timeout, model, effort, step, approve_mcp=False, serve
         raise LLMError(f"codex failed: {detail.strip()}")
     # Codex may report token counts without a dollar amount; preserve those in the shared usage ledger.
     _record({"usage": {"input_tokens": usage.get("input_tokens", 0),
-                        "output_tokens": usage.get("output_tokens", 0)}}, model, True, provider="codex")
+                        "output_tokens": usage.get("output_tokens", 0)}}, model, True, provider="codex", step=step)
     return reply, {"cost_usd": None, "turns": 1, "effort": effort}
 
 
@@ -306,13 +389,29 @@ def extract_json(text):
     raise LLMError("unterminated JSON in model output")
 
 
-def ask(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=False, effort=None):
-    text, meta = ask_text(prompt, tools, timeout, model, retries, mcp, effort)
+def ask(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=False, effort=None, **kw):
+    kw.setdefault("step", _caller())
+    text, meta = ask_text(prompt, tools, timeout, model, retries, mcp, effort, json_out=True, **kw)
     return extract_json(text), meta
 
 
+def _gemini(prompt, tools, timeout, model, effort, step, servers, budget_usd, max_output, images, json_out):
+    """One step on Gemini: the agent loop when it has our MCP tools, else one call (images inline, Search grounding
+    for a step that may search the web)."""
+    from . import gemini_text
+    if servers or any(str(t).startswith("mcp__") for t in tools):
+        return gemini_text.run(prompt, tools=tools, timeout=timeout, model=model, servers=servers,
+                               budget_usd=budget_usd, effort=effort, step=step, max_tokens=max_output)
+    imgs = list(images or ()) + ([p for p in gemini_text.prompt_images(prompt) if p not in (images or ())]
+                                 if "Read" in tools else [])
+    return gemini_text.ask(prompt, model=model, images=imgs, json_out=json_out,
+                           search=any(t in ("WebSearch", "WebFetch") for t in tools), effort=effort,
+                           max_tokens=max_output, timeout=timeout, step=step,
+                           fallback=GEMINI_CHAIN.get(base_step(step), True))
+
+
 def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=False, effort=None, servers=None,
-             budget_usd=None, max_output=None):
+             budget_usd=None, max_output=None, images=(), step=None, json_out=False):
     """Run one headless Claude turn; ask() returns (parsed_json, meta), ask_text() the raw reply text.
 
     Slim mode: no skills/slash commands and no MCP connectors are loaded (the craft rules travel in the prompt),
@@ -320,20 +419,41 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
     Transient failures (rate limits, concurrent sessions) are retried with backoff.
     `servers` attaches our own stdio MCP servers ({name: {command, args, env}}, e.g. factory/hat/mcp_server.py) and
     nothing else; their tools are named mcp__<name>__<tool> in `tools`. `budget_usd` caps a Claude run's spend.
+    `images` are picture files the model must look at (inline for an API model, Read for a CLI). `step` names the
+    call in the ledger ('agent._author:script'); routing and settings use the part before the colon.
     """
     import time
     from . import accounts
-    step = _caller()
-    provider = provider_for(step)          # mixed providers: this step's own CLI, else the user's default
-    model = (selected_model(step, model, provider=provider) if provider in ("codex", "openrouter") or not mcp
+    step = step or _caller()
+    route = base_step(step)
+    provider = provider_for(route)          # mixed providers: this step's own CLI, else the user's default
+    requested = model
+    model = (selected_model(route, model, provider=provider) if provider != "claude" or not mcp
              else (model or MODEL))
-    level = min(effort, MAX_EFFORT, key=EFFORTS.index) if effort in EFFORTS else effort_for(step, model)
+    if provider == "gemini":
+        light = light_provider(route)
+        own = effort if effort in EFFORTS else (accounts.llm_settings().get("effort") or {}).get(route) or \
+            ((GEMINI_LIGHT.get(route) or GEMINI_LIGHT_DEFAULT)[1] if light else effort_choice(route))
+        try:
+            return _gemini(prompt, tools, timeout, model, own if own in ("low", "medium", "high") else None, step,
+                           servers, budget_usd, max_output, images, json_out)
+        except Exception as e:
+            from . import gemini_text
+            if not (light and accounts.light_mode() == "auto" and isinstance(e, gemini_text.GeminiTextError)):
+                raise LLMError(str(e)) from None
+            # automatic light routing must never strand a step: Gemini busy or out of quota -> the cheap Claude path
+            provider = accounts.llm_settings()["provider"]
+            model = selected_model(route, requested, provider=provider)
+    if images:                              # a CLI looks at pictures with Read
+        prompt += "\n\nOpen these images with Read before you answer:\n" + "\n".join(f"- {p}" for p in images)
+        tools = tuple(tools) + (() if "Read" in tools else ("Read",))
+    level = min(effort, MAX_EFFORT, key=EFFORTS.index) if effort in EFFORTS else effort_for(route, model)
     if provider == "codex":
         return _codex(prompt, tools, timeout, model, level, step, approve_mcp=mcp, servers=servers)
     if provider == "openrouter":
         from . import openrouter
         # an API model gets the agent's own level (low/medium/high); the CLI cap does not apply to it
-        own = effort if effort in EFFORTS else effort_choice(step)
+        own = effort if effort in EFFORTS else effort_choice(route)
         return openrouter.run(prompt, tools=tools, timeout=timeout, model=model, servers=servers,
                               budget_usd=budget_usd, effort=own if own in ("low", "medium", "high") else None,
                               step=step, max_tokens=max_output)
@@ -351,7 +471,7 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
         cmd += ["--max-budget-usd", str(budget_usd)]
     cmd += ["--model", model or MODEL]
     global _NO_EFFORT_FLAG
-    level = min(effort, MAX_EFFORT, key=EFFORTS.index) if effort in EFFORTS else effort_for(step, model)
+    level = min(effort, MAX_EFFORT, key=EFFORTS.index) if effort in EFFORTS else effort_for(route, model)
     if not _NO_EFFORT_FLAG:
         cmd += ["--effort", level]
     os.makedirs(WORKDIR, exist_ok=True)
@@ -367,7 +487,7 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
         except subprocess.TimeoutExpired as e:  # the tokens were spent anyway: put them in the ledger, don't retry
             partial = e.stdout.decode(errors="replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
             used = _stream(partial)[2]
-            _record({"usage": used, "total_cost_usd": _estimate(used, model)}, model or MODEL, False)
+            _record({"usage": used, "total_cost_usd": _estimate(used, model)}, model or MODEL, False, step=step)
             raise LLMError(f"claude timed out after {timeout // 60} min") from None
         out, reply, _ = _stream(p.stdout)
         if "--effort" in cmd and not out and "effort" in (p.stderr or "").lower() and "unknown" in (p.stderr or "").lower():
@@ -376,13 +496,13 @@ def ask_text(prompt, tools=("Read",), timeout=900, model=None, retries=2, mcp=Fa
             del cmd[i:i + 2]
             continue
         if out:
-            _record(out, model or MODEL, p.returncode == 0 and not out.get("is_error"))
+            _record(out, model or MODEL, p.returncode == 0 and not out.get("is_error"), step=step)
         if p.returncode == 0 and out and not out.get("is_error"):
             result = out.get("result", "")
             if len(reply) > len(result):   # a long answer the CLI split over several messages: "result" is only the last one
                 result = reply
             return result, {"cost_usd": out.get("total_cost_usd"), "turns": out.get("num_turns"),
-                                           "effort": level}
+                            "effort": level, "model": model or MODEL, "provider": "claude"}
         last = (f"exit {p.returncode}: " + ((out or {}).get("result") or p.stderr[-300:] or p.stdout[-300:])).strip()
         if "limit" in last.lower() and "usage" in last.lower():
             break  # subscription usage limit: retrying won't help
