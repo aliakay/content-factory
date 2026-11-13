@@ -308,8 +308,15 @@ def voice_text(d):
     return " ".join((d.get("voice") or {}).get("lines", []))
 
 
+def pronunciations(d, con=None):
+    """The pronunciation overrides of a production (series under production, factory/speech_tr.py)."""
+    from . import speech_tr
+    return speech_tr.overrides(d, con)
+
+
 def voice_estimate(con, d):
-    text = voice_text(d)
+    from . import speech_tr
+    text = speech_tr.spoken(voice_text(d), d.get("lang", "en"), pronunciations(d, con))   # billed as spoken (digits -> words)
     est = credits.estimate([{"kind": "tts", "model": formats.VOICE_MODEL, "units": len(text), "unit": "char",
                              "label": "voiceover"}])
     b = credits.check_budget(con, est["total"], eleven_account(d))
@@ -332,8 +339,13 @@ def decode(path):
 
 
 def align(path, lines, lang="en"):
-    """(line start/ends, duration, word timings) of the voice file: lines come from the word alignment, one whisper pass."""
-    words = explainer.align_words(path, lines, lang)
+    """(line start/ends, duration, word timings) of the voice file: lines come from the word alignment, one whisper pass.
+    The take was voiced from the SPOKEN text (speech_tr); the overrides the TTS had are the caller's
+    `speech_tr.voicing(lang, overrides)`. The words come back with the written spelling, so captions and subtitles show
+    the script as written."""
+    from . import speech_tr
+    ctx = speech_tr.current()
+    words = explainer.align_words(path, lines, lang, ctx[1] if ctx else None)
     dur = round(len(decode(path)) / 16000, 2)
     times, k = [], 0
     for ln in lines:
@@ -346,19 +358,22 @@ def align(path, lines, lang="en"):
 
 
 def make_voice(con, prod_id, approved):
-    from . import eleven
+    from . import eleven, speech_tr
     p = get(con, prod_id)
     d = p["data"]
     text = voice_text(d)
     if not text:
         raise ValueError("no spoken lines")
-    if multi_voice(d):
-        path, cost = cast_voice(con, d, approved)
-    else:
-        path, cost = eleven.tts(con, text, d.get("voice_id") or formats.default_voice(d.get("lang"), eleven_account(d)), formats.VOICE_MODEL, approved=approved,
-                                account=eleven_account(d))
-    path = voice_post(path, d)
-    times, dur, words = align(path, d["voice"]["lines"], d.get("lang", "en"))
+    pron = pronunciations(d, con)
+    with speech_tr.voicing(d.get("lang", "en"), pron):          # eleven.tts makes the written text spoken, once
+        if multi_voice(d):
+            path, cost = cast_voice(con, d, approved)
+        else:
+            path, cost = eleven.tts(con, text, d.get("voice_id") or formats.default_voice(d.get("lang"), eleven_account(d)), formats.VOICE_MODEL, approved=approved,
+                                    account=eleven_account(d))
+    with speech_tr.voicing(d.get("lang", "en"), pron):
+        path = voice_post(path, d)
+        times, dur, words = align(path, d["voice"]["lines"], d.get("lang", "en"))
     d["voice_take"] = {"file": os.path.relpath(path, ROOT), "text": text, "duration": dur, "lines": times,
                        "credits": round(cost), "at": now()}
     if explainer.is_explainer(d):
@@ -372,7 +387,7 @@ def voice_post(path, d):
     """Optional post on a fresh take (data.voice_fx, free): {"tempo": 1.05 (5 % tighter), "pitch": -1 (semitones,
     deeper), "tighten": true (shorten only the REAL silences between words), "chain": "clean"}. Alignment runs after
     it, so captions and scene timings follow the processed file. Returns the file to use (the original if no fx)."""
-    from . import audiofx
+    from . import audiofx, speech_tr
     fx = d.get("voice_fx") or {}
     if not fx:
         return path
@@ -388,7 +403,8 @@ def voice_post(path, d):
     if abs(tempo - 1) > 0.001 or abs(pitch) > 0.01 or fx.get("chain"):
         out = audiofx.process_voice(path, f"{stem}_fx.wav", tempo, pitch, fx.get("chain"))
     if fx.get("tighten"):
-        words = explainer.align_words(out, d["voice"]["lines"], d.get("lang", "en"))
+        ctx = speech_tr.current()
+        words = explainer.align_words(out, d["voice"]["lines"], d.get("lang", "en"), ctx[1] if ctx else None)
         out, _, _ = audiofx.tighten(out, f"{stem}_tight.wav", words, max_gap=float(fx.get("max_gap") or 0.32))
     return out
 

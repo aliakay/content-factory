@@ -364,6 +364,20 @@ def stock_search(ctx, query):
     return {"found": True, **hit}
 
 
+@tool("stock_vectors", "image", "Find ready-made public-domain/CC0 SVG objects on Wikimedia Commons (a prop drawn "
+      "instead of generated). Returns each file (embed it with <img src=\"/<file>\">), title, author, licence, "
+      "size and the credit the licence needs; `<text>`-heavy and non-object drawings are already filtered out.",
+      provider="wikimedia", runtime="cloud", needs=("network",),
+      schema={"type": "object", "required": ["query"], "properties": {
+          "query": {"type": "string", "minLength": 2},
+          "n": {"type": "integer", "minimum": 1, "maximum": 5},
+          "cc_by": {"type": "boolean", "description": "also accept CC BY (credit required)"}}})
+def stock_vectors(ctx, query, n=2, cc_by=False):
+    from .. import stock
+    hits = stock.search_vectors(query, n=n, allow_cc_by=cc_by)
+    return {"found": bool(hits), "items": hits}
+
+
 def _draft_plan(ctx, plan):
     from . import explainer
     return explainer.bundle(ctx.pid, plan, ctx.d)
@@ -739,11 +753,12 @@ def agent_tools(stage_tools):
       spends="credits per character", needs=("network",), agent=False,
       schema={"type": "object", "required": ["text"], "properties": {"text": {"type": "string"}, "voice_id": {"type": "string"}}})
 def tts_tool(ctx, text, voice_id=None):
-    from .. import eleven, formats
+    from .. import eleven, formats, speech_tr
     from . import explainer as E
     p = P.load(ctx.pid, ctx.d)
-    path, cost = eleven.tts(E._con(), text, voice_id or formats.default_voice(p.get("video_lang")), formats.VOICE_MODEL,
-                            approved=E.remaining_budget(ctx.pid, ctx.d))
+    with speech_tr.voicing(p.get("video_lang", "tr"), E.pron(p)):    # written text in, spoken once inside eleven.tts
+        path, cost = eleven.tts(E._con(), text, voice_id or formats.default_voice(p.get("video_lang")), formats.VOICE_MODEL,
+                                approved=E.remaining_budget(ctx.pid, ctx.d))
     return {"file": E._rel(path), "credits": cost}
 
 
@@ -753,7 +768,11 @@ def tts_tool(ctx, text, voice_id=None):
                                                                             "lines": {"type": "array", "items": {"type": "string"}}}})
 def align_tool(ctx, file, lines):
     from .. import productions
-    times, dur, words = productions.align(os.path.join(ROOT, file), lines, P.load(ctx.pid, ctx.d).get("video_lang", "tr"))
+    from . import explainer as E
+    p = P.load(ctx.pid, ctx.d)
+    from .. import speech_tr
+    with speech_tr.voicing(p.get("video_lang", "tr"), E.pron(p)):
+        times, dur, words = productions.align(os.path.join(ROOT, file), lines, p.get("video_lang", "tr"))
     return {"line_times": times, "duration": dur, "words": words}
 
 

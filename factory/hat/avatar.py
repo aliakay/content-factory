@@ -227,9 +227,12 @@ def assets(pid, s, note=None, d=None):
     lang = p.get("video_lang", "tr")
     acc = p.get("eleven_account") or accounts.default_eleven(p.get("created_by"))
     voice_id = p.get("voice_id") or formats.default_voice(lang, acc)
-    vpath, vcost = eleven.tts(con, " ".join(lines), voice_id, formats.VOICE_MODEL, approved=remaining_budget(pid, d),
-                              account=acc)
-    times, dur, words = productions.align(vpath, lines, lang)
+    from .. import speech_tr
+    from .explainer import pron
+    with speech_tr.voicing(lang, pron(p)):                      # eleven.tts makes the written script spoken, once
+        vpath, vcost = eleven.tts(con, " ".join(lines), voice_id, formats.VOICE_MODEL, approved=remaining_budget(pid, d),
+                                  account=acc)
+        times, dur, words = productions.align(vpath, lines, lang)
     audio = eleven.upload(vpath, plate["flow"], acc)
     prompt = "The presenter speaks to camera, natural head movement and blinking, steady framing."
     if note:

@@ -10,7 +10,9 @@ the launch-film norms) and turned into checks for OUR mixes:
   tail        the film stops mid-sound instead of a tail into silence
   low_end     most of the energy sits under 150 Hz: plays as nothing on a phone speaker
   harsh       2-6 kHz spikes far above the mix's own presence: the band that hurts first on phones
-  clicks      >12 kHz bursts concentrated in ~1 ms (a splice or an effect cut without a fade)
+  clicks      >12 kHz bursts concentrated in ~1 ms (a splice or an effect cut without a fade); a burst the voice stem
+              itself has (a hard consonant: k, t, p, ç inside the ElevenLabs take) is the voice, not a splice, and is
+              not reported unless it sits on an edit point (see voice_owned)
   density     more than ~8 designed effects in a 10 s window (good sound design mostly disappears)
   machinegun  the same effect 4+ times at a regular interval with no variation
   masked      effects that land on words (the mix pulls them down; listed so the designer can move them)
@@ -68,6 +70,47 @@ def click_times(y, sr, max_n=12):
     return out[:max_n]
 
 
+def voiced_regions(v, sr=SR, win=0.02, floor_db=-45.0, rel_db=30.0, gap=0.08, pad=0.03):
+    """[(start, end)] seconds where a voice stem is speaking: 20 ms frames within `rel_db` of its loud part and above
+    `floor_db`, runs closer than `gap` joined, a little `pad` around (a plosive's burst sits at the edge of its word)."""
+    n = int(win * sr)
+    if len(v) < 4 * n:
+        return []
+    f = v[:len(v) // n * n].astype(np.float64).reshape(-1, n)
+    lv = db(np.sqrt(np.mean(f ** 2, axis=1)))
+    thr = max(floor_db, float(np.percentile(lv, 90)) - rel_db)
+    out = []
+    for i in np.where(lv > thr)[0]:
+        a, b = i * win, (i + 1) * win
+        if out and a - out[-1][1] <= gap:
+            out[-1][1] = b
+        else:
+            out.append([a, b])
+    return [(max(0.0, a - pad), b + pad) for a, b in out]
+
+
+def voice_owned(clicks, stem=None, offset=0.0, words=None, cuts=(), sr=SR, tol=0.025, cut_tol=0.05):
+    """The clicks of a MIX that really belong to the mix. A click is dropped when
+
+      - the voice stem has a burst at that moment too (it is in the raw TTS file: a hard consonant, not a splice), or
+      - it lies inside a voiced region of the stem (or inside a word window when there is no stem) and is not on an
+        edit point (`cuts`, +/- cut_tol): inside speech a plosive is the voice; at a cut it may be the cut.
+
+    `offset`: when the stem starts inside the mix. Returns the clicks that stay."""
+    regions = voiced_regions(stem, sr) if stem is not None and len(stem) else \
+        [(s + offset - 0.03, e + offset + 0.03) for _, s, e in words or []]
+    in_stem = click_times(stem, sr, 400) if stem is not None and len(stem) else []
+    out = []
+    for c in clicks:
+        if any(abs((c - offset) - q) <= tol for q in in_stem):
+            continue
+        voiced = any(a <= (c - offset if stem is not None and len(stem) else c) <= b for a, b in regions)
+        if voiced and not any(abs(c - e) <= cut_tol for e in cuts):
+            continue
+        out.append(c)
+    return out
+
+
 def review(path, cues=None, words=None, voice_offset=0.0, total=None, voice_file=None, music=None, lufs=None,
            cuts=()):
     """Findings + metrics for a finished file. cues = [{t, kind, gain_db}] as placed; words = [[w, s, e]] of the voice
@@ -118,7 +161,11 @@ def review(path, cues=None, words=None, voice_offset=0.0, total=None, voice_file
     if lo / tot > 0.55:
         add("low_end", "warn", f"{round(100 * lo / tot)} % of the energy is under 150 Hz: on a phone speaker it plays as "
                                "almost nothing; lift the mids or thin the bass")
-    clicks = [c for c in click_times(y, SR) if not any(abs(c - float(q["t"])) < 0.12 for q in cues or [])]  # our own taps
+    clicks = [c for c in click_times(y, SR, 400) if not any(abs(c - float(q["t"])) < 0.12 for q in cues or [])]  # our own taps
+    stem = decode(voice_file) if voice_file and os.path.exists(voice_file) else None
+    if stem is not None:                           # hard consonants of the TTS voice are not splices
+        clicks = voice_owned(clicks, stem, voice_offset, None, cuts)
+    clicks = clicks[:12]
     if clicks:
         add("clicks", "warn", f"{len(clicks)} click(s) at {', '.join(f'{c:.2f}s' for c in clicks[:6])}: a cut without a fade",
             clicks[0])
@@ -162,7 +209,7 @@ def review(path, cues=None, words=None, voice_offset=0.0, total=None, voice_file
             add("masked", "info", f"{len(masked)} of {len(cues)} effects land on words (pulled under the voice); big ones "
                                   "read better in the gaps between lines", masked[0]["t"])
     if voice_file and music and os.path.exists(voice_file) and os.path.exists(music.get("file", "")):
-        v, mu = decode(voice_file), decode(music["file"])
+        v, mu = (stem if stem is not None else decode(voice_file)), decode(music["file"])
         if len(v) and len(mu):
             rv = db(np.sqrt(np.mean(v[np.abs(v) > 0.01] ** 2))) if np.any(np.abs(v) > 0.01) else -60
             rm = db(np.sqrt(np.mean(mu ** 2))) + float(music.get("db", -18))

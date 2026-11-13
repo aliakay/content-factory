@@ -469,20 +469,25 @@ def _cap_key(w):
 
 
 # ---------- voice timings ----------
-def align_words(path, lines, lang="en"):
+def align_words(path, lines, lang="en", pron=None):
     """[[token, start, end], ...] for every script token (faster-whisper words matched to the script by difflib; tokens
-    whisper missed are interpolated between their neighbours). Times are relative to the start of the voice file."""
+    whisper missed are interpolated between their neighbours). Times are relative to the start of the voice file.
+
+    The voice was made from the SPOKEN text (factory/speech_tr.py), so whisper's words are matched against the spoken
+    tokens and then mapped back: the result carries the script's own tokens ("1990'da", "C++"), each spanning the time of
+    the spoken words it became. `pron` = the pronunciation overrides the TTS call had."""
     from faster_whisper import WhisperModel
-    from . import productions
+    from . import productions, speech_tr
     audio = productions.decode(path)
     model = WhisperModel("small.en" if lang == "en" else "small", device="cpu", compute_type="int8")
-    tokens = [t for ln in lines for t in ln.split() if _norm(t)]
+    sp = speech_tr.plan(" ".join(lines), lang, pron)
+    tokens = [t for t in sp.tokens() if _norm(t)]
     tn = [_norm(t) for t in tokens]
     best = None
     # temperature 0: no random fallback sampling. The script prompt usually helps, but it once made whisper drift and
     # only ~1/3 of the words matched (prod 17: scenes 0.05 s long, sound and picture out of sync), so a weak match is
     # retried without it and the better of the two is kept.
-    for prompt in (" ".join(lines), None):
+    for prompt in (sp.spoken, None):
         segs, _ = model.transcribe(audio, language=lang, word_timestamps=True, initial_prompt=prompt, temperature=0.0)
         heard = []
         for w in (w for s in segs for w in (s.words or [])):
@@ -516,7 +521,8 @@ def align_words(path, lines, lang="en"):
             i = j
         else:
             i += 1
-    return [[tokens[i], round(a, 2), round(max(b, a + 0.05), 2)] for i, (a, b) in enumerate(times)]
+    back = speech_tr.restore_words([[tokens[i], a, b] for i, (a, b) in enumerate(times)], sp, keep=lambda t: bool(_norm(t)))
+    return [[w, round(a, 2), round(max(b, a + 0.05), 2)] for w, a, b in back]
 
 
 # ---------- scene compiler ----------

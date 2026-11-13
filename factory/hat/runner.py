@@ -137,12 +137,15 @@ def lock_budget(pid, by=None, d=None):
     P.decision(pid, "budget", f"{p['budget']['credits']} credits", reason="proposal approved", by=by, d=d)
 
 
-def _voice_chars(script):
-    """Characters the narration request will be charged for: the same pieces `explainer.narrate` sends."""
+def _voice_chars(script, p=None):
+    """Characters the narration request will be charged for: the same pieces `explainer.narrate` sends, as SPOKEN text
+    (digits become words: a number-heavy script is longer than it is written)."""
+    from .. import speech_tr
     from . import explainer as X
     lines = script.get("lines") or []
     starts = [c.get("line") for c in script.get("chapters") or []]
-    return sum(len(" ".join(lines[a:b + 1])) for a, b in X.pieces(lines, starts))
+    lang, terms = (p or {}).get("video_lang", "tr"), X.pron(p or {})
+    return sum(len(speech_tr.spoken(" ".join(lines[a:b + 1]), lang, terms)) for a, b in X.pieces(lines, starts))
 
 
 def refit_budget(pid, by=None, d=None):
@@ -168,7 +171,7 @@ def refit_budget(pid, by=None, d=None):
     tts = [i for i, it in enumerate(rows) if it.get("kind") == "tts"]
     if not tts:
         return None
-    chars = _voice_chars(script)
+    chars = _voice_chars(script, p)
     est = credits.estimate([{"kind": "tts", "model": formats.VOICE_MODEL, "units": chars, "unit": "char",
                              "label": rows[tts[0]].get("label") or "Narration"}])
     if est["unknown"] or not est["total"]:

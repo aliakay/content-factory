@@ -95,6 +95,19 @@ def save(con, s):
     con.commit()
 
 
+def pronunciations(con, sid):
+    """The series' pronunciation overrides {written: spoken} (factory/speech_tr.py); under the project's own."""
+    return get(con, sid)["data"].get("pronunciations") or {}
+
+
+def set_pronunciations(con, sid, terms):
+    from . import speech_tr
+    s = get(con, sid)
+    s["data"]["pronunciations"] = speech_tr.clean_terms(terms)
+    save(con, s)
+    return s["data"]["pronunciations"]
+
+
 def listing(con, channel_id=None):
     ensure(con)
     q, args = "SELECT * FROM series", []

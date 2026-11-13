@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+"""`bin/factory` — the executable wrapper around factory/cli.py (`factory` is not installed as a package script).
+
+Prefers the project virtualenv when it exists, so the CLI sees the same packages as the Studio and the jobs.
+"""
+import os
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+VENV = os.path.join(ROOT, ".venv", "bin", "python")
+
+if sys.prefix == getattr(sys, "base_prefix", sys.prefix) and os.path.exists(VENV):
+    os.execv(VENV, [VENV, "-m", "factory.cli", *sys.argv[1:]])
+
+sys.path.insert(0, ROOT)
+from factory.cli import main  # noqa: E402
+
+sys.exit(main())

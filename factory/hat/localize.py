@@ -219,9 +219,12 @@ def assets(pid, s, note=None, d=None):
     dur = _duration(src)
     acc = p.get("eleven_account") or accounts.default_eleven(p.get("created_by"))
     voice_id = p.get("voice_id") or formats.default_voice(to, acc)
-    vpath, vcost = eleven.tts(con, " ".join(lines), voice_id, formats.VOICE_MODEL, approved=remaining_budget(pid, d),
-                              account=acc)
-    times, total, words = productions.align(vpath, lines, to)
+    from .. import speech_tr
+    from .explainer import pron
+    with speech_tr.voicing(to, pron(p)):                        # eleven.tts makes the written script spoken, once
+        vpath, vcost = eleven.tts(con, " ".join(lines), voice_id, formats.VOICE_MODEL, approved=remaining_budget(pid, d),
+                                  account=acc)
+        times, total, words = productions.align(vpath, lines, to)
     places = placements(segs, times, total)
     track = dub_track(vpath, places, dur, P.path(pid, "assets", "dub.wav", d=d))
     picture, lcost = src, 0.0

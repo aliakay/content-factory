@@ -63,8 +63,12 @@ def spans(heard, idx, total):
 
 
 def trim(path, lines, lang="en", dst=None):
-    """-> (file to use, {"cuts": [[start, end, "words"]], "seconds": cut total}). The original file when nothing is cut."""
-    tokens = [t for ln in lines for t in ln.split() if explainer._norm(t)]
+    """-> (file to use, {"cuts": [[start, end, "words"]], "seconds": cut total}). The original file when nothing is cut.
+    The take says the SPOKEN text (speech_tr), so the script tokens are compared in their spoken form (the caller's
+    `speech_tr.voicing(lang, overrides)` carries the project's pronunciation overrides)."""
+    from . import speech_tr
+    ctx = speech_tr.current()
+    tokens = [t for t in speech_tr.plan(" ".join(lines), lang, ctx[1] if ctx else None).tokens() if explainer._norm(t)]
     heard = talk.transcribe(path, lang)
     idx = extras(tokens, heard, lang)
     if not idx:

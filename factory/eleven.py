@@ -128,8 +128,14 @@ def ensure_voice(account, voice_id, lang="tr"):
 
 
 def tts(con, text, voice_id, model="eleven_v4", idea_id=None, approved=None, account=None):
-    """Speech for `text` (one take). Returns (mp3_path, credit_cost). Cached by (text, voice, model).
-    `approved`: the credit amount the user approved; credits.guard refuses without it."""
+    """Speech for `text` (one take). Returns (mp3_path, credit_cost). Cached by (spoken text, voice, model).
+    `approved`: the credit amount the user approved; credits.guard refuses without it.
+
+    `text` is the WRITTEN script; here, exactly once, it becomes the spoken form (numbers, abbreviations, foreign names:
+    factory/speech_tr.py; language + overrides come from the caller's `speech_tr.voicing(...)`). The cache key and the
+    billed characters are the spoken text, so a changed lexicon re-voices and a script without numbers keeps its keys."""
+    from . import speech_tr
+    text = speech_tr.for_tts(text)
     if _gemini_on("voice"):
         from . import gemini
         gmodel = gemini.DEFAULT["voice"]
@@ -163,7 +169,24 @@ def generate(con, kind, model, prompt_text, params, units, unit, idea_id=None, e
     """Music or a sound effect through the REST API, with the given model params.
     `approved`: credits the user approved for this call; credits.guard refuses without it."""
     key = f"{kind}_" + hashlib.sha1((f"{model}|{prompt_text}|{json.dumps(params, sort_keys=True)}").encode()).hexdigest()[:16]
-    if kind == "music" and _gemini_on("music"):
+    if kind == "music":
+        # Music may change provider when one is down (mediaprov.dispatch: 3 failures in 10 min -> 10 min cooldown);
+        # a song from the other provider is still a song for the same cues. Voice never fails over (one narrator).
+        from . import mediaprov
+        def attempt(provider):
+            return _music(con, provider, model, prompt_text, params, units, unit, idea_id, ext, approved, account, key)
+        return mediaprov.dispatch("music", attempt, outages_only=True).value
+    cached = os.path.join(OUT, f"{key}.{ext}")
+    if os.path.exists(cached):
+        return cached, 0.0
+    if kind == "video":
+        raise ElevenError("bu video modeli yalnız connector ile üretilebiliyordu; connector kaldırıldı — "
+                          "Medya üreticisi → video için ElevenLabs (API) veya Gemini kullan")
+    return _eleven_audio(con, kind, model, prompt_text, params, units, unit, idea_id, ext, approved, account, key)
+
+
+def _music(con, provider, model, prompt_text, params, units, unit, idea_id, ext, approved, account, key):
+    if provider == "gemini":
         from . import gemini
         gmodel, secs = gemini.DEFAULT["music"], float(params.get("duration_seconds") or units or 30)
         gkey = "gmusic_" + hashlib.sha1(f"{gmodel}|{prompt_text}|{secs}".encode()).hexdigest()[:16]
@@ -177,9 +200,10 @@ def generate(con, kind, model, prompt_text, params, units, unit, idea_id=None, e
     cached = os.path.join(OUT, f"{key}.{ext}")
     if os.path.exists(cached):
         return cached, 0.0
-    if kind == "video":
-        raise ElevenError("bu video modeli yalnız connector ile üretilebiliyordu; connector kaldırıldı — "
-                          "Medya üreticisi → video için ElevenLabs (API) veya Gemini kullan")
+    return _eleven_audio(con, "music", model, prompt_text, params, units, unit, idea_id, ext, approved, account, key)
+
+
+def _eleven_audio(con, kind, model, prompt_text, params, units, unit, idea_id, ext, approved, account, key):
     account, acc = _account(account)
     credits.guard(con, kind, model, units, approved, account)
     secs = float(params.get("duration_seconds") or units)
