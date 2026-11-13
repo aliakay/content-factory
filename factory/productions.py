@@ -773,7 +773,9 @@ def render(con, prod_id):
 
 
 def sound_check(dst, spec, total):
-    """The ears (factory/soundqa.py) on the final file: findings + a sound sheet next to the work files."""
+    """The ears (factory/soundqa.py) on the final file: findings + a sound sheet next to the work files. A cut of the
+    creator's own footage also carries its join / pacing audit (factory/joinaudit.py, compiled into the spec by
+    talk.compile_spec): those findings are added for the creator and never fail a render."""
     try:
         from . import soundqa
         placed = os.path.join(ROOT, "work", "sound", f"{spec['name']}.json")
@@ -782,6 +784,13 @@ def sound_check(dst, spec, total):
         sheet = os.path.join(ROOT, "work", "sound", f"{spec['name']}.png")
         soundqa.sheet(dst, sheet, pl.get("cues"), pl.get("words"), pl.get("voice_offset", 0.0), spec["name"])
         rep["sheet"] = os.path.relpath(sheet, ROOT)
+        cq = spec.get("cut_qa") or {}
+        if cq.get("findings"):
+            rep["findings"] = list(rep.get("findings") or []) + list(cq["findings"])
+        if cq:
+            rep["cut_qa"] = {"findings": len(cq.get("findings") or []), "long_gaps": cq.get("long_gaps"),
+                             "dead_air": cq.get("dead_air"), "doubled": len(cq.get("doubled") or []),
+                             "floor": cq.get("floor"), "speech": cq.get("speech")}
         return rep
     except Exception as e:     # the ears must never fail a render
         return {"error": f"{type(e).__name__}: {e}", "findings": []}

@@ -477,7 +477,33 @@ def compile_spec(con, p, fmt=None, preview=True):
         spec["music"] = {"file": d["music_take"]["file"], "auto": True, "gap": 12.0}
     spec["text"] = [{"start": b["start"], "end": b["end"], "text": b["text"]} for b in broll] or \
         [{"start": 0.0, "end": hook_end, "text": spec["hook"]["text"]}]
+    spec["cut_qa"] = cut_qa(a, segs, ow, fps)     # free: joins in speech / clipped words, dead air, doubled deliveries
+    heavy = [f for f in spec["cut_qa"].get("findings") or [] if f.get("level") == "warn"]
+    if heavy:       # findings for the creator, never a blocked render
+        warn.append(f"kesim denetimi: {len(heavy)} kesim uyarısı ({heavy[0]['code']})")
     return spec, total, starts, warn
+
+
+def cut_qa(a, segs, ow, fps=30):
+    """Free join + pacing audit of a cut (factory/joinaudit.py): was a join made in speech or through a word, and how
+    dead is the delivered pace. Pure numpy on the source audio + the word timings; never raises (a check that fails
+    must never stop an edit or a render). -> {joins, gaps, long_gaps, dead_air, doubled, findings, floor, speech}."""
+    from . import joinaudit
+    out = {"joins": [], "gaps": [], "long_gaps": 0, "dead_air": 0.0, "doubled": [], "findings": []}
+    try:
+        src = a.get("src") or ""
+        src = src if os.path.isabs(src) else os.path.join(ROOT, src)
+        ranges = [(sg["in"], sg["in"] + sg["frames"] / fps) for sg in segs]
+        words = [[a["words"][i][0], a["words"][i][1], a["words"][i][2]] for i in sorted({w[3] for w in ow})]
+        aud = joinaudit.audit(src, ranges, words)
+        joins = [round(sum(r[1] - r[0] for r in ranges[:k + 1]), 3) for k in range(len(ranges) - 1)]
+        pac = joinaudit.pacing([[w, s, e] for w, s, e, _ in ow], joins)
+        out = {"joins": aud["joins"], "floor": aud["floor"], "speech": aud["speech"], "gaps": pac["gaps"],
+               "long_gaps": pac["long_gaps"], "dead_air": pac["dead_air"], "doubled": pac["doubled"],
+               "findings": aud["findings"] + pac["findings"]}
+    except Exception as e:
+        out["error"] = f"{type(e).__name__}: {e}"
+    return out
 
 
 QA_NOTES = """This is the creator's own talking-head video, edited: fast jump cuts between kept phrases are intended (the

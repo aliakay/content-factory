@@ -18,7 +18,7 @@ import os, subprocess
 
 import numpy as np
 
-from .config import FFMPEG
+from .config import FFMPEG, FFPROBE
 
 SR = 48000
 CARVE_HZ = 2600
@@ -127,8 +127,19 @@ def remap(t, ranges):
     return round(acc, 3)
 
 
-def concat_audio(src, ranges, dst, fade=0.008):
-    """Keep only `ranges` of `src` (seconds), joined with tiny fades so the joins never click."""
+def source_duration(path):
+    """Length of a media file in seconds (ffprobe), or None when it cannot be read."""
+    r = subprocess.run([FFPROBE, "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", path],
+                       capture_output=True, text=True)
+    try:
+        d = float((r.stdout or "").strip())
+    except ValueError:
+        return None
+    return d if d > 0 else None
+
+
+def _fade_concat(src, ranges, dst, fade=0.008):
+    """The old join: every piece fades in and out, then they are concatenated. Dips to silence at each join."""
     chain = []
     for i, (a, b) in enumerate(ranges):
         d = b - a
@@ -136,6 +147,73 @@ def concat_audio(src, ranges, dst, fade=0.008):
         chain.append(f"[0:a]atrim={a:.3f}:{b:.3f},asetpts=PTS-STARTPTS,afade=t=in:d={f:.3f},"
                      f"afade=t=out:st={max(0, d - f):.3f}:d={f:.3f}[a{i}]")
     chain.append("".join(f"[a{i}]" for i in range(len(ranges))) + f"concat=n={len(ranges)}:v=0:a=1[out]")
+    run(["-i", src, "-filter_complex", ";".join(chain), "-map", "[out]", "-ac", "1", "-ar", str(SR),
+         "-c:a", "pcm_s16le", dst])
+    return dst
+
+
+def concat_audio(src, ranges, dst, fade=0.008, xfade=0.03):
+    """Keep only `ranges` of `src` (seconds), joined with an equal-power crossfade so the joins never click and never
+    dip. The total length stays EXACTLY the sum of the range lengths (bin/talkcut.py cuts picture and sound on the same
+    frame grid: a drifting sound track would break lip sync), because each piece is extended by xfade/2 into the CUT
+    material on its inner sides and two neighbours overlap by exactly the handles they got:
+
+        right extension of piece i + left extension of piece i+1 = the crossfade length of that join
+
+    so the extensions add back precisely what the crossfades remove. A handle never reaches before the first start /
+    after the last end (l_0 = r_n-1 = 0), past the neighbouring kept range, or past the source's own bounds. A join
+    next to a range too short for it (< 3*xfade) or without any handle material falls back to the old tiny fades for
+    that join. xfade=0 is the old behaviour for every join."""
+    rs = [(float(a), float(b)) for a, b in ranges or [] if float(b) > float(a)]
+    if not rs:
+        raise ValueError("concat_audio: no ranges to keep")
+    if xfade is None or float(xfade) <= 0:
+        return _fade_concat(src, rs, dst, fade)
+    xfade, dur = float(xfade), source_duration(src)
+    if dur is None:            # no bounds, no handles: the safe old join
+        return _fade_concat(src, rs, dst, fade)
+    rs = [(max(0.0, a), min(b, dur)) for a, b in rs if a < dur and b > 0]   # nothing outside the source
+    rs = [(a, b) for a, b in rs if b - a > 1e-4]
+    if not rs:
+        raise ValueError("concat_audio: the ranges are outside the source")
+    n, h = len(rs), xfade / 2
+    left, right, cross = [0.0] * n, [0.0] * n, [False] * (n - 1)
+    for i, (a, b) in enumerate(rs):
+        if i:                  # into the cut material before this range, never into the previous kept range
+            left[i] = min(h, max(0.0, a - rs[i - 1][1]), max(0.0, a))
+        if i < n - 1:          # ... and after it, never into the next kept range
+            right[i] = min(h, max(0.0, rs[i + 1][0] - b), max(0.0, dur - b))
+    for j in range(n - 1):
+        d = right[j] + left[j + 1]
+        short = min(rs[j][1] - rs[j][0], rs[j + 1][1] - rs[j + 1][0]) < 3 * xfade
+        cross[j] = (not short) and d >= max(0.004, xfade / 4)
+        if not cross[j]:       # fall back to the old fades for this join
+            right[j] = left[j + 1] = 0.0
+    chain = []
+    for i, (a, b) in enumerate(rs):
+        s0, e0 = max(0.0, a - left[i]), min(dur, b + right[i])
+        length = max(1e-4, e0 - s0)
+        f_in = min(fade if (i == 0 or not cross[i - 1]) else 0.0, length / 3)
+        f_out = min(fade if (i == n - 1 or not cross[i]) else 0.0, length / 3)
+        parts = [f"atrim=start={s0:.6f}:end={e0:.6f}", "asetpts=PTS-STARTPTS"]
+        if f_in > 0:
+            parts.append(f"afade=t=in:d={f_in:.6f}")
+        if f_out > 0:
+            parts.append(f"afade=t=out:st={max(0.0, length - f_out):.6f}:d={f_out:.6f}")
+        chain.append("[0:a]" + ",".join(parts) + f"[p{i}]")
+    groups, cur = [], "p0"      # crossfaded runs, then concat the runs the fallback joins split them into
+    for j in range(n - 1):
+        if cross[j]:
+            chain.append(f"[{cur}][p{j + 1}]acrossfade=d={right[j] + left[j + 1]:.6f}:c1=qsin:c2=qsin[x{j}]")
+            cur = f"x{j}"
+        else:
+            groups.append(cur)
+            cur = f"p{j + 1}"
+    groups.append(cur)
+    if len(groups) == 1:
+        chain.append(f"[{groups[0]}]anull[out]")
+    else:
+        chain.append("".join(f"[{g}]" for g in groups) + f"concat=n={len(groups)}:v=0:a=1[out]")
     run(["-i", src, "-filter_complex", ";".join(chain), "-map", "[out]", "-ac", "1", "-ar", str(SR),
          "-c:a", "pcm_s16le", dst])
     return dst
