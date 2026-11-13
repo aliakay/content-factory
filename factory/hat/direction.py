@@ -384,9 +384,39 @@ def _apply_note(board, note):
     return board
 
 
+def _hls(c):
+    import colorsys
+    c = c.lstrip("#")
+    if len(c) in (3, 4):
+        c = "".join(x * 2 for x in c)
+    try:
+        return colorsys.rgb_to_hls(*(int(c[i:i + 2], 16) / 255 for i in (0, 2, 4)))
+    except ValueError:
+        return None
+
+
+def _shade_of(c, base, hue=12 / 360, light=0.25):
+    """Is `c` the board colour `base` made darker or lighter? A pressed edge under a clay tag, the side of an extruded
+    letter and the lit centre of a backdrop are the same colour in another light, not a new colour: same hue, lightness
+    within a quarter. A grey has no hue, so two near-greys are compared on lightness alone."""
+    a, b = _hls(c), _hls(base)
+    if not a or not b:
+        return False
+    (h1, l1, s1), (h2, l2, s2) = a, b
+    if abs(l1 - l2) > light:
+        return False
+    if s1 < 0.12 and s2 < 0.12:
+        return True
+    if min(s1, s2) < 0.12 and max(s1, s2) > 0.3:
+        return False
+    dh = abs(h1 - h2)
+    return min(dh, 1 - dh) <= hue
+
+
 def problems(plan, board=None, d=None):
     """What `submit_artifact` refuses on a scene plan drawn against an approved board: a colour the board does not have
-    and a type family it does not name. No board (a line without the stage) means nothing to check."""
+    and a type family it does not name. A darker or lighter shade of a board colour is that colour (`_shade_of`).
+    No board (a line without the stage) means nothing to check."""
     if not isinstance(board, dict) or not board.get("palette"):
         return []
     import re
@@ -397,7 +427,8 @@ def problems(plan, board=None, d=None):
                             for k in ("css", "html", "js"))
     scene_text += "\n" + str((plan or {}).get("global_css") or "")
     vals += [c.lower() for c in re.findall(r"#[0-9a-fA-F]{3,8}\b", scene_text)]
-    extra = [c for c in vals if c not in allowed and c not in ("#000000", "#ffffff", "#000", "#fff")]
+    extra = [c for c in vals if c not in allowed and c not in ("#000000", "#ffffff", "#000", "#fff")
+             and not any(_shade_of(c, a) for a in allowed)]
     out = []
     if extra:
         out.append(f"the palette uses {', '.join(sorted(set(extra))[:4])}, which the approved direction board does not "

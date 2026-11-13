@@ -122,11 +122,13 @@
   const MOVES = {           // name -> (pose at the start, options, stage) -> end pose
     push_in: (p, o) => ({ dist: p.dist * (o.amount ?? 0.7) }),
     pull_out: (p, o) => ({ dist: p.dist * (o.amount ?? 1.45) }),
-    orbit: (p, o) => ({ az: p.az + ((o.turn ?? 60) * Math.PI) / 180 }),
-    pan_left: (p, o, k) => ({ tx: p.tx - (o.dx ?? 0.2 * k.w), az: p.az - 0.08 }),
-    pan_right: (p, o, k) => ({ tx: p.tx + (o.dx ?? 0.2 * k.w), az: p.az + 0.08 }),
-    tilt_up: (p, o, k) => ({ ty: p.ty + (o.dy ?? 0.12 * k.h), el: p.el - 0.1 }),
-    tilt_down: (p, o, k) => ({ ty: p.ty - (o.dy ?? 0.12 * k.h), el: p.el + 0.1 }),
+    // turn is in degrees; a value under 3 can only be radians (0.3 degrees would be no move at all)
+    orbit: (p, o) => { const d = o.turn ?? 60; return { az: p.az + (Math.abs(d) < 3 ? d : (d * Math.PI) / 180) }; },
+    // a tall frame has 60-150 px of side margin around a full-width headline: a pan there is a nudge, not a truck
+    pan_left: (p, o, k) => ({ tx: p.tx - (o.dx ?? (k.tall ? 0.05 : 0.2) * k.w), az: p.az - (k.tall ? 0.05 : 0.08) }),
+    pan_right: (p, o, k) => ({ tx: p.tx + (o.dx ?? (k.tall ? 0.05 : 0.2) * k.w), az: p.az + (k.tall ? 0.05 : 0.08) }),
+    tilt_up: (p, o, k) => ({ ty: p.ty + (o.dy ?? (k.tall ? 0.05 : 0.12) * k.h), el: p.el - 0.1 }),
+    tilt_down: (p, o, k) => ({ ty: p.ty - (o.dy ?? (k.tall ? 0.05 : 0.12) * k.h), el: p.el + 0.1 }),
     zoom_to: (p, o) => ({ tx: o.to[0], ty: o.to[1], tz: o.to[2] || 0, dist: p.dist * (o.amount ?? 0.45) }),
     // no depth of field in SwiftShader's budget: a rack is the aim moving to the other plane with a slight tighten
     rack_focus: (p, o) => ({ tx: o.to[0], ty: o.to[1], tz: o.to[2] || 0, fov: p.fov * 0.92 }),
@@ -138,6 +140,17 @@
   X.MOVES = Object.keys(MOVES);
   X.stages = [];
 
+  /* Where the canvas goes so the picture is seen: behind the scene's own text, but in front of a full-frame wrapper
+     that paints a background (the usual `.w` of a film's global CSS would otherwise cover the whole 3D set). */
+  const backdrop = (root, W, H) => {
+    for (const el of root.children) {
+      if (el.tagName === "CANVAS" || el.classList.contains("x3t")) continue;
+      const cs = getComputedStyle(el), r = el.getBoundingClientRect(), rr = root.getBoundingClientRect();
+      const painted = cs.backgroundImage !== "none" || !/rgba\([^)]*,\s*0\)|transparent/.test(cs.backgroundColor);
+      if (painted && r.width >= rr.width * 0.9 && r.height >= rr.height * 0.9) return el;
+    }
+    return root;
+  };
   FX.stage3 = (tl, root, T, o = {}) => {
     if (!EX.ready) throw new Error("FX.stage3: three is not loaded (the shell loads it when a scene mentions FX.stage3)");
     const W = FX._W || 1080, H = FX._H || 1920, tall = H > W, look = LOOKS[o.look] || LOOKS.clay, lookName = LOOKS[o.look] ? o.look : "clay";
@@ -158,6 +171,25 @@
     const sx = W / 2 - (SAFE.x[0] + SAFE.x[1]) / 2, sy = H / 2 - (SAFE.y[0] + SAFE.y[1]) / 2;
     camera.setViewOffset(W, H, sx, sy, W, H);
     k.add = (x) => { scene.add(x); return x; };
+    /* An own object sized and placed by the frame instead of by guessed world units: wraps it in a holder scaled so it
+       is `h` of the safe height (and at most `w` of the safe width), centred at x / y in -1..1 of the safe area and
+       never outside it. The object keeps its own scale, rotation and position for animation (scale 0 -> 1 grows it to
+       the fitted size). Returns the holder, already in the scene. */
+    k.fitTo = (obj, fo = {}) => {
+      const keep = obj.scale.clone(), par = obj.parent; if (par) par.remove(obj);
+      obj.scale.set(1, 1, 1); obj.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(obj), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+      obj.scale.copy(keep);
+      const holder = new THREE.Group(); holder.add(obj); scene.add(holder);
+      if (!(size.y > 0)) return holder;
+      const f = Math.min(((fo.h ?? 0.5) * k.safeH) / size.y, ((fo.w ?? 0.8) * k.safeW) / Math.max(size.x, 1e-6));
+      const hh = (size.y * f) / 2, hw = (size.x * f) / 2, lim = (v, half, span) => Math.max(-span / 2 + half, Math.min(span / 2 - half, v));
+      const ty = lim(((fo.y ?? 0) * k.safeH) / 2, hh, k.safeH), tx = lim(((fo.x ?? 0) * k.safeW) / 2, hw, k.safeW);
+      holder.scale.setScalar(f); holder.position.set(tx - c.x * f, ty - c.y * f, 0);
+      return holder;
+    };
+    /* a headline's centre, held so the whole block stays inside the safe area (with room for a push-in) */
+    k.inY = (y, h) => { const top = (k.safeH / 2) * 0.9 - h / 2, bot = -k.safeH / 2 + h / 2; return top < bot ? 0 : Math.max(bot, Math.min(top, y)); };
     k.sun = (pos, color, intensity, radius) => {
       const l = new THREE.DirectionalLight(color, intensity); l.position.set(...pos); l.castShadow = look.shadow > 0;
       const s = l.shadow, e = Math.max(k.safeW, k.safeH) * 0.8; s.mapSize.set(X.SHADOW, X.SHADOW); s.radius = radius; s.bias = -0.0004; s.normalBias = 0.03;
@@ -193,14 +225,41 @@
     };
     k.path = (fn) => { k._pathFn = fn; return k; };   // camera on a rail: fn(t) -> {pos, look, fov?}; replaces the rig (flythrough)
     const drift = o.drift ?? 0.012;                   // a barely moving camera: nothing on screen is ever fully dead
-    const place = (t) => {
+    const place = (t, back = 1) => {
+      let p = null;
       if (k._pathFn) { const r = k._pathFn(t); camera.position.set(...r.pos); camera.up.set(0, 1, 0); camera.lookAt(...r.look); if (r.roll) camera.rotateZ(-r.roll); camera.fov = r.fov || base.fov; }
       else {
-        const p = evalPose(t), lt = t - T.start, az = p.az + drift * Math.sin(lt * 0.9), el = p.el + drift * 0.6 * Math.sin(lt * 0.7 + 1);
-        camera.position.set(p.tx + p.dist * Math.sin(az) * Math.cos(el), p.ty + p.dist * Math.sin(el), p.tz + p.dist * Math.cos(az) * Math.cos(el));
+        p = evalPose(t); const lt = t - T.start, az = p.az + drift * Math.sin(lt * 0.9), el = p.el + drift * 0.6 * Math.sin(lt * 0.7 + 1), d = p.dist * back;
+        camera.position.set(p.tx + d * Math.sin(az) * Math.cos(el), p.ty + d * Math.sin(el), p.tz + d * Math.cos(az) * Math.cos(el));
         camera.lookAt(p.tx, p.ty, p.tz); camera.fov = p.fov;
       }
       camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
+      return p;
+    };
+    /* Headlines stay in the frame whatever the camera does: when a push-in, zoom or pan would carry a kept block
+       (every text3d / number3d headline) past the safe area, the camera backs off along its own line of sight just
+       enough for it to fit, frame by frame, so the move still reads but never crops the words. */
+    k._keep = [];
+    k.keep = (obj, mn, mx) => { k._keep.push({ obj, mn, mx }); return k; };
+    const over = (p) => {
+      const c = k.px([p.tx, p.ty, p.tz]); let r = 1;
+      if (!(c[0] > SAFE.x[0] && c[0] < SAFE.x[1] && c[1] > SAFE.y[0] && c[1] < SAFE.y[1])) return 1;
+      for (const kp of k._keep) {
+        if (!kp.obj.visible) continue;
+        const b = projBox(k, kp.obj, kp.mn, kp.mx); if (!b) continue;
+        if (b[1] < SAFE.y[0]) r = Math.max(r, (c[1] - b[1]) / (c[1] - SAFE.y[0]));
+        if (b[1] + b[3] > SAFE.y[1]) r = Math.max(r, (b[1] + b[3] - c[1]) / (SAFE.y[1] - c[1]));
+        if (b[0] < SAFE.x[0]) r = Math.max(r, (c[0] - b[0]) / (c[0] - SAFE.x[0]));
+        if (b[0] + b[2] > SAFE.x[1]) r = Math.max(r, (b[0] + b[2] - c[0]) / (SAFE.x[1] - c[0]));
+      }
+      return r;
+    };
+    const placeKept = (t) => {
+      let p = place(t);
+      if (!p || !k._keep.length || o.keep === false) return;
+      scene.updateMatrixWorld(true);
+      let back = 1;
+      for (let i = 0; i < 6; i++) { const r = over(p); if (r <= 1.002) break; back *= Math.min(r * 1.01, 1.6); p = place(t, back); }
     };
     k.eachFrame = (fn) => { k._fns.push(fn); return k; };
     k.frame = k.eachFrame;                              // same name the older FX.three kit uses
@@ -302,7 +361,8 @@
       if (!on) { if (k._live) release(k); return; }
       const r = renderer(W, H);
       if (!k._cv) k._cv = r.domElement;
-      if (k._cv.parentNode !== root) { if (o.front) root.appendChild(k._cv); else root.insertBefore(k._cv, root.firstChild); }
+      if (!k._host) k._host = o.front ? root : backdrop(root, W, H);
+      if (k._cv.parentNode !== k._host) { if (o.front) root.appendChild(k._cv); else k._host.insertBefore(k._cv, k._host.firstChild); }
       k._live = true;
       if (look.env && !scene.environment) { scene.environment = env(r); }
       r.toneMapping = { None: THREE.NoToneMapping, ACESFilmic: THREE.ACESFilmicToneMapping }[look.tm]; r.toneMappingExposure = o.exposure ?? 1;
@@ -310,6 +370,7 @@
       place(t);
       const lt = t - T.start;
       for (const f of k._fns) f(lt, t);
+      if (k._keep.length) placeKept(t);
       scene.updateMatrixWorld(true);
       for (const f of k._post) f(lt, t);
       for (const [m, px] of k._lines) { m.resolution.set(W * r._pr, H * r._pr); m.linewidth = px * r._pr; }
@@ -401,15 +462,17 @@
           const a = own.length ? Math.min(...own.map((m) => m.scale.x)) : 0; return { box: bx, alpha: a > 0.6 ? 1 : 0 };
         }, color, twinFont(fk));
       });
-      g.scale.setScalar(s); g.position.set(...(o.pos || [0, o.y ?? 0, 0])); k.scene.add(g);
+      const yy = k.inY(o.y ?? 0, (ch + lh * (lines.length - 1)) * s);
+      g.scale.setScalar(s); g.position.set(...(o.pos || [0, yy, 0])); k.scene.add(g);
+      { const hy = ((lines.length - 1) / 2) * lh + ch / 2; if (o.keep !== false) k.keep(g, V3(-maxW / 2, -hy, -depth / 2), V3(maxW / 2, hy, depth / 2)); }
       const sway = o.sway ?? 0.1; if (sway) k.eachFrame((lt) => { g.rotation.y = sway * Math.sin(lt * 0.8); g.rotation.x = -sway * 0.3 * Math.sin(lt * 0.6 + 1); });
-      if (o.shadow !== false && k.look.shadow > 0) k.ground({ y: (o.y ?? 0) - (ch * s * lines.length * 0.75) - 0.4 });
+      if (o.shadow !== false && k.look.shadow > 0) k.ground({ y: (o.pos ? o.pos[1] : yy) - (ch * s * lines.length * 0.75) - 0.4 });
       g.letters = letters; g.s = s; return g;
     };
 
     /* extruded number that counts up from `from` to `value` */
     k.number3d = (tl, at, value, o = {}) => {
-      const fk = o.font || "anton", depth = o.depth ?? 24, bevel = o.bevel ?? 3, dec = o.decimals ?? 0, ch = capH(fk), sep = o.sep ?? ",", dur = o.dur ?? 1.6;
+      const fk = o.font || "anton", depth = o.depth ?? 24, bevel = o.bevel ?? 3, dec = o.decimals ?? 0, ch = capH(fk), sep = o.sep ?? (Math.abs(value) < 10000 ? "" : ","), dur = o.dur ?? 1.6;   // 1989 is a year, not "1,989"
       const fmt = (v) => (o.prefix || "") + fmtNum(v, dec, sep) + (o.suffix || ""), proxy = { v: o.from ?? 0 };
       tl.to(proxy, { v: value, duration: dur, ease: o.ease || "power3.out" }, at);
       const finalW = layout(fk, fmt(value), depth, bevel).width, s = Math.min((o.w ?? k.safeW * 0.94) / finalW, (o.maxH ?? k.safeH * 0.5) / ch);
@@ -429,8 +492,10 @@
         g.scale.setScalar(s * Math.max(0.001, appear) * (1 + 0.06 * land));
         g.rotation.y = (o.sway ?? 0.1) * Math.sin(lt * 0.8);
       });
-      g.position.set(...(o.pos || [0, o.y ?? 0, 0])); k.scene.add(g);
-      if (o.shadow !== false && k.look.shadow > 0) k.ground({ y: (o.y ?? 0) - ch * s * 0.8 - 0.4 });
+      const yy = k.inY(o.y ?? 0, ch * s);
+      g.position.set(...(o.pos || [0, yy, 0])); k.scene.add(g);
+      if (o.keep !== false) k.keep(g, V3(-finalW / 2, -ch / 2, -depth / 2), V3(finalW / 2, ch / 2, depth / 2));   // g carries the scale itself
+      if (o.shadow !== false && k.look.shadow > 0) k.ground({ y: (o.pos ? o.pos[1] : yy) - ch * s * 0.8 - 0.4 });
       k.twin(txt, (t) => ({ box: projBox(k, g, V3(-W0 / 2, -ch / 2, -depth / 2), V3(W0 / 2, ch / 2, depth / 2)), alpha: t >= at + 0.3 ? 1 : 0, text: txt }), color, twinFont(fk));
       g.value = proxy; return g;
     };

@@ -132,3 +132,26 @@ def test_transparent_mode_keeps_alpha(tmp_path):
     a = Image.open(png).convert("RGBA").getchannel("A")
     lo, hi = a.getextrema()
     assert lo == 0 and hi == 255
+
+
+def test_a_zoom_never_crops_a_headline(tmp_path):
+    """A push into the lower part of the set used to carry a top headline out of the frame ("DÜŞÜRDÜN MÜ?" in the
+    pipet film): the camera now backs off just enough for every 3D headline to stay in the platform-safe area."""
+    js = ("const k = FX.stage3(tl, root, T, {look: 'clay'}); k.text3d(tl, 0.1, 'DROPPED\\nIT?', {anim: 'pop', y: 4.2, w: k.safeW * 0.85});"
+          "k.move('zoom_to', {at: 0.2, dur: 1, to: [0, -1.5, 0], amount: 0.8});")
+    pngs, errs, lint = _shots(_bundle([(0, 2, js)]), [1.8], str(tmp_path), lint=True)
+    assert not errs
+    boxes = [x for x in next(iter(lint.values()))["boxes"] if x["text"] in ("DROPPED", "IT?")]
+    assert len(boxes) == 2
+    for x in boxes:
+        assert x["y"] >= 165 and x["y"] + x["h"] <= 1505 and x["x"] >= 55 and x["x"] + x["w"] <= 935, x
+
+
+def test_a_year_is_not_a_thousands_number_and_fitTo_keeps_the_subject_inside(tmp_path):
+    js = ("const k = FX.stage3(tl, root, T, {look: 'clay'}); k.number3d(tl, 0.1, 1989, {from: 1900, dur: 0.5, y: 4});"
+          "const box = k.solid(k.rbox(3, 6, 2, 0.1), k.pal.hot); const h = k.fitTo(box, {h: 0.5, y: -0.9});"
+          "const b = new k.THREE.Box3().setFromObject(h); FX.onFrame(() => { root.dataset.b = [b.min.y, b.max.y].join(','); });")
+    pngs, errs, lint = _shots(_bundle([(0, 2, js)]), [1.5], str(tmp_path), lint=True)
+    assert not errs
+    texts = [x["text"] for x in next(iter(lint.values()))["boxes"]]
+    assert "1989" in texts and "1,989" not in texts

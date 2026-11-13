@@ -33,7 +33,8 @@ DESIGN_WORDS = ("kesim", "cut", "satır", "line", "aralık", "range", "süre", "
 
 def needs_design(note):
     low = str(note or "").lower()
-    return bool(low) and any(w in low for w in DESIGN_WORDS)
+    # a word that STARTS with one of these ("satırı", "cuts"), not one that contains it ("headline" is not "line")
+    return bool(low) and any(re.search(r"(?<![^\W\d_])" + re.escape(w), low) for w in DESIGN_WORDS)
 
 
 def _hash(*parts):
@@ -228,15 +229,18 @@ def design(pid, s, script, board, research, d=None, ask=None, note=None):
     Cached while the script and the board are unchanged — unless a note comes with the repair: the cut laws live in
     the scene `lines` ranges, so a note that names where the cuts land has to re-decide them here, not only inside the
     scenes."""
+    base = _hash([script.get("title"), script.get("lines"), board.get("fingerprint")])
     sig = _hash([script.get("title"), script.get("lines"), board.get("fingerprint"), note or ""])
     cur = P.read_artifact(pid, DESIGN, d) or {}
-    if cur.get("sig") == sig and cur.get("scenes"):
+    # no note for the design = keep the design this script and board already have, whichever note made it: a scene
+    # note that follows a cut note must not throw the scene list away and draw another film
+    if cur.get("scenes") and (cur.get("sig") == sig or (not note and cur.get("base") == base)):
         return cur
     ask = ask or _ask
     out, _meta = _call(ask, _design_prompt(pid, s, script, board, research, d, note))
     if not out.get("scenes"):
         raise ShortError("the design pass returned no scene list")
-    art = {"sig": sig, "concept": out.get("concept"), "palette": out.get("palette") or board.get("palette") or {},
+    art = {"sig": sig, "base": base, "concept": out.get("concept"), "palette": out.get("palette") or board.get("palette") or {},
            "global_css": out.get("global_css") or "", "kit": out.get("kit") or "", "scenes": out["scenes"]}
     P.write_artifact(pid, DESIGN, art, d)
     P.event(pid, "design_system", d=d, stage=s["id"], scenes=len(art["scenes"]),
@@ -372,6 +376,16 @@ def _assemble(briefs, drawn, keep):
     return out
 
 
+def js_findings(errs, ids):
+    """The page's "scene <id> js: <message>" console errors as per-scene findings the repair round understands."""
+    out = []
+    for e in errs or []:
+        m = re.search(r"scene (\S+) js: (.+)", str(e))
+        if m and m.group(1) in ids:
+            out.append(f"scene {m.group(1)}: its JavaScript throws, so the scene is not drawn: {m.group(2)[:400]}")
+    return out
+
+
 def _repair_once(pid, s, script, design_art, briefs, groups, drawn, keep, plan, problems, d, ask, build):
     """Redraw only the scenes the checks named, then check again. Plan-level findings cannot be patched this way."""
     named, per_scene = set(), []
@@ -425,6 +439,13 @@ def build(pid, s, note=None, d=None, ask=None, build=None, parallel=PARALLEL):
     # a note that names scenes repairs those parts only — unless the design itself changed (new ids or ranges), in which
     # case keeping an old scene next to a new design would mix two films: draw every part again
     todo = groups if (fresh or not asked) else [part for part in groups if asked & {b["id"] for b in part}]
+    # a plan already drawn for this very design and note (the stage drew it, then a check refused it): running the
+    # stage again checks that plan first; only the scenes a check still names are redrawn (the repair round below)
+    drawn_for = _hash([design_art.get("sig"), [(b.get("id"), b.get("lines")) for b in briefs], note or ""])
+    if not fresh and current.get("drawn_for") == drawn_for and current.get("checked") \
+            and {b["id"] for b in briefs} <= set(keep):
+        P.event(pid, "plan_rechecked", d=d, stage=s["id"], refused=len(current["checked"]))
+        todo = []
     done, failed = [], []
     if len(todo) > 1:
         import concurrent.futures as cf
@@ -464,6 +485,7 @@ def build(pid, s, note=None, d=None, ask=None, build=None, parallel=PARALLEL):
     if current.get("edits"):
         plan["edits"] = current["edits"]
     plan["summary"] = ""                           # the schema requires it; the real line is written after the checks
+    plan["drawn_for"] = drawn_for
     # the same last line of defence as a shifted design pass: a scene echoes its brief's range, but never with an origin
     if rebase_one_based(plan["scenes"], len(lines)):
         P.event(pid, "lines_rebased", d=d, stage=s["id"], where="plan")
@@ -483,7 +505,8 @@ def build(pid, s, note=None, d=None, ask=None, build=None, parallel=PARALLEL):
         if problems is None:
             problems = validate(plan, script, board, refs=refs, sp=sp, lang=video_lang, novelty=nov, pid=pid, d=d)
     plan["checked"] = problems[:12]
-    try:                                            # the layout lint needs a browser; its absence is not a failure
+
+    def lint():
         rep = {}
         b = X.bundle(pid, plan, d)
         # the Studio reads the newest `stills/<stage>-*` folder: name it after the stage so the frames show on the card
@@ -493,6 +516,16 @@ def build(pid, s, note=None, d=None, ask=None, build=None, parallel=PARALLEL):
         plan["lint"] = {"layout": len(found), "js_errors": errs[:6], "grade": rep.get("grade"),
                         "score": rep.get("score"), "text": layoutlint.as_text(found)}
         plan["stills"] = [X._rel(x) for x in stills]
+        return errs
+
+    try:                                            # the layout lint needs a browser; its absence is not a failure
+        broken = js_findings(lint(), [b["id"] for b in briefs])
+        if broken and not problems:                 # a scene whose code throws is not drawn: redraw it once, look again
+            P.event(pid, "js_repair", d=d, stage=s["id"], scenes=sorted({f.split(":")[0][6:] for f in broken}))
+            if _repair_once(pid, s, script, design_art, briefs, groups, drawn, keep, plan, broken, d, ask, build) is None:
+                problems = validate(plan, script, board, refs=refs, sp=sp, lang=video_lang, novelty=nov, pid=pid, d=d)
+                plan["checked"] = problems[:12]
+                lint()
     except Exception as e:
         P.event(pid, "lint_skipped", d=d, stage=s["id"], error=f"{type(e).__name__}: {e}"[:200])
     lang = p.get("ui_lang") if p.get("ui_lang") in ("tr", "en") else "tr"

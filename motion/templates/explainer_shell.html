@@ -101,7 +101,7 @@ window.ready = (async () => {
     tl.set(sec, { display: "none" }, sc.end);
     FX._scene = sc.id;
     try { new Function("tl", "root", "T", "gsap", "$", "FX", sc.js || "")(tl, sec, T, gsap, (q) => sec.querySelectorAll(q), FX); }
-    catch (e) { console.error("scene " + sc.id + " js: " + e.message); }
+    catch (e) { console.error("scene " + sc.id + " js: " + e.message + " | " + String(e.stack).split("\n").slice(1, 4).map((x) => x.trim().replace(/\(?https?:\/\/[^/]+\/(?:[^\s)]*\/)?/, "(")).join(" < ")); }
   }
   tl.set(document.getElementById("s_" + B.scenes[0].id), { display: "block" }, 0);
   if ((B.chrome || {}).progress) {   // segments: the intro (if any) and each chapter, in proportion to their length
