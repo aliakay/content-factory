@@ -46,7 +46,7 @@ def test_cards_are_complete_and_carry_the_kit_note():
     txt = R.card_text(["three.bars", "three.globe"])
     assert txt.startswith("3D KIT") and txt.count("3D KIT") == 1 and "FRAME BUDGET" in txt and "RECIPE three.globe" in txt
     assert "3D KIT" not in R.card_text(["data.bar_chart"])
-    assert len(open(os.path.join(R.SRC, "three_note.md"), encoding="utf-8").read().splitlines()) < 60
+    assert len(open(os.path.join(R.SRC, "three_note.md"), encoding="utf-8").read().splitlines()) < 90
 
 
 def test_film_styles_on_the_kit():

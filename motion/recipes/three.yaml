@@ -130,3 +130,68 @@
     const k = FX.stage3(tl, root, T, {look: 'studio'});
     k.stack(tl, 0.3, [{n: 3, label: 'You', value: 40}, {n: 14, label: 'Average', value: 180}, {n: 40, label: 'CEO', value: 500}], {unit: 'coin', prefix: '$', suffix: 'k', highlight: 2});
     k.move('orbit', {at: 0.3, turn: -12});
+- id: three.figure_explain
+  name: {tr: "3B anlatıcı karakter", en: "3D explainer character"}
+  use: {tr: "Konuyu bir karakter anlatsın: konuşan ağız, açık eller, bir noktaya işaret, göz kırpma. Kalıcı yüz ve sunucu rolü.", en: "A character presents the idea: talking mouth, open hands, a point at something, blinking. A recurring face and host."}
+  call: "f = k.figure({build, skin, hair: {style, color}, beard, glasses, top: {kind, color}, bottom: {kind, color}, shoes, finish}, {x, z, size, facing}); f.pose(tl, at, 'explain'|'point_left'|'point_right'|'think'|'shrug'|'wave'|'cheer'|'present'|'hips'|'idle', {dur}); f.talk(tl, at, dur, {words: [{start, end, text}]}); f.gesture(tl, at, 'nod'|'shake'|'beat'|'point_beat'|'shrug'|'clap'); f.express(tl, at, 'happy'|'worried'|'surprised'|'angry'|'sad')"
+  timing: {tr: "Poz 0.5 s'de oturur; konuşma kelime zamanlarıyla (words) ya da süreyle; jest 1-1.8 s. Her 3-4 saniyede bir yeni poz ya da jest: karakter hiç donmaz (nefes, ağırlık kayması, göz kırpma kendiliğinden çalışır).", en: "A pose settles in 0.5 s; talk runs from word timings (words) or a duration; a gesture is 1-1.8 s. A new pose or gesture every 3-4 s: the figure is never frozen (breathing, weight shift and blinks run by themselves)."}
+  pitfalls:
+    tr: ["Sahnede tek FX.stage3; karakter 9:16'da güvenli alanın %60'ı kadar boy (size 0.6), yüz alt altyazı bandına inmesin.", "Renkler '#rrggbb' ya da palet adı (accent, accent2, hot, ink, muted, paper); 2B karakter tablosunun cilt, saç, üst, alt, ayakkabı renklerini aynen geçir.", "Karakterin üstüne DOM yazı koyma; etiketi k.tag ile yanına ya da üstüne (başın üstünde) bağla.", "words verirsen start/end film saniyesidir (at ile aynı eksen); text verirsen ağız harflerden şekil alır."]
+    en: ["One FX.stage3 per scene; on 9:16 a figure is 60 % of the safe height (size 0.6) and the face stays clear of the caption band.", "Colours are '#rrggbb' or a palette name (accent, accent2, hot, ink, muted, paper); pass the 2D character sheet's skin, hair, top, bottom and shoe colours as they are.", "Never lay DOM text over the figure; glue a label beside or above the head with k.tag.", "With words, start/end are film seconds (the same axis as at); with text the mouth takes its shapes from the letters."]
+  seconds: 6
+  demo: |
+    const k = FX.stage3(tl, root, T, {look: 'clay'});
+    const f = k.figure({hair: {style: 'short', color: '#3a2a20'}, top: {kind: 'shirt', color: 'accent'}, bottom: {kind: 'trousers', color: '#2f3b52'}}, {size: k.tall ? 0.6 : 0.72});
+    f.pose(tl, 0.3, 'explain'); f.talk(tl, 0.6, 2.4, {words: [{start: 0.6, end: 1.0, text: 'Here'}, {start: 1.05, end: 1.4, text: 'is'}, {start: 1.45, end: 1.8, text: 'the'}, {start: 1.85, end: 3.0, text: 'big idea'}]});
+    f.pose(tl, 3.2, 'point_right'); f.talk(tl, 3.3, 2, {words: [{start: 3.3, end: 3.8, text: 'look'}, {start: 3.9, end: 4.7, text: 'at this'}]});
+    k.tag(tl, 3.5, [k.safeW * 0.28, f.headY() - 0.4, 0], 'this one', {size: k.tall ? 52 : 40});
+    k.move('push_in', {at: 0.2, dur: 5.6, amount: 0.9});
+- id: three.figure_walk
+  name: {tr: "Yürüyen 3B karakter", en: "Walking 3D character"}
+  use: {tr: "Karakter bir yerden bir yere gider: sahneye girer, nesneye yürür, sonra kameraya döner. Profil dönüşü, bacak ve kol salınımı.", en: "A character goes somewhere: walks in, crosses to an object, then turns to the camera. A real profile turn, legs and arms swinging."}
+  call: "f = k.figure(spec, {x, size}); f.walk(tl, at, {to: [x, z], dur, face: 0}); f.pose(tl, at, 'wave'); f.lookAt(tl, at, target)"
+  timing: {tr: "Yürüyüş mesafeye göre 1-3.5 s (dur vermezsen kendi hesaplar); başta 0.34 s'de profile döner, sonda 0.45 s'de kameraya geri döner. Varışta hemen yeni bir poz.", en: "A walk takes 1-3.5 s by distance (computed if you give no dur); it turns to profile in 0.34 s and back to the camera in 0.45 s at the end. A new pose right on arrival."}
+  pitfalls:
+    tr: ["Koordinatlar dünya birimi [x, z]; kare 9:16'da 10 birim geniş (güvenli alan 8.1), x'i k.safeW * 0.3 gibi ver.", "Uzun yürüyüş (>4 s) sıkar; bir şeye varsın ya da kesilsin.", "Yürürken kamera k.move ile karakteri izlemez: yürüyüş yatayda ekranı geçecekse pan_left / pan_right kullan.", "Ayak yere basar ama kayma yok sayılmaz: çok kısa mesafeye (<1 adım) yürütme."]
+    en: ["Coordinates are world units [x, z]; the frame is 10 wide on 9:16 (safe area 8.1): give x as k.safeW * 0.3 and the like.", "A long walk (>4 s) drags; arrive at something, or cut.", "The camera does not follow a walker by itself: if the walk crosses the screen use pan_left / pan_right.", "Feet are planted but a little slide is not modelled: never walk less than a step."]
+  seconds: 6
+  demo: |
+    const k = FX.stage3(tl, root, T, {look: 'clay'});
+    const sz = k.tall ? 0.5 : 0.7, dx = k.safeW * (k.tall ? 0.28 : 0.3);
+    const f = k.figure({hair: {style: 'long', color: '#6b3a1e'}, skin: '#c98e6a', top: {kind: 'dress', color: 'accent2'}, shoes: '#f4f1ea'}, {x: -dx, size: sz});
+    f.walk(tl, 0.5, {to: [dx, 0], dur: 3}); f.pose(tl, 3.7, 'wave'); f.talk(tl, 3.8, 1.6);
+    k.move('pan_right', {at: 0.4, dur: 3.2});
+- id: three.figure_with_object
+  name: {tr: "Elinde nesne tutan karakter", en: "Character holding an object"}
+  use: {tr: "Karakter bir şeyi gösterir: kitap, tablet, ampul, telefon. Nesne iki elin arasında ya da bir elde; parça parlayarak vurgulanır.", en: "A character shows something: a book, a tablet, a bulb, a phone. The object sits between the hands or in one; it lights up for emphasis."}
+  call: "p = k.prop('book'|'tablet'|'phone'|'cup'|'bulb'|'magnifier'|'clipboard'); f.pose(tl, at, 'hold'); f.hold(p, {hand: 'both'|'R'|'L', at}); k.beat(tl, at, 'flash'|'pulse'|'hop', {target: p}); f.release(at)"
+  timing: {tr: "'hold' pozu 0.5 s'de oturur, nesne aynı anda görünür; vurgu (flash) 0.9 s; nesneyi bırakmak için release(at) ve yeni poz.", en: "The 'hold' pose settles in 0.5 s and the object shows with it; the emphasis (flash) lasts 0.9 s; to put it down call release(at) and a new pose."}
+  pitfalls:
+    tr: ["Nesne figürün birimlerinde (~0.3 boy) küçüktür; büyütmek için k.prop(kind, {scale: 1.4}).", "'both' nesneyi karın önünde iki elin arasına koyar (pozu 'hold' yap); tek elde için hand: 'R' ve 'explain' ya da 'point_*' gibi bir poz.", "Nesnenin üstüne DOM yazı koyma; adını yanına k.tag ile yaz.", "Ampul ve ekranlar kendi ışığını verir; tablet ekranı 3B dokudur, içine metin yazılmaz."]
+    en: ["The prop is small in figure units (~0.3 tall); enlarge with k.prop(kind, {scale: 1.4}).", "'both' puts the object between the hands in front of the belly (use the 'hold' pose); for one hand use hand: 'R' with a pose like 'explain' or 'point_*'.", "Never lay DOM text over the object; name it beside it with k.tag.", "Bulbs and screens give their own light; the tablet screen is a 3D texture, no text goes into it."]
+  seconds: 6
+  demo: |
+    const k = FX.stage3(tl, root, T, {look: 'studio'});
+    const f = k.figure({hair: {style: 'curly', color: '#2a1a12'}, skin: '#8d5a3b', top: {kind: 'jacket', color: 'accent2', inner: '#f4efe6'}, glasses: true}, {size: k.tall ? 0.6 : 0.72});
+    const book = k.prop('tablet', {scale: 1.5}); f.pose(tl, 0.3, 'hold'); f.hold(book, {hand: 'both', at: 0.3});
+    f.talk(tl, 0.8, 2.2); k.beat(tl, 2.2, 'flash', {target: book, color: '#ffffff'}); k.beat(tl, 2.2, 'pulse', {target: book});
+    f.release(3.5); f.pose(tl, 3.6, 'present'); f.talk(tl, 3.7, 1.6);
+    k.move('push_in', {at: 0.2, dur: 5.5, amount: 0.9});
+- id: three.duo
+  name: {tr: "İki karakter konuşuyor", en: "Two characters talk"}
+  use: {tr: "Diyalog: biri anlatır, öteki dinler, düşünür, sonra yanıtlar. Karşılıklı bakış, sırayla konuşan ağızlar.", en: "A dialogue: one explains, the other listens and thinks, then answers. They look at each other, mouths speak in turn."}
+  call: "a = k.figure(specA, {x: -dx, size, facing: 22}); b = k.figure(specB, {x: dx, size, facing: -22}); a.lookAt([dx * 0.5, y, 3]); a.talk(tl, at, dur, {words}); b.pose(tl, at, 'think')"
+  timing: {tr: "Konuşmacı değişince 0.3 s önce ötekinin pozu değişir (dinleyen düşünür ya da başını sallar); replikler 2-3 s. Dinleyen asla donmaz: nefes ve göz kırpma sürer.", en: "When the speaker changes, the other's pose changes 0.3 s earlier (the listener thinks or nods); lines run 2-3 s. The listener is never frozen: breathing and blinks continue."}
+  pitfalls:
+    tr: ["9:16'da iki karakter size 0.46 ve x = ±safeW * 0.23: daha büyük olursa omuzlar çakışır.", "Birbirlerine bakarken yüz profile kaçar: lookAt'ı partnerin biraz önünde bir noktaya ver ([x, y, 3]) ve facing 18-25 derece kullan.", "Aynı anda iki konuşan ağız olmasın: talk aralıkları ardışık.", "Ayrı renk: iki karakterin üst renkleri ve saçları birbirinden belirgin farklı olsun (siluet ve renk)."]
+    en: ["On 9:16 two figures at size 0.46 and x = +-safeW * 0.23: bigger and the shoulders collide.", "Looking straight at each other turns the faces to profile: aim lookAt a point a little in front of the partner ([x, y, 3]) and use facing 18-25 degrees.", "Never two talking mouths at once: keep the talk spans in sequence.", "Make the two clearly different in colour and silhouette (top colour, hair, build)."]
+  seconds: 7
+  demo: |
+    const k = FX.stage3(tl, root, T, {look: 'clay'});
+    const sz = k.tall ? 0.46 : 0.64, dx = k.safeW * (k.tall ? 0.23 : 0.19);
+    const a = k.figure({hair: {style: 'bun', color: '#2a1a12'}, skin: '#8d5a3b', top: {kind: 'lab', color: '#f2f4f7'}, glasses: true}, {x: -dx, size: sz, facing: 22});
+    const b = k.figure({hair: {style: 'short', color: '#3a2a20'}, beard: 'short', build: 'heavy', top: {kind: 'jacket', color: 'accent2', inner: '#f4efe6'}}, {x: dx, size: sz, facing: -22});
+    a.lookAt([dx * 0.5, a.headY(), 3]); b.lookAt([-dx * 0.5, b.headY(), 3]);
+    a.pose(tl, 0.3, 'explain'); a.talk(tl, 0.6, 2.4); b.pose(tl, 0.3, 'think');
+    b.pose(tl, 3.1, 'explain'); b.talk(tl, 3.4, 2.4); a.pose(tl, 3.1, 'hips'); a.gesture(tl, 5.6, 'nod');
+    k.move('push_in', {at: 0.2, dur: 6.4, amount: 0.92});

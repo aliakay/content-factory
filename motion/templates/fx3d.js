@@ -15,6 +15,9 @@
      k.stack(tl, at, [{n, label, value}], {unit: "coin"|"cash"|"block"})  piles that drop in, for scale comparisons
      k.move("push_in" | "pull_out" | "orbit" | "pan_left" | ..., {at, dur, ease, amount})   camera.py vocabulary
      k.tag(tl, at, [x, y, z] | () => Vector3, "HTML", {size, dx, dy, align})   HTML label glued to a 3D point
+     k.figure(spec, {x, z, size, facing})   a 3D toy character with a pose / gesture / walk / talk API  (fx3d_figure.js, loaded with this file)
+     k.hero(obj) / k.beat(tl, at, kind, o) / k.cadence(tl, o) / k.dust(o)   the idle layer: every stage sways, drifts and floats for its whole
+         length (opt out: FX.stage3(..., {idle: false}); strengthen: {idle: 1.5}); beats schedule a second and third visible action
    Everything is a pure function of t: GSAP tweens on tl + closed-form maths + seeded FX.rand. No clocks, no physics.
    One WebGL context serves the whole film (browsers cap contexts at ~16): the canvas moves into the active scene and
    the scene's GPU buffers are freed when it leaves the screen, so a 12-scene film never piles contexts or memory up.
@@ -56,6 +59,9 @@
     await Promise.all(Object.entries(FONTS).map(async ([k, f]) => { X.fonts[k] = EX.opentype.parse(await (await fetch("/fonts/" + f)).arrayBuffer()); }));
     // canvas textures (cards, labels, particle text) draw with the page's fonts: load them before the first frame
     if (document.fonts) await Promise.all(["40px Anton", "700 40px Poppins", '40px "DM Serif Display"', '800 40px "Inter Tight"', '600 40px "Inter Tight"'].map((f) => document.fonts.load(f).catch(() => {})));
+    X.EX = EX;
+    // characters (k.figure) live in their own file; it registers on X.kit like the builders below and needs THREE (set above)
+    if (!X.figureKit) await new Promise((ok) => { const sc = document.createElement("script"); sc.src = "/motion/templates/fx3d_figure.js"; sc.onload = ok; sc.onerror = () => { console.error("fx3d_figure.js not found"); ok(); }; document.head.appendChild(sc); });
     EX.ready = true;
   };
 
@@ -186,6 +192,7 @@
       const hh = (size.y * f) / 2, hw = (size.x * f) / 2, lim = (v, half, span) => Math.max(-span / 2 + half, Math.min(span / 2 - half, v));
       const ty = lim(((fo.y ?? 0) * k.safeH) / 2, hh, k.safeH), tx = lim(((fo.x ?? 0) * k.safeW) / 2, hw, k.safeW);
       holder.scale.setScalar(f); holder.position.set(tx - c.x * f, ty - c.y * f, 0);
+      if (fo.hero !== false) k.hero(holder, typeof fo.hero === "object" ? fo.hero : {});
       return holder;
     };
     /* a headline's centre, held so the whole block stays inside the safe area (with room for a push-in) */
@@ -225,11 +232,30 @@
     };
     k.path = (fn) => { k._pathFn = fn; return k; };   // camera on a rail: fn(t) -> {pos, look, fov?}; replaces the rig (flythrough)
     const drift = o.drift ?? 0.012;                   // a barely moving camera: nothing on screen is ever fully dead
+
+    /* ---- the idle layer: a 3D scene that does one move and then holds read as a slideshow (the first real 3D film
+       counted 73 % of its frames as still). Everything below runs for the whole scene as closed-form functions of the
+       timeline time (no clock, no state), additive to the scene's own moves; opt out with {idle: false} or scale it
+       with {idle: {cam, hero, light}} (1 = default, 0 = off). Measured with factory/qa.energy: a held scene must not
+       count as still (tests/test_three.py). ---- */
+    const IDLE = o.idle === false ? null : Object.assign({ cam: 1, hero: 1, light: 1, dust: 1 }, typeof o.idle === "object" ? o.idle : typeof o.idle === "number" ? { cam: o.idle, hero: o.idle, light: o.idle, dust: o.idle } : {});
+    k.idleOn = !!IDLE;
+    const TAU = Math.PI * 2;
+    // a slow handheld-crane breath: an orbit swing (parallax between the set and what is behind it), a tilt, a dolly
+    const idleCam = (lt) => IDLE && IDLE.cam ? [IDLE.cam * (0.12 * Math.sin((TAU * lt) / 10.5 + 0.6)), IDLE.cam * (0.03 * Math.sin((TAU * lt) / 8.3 + 1.9)), 1 + IDLE.cam * 0.02 * Math.sin((TAU * lt) / 6.7)] : [0, 0, 1];
+    k.idleCam = idleCam;
+    // beats: scheduled visible actions (see k.beat below); the camera ones are summed here
+    const camBeats = [];
+    const camBeat = {
+      dist: (t) => camBeats.reduce((a, b) => (b.kind === "push" ? a * (1 - b.amount * ease(b.ease)(clamp((t - b.at) / b.dur))) : a), 1),
+      az: (t) => camBeats.reduce((a, b) => (b.kind === "swing" ? a + b.amount * ease(b.ease)(clamp((t - b.at) / b.dur)) : a), 0),
+      el: (t) => camBeats.reduce((a, b) => (b.kind === "rise" ? a + b.amount * ease(b.ease)(clamp((t - b.at) / b.dur)) : a), 0),
+    };
     const place = (t, back = 1) => {
       let p = null;
-      if (k._pathFn) { const r = k._pathFn(t); camera.position.set(...r.pos); camera.up.set(0, 1, 0); camera.lookAt(...r.look); if (r.roll) camera.rotateZ(-r.roll); camera.fov = r.fov || base.fov; }
+      if (k._pathFn) { const r = k._pathFn(t), ic = idleCam(t - T.start); r.pos = [r.pos[0] + ic[0] * 8, r.pos[1] + ic[1] * 8, r.pos[2]]; camera.position.set(...r.pos); camera.up.set(0, 1, 0); camera.lookAt(...r.look); if (r.roll) camera.rotateZ(-r.roll); camera.fov = r.fov || base.fov; }
       else {
-        p = evalPose(t); const lt = t - T.start, az = p.az + drift * Math.sin(lt * 0.9), el = p.el + drift * 0.6 * Math.sin(lt * 0.7 + 1), d = p.dist * back;
+        p = evalPose(t); const lt = t - T.start, ic = idleCam(lt), az = p.az + drift * Math.sin(lt * 0.9) + ic[0] + camBeat.az(t), el = p.el + drift * 0.6 * Math.sin(lt * 0.7 + 1) + ic[1] + camBeat.el(t), d = p.dist * back * ic[2] * camBeat.dist(t);
         camera.position.set(p.tx + d * Math.sin(az) * Math.cos(el), p.ty + d * Math.sin(el), p.tz + d * Math.cos(az) * Math.cos(el));
         camera.lookAt(p.tx, p.ty, p.tz); camera.fov = p.fov;
       }
@@ -260,6 +286,81 @@
       scene.updateMatrixWorld(true);
       let back = 1;
       for (let i = 0; i < 6; i++) { const r = over(p); if (r <= 1.002) break; back *= Math.min(r * 1.01, 1.6); p = place(t, back); }
+    };
+    /* hero: the object the scene is about. Wrapped in an identity holder (the object keeps its own transform for the
+       builder's moves) that sways, tilts and bobs a little all scene long and takes the beats. Builders call it on their
+       group; sway 0 for the ones that already turn by themselves. */
+    k.heroes = [];
+    k.hero = (obj, ho = {}) => {
+      if (!obj || obj._hero) return obj;
+      const par = obj.parent || scene, w = new THREE.Group();
+      w.position.set(obj.position.x, 0, obj.position.z); par.add(w); w.add(obj); obj.position.x -= w.position.x; obj.position.z -= w.position.z;
+      const h = { obj, w, beats: [], opt: { sway: 0.27, tilt: 0.04, bob: 0.014 * k.fit, period: 7.2, scale: 0.014, turn: true, beat: true, ...ho }, phase: 0.7 * k.heroes.length };
+      obj._hero = h;
+      h._frame = (lt, t) => {
+        const a = IDLE ? IDLE.hero : 0, op = h.opt, P = op.period, ph = (TAU * lt) / P + h.phase;
+        let ry = a * op.sway * Math.sin(ph), rx = a * op.tilt * Math.sin(ph * 0.73 + 1.1), rz = a * op.tilt * 0.7 * Math.sin(ph * 0.61 + 2.3), sc = 1 + a * op.scale * Math.sin(ph * 1.3 + 0.4), py = a * op.bob * Math.sin(ph * 0.9 + 0.5);
+        for (const b of h.beats) {
+          const p = clamp((t - b.at) / b.dur), e = ease(b.ease)(p), pk = Math.sin(Math.PI * p);
+          if (b.kind === "turn") ry += b.amount * e; else if (b.kind === "pulse") sc *= 1 + b.amount * pk; else if (b.kind === "hop") py += b.amount * pk * pk; else if (b.kind === "tilt") rz += b.amount * pk;
+        }
+        w.rotation.set(rx, ry, rz); w.position.y = py; w.scale.setScalar(sc);
+      };
+      k.heroes.push(h); return obj;
+    };
+    /* beat: a second / third visible action on a long scene, in one line. The target defaults to the scene's hero.
+         k.beat(tl, at, 'turn',  {amount: rad, dur})    hero turns (stays turned)       'pulse' {amount} scale pop
+         k.beat(tl, at, 'hop' | 'tilt', {amount})       hero jumps / leans and settles
+         k.beat(tl, at, 'push' | 'swing' | 'rise', {amount})  camera dolly in (fraction) / orbit (rad) / tilt (rad), stays
+         k.beat(tl, at, 'flash', {target: mesh|group, color})  a part lights up (emissive) and settles
+         k.beat(tl, at, 'label', {target: tag element})  a tag pulses (CSS scale)
+       Pure functions of t, so frames stay order-independent. */
+    k.beat = (tl, at, kind, bo = {}) => {
+      const dflt = { turn: 1.0, pulse: 0.8, hop: 0.7, tilt: 0.8, push: 1.3, swing: 1.4, rise: 1.3, flash: 0.9, label: 0.6 }, b = { kind, at, dur: bo.dur ?? dflt[kind] ?? 1, ease: bo.ease || "power2.inOut", amount: bo.amount };
+      if (["turn", "pulse", "hop", "tilt"].includes(kind)) {
+        b.amount = bo.amount ?? { turn: 1.3, pulse: 0.12, hop: 0.5, tilt: 0.14 }[kind];
+        const h = bo.target ? bo.target._hero : [...k.heroes].reverse().find((x) => x.opt.beat && (kind !== "turn" || x.opt.turn));
+        if (h) h.beats.push(b);
+      } else if (["push", "swing", "rise"].includes(kind)) {
+        b.amount = bo.amount ?? { push: 0.08, swing: 0.24, rise: 0.06 }[kind]; camBeats.push(b);
+      } else if (kind === "flash") {
+        const tg = bo.target, mats = new Set(); (tg.traverse ? tg : { traverse: (f) => f(tg) }).traverse((m) => { for (const x of [].concat(m.material || [])) if (x && x.emissive) mats.add(x); });
+        const col = new THREE.Color(bo.color || pal.accent), peak = bo.peak ?? 0.9, base = [...mats].map((m) => [m, m.emissive.clone(), m.emissiveIntensity]);
+        k.eachFrame((lt, t) => { const p = clamp((t - at) / b.dur), v = p > 0 && p < 1 ? Math.sin(Math.PI * p) * peak : 0; for (const [m, c0, i0] of base) { if (v > 0) { m.emissive.copy(col); m.emissiveIntensity = Math.max(v, i0); } else { m.emissive.copy(c0); m.emissiveIntensity = i0; } } });
+      } else if (kind === "label") {
+        const el = bo.target; k.eachFrame((lt, t) => { const p = clamp((t - at) / b.dur); el.style.scale = String(1 + (bo.amount ?? 0.25) * Math.sin(Math.PI * p)); });
+      } else throw new Error("k.beat: unknown kind '" + kind + "' (turn, pulse, hop, tilt, push, swing, rise, flash, label)");
+      return k;
+    };
+    /* cadence: a visible action every few seconds across a long scene (a scene of 6.5 s or more gets one by itself:
+       pass {cadence: false} to FX.stage3 to opt out, or {cadence: {from, every, kinds}} to tune it) */
+    k.cadence = (tl, co = {}) => {
+      const every = co.every ?? 2.4, from = co.from ?? T.start + Math.max(3.0, (T.end - T.start) * 0.34), until = co.until ?? T.end - 0.9;
+      const kinds = co.kinds || (k.heroes.some((h) => h.opt.turn && h.opt.beat) ? ["turn", "pulse", "push", "turn", "swing", "pulse"] : k.heroes.some((h) => h.opt.beat) ? ["pulse", "push", "swing", "hop"] : ["push", "swing", "rise", "swing"]);
+      let i = 0;
+      for (let t = from; t < until; t += every, i++) {
+        let kind = kinds[i % kinds.length]; if (k._pathFn && ["push", "swing", "rise"].includes(kind)) continue;   // a camera on a rail is not nudged
+        k.beat(tl, t, kind, { amount: kind === "turn" ? (i % 2 ? -1.2 : 1.3) : kind === "swing" ? (i % 2 ? -0.22 : 0.24) : undefined });
+      }
+      return k;
+    };
+    /* dust: slow motes drifting through the set, soft discs facing the camera (instanced, closed-form, wrapped in a
+       box so there is always the same number on screen). They are what keeps a composition alive when the main object
+       holds, and the biggest share of what the stillness metric (factory/qa.energy) sees as motion. On by default
+       (idle.dust: 0 turns it off): k.dust({n, color, size, opacity, speed}) adds another layer. */
+    k.dust = (dopt = {}) => {
+      const n = dopt.n ?? Math.round(160 * Math.min(2.5, IDLE ? IDLE.dust || 1 : 1)), r = FX.rand(dopt.seed || 17), bx = [k.w * 1.1, k.h * 1.25, k.fit * 1.1], base = [], u = dopt.size ?? k.fit * 0.038, sp = dopt.speed ?? 1.9 * Math.sqrt(IDLE ? IDLE.dust || 1 : 1);
+      for (let i = 0; i < n; i++) base.push([r() * bx[0] - bx[0] / 2, r() * bx[1] - bx[1] / 2, (r() - 0.85) * bx[2], 0.45 + r() * 0.7, r() * TAU, 0.5 + r(), 0.5 + r() * 1.5]);
+      const dark = new THREE.Color(pal.bg).getHSL({}).l > 0.5, col = new THREE.Color(dopt.color || (dark ? pal.ink === pal.bg ? "#000" : mix(pal.ink, pal.bg, 0.2) : pal.ink));
+      const tex = k.texture(64, 64, (g, w, h) => { const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.62, "rgba(255,255,255,0.9)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
+      const m = new THREE.MeshBasicMaterial({ color: col, map: tex, transparent: true, opacity: dopt.opacity ?? 0.3, depthWrite: false, fog: false });
+      const mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), m, n), m4 = new THREE.Matrix4(), P = new THREE.Vector3(), Sc = new THREE.Vector3(); mesh.frustumCulled = false; mesh.renderOrder = 5; scene.add(mesh);
+      k.eachFrame((lt) => {
+        const q = camera.quaternion;
+        for (let i = 0; i < n; i++) { const b = base[i], y = ((b[1] + bx[1] / 2 + lt * b[3] * 0.9 * sp) % bx[1] + bx[1]) % bx[1] - bx[1] / 2; P.set(b[0] + 0.6 * Math.sin(lt * 0.45 * b[5] + b[4]), y, b[2] + 0.4 * Math.cos(lt * 0.33 * b[5] + b[4])); mesh.setMatrixAt(i, m4.compose(P, q, Sc.setScalar(u * b[6]))); }
+        mesh.instanceMatrix.needsUpdate = true;
+      });
+      return mesh;
     };
     k.eachFrame = (fn) => { k._fns.push(fn); return k; };
     k.frame = k.eachFrame;                              // same name the older FX.three kit uses
@@ -367,9 +468,16 @@
       if (look.env && !scene.environment) { scene.environment = env(r); }
       r.toneMapping = { None: THREE.NoToneMapping, ACESFilmic: THREE.ACESFilmicToneMapping }[look.tm]; r.toneMappingExposure = o.exposure ?? 1;
       r.setClearColor(k.bg ? new THREE.Color(k.bg) : 0x000000, k.bg ? 1 : 0);
+      // the automatic cadence is scheduled on the first frame, BEFORE the camera is placed (camera beats shape it)
+      if (!k._cadenced) { k._cadenced = true; if (o.cadence !== false && IDLE && T.end - T.start > 6.5) k.cadence(null, o.cadence && typeof o.cadence === "object" ? o.cadence : {}); }
       place(t);
       const lt = t - T.start;
+      if (IDLE && IDLE.light && k.key) {   // the key light breathes and drifts a hair: soft shadows and highlights slide over the set
+        const kb = k.key.userData.base || (k.key.userData.base = { p: k.key.position.clone(), i: k.key.intensity }), a = IDLE.light;
+        k.key.position.set(kb.p.x + a * 1.1 * Math.sin(lt * 0.62), kb.p.y + a * 0.35 * Math.sin(lt * 0.9 + 1), kb.p.z + a * 0.8 * Math.cos(lt * 0.5)); k.key.intensity = kb.i * (1 + a * 0.05 * Math.sin(lt * 1.4));
+      }
       for (const f of k._fns) f(lt, t);
+      for (const h of k.heroes) h._frame(lt, t);
       if (k._keep.length) placeKept(t);
       scene.updateMatrixWorld(true);
       for (const f of k._post) f(lt, t);
@@ -378,6 +486,7 @@
       for (const tw of k._twins) syncTwin(tw, t);
     });
     for (const f of X.kit) f(k, o);
+    if (IDLE && IDLE.dust) k.dust(typeof IDLE.dust === "object" ? IDLE.dust : {});
     X.stages.push(k);
     return k;
   };
@@ -467,6 +576,7 @@
       { const hy = ((lines.length - 1) / 2) * lh + ch / 2; if (o.keep !== false) k.keep(g, V3(-maxW / 2, -hy, -depth / 2), V3(maxW / 2, hy, depth / 2)); }
       const sway = o.sway ?? 0.1; if (sway) k.eachFrame((lt) => { g.rotation.y = sway * Math.sin(lt * 0.8); g.rotation.x = -sway * 0.3 * Math.sin(lt * 0.6 + 1); });
       if (o.shadow !== false && k.look.shadow > 0) k.ground({ y: (o.pos ? o.pos[1] : yy) - (ch * s * lines.length * 0.75) - 0.4 });
+      k.hero(g, { sway: 0, tilt: 0.012, turn: false });
       g.letters = letters; g.s = s; return g;
     };
 
@@ -497,6 +607,7 @@
       if (o.keep !== false) k.keep(g, V3(-finalW / 2, -ch / 2, -depth / 2), V3(finalW / 2, ch / 2, depth / 2));   // g carries the scale itself
       if (o.shadow !== false && k.look.shadow > 0) k.ground({ y: (o.pos ? o.pos[1] : yy) - ch * s * 0.8 - 0.4 });
       k.twin(txt, (t) => ({ box: projBox(k, g, V3(-W0 / 2, -ch / 2, -depth / 2), V3(W0 / 2, ch / 2, depth / 2)), alpha: t >= at + 0.3 ? 1 : 0, text: txt }), color, twinFont(fk));
+      k.hero(g, { sway: 0, tilt: 0.012, turn: false });
       g.value = proxy; return g;
     };
 
@@ -520,6 +631,7 @@
         if (it.label !== undefined) { const lab = k.tag(null, null, () => g.localToWorld(V3(x, -0.15, bd / 2 + 0.55)), it.label, { size: k.tall ? 36 : 30, color: pal.muted }); k.eachFrame(() => { lab.style.opacity = m.scale.y > 0.05 ? 1 : 0; }); }
         return m;
       });
+      k.hero(g, { sway: 0.17 });
       g.bars = bars; return g;
     };
 
@@ -584,6 +696,7 @@
       };
       for (const m of o.marks || []) g.mark(m.at ?? at + 0.8, m.p, m.label, m);
       for (const r of o.routes || []) g.route(r.at ?? at + 1, r.from, r.to, r);
+      k.hero(g, { sway: 0, tilt: 0.02 });
       return g;
     };
 
@@ -699,6 +812,7 @@
         });
         tl.fromTo(wrap, { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, c.at ?? at + 1.4);
       }
+      k.hero(g, { sway: 0 });
       g.parts = parts; g.inner = inner; return g;
     };
 
@@ -720,6 +834,7 @@
           { align: "left", dx: 12, size: o.size || (k.tall ? 42 : 36) });
       });
       k.eachFrame((lt) => { g.rotation.y = (o.sway ?? 0.12) * Math.sin(lt * 0.5); });
+      k.hero(g, { sway: 0.03 });
       g.slabs = slabs; return g;
     };
 
@@ -742,6 +857,7 @@
       }
       k.eachFrame((lt, t) => { for (const [b, t0, h] of blocks) { b.scale.y = Math.max(0.001, h * e(clamp((t - t0) / 0.7))); b.visible = t >= t0; } });
       if (o.ground !== false) k.ground({ y: -cell * 0.25 });
+      k.hero(g, { sway: 0.17 });
       g.blocks = blocks; g.cell = cell; return g;
     };
 
@@ -851,6 +967,7 @@
         k.twin(String(sh.text), (t) => ({ box: projBox(k, mesh, V3(x0, y0, 0), V3(x1, y1, 0)), alpha: t >= t0 && t < t1 ? 1 : 0 }), sh.color || pal.accent, twinFont("anton"));
       }
       if (o.ground !== false && k.look.shadow > 0) k.ground({ y: -S * 1.35 });
+      k.hero(mesh, { sway: 0.05 });
       return mesh;
     };
 
@@ -890,6 +1007,7 @@
         k.eachFrame((lt, t) => { const f = now / c; top.updateText(it.value !== undefined ? (o.prefix || "") + fmtNum(it.value * f, o.decimals ?? 0, ",") + (o.suffix || "") : fmtNum(Math.round(it.n * f), 0, ",")); top.style.opacity = f > 0 ? 1 : 0; });
         if (it.label) k.tag(tl, t0, () => g.localToWorld(V3(x, 0, foot * 0.75)), it.label, { size: k.tall ? 40 : 32, color: pal.muted, dy: k.tall ? 40 : 30 });
       });
+      k.hero(g, { sway: 0.17 });
       return g;
     };
   });
