@@ -97,3 +97,9 @@ WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRA
 PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
 OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+AI-Video-Factory — the fifteen history / culture / print film styles added to `data/film_styles.json` (ottoman_miniature,
+byzantine_mosaic, illuminated_manuscript, anatolian_kilim, egyptian_papyrus, greek_vase, stained_glass, ukiyo_e, art_deco,
+constructivist, linocut, cyanotype, manga_screentone, art_nouveau, cave_painting) take their choice of media and the starting
+palettes / art-direction notes from the style packs in `packages/core/src/styles.ts` of the same MIT-licensed project
+(Copyright (c) Ersin KOÇ). The cards' render recipes, the preview scenes in `styles/<id>.json` and all TR/EN text are our own.

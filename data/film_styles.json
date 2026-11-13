@@ -897,6 +897,696 @@
      "avoid": "Clay or plastic surfaces, soft shadows, fake HUD numbers, clutter."
     }
    }
+  },
+  {
+   "id": "ottoman_miniature",
+   "name": "Ottoman miniature",
+   "tr": "Osmanlı minyatürü",
+   "essence": "A page from a court manuscript: flat opaque gouache on cream paper, no cast shadows or vanishing point, a gold sky over a high horizon, a tiled pavilion with carpets and small figures in kaftans and turbans, a cypress, and a margin ruled in gold with a little floral illumination.",
+   "not": "Not the toy tilt-shift 'miniature' world, not oil-painting depth, no realistic shading, no photoreal blur, no cartoon faces or thick kid-book outlines, no modern UI.",
+   "render": "One full-frame SVG (1080x1920). Margin: cream paper #efe3c4, a 2 px black rule at 52, a 3 px gold #c9972b rule at 66, a band of small illumination motifs (a tulip spray in gold, lapis and vermilion every 210 px) in the margin, then a 10 px gold band and a 2 px black rule that close the painting field. Inside the field everything is FLAT: a gold sky #e6c36c with a faint gold-dot pattern and 3 stylised clouds (white scroll forms, 3 px black line, one gold echo line); a high horizon at two thirds; a wavy hill band in malachite #4a7d6a and lapis-green #3f6f8a; a pale terrace #d8c78d; the whole scene stacked, never in perspective, the far hills in one flat tone and no tone overlapping another except at a 3 px black contour. Pavilion: a platform of Iznik tile (a <pattern> of turquoise #1f8a8a with white tulip-swags, vermilion dots and a dark grid), four slender columns with gold capitals, three pointed arches into a deep lapis interior, a wide tiled eave with a gold ridge and finial. Carpets are rectangles filled with a kilim <pattern> (vermilion field, lapis diamonds, gold border and fringe), hung over the platform edge and laid on the terrace. Cypresses: a tall flame silhouette #2f5a3a with a fine black edge and 2 px brush ticks, never a lollipop tree. Figures are small (130-160 px, one head = 1/6.5 of the body): a long kaftan as a flared polygon with a gold sash, tiny black shoes, one bent arm, an almond profile head with a single dot eye, a brow and a nose line, and a big turban (a round cap plus a wrap band). Fine black outlines 2-3 px everywhere, jewel tones only. Gold is flat: borders, capitals, finial, sashes, carpet ground. No gradients, no shadows, no perspective.",
+   "texture": "paper",
+   "composition": "The page is a framed painting, not a poster: margin, gold-ruled field, then the picture stacked flat - gold sky with clouds at the top and the title in a lapis cartouche, a hill band, then a tiled pavilion on a terrace with its carpets, a cypress and a blossoming tree at the left, three standing figures and one seated under the arches, tulips and grass tufts along the foreground edge. Everything is drawn at the same flat scale; the sultan is larger because he matters, not because he is nearer.",
+   "colour": "Jewel gouache: lapis #1f3c88, vermilion #b3262b, turquoise #1f8a8a, malachite #4a7d6a, cypress green #2f5a3a, gold #c9972b / #f0cf6a on cream #efe3c4 and #d8c78d, outlines near-black #241a12. Gold only for borders, capitals, finials, sashes, cartouche text and carpet grounds.",
+   "type": "Cormorant Garamond 700, gold on a lapis plate in a gold cartouche, widely tracked; small labels in dark ink on cream plates. Turkish letters intact. Never sans-serif.",
+   "motion": "Slow, ceremonial and flat: clouds drift, figures slide laterally across their tier, banners and carpets sway, the cartouche lowers into place; nothing rotates in depth; held poses between moves like a page being turned.",
+   "camera": "Locked frontal page; slow lateral pan along a tier or a push into one detail panel; no tilt, no parallax with perspective; a page turn reveals the next scene.",
+   "transitions": "Page turn, a gold border wiping across, a patterned frame sliding in, the next tier unrolling upward. Never a 3D flip or cross-dissolve.",
+   "sound": "Ney, oud, kanun and frame drum (bendir/def); modal, unhurried, with a single bell on gold highlights.",
+   "post": {
+    "grain": 0.2
+   },
+   "card": {
+    "palette": [
+     "#efe3c4",
+     "#1f3c88",
+     "#b3262b",
+     "#1f8a8a",
+     "#c9972b",
+     "#2f5a3a"
+    ],
+    "fonts": [
+     "Cormorant Garamond 700"
+    ],
+    "tr": {
+     "look": "Saray nakkaşhanesinden bir sayfa: altın gökyüzü, yüksek ufuk, çinili köşk, kilimler, kaftanlı ve sarıklı küçük figürler, servi, altın cetvelli ve tezhipli kenar.",
+     "type": "Cormorant Garamond, lacivert levhada altın harf.",
+     "motion": "Yavaş, törensel, yatay kayışlar; sayfa çevirir gibi.",
+     "sound": "Ney, ud, kanun, def.",
+     "avoid": "Perspektif, gölge, yağlıboya derinliği, oyuncak minyatür dünyası, çizgi film yüzü."
+    },
+    "en": {
+     "look": "A page from a court manuscript: gold sky, high horizon, a tiled pavilion, kilims, small figures in kaftans and turbans, a cypress, and a margin ruled in gold with illumination.",
+     "type": "Cormorant Garamond, gold on a lapis plate.",
+     "motion": "Slow, ceremonial lateral slides; like turning a page.",
+     "sound": "Ney, oud, kanun, frame drum.",
+     "avoid": "Perspective, cast shadows, oil depth, toy tilt-shift miniature, cartoon faces."
+    }
+   }
+  },
+  {
+   "id": "byzantine_mosaic",
+   "name": "Byzantine mosaic",
+   "tr": "Bizans mozaiği",
+   "essence": "A wall of small glass and stone tesserae set in dark grout: solemn frontal figures with haloes and dark contour rows against a shimmering gold ground whose tiles each catch light differently.",
+   "not": "Not a flat gold gradient, not pixel art (tiles are slightly rotated, uneven and bevelled), not Roman floor mosaic, no smooth shading or perspective.",
+   "render": "Build it as a real tessellation in JS: draw the whole composition at ~1080x1920 into an offscreen <canvas> in flat base colours only (gold ground, dark #2a1a12 outlines, flesh, purple, red, blue, white, green), no antialiasing needed; then sample the centre of each 10 px cell, snap to the nearest base colour, and paint a tile into a visible 1080x1920 canvas over dark grout #1c150f: a roundRect of side ~7.5-8.5 px, rotated random +-0.14 rad, offset +-0.6 px, brightness jittered +-10% (gold +-17%, 8% of gold tiles a bright #ffe88c glint), plus a 1.4 px light top edge and a 1.2 px dark bottom edge. Use a seeded RNG (not Math.random) so frames are reproducible. Text is drawn on the source canvas too, so letters are built from tiles (use heavy 150px+ type, minimum 14 cells tall). Faces: flesh tiles with a light ellipse on the lit cheek, eyes as white ellipses with a dark dot and heavy brow lines, long nose line, small red mouth. Haloes: dark ring, red ring, bright gold disc. Frames: bands of dark / red / gold with a repeating blue tile chain. Over the top, one soft diagonal screen-blended light band (linear-gradient 115deg, rgba(255,235,160,.22)) that may slide slowly across to make the gold glitter.",
+   "composition": "Strictly frontal, symmetrical, hieratic: a central figure with a halo, a gold ground with no horizon, a mosaic frame, an inscription plate on top. Figures stand rigid, large, eyes to the viewer; space is flat and filled with gold.",
+   "colour": "Gold #d9a82b (tile range #b8841a-#f0d060) as ground; imperial purple #5a2a6e, vermilion #a3222a, lapis #1f3d7a, white #efe8d8, olive green #3a6b4a, flesh #d9a47a; dark outlines #2a1a12, grout #1c150f.",
+   "type": "Playfair Display 900 capitals in white tiles on a lapis plate, like an inscription; set as tesserae so the letters break into tiles; no thin type (it disappears at tile size).",
+   "motion": "Static and solemn: the mosaic fades and settles in, a band of light slides across the gold; figures do not walk, the camera moves over the wall; tiles may reveal in a sweeping wave.",
+   "camera": "Locked frontal, slow push towards a face until single tiles show, or a slow pan across the wall; never tilt or parallax.",
+   "transitions": "Tiles flipping in a wave from one corner, a light band sweeping, a dissolve of the grid into the next picture's tiles. Never a smooth cross-dissolve.",
+   "sound": "Low drone, Byzantine chant (ison), church bells, bowed lyra, reverberant stone space.",
+   "post": {
+    "vignette": 0.2
+   },
+   "card": {
+    "palette": [
+     "#d9a82b",
+     "#5a2a6e",
+     "#a3222a",
+     "#1f3d7a",
+     "#efe8d8",
+     "#2a1a12"
+    ],
+    "fonts": [
+     "Playfair Display 900"
+    ],
+    "tr": {
+     "look": "Koyu derz üstünde küçük cam ve taş tesseralar; altın zemin, haleli, cepheden, ağır duran figürler.",
+     "type": "Playfair Display kalın, lacivert levhada beyaz tesseralarla yazıt.",
+     "motion": "Durağan ve ağır: ışık bandı altının üstünden kayar.",
+     "sound": "İson, çan sesi, yankılı taş mekân.",
+     "avoid": "Düz altın gradyan, piksel sanat, perspektif, yumuşak gölge."
+    },
+    "en": {
+     "look": "Small glass and stone tesserae in dark grout; gold ground, haloed frontal hieratic figures.",
+     "type": "Heavy Playfair Display, white tile letters on a lapis plate.",
+     "motion": "Static and solemn; a band of light slides over the gold.",
+     "sound": "Ison drone, bells, reverberant stone space.",
+     "avoid": "Smooth gold gradient, pixel art, perspective, soft shadow."
+    }
+   }
+  },
+  {
+   "id": "illuminated_manuscript",
+   "name": "Illuminated manuscript",
+   "tr": "Tezhipli elyazması",
+   "essence": "A hand-lettered vellum page: warm blotchy parchment with ruling lines and prick holes, iron-gall ink text, a huge decorated initial capital on a burnished gold-leaf square, rubricated red/blue capitals, and a vine of ivy leaves and gold balls curling around the margin.",
+   "not": "Not a beige page with an old-looking font, no digital drop shadows, no clean vector edges, no photoreal parchment photograph; gold is a drawn metallic leaf with highlights, not a yellow fill.",
+   "render": "One SVG (1080x1920). Vellum: base #ecdcad plus a low-frequency feTurbulence (baseFrequency .004 .006, 4 octaves) mapped by feColorMatrix to a brown alpha blotch layer (opacity .75), a high-frequency grain layer (.6) at .45, 60 seeded dark follicle specks (r 1-3.4, opacity .15-.4), ruling lines (1.4 px #9a8a6a at 55%) under each text line, a double vertical margin rule, and tiny prick-hole dots along the left edge every 66 px; finally a multiply radial vignette in warm brown. All hand-drawn ink art goes into one <g> with feDisplacementMap (scale 2.6 on feTurbulence .08) so lines wobble like a pen. Gold leaf: a square filled with a 135-degree linearGradient with 7 stops alternating #a87414/#f6d868/#d9a52a/#fff0a8 (burnished streaks), a duplicate rect with feSpecularLighting over fractal noise (surfaceScale 3, specularExponent 22, lighting-color #fff6c0, clipped by feComposite 'in') at 55% for the crinkled foil glint, 5 px dark outline, then inside it a red 10 px frame, a thin ink line, a blue 4 px frame and a row of small red circles. The initial letter: DM Serif Display ~360 px drawn three times: ink fat stroke (12 px, round joins), blue fill, and a white dotted (stroke-dasharray '1 9', round caps) pattern stroke; red penwork flourishes in the counters. Vine: sampled sine-wave path; double stroke (ink 11 px under, green 6 px over); at every 8th sample an ivy leaf (cubic almond path with ink outline, cream midrib and veins, colours blue/red/green/violet alternate), a smaller leaf on the other side, and a tendril (quadratic curl) ending in a gold ball (radialGradient #fff0a0 -> #e3b33a -> #8a5a10, 2.5 px ink outline, little white highlight dot). Acanthus leaves burst from the initial's corners using the same leaf. Body text: Cormorant Garamond 600 in iron-gall ink #2a1c12, justified using textLength with lengthAdjust='spacing', the first letter of each line as a red or blue Playfair Display capital alternating (lombard capitals), a rubric dashed red line and a pilcrow; a diagonal highlight band slides across the gold (soft-light).",
+   "composition": "A single page: initial capital top-left with the title beside it, the justified text block underneath inside ruling, a vine winding up the left margin and across top and bottom; text block narrower than the page, wide generous margins carrying the ornament; the gold square is the brightest object.",
+   "colour": "Vellum #ecdcad (edges darker #c9a96a), iron-gall ink #2a1c12, ultramarine #2c3f9a, vermilion #b02a1e, verdigris green #2f6b3c, gold leaf #d7a52a with highlights #fff0a0 and shade #8a5a10; occasional violet.",
+   "type": "Cormorant Garamond 600 for the body, set justified, with Playfair Display 700-900 for coloured capitals and the rubric title; DM Serif Display for the giant initial; Turkish letters intact; never a modern sans.",
+   "motion": "Slow and handmade: vines grow along their stems and leaves unfold one after another, gold glints as a light band passes, text lines are written in or appear line by line; no 3D, no springy UI motion; candle-like warm flicker on the gold.",
+   "camera": "Locked frontal on the page; slow push into the initial or a drift down the margin along the vine; page turn between scenes.",
+   "transitions": "A page turn, the vine growing across the frame to become the next page's border, a gold flare. Never a cross-dissolve.",
+   "sound": "Gregorian-like chant or a lone medieval flute, a quill scratching, soft bell, scriptorium room tone.",
+   "post": {
+    "grain": 0.2
+   },
+   "card": {
+    "palette": [
+     "#ecdcad",
+     "#2a1c12",
+     "#2c3f9a",
+     "#b02a1e",
+     "#2f6b3c",
+     "#d7a52a"
+    ],
+    "fonts": [
+     "Cormorant Garamond 600",
+     "Playfair Display 900",
+     "DM Serif Display"
+    ],
+    "tr": {
+     "look": "Parşömen sayfa: cetvel çizgileri, demir-mazı mürekkebi, altın varaklı büyük baş harf, kırmızı-mavi süslü harfler ve kenarlarda altın toplu sarmaşık.",
+     "type": "Cormorant Garamond gövde, Playfair kırmızı başlık, DM Serif Display dev baş harf.",
+     "motion": "Yavaş, el işi: sarmaşık büyür, altın ışıldar; sayfa çevirme.",
+     "sound": "Ezgi, tek flüt, kalem sesi, çan.",
+     "avoid": "Bej zemine eski görünümlü font, dijital gölge, düz sarı altın, modern sans."
+    },
+    "en": {
+     "look": "Vellum page: ruling, iron-gall ink, a burnished gold-leaf initial, red and blue lombard capitals, a vine with gold balls in the margin.",
+     "type": "Cormorant Garamond body, Playfair rubric, DM Serif Display initial.",
+     "motion": "Slow and handmade: vines grow, gold glints; page turn.",
+     "sound": "Chant, lone flute, quill scratching, a soft bell.",
+     "avoid": "An old-looking font on beige, digital shadows, flat yellow gold, modern sans."
+    }
+   }
+  },
+  {
+   "id": "anatolian_kilim",
+   "name": "Anatolian kilim",
+   "tr": "Anadolu kilimi",
+   "essence": "A flat-woven wool rug seen from above: every pixel-sized cell is one tight weft strand, forms are built only from horizontals and stepped diagonals, colour changes leave tiny vertical slits, borders in bands, loose cream warp fringe at both ends, lying on a dark wooden floor.",
+   "not": "Not a smooth vector pattern, not a pixel-art game sprite (cells are rounded wool strands with fibres, shading and slits), not a pile carpet with arabesques, no curves anywhere in the weave.",
+   "render": "Plan the rug as a cell grid (64 x 120 cells, each 15 x 13 px, origin x=60,y=170) with a function colour(col,row) from a palette of 8 dyed-wool colours; every shape is made from cells so diagonals become stairs. Text is rasterised on a 64x120 canvas (Anton, ~16 px, 48 cells wide) and read back per cell so letters are stepped. Paint each cell on a 1080x1920 <canvas> as a roundRect (radius 5, 0.8 px inset top/bottom) in its colour with +-7% brightness jitter from a seeded RNG, a 2.4 px light strip near the top, a 2.2 px dark strip at the bottom (the groove between wefts), and two short slanted fibre strokes at 20% alpha; where the colour changes between neighbouring cells in two consecutive rows, paint a 1.8 px dark vertical slit. Order of the layers: dark plank floor (vertical boards with grain lines), blurred rug shadow, 2x fringe of twisted cream warp strands (stroke 3.2 px, wobbly polylines in bundles), cells, 3 px dark selvedge; then a soft warm radial light over everything. Motifs: concentric stepped diamond medallion (rings of 2-6 cells alternate colours, dotted ring in ochre), ram-horn hooks (koçboynuzu) on the tips, small stepped diamonds in the corners, chevron bands, zigzag borders, small crosses scattered in the field.",
+   "composition": "A rug filling the frame from above, symmetrical about the vertical axis: bordered field, one big central medallion, bands above and below; title woven into a red band at the top; fringe at top and bottom edges.",
+   "colour": "Natural-dye wool: madder red #a02a1e, indigo #1f2f60, saffron ochre #d9a032, undyed cream #eadfc2, dark brown #2a1b14, walnut green #3f6e3c, rust #c8592a, plum #5a1f3a; floor dark walnut #2a1d16.",
+   "type": "Only woven stepped letters from the cell grid (blocky, condensed Anton raster), cream on madder red; short words, no more than ~8 letters; never smooth outlines.",
+   "motion": "The weave is built weft by weft: rows reveal from bottom to top, or the rug unrolls; a slow light slides across; no wobbling or cloth simulation; camera drifts over the surface.",
+   "camera": "Top-down, locked; slow push toward a medallion until single wool strands and slits are visible; lateral pans along a border.",
+   "transitions": "Rows weaving in from one edge, the rug unrolling, fringe sweeping across the frame, a stepped diagonal wipe. Never a smooth cross-dissolve.",
+   "sound": "Bağlama and saz, frame drum (davul), zurna, folk clapping, a shuttle's wooden clack on accents.",
+   "post": {
+    "grain": 0.25
+   },
+   "card": {
+    "palette": [
+     "#a02a1e",
+     "#1f2f60",
+     "#d9a032",
+     "#eadfc2",
+     "#2a1b14",
+     "#3f6e3c"
+    ],
+    "fonts": [
+     "Anton"
+    ],
+    "tr": {
+     "look": "Yünden düz dokuma: her hücre bir atkı ipliği, basamaklı eşkenar dörtgenler, kenarlar, saçaklar, koyu ahşap zemin.",
+     "type": "Yalnızca dokunmuş basamaklı harfler; kırmızı bantta krem.",
+     "motion": "Satır satır örülür; ışık yavaşça kayar.",
+     "sound": "Bağlama, davul, zurna.",
+     "avoid": "Eğri çizgiler, düzgün vektör desen, piksel oyun sprite'ı, havlı halı."
+    },
+    "en": {
+     "look": "Flat-woven wool: each cell one weft strand, stepped diamonds, bordered, fringed, on a dark wood floor.",
+     "type": "Woven stepped letters only; cream on a red band.",
+     "motion": "Woven row by row; light slides slowly.",
+     "sound": "Baglama, davul, zurna.",
+     "avoid": "Curves, smooth vector pattern, game sprite pixel art, pile carpet."
+    }
+   }
+  },
+  {
+   "id": "egyptian_papyrus",
+   "name": "Egyptian papyrus painting",
+   "tr": "Mısır papirüsü",
+   "essence": "A tomb-painting on a papyrus sheet: the Egyptian canon of flat figures (head and legs in profile, eye and shoulders frontal), black outlines, flat mineral pigment, stacked in registers separated by ruled lines, with columns of hieroglyph-like marks and a lotus frieze, on visibly fibrous, stained, ragged-edged papyrus.",
+   "not": "Not a clean beige background with an Egyptian-looking icon, no real readable hieroglyph strings, no shading or perspective, no gold-and-blue Hollywood sarcophagus.",
+   "render": "One SVG (1080x1920) on dark #241a12. Papyrus sheet: a ragged-edge path (a polygon with random 0-14 px jitter every 26 px) clipping: base #dcc185, then two feTurbulence layers stretched into fibres (horizontal: baseFrequency '.006 .22', 3 octaves; vertical weave: '.2 .012'), each mapped by feColorMatrix to a brown alpha mask, plus a low-frequency stain layer and 7 vertical seam strips (gradient dark then light edge) for the overlapping reed strips; a dark multiply vignette for ageing. The painting group sits above with mix-blend-mode multiply and an feDisplacementMap (scale 3.5) so ink edges are slightly rough and the fibres show through the pigment. Layout in registers with double black rules (4-5 px, 10 px apart); a lotus-and-bud frieze and a striped band at the bottom. Figures built from flat polygons with a 4 px black outline: reddish-brown male skin #b4552e, white linen kilt with pleat lines, gold belt, nemes headdress as a blue shape clipped with diagonal gold stripes, blue crown with gold dots, uraeus; profile head with a frontal almond eye with a kohl line, frontal trapezoid chest with a broad collar made of concentric arcs (turquoise, red, gold, lapis, with dotted white beads), arms and legs as double polylines (black thick under, skin thinner above), both feet pointing the same way, a baseline under the figure. Pseudo-hieroglyphs: a library of ~12 invented glyph paths (eye, bird, waves, reed, sun disc, basket, snake, stool, feather, plus abstract bars) drawn 5 px round-cap black or red in a column grid (cells 80 px high, vertical rule lines), picked pseudo-randomly with a seeded RNG, never spelling anything. Title in a cartouche: white rounded bar with a red inner line and the end bar, black serif letters.",
+   "composition": "Registers stacked top to bottom: title cartouche, a big register with the figure facing the glyph columns, a frieze; figures large, flat, rigid, standing on a baseline; hierarchical scale; no overlap that implies depth; everything bounded by rules.",
+   "colour": "Mineral pigments on papyrus: papyrus #dcc185, carbon black #1a1410, red ochre #b5432a, yellow ochre / gold #d99a2b, lapis #1f4fa8, malachite-turquoise #1fa58f, linen white #f3ecd8; pigments appear slightly translucent over the fibres.",
+   "type": "Cormorant Garamond 700 capitals in carbon black, widely tracked, inside a cartouche or between rules; Turkish letters intact; no faux-hieroglyph font.",
+   "motion": "Rigid, processional: figures slide in along their baseline, glyph columns ink in top to bottom, a lotus frieze scrolls laterally; no turning in space; held, ritual poses.",
+   "camera": "Locked frontal on the wall or sheet; slow lateral pan along a register to the next; push into a face or a glyph column; no parallax.",
+   "transitions": "A register line wiping across, the sheet scrolling up like a papyrus roll, ink glyph columns appearing. Never a cross-dissolve.",
+   "sound": "Sistrum, frame drum, harp and a double-reed pipe, sparse and ritual, with a low drone.",
+   "post": {
+    "grain": 0.25
+   },
+   "card": {
+    "palette": [
+     "#dcc185",
+     "#1a1410",
+     "#b5432a",
+     "#d99a2b",
+     "#1f4fa8",
+     "#1fa58f"
+    ],
+    "fonts": [
+     "Cormorant Garamond 700"
+    ],
+    "tr": {
+     "look": "Papirüs üstüne mezar resmi: profilden figürler, siyah kontur, düz mineral boya, kayıtlara bölünmüş sahne, lif dokulu ve lekeli yaprak.",
+     "type": "Cormorant Garamond, siyah, geniş aralıklı; kartuş içinde.",
+     "motion": "Katı, törensel; figürler zemin çizgisi boyunca kayar.",
+     "sound": "Sistrum, def, arp, çift kamışlı flüt.",
+     "avoid": "Gerçek okunur hiyeroglif, gölge, perspektif, düz bej arka plana ikon."
+    },
+    "en": {
+     "look": "Tomb painting on papyrus: profile figures, black outlines, flat mineral pigment, registers, fibrous stained sheet.",
+     "type": "Cormorant Garamond, black, widely tracked; in a cartouche.",
+     "motion": "Rigid and ritual; figures slide along the baseline.",
+     "sound": "Sistrum, frame drum, harp, double-reed pipe.",
+     "avoid": "Real readable hieroglyphs, shading, perspective, an icon on flat beige."
+    }
+   }
+  },
+  {
+   "id": "greek_vase",
+   "name": "Greek black-figure vase",
+   "tr": "Yunan vazo resmi",
+   "essence": "The painted surface of an Attic black-figure vase: glossy black silhouette figures on fired terracotta orange, all detail incised through the black so the orange shows as fine scratched lines, touches of purple-red and white, meander and palmette bands, and the curve of the pot shading the sides.",
+   "not": "Not flat orange and black clip-art, not red-figure (figures are black, not orange), no outline strokes around orange figures, no anatomical shading, no clean digital edges.",
+   "render": "One full-frame SVG (1080x1920). Ground: #cf6a2c with two feTurbulence layers multiplied as clay mottling. All black paint (#17100d) lives in one <g> with a filter: feTurbulence (baseFrequency .55) thresholded by feColorMatrix to punch tiny pinholes through the glaze (feComposite 'in'), then feDisplacementMap (scale 3) for slightly wobbly edges. Figures are solid black silhouettes built from thick round-cap polylines (legs, arms, spear) and flat paths (torso, kilt, helmet, shield), in profile with a frontal chest. Incision: draw lines in terracotta #e0803c, 2.5-3 px, round caps, over the black: pleats of the chiton, calf and knee curves, helmet crest comb hatching, eye (orange ring and black dot), beard, shield rims. Added colour only as flat spots: purple-red #7a2430 (crest, chiton hem, greave knees, shield ring) and off-white #efe6d2 (shield dots as a ring of 22 dots r 3.6, device rays). Fill gaps between figures with dot-rosettes (a centre dot and 6 dots round it). Bands: solid black stripes, a tongue/rope band of alternating black and purple tongues, a Greek key meander generated by a loop (unit 58 px: V, H, V, H, V, H path with a baseline) in 8 px black stroke, a lotus-palmette chain (7 fan petals each, purple heart, linked by arcs), black foot at the bottom. The pot's curvature: a horizontal linearGradient overlay (dark brown at both edges 75-80% alpha, light warm band at 38-50%) in multiply, plus a soft-light copy; a few hairline craze cracks at 35%.",
+   "composition": "Friezes stacked in bands around the pot; figures in a procession or duel in profile, filling the band top to bottom, with exaggerated stride and silhouette clarity; overlapping silhouettes avoided (touch only at spear and shield); no horizon, no perspective; fill the empty space with rosettes.",
+   "colour": "Terracotta #cf6a2c (range #b85a22-#e0803c), glaze black #17100d, purple-red #7a2430, white #efe6d2; no other colours. Edges of the pot darker (#3a1204 multiply).",
+   "type": "Playfair Display 900 capitals in black glaze with a thin terracotta incised echo line, set in a band between ruled stripes; short Greek-flavoured words; Turkish letters preserved.",
+   "motion": "Archaic, stiff and lateral: figures slide in on twos (12 fps), poses held, no easing into depth; friezes scroll slowly around the pot; spear thrusts as a quick linear slide.",
+   "camera": "Locked frontal on the pot wall, lateral pan as if the vase were rotating, or a push into one scene; no tilt.",
+   "transitions": "A band wiping sideways as if the pot turns; the black glaze flooding the frame; meander border scrolling across. Never a cross-dissolve.",
+   "sound": "Aulos, lyre, frame drum and low bronze gong; a modal, ceremonial feel.",
+   "post": {
+    "grain": 0.25
+   },
+   "card": {
+    "palette": [
+     "#cf6a2c",
+     "#17100d",
+     "#7a2430",
+     "#efe6d2",
+     "#e0803c"
+    ],
+    "fonts": [
+     "Playfair Display 900"
+    ],
+    "tr": {
+     "look": "Pişmiş toprak turuncusu üstüne parlak siyah silüetler; detaylar siyahın içine kazınmış, mor-kırmızı ve beyaz lekeler, kıvrım ve palmet şeritleri.",
+     "type": "Playfair Display kalın, siyah sırlı, ince kazıma yankısıyla.",
+     "motion": "Arkaik ve katı: figürler yanlamasına kayar, pozlar tutulur.",
+     "sound": "Aulos, lir, def, bronz gong.",
+     "avoid": "Düz turuncu-siyah clip-art, kırmızı figür tarzı, perspektif, gölgeli anatomi."
+    },
+    "en": {
+     "look": "Glossy black silhouettes on terracotta orange; detail incised through the black; touches of purple-red and white; meander and palmette bands.",
+     "type": "Heavy Playfair Display in black glaze with an incised echo line.",
+     "motion": "Archaic and stiff: lateral slides, held poses.",
+     "sound": "Aulos, lyre, frame drum, bronze gong.",
+     "avoid": "Flat orange-and-black clip-art, red-figure, perspective, shaded anatomy."
+    }
+   }
+  },
+  {
+   "id": "stained_glass",
+   "name": "Stained glass",
+   "tr": "Vitray",
+   "essence": "A window with light shining THROUGH it: jewel-coloured translucent panes separated by thick near-black lead came, each pane glowing brighter in its centre, uneven hand-made glass, coloured light spilling into the dark room.",
+   "not": "Not flat coloured shapes with outlines, not a mosaic, not a cartoon with a black stroke; the dark room around it and the transmitted light are what sell it.",
+   "render": "Draw as one SVG (1080x1920) on near-black #0e0b0a. Glass panes are filled paths (polar sectors for rose windows, diamond quarries, lancets), each filled with a per-colour radialGradient in objectBoundingBox units: light tone at the centre (e.g. ruby #e0232c), deep tone at the edge (#8e0c18), so every pane glows from within. Lead came: stroke #14100e, width 9-13 px, round joins, drawn after the panes on top of every boundary, 20-30 px for the outer arch. Hand-made irregularity: SVG filter with feTurbulence (fractalNoise baseFrequency .012 .02, 3 octaves) turned to a white alpha mask and blended soft-light over the glass. Light: put the glass in <defs> as #glass, then <use> it again with feGaussianBlur stdDeviation 22 at opacity .75 and mix-blend-mode screen (bloom), a screen-blended radial-gradient of warm light behind the centre, a repeating-conic-gradient of thin pale-gold rays (rgba(255,226,150,.16)) from the rose centre, masked with a radial mask, rotating a few degrees over the shot, and a squashed flipped blurred <use> of the glass below the window as coloured light on the stone floor. Frame: dark stone surround, pointed Gothic arch (two circular arcs radius ~600), pale 3 px highlight line along the lead. Text sits on a dark plate with a gold hairline, type light cream with a warm drop-shadow glow.",
+   "composition": "Centred symmetrical window, pointed arch, a rose window (rings of 8/16/16 sectors) over a lattice field and lancets; large pane groups with small bright accents; dark margin around it so the glow has contrast.",
+   "colour": "Ruby #e0232c, cobalt #3a6ae0 / #12286e, emerald #2cc070, amber #ffc233, violet #9a4cd0, turquoise #2cd0e0, rose #ff5a9a, on lead black #14100e with warm light #fff3c0; blues dominate the field so reds and ambers glow.",
+   "type": "Playfair Display 900 capitals, cream (#fff4c8) with a warm amber glow, on a dark leaded plate; generous tracking; short words.",
+   "motion": "The light is what moves: glow swells, rays slowly rotate or sweep, panes light up one ring at a time from the centre outward; the lead never moves.",
+   "camera": "Locked frontal; a slow push toward the rose centre until single panes fill the frame, or a tilt up the arch; the sun-ray sweep gives parallax with the floor light.",
+   "transitions": "Light flare whiting the glass out, panes lighting in a wave, a rotating rose wipe. Never a cross-dissolve.",
+   "sound": "Choir pads, organ, a glass harmonica or crystal bowls, church reverb, a soft bell on each lit ring.",
+   "post": {
+    "vignette": 0.3
+   },
+   "card": {
+    "palette": [
+     "#0e0b0a",
+     "#e0232c",
+     "#3a6ae0",
+     "#2cc070",
+     "#ffc233",
+     "#fff3c0"
+    ],
+    "fonts": [
+     "Playfair Display 900"
+    ],
+    "tr": {
+     "look": "Işığın içinden geçtiği pencere: kalın kurşun çizgiler, içten parlayan yarı saydam cam parçaları, karanlık oda.",
+     "type": "Playfair Display kalın, krem harf, sıcak parıltı, koyu levha üstünde.",
+     "motion": "Hareket eden ışıktır: parıltı, dönen ışınlar; kurşun yerinde durur.",
+     "sound": "Koro, org, kristal çanaklar, kilise yankısı.",
+     "avoid": "Düz renkli şekil + siyah kontur, mozaik, ışıksız cam."
+    },
+    "en": {
+     "look": "A window with light shining through: thick lead lines, glowing translucent panes, a dark room.",
+     "type": "Heavy Playfair Display, cream with warm glow, on a dark plate.",
+     "motion": "The light moves: bloom, rotating rays; the lead stays still.",
+     "sound": "Choir pads, organ, crystal bowls, church reverb.",
+     "avoid": "Flat coloured shapes with black outlines, mosaic, glass without light."
+    }
+   }
+  },
+  {
+   "id": "ukiyo_e",
+   "name": "Ukiyo-e woodblock",
+   "tr": "Ukiyo-e baskı",
+   "essence": "An Edo woodblock print of Istanbul: flat colour areas sealed by a bold ink keyline, Prussian blue against beige paper, the Golden Horn and its hills drawn as stacked flat tiers, water as a repeating seigaiha pattern, a bokashi sky and the plank's grain ghosting through everything.",
+   "not": "Not anime, not watercolour, not a soft photo sunset; no cast shadows, no blurred edges, no Mount Fuji and no great curling wave, no second accent colour beside the cartouche red.",
+   "render": "One SVG (1080x1920) of closed flat paths: every field gets fill plus stroke #14213d at 6-8 px with round joins, the subject's contour 2 px heavier than the field edges. The sky is a bokashi: one <linearGradient> from paper #f4ede1 through #a8c4d6 and #7fa8c1 back to #f4ede1 at the horizon, so the colour is deepest in the middle and melts into paper at both ends. Water, cloud and cloth are PATTERNS, not shading: an SVG <pattern> of nested seigaiha arcs (3 rings per scale, 110 px module, stroke #1d3557 6 px / #9dbcd0 3 px) over #2f5f86 for the sea, and long horizontal cloud bands whose top edge is a row of comma lobes. Hills are three flat tiers (#9dbcd0 behind, #6f9bb8, #457b9d in front), each sealed by an ink line, the nearest tier carrying the tower and its houses. The woodblock's grain is a <rect> of 1.7 px horizontal lines (#cbb38c) inside a pattern, that layer pushed through <filter><feTurbulence baseFrequency='.005 .045' numOctaves='2'/><feDisplacementMap scale='22'/></filter> so the lines ripple like a plank. No foam claws: the boat leaves only thin ink wake lines.",
+   "texture": "paper",
+   "composition": "Eye-level view across the Golden Horn: Galata Tower on the left hill, its cone roof crossing the sky, houses and cypresses at its foot; a pale tier behind carries a dome-and-minaret skyline, a middle tier closes the right; the sea fills the bottom third as three flat swells over the seigaiha pattern, and a long caique with two rowers crosses it. Bokashi sky above, the headline stacked in the upper left, the red title cartouche vertical in the top right corner, a red seal low on the left.",
+   "colour": "Prussian blues #1d3557 / #2f5f86 / #457b9d / #6f9bb8 / #9dbcd0, paper beige #f4ede1 and #e8d9b5, ink #14213d; ONE red #ae2012 for the cartouche, the boat's pennant and the seal.",
+   "type": "Playfair Display 900 caps for the headline, stacked, tight leading, in ink #14213d; the cartouche holds small letterspaced cream caps set vertically; a line of 30 px letterspaced ink caps under the headline.",
+   "motion": "Pieces stamp in like blocks being pulled: a 0.3 s fade with 2-6 px of slide and a single 2 px settle, on twos; the tower and the boat hold still after they land. No float, no parallax, no bob.",
+   "camera": "Locked frame; at most a slow 1.04 push on the cartouche or a lateral drift that reveals more sea at the right edge.",
+   "transitions": "A carved keyline sweeps across and becomes the next horizon; the next block stamps in with one bounce; a colour flat wipes in from a shape's edge.",
+   "sound": "Shamisen and koto plucks, a low taiko hit on each stamp, a wooden clack and paper slip for the cartouche; sea as a dry brushed hiss, never a lush wave sample.",
+   "post": {
+    "grain": 0.3
+   },
+   "card": {
+    "palette": [
+     "#f4ede1",
+     "#1d3557",
+     "#2f5f86",
+     "#6f9bb8",
+     "#ae2012",
+     "#14213d"
+    ],
+    "fonts": [
+     "Playfair Display 900",
+     "Anton"
+    ],
+    "tr": {
+     "look": "Japon ağaç baskısı: düz renk alanları, Prusya mavisi, kalın kıvrımlı konturlar, dalga ve bulut desenleri, kâğıtta ahşap damarı.",
+     "type": "Ağır serif büyük harfler; kırmızı kartuşta küçük yazı.",
+     "motion": "Blok blok basılır gibi: bir anda belirir, tek küçük oturma; sonra hareketsiz.",
+     "sound": "Şamisen, koto, taiko, kâğıt hışırtısı.",
+     "avoid": "Gradyan, yumuşak gölge, anime yüz, sulu boya, ikinci vurgu rengi."
+    },
+    "en": {
+     "look": "Japanese woodblock: flat colour areas, Prussian blue, bold curving keylines, wave and cloud patterns, wood grain in the paper.",
+     "type": "Heavy serif caps; small text in a red cartouche.",
+     "motion": "Arrives like a block being pulled: one stamp, one small settle, then still.",
+     "sound": "Shamisen, koto, taiko, paper slither.",
+     "avoid": "Gradients, soft shadows, anime faces, watercolour, a second accent colour."
+    }
+   }
+  },
+  {
+   "id": "art_deco",
+   "name": "Art Deco poster",
+   "tr": "Art Deco afiş",
+   "essence": "A 1920s luxury poster: gold on navy, everything symmetrical about the centre line, forms built from steps, chevrons and radiating rays, a skyscraper rising in a starburst.",
+   "not": "Not organic, not hand-drawn, not pastel; no asymmetric layout, no soft shadows, no messy texture, nothing smaller than a clean geometric step.",
+   "render": "Build it as one SVG (1080x1920) mirrored about x=540: every shape is a polygon of stairs, chevrons or a circle, drawn twice (a fill in #0d1b2a / #16283c and a 3-5 px #c9a227 keyline), so the left and right halves match to the pixel. Gold is a <linearGradient> ( #7d6415 -> #f2dd9b -> #c9a227 -> #f7ecbf -> #7d6415, 100deg) applied to every gold fill and stroke; never a flat yellow. The rays are one <g transform='translate(540 880)'> of 24 thin rotated rects (6 px wide, 1400 long, gold at .12-.3 alpha), alternating wide/narrow, behind a 3-band concentric halo of gold rings. Steps, not curves: the tower is a stack of polygons with hard 90/45 degree corners, the window lights are 1 px to 8 px vertical gold slivers inside it, and chevron fans of 5 lines open at the base. Symmetric ornament, never a frame around the picture; keep the outer 60 px empty navy.",
+   "texture": "paper",
+   "composition": "Dead-centre monument: a stepped skyscraper on the vertical axis, its spire crossing a starburst and a halo of rings; two smaller stepped wings flank it in mirror; the headline in wide letterspaced caps above the spire, a thin gold rule and a roman-numeral date beneath.",
+   "colour": "Navy #0d1b2a and #16283c as ground and shadow side, gold #c9a227 with highlights #f2dd9b / #e8cf8a, cream #e0d5b7 for the few lightest steps, one deep red #8c1c13 for a single accent block; never a third hue.",
+   "type": "Montserrat 700 caps with 0.18-0.25 em tracking, or Playfair Display for a soft-society variant; text is always centred on the axis, gold or cream, and one size smaller than feels comfortable; a thin rule above and below the small line.",
+   "motion": "Machined symmetry: the starburst scales 0.85 -> 1 and settles, the tower rises in 2 px steps as one unit, gold slivers light up in pairs left-right at once. Nothing rotates, nothing wobbles; easing is power2.out, holds are long.",
+   "camera": "Locked and frontal; the only move is a slow 1.05 push on the axis, or a vertical tilt up the tower to the spire.",
+   "transitions": "A gold line grows from the centre outward and becomes the next composition's axis; a stepped wipe (3 hard-edged bands); an iris closing on the spire's point.",
+   "sound": "Sparse jazz-age luxury: muted trumpet, celesta, brushed snare, a low sustained string pad, glassy chimes on each gold reveal.",
+   "post": {
+    "grain": 0.22
+   },
+   "card": {
+    "palette": [
+     "#0d1b2a",
+     "#16283c",
+     "#c9a227",
+     "#f2dd9b",
+     "#e0d5b7",
+     "#8c1c13"
+    ],
+    "fonts": [
+     "Montserrat 700",
+     "Playfair Display"
+    ],
+    "tr": {
+     "look": "1920'ler afişi: lacivert üstüne altın, tam simetri, basamaklı ve ışınlı formlar, gökdelen silueti.",
+     "type": "Geniş harf aralıklı büyük harfler, eksene ortalanmış.",
+     "motion": "Makine gibi: ışınlar bir anda açılır, kule basamak basamak yükselir, altın çizgiler çiftler halinde yanar.",
+     "sound": "Sessiz trompet, çelesta, fırçalı davul, cam çıngıraklar.",
+     "avoid": "Asimetri, organik çizgi, yumuşak gölge, pastel renk."
+    },
+    "en": {
+     "look": "1920s poster: gold on navy, exact symmetry, stepped and radiating forms, a skyscraper monument.",
+     "type": "Wide-tracked caps centred on the axis.",
+     "motion": "Machined: the burst opens at once, the tower rises in steps, gold lines light up in pairs.",
+     "sound": "Muted trumpet, celesta, brushed snare, glass chimes.",
+     "avoid": "Asymmetry, organic lines, soft shadows, pastels."
+    }
+   }
+  },
+  {
+   "id": "constructivist",
+   "name": "Constructivist poster",
+   "tr": "Konstrüktivist afiş",
+   "essence": "A Soviet-era poster: cream paper, black and red only, the frame cut by one hard diagonal, a figure built from geometric blocks and a photomontage rectangle of halftone dots, type set huge and tilted on the same angle as the composition.",
+   "not": "Not decorative, not symmetrical, not soft; no gradients, no rounded friendly shapes, no third colour, no real political emblems (no hammer-and-sickle, no star), no neat central alignment.",
+   "render": "Three inks on cream: #f2e8cf ground, #1d1d1b and #d62828, plus one grey #6c757d. One hard diagonal (about -22 deg) organises everything: the black band, the red band and the type's baseline all sit on it or cross it at 90 deg, and every shape is a polygon with knife edges (clip-path, no radius above 4 px). The figure is built only from blocks - a circle head, a trapezoid torso, tapered-rectangle limbs - in flat silhouette, never an outline drawing. Photomontage is faked with an SVG <pattern> of 3.4 px ink dots on a 12 px grid (a halftone photo block), holding a second, smaller silhouette or a city of stacked rectangles. Type is a filled block: Anton at 240-320 px rotated on the diagonal, one word per line, with a letterspaced Montserrat line counter-rotated 90 deg against it; cream text is only ever knocked out of a black band, never laid over the red.",
+   "texture": "paper",
+   "composition": "Off-balance, poster-like: a huge tilted word in the top third, a figure striding on the diagonal in the middle, a halftone block cut by the frame edge, one red field large enough to be a third of the picture, and a diagonal of empty cream left as breathing room.",
+   "colour": "Cream #f2e8cf paper, black #1d1d1b, poster red #d62828, grey #6c757d for the halftone only; red and black never touch a gradient, and the red is always one flat area, not an accent outline.",
+   "type": "Anton caps, one word, rotated -8 to -12 deg, tight leading, filling a third of the width; Montserrat 700 caps with 0.2 em tracking for the small counter-rotated line; cream knocked out of black for the secondary text.",
+   "motion": "Hard and abrupt: shapes slide in on the diagonal in 0.25-0.35 s with power4.out and stop dead; the type stamps on with one frame of overshoot; no fade-ins longer than 0.3 s, no easing that lingers.",
+   "camera": "Locked, frontal, poster-flat; a single whip-pan on the diagonal, or a fast 1.08 push that lands on the tilted word.",
+   "transitions": "A diagonal wipe at the composition's own angle; a black band that slams across and becomes the next scene's ground; hard cut on the beat.",
+   "sound": "Industrial and dry: a metal clang, a pneumatic press, a snare hit, a male voice choir on one long note, typewriter keys; no melody under it.",
+   "post": {
+    "grain": 0.32
+   },
+   "card": {
+    "palette": [
+     "#f2e8cf",
+     "#d62828",
+     "#1d1d1b",
+     "#6c757d"
+    ],
+    "fonts": [
+     "Anton",
+     "Montserrat 700"
+    ],
+    "tr": {
+     "look": "Sovyet afişi: krem kâğıt, kırmızı-siyah, sert diyagonaller, geometrik bloklardan figür, tramlı fotoğraf bloğu, eğik dev yazı.",
+     "type": "Anton, tek kelime, diyagonalle eğik; karşısında ince aralıklı küçük satır.",
+     "motion": "Sert ve ani: şekiller diyagonal üzerinde kayar ve durur; yazı bir kare taşar.",
+     "sound": "Metal vuruş, pres, trampet, tek notada koro.",
+     "avoid": "Yumuşak geçiş, simetri, üçüncü renk, gerçek siyasi sembol, yuvarlak hat."
+    },
+    "en": {
+     "look": "Soviet poster: cream paper, red and black, hard diagonals, a figure of geometric blocks, a halftone photo block, huge tilted type.",
+     "type": "Anton, one word, tilted on the diagonal; a thin tracked line across it.",
+     "motion": "Hard and abrupt: shapes slide on the diagonal and stop dead; type overshoots one frame.",
+     "sound": "Metal clang, press, snare, a choir on one note.",
+     "avoid": "Soft transitions, symmetry, a third colour, real political emblems, rounded shapes."
+    }
+   }
+  },
+  {
+   "id": "linocut",
+   "name": "Linocut print",
+   "tr": "Linol baskı",
+   "essence": "A relief print pulled from a carved lino block: heavy black shapes cut open by white gouges, one spot colour, chunky irregular edges and patches where the ink did not take.",
+   "not": "Not a smooth vector silhouette, not a pencil sketch, not greyscale; no gradients, no hairline under 3 px, no soft shadow, no tidy registration.",
+   "render": "Black #111 on cream #f4ede1, plus ONE spot ink (#c1272d or #e9b44c). Every black shape is a chunky filled path, its outline pushed through <filter><feTurbulence baseFrequency='.02' numOctaves='3'/><feDisplacementMap scale='7'/></filter> so no edge is machine-straight; the spot colour is the same shape printed 6-10 px off register. Form is described only by CARVED WHITE: tapered slivers (a path with one pointed end, cream fill, no stroke) following the volume, plus parallel gouges of 4-8 px at 25-40 deg that get denser in the shadow; keep at least a 6 px gap so the black still reads as one mass. Uneven ink is a second pass of 8-12 cream blotches at .12-.25 opacity, displaced by the same filter and clipped to the black shape, so the block looks hand-pulled and slightly starved. Paper stays bare where the block was cut away - never a grey tint.",
+   "texture": "paper",
+   "composition": "One animal or figure filling the middle third, a single spot-colour disc behind it, a black ground band cut with grass gouges at the bottom, the headline huge in the upper left; generous bare paper between them.",
+   "colour": "Black #111111, paper #f4ede1, one accent #c1272d (or ochre #e9b44c); the accent is a flat disc or a single garment, printed slightly out of register, never an outline.",
+   "type": "Anton caps, very large, letterspaced 0.02 em, in the black ink, edges as rough as the block; a small line in Inter Tight 500 if a second line is needed.",
+   "motion": "Stop-motion on twos: shapes appear whole in 2-3 frames with one 1.5% overshoot and a 2-4 px settle, as if a print were stamped; long holds, nothing glides.",
+   "camera": "Locked; a slow 1.06 push into the black mass, or a 2 px drift as if the paper were being positioned under the press.",
+   "transitions": "A gouge line sweeps and becomes the next horizon; a black shape stamps down and covers the frame; the spot colour registers in from one side.",
+   "sound": "Wooden and dry: a press thump, a gouge scraping lino, a frame drum, a low male hum, paper sliding on a table.",
+   "post": {
+    "grain": 0.4
+   },
+   "card": {
+    "palette": [
+     "#f4ede1",
+     "#111111",
+     "#c1272d",
+     "#e9b44c"
+    ],
+    "fonts": [
+     "Anton",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Linol baskı: krem kâğıtta ağır siyah formlar, beyaz oyma çizgileriyle açılmış, tek vurgu rengi, pürüzlü kenarlar, eksik mürekkep lekeleri.",
+     "type": "Anton, çok büyük, pürüzlü kenarlı.",
+     "motion": "İki karede bir: baskı gibi damgalanır, tek küçük oturma; uzun duraklamalar.",
+     "sound": "Pres gümbürtüsü, oyma sesi, çerçeve davul, kâğıt.",
+     "avoid": "Gradyan, ince çizgi, gri ton, yumuşak gölge, düzgün vektör silüet."
+    },
+    "en": {
+     "look": "Linocut: heavy black masses on cream, opened by white gouges, one spot colour, rough edges, starved-ink patches.",
+     "type": "Anton, very large, rough edges.",
+     "motion": "On twos: stamps down like a pulled print, one small settle, long holds.",
+     "sound": "Press thump, gouge scrape, frame drum, paper.",
+     "avoid": "Gradients, thin lines, greys, soft shadows, tidy vector silhouettes."
+    }
+   }
+  },
+  {
+   "id": "cyanotype",
+   "name": "Cyanotype print",
+   "tr": "Siyanotip",
+   "essence": "A sun print: botanical specimens lying on paper coated in iron salts, exposed to light and washed - deep Prussian blue where the light fell, pale cream silhouettes where the plant blocked it, the brush marks of the coating still visible at the edges.",
+   "not": "Not a blue-tinted photo, not a flat navy background with white clip-art; no outlines, no warm accent colour, no pure white, no drop shadows, no paper border strip.",
+   "render": "Two values only: a Prussian blue field #0a2d4d with pools of #114b75 / #1c5a86 and a pale cream #f3f0e4 negative, no third hue anywhere. The blue is a <rect> pushed through <filter><feTurbulence baseFrequency='.008 .012' numOctaves='2'/><feDisplacementMap scale='40'/></filter> so its outer edge wanders like a brush-loaded sheet, then 6-10 very large blurred ellipses (blur 60-90 px, .12-.3 alpha) mottle the coating. Specimens are flat cream paths with a 3-5 px displacement wobble of their own: a fern as 10-12 mirrored leaflet ellipses on a tapering stem, a leaf as two mirrored bezier halves, a flower as 8 rotated petal ellipses; every form is 0.86-0.95 alpha so where two overlap the cream thickens. Inside the pale forms, cut back in with blue 2-6 px lines for veins, midribs and petal folds - the plant shows through as thin blue, never as an outline. Fade some forms to .35-.55 to read as specimens laid at different depths.",
+   "texture": "paper",
+   "composition": "A herbarium arrangement: one tall fern on the centre line, a broad leaf and a flower at either side, a few loose sprigs, all overlapping loosely inside the frame rather than in a neat row; the headline small and quiet in the top left, with empty blue above and below.",
+   "colour": "Prussian blue #0a2d4d, its exposure pools #114b75 and #1c5a86, pale cream #f3f0e4, and the pale blue #75b6cf only as veins inside the silhouettes; no warm colour at all.",
+   "type": "Cormorant Garamond 300 or Instrument Serif, 90-130 px, cream, wide letterspacing, sentence case with a small Inter Tight caps line under it; place it as if written on the negative, never with a shadow.",
+   "motion": "Slow exposure: forms bloom in at .4-.6 alpha and settle, the blue field breathes up from 0.9 to full, veins draw on over 1 s; all sine easing, nothing snaps.",
+   "camera": "A very slow push in on the specimens, or a pan across the sheet as if the print were being lifted to the light.",
+   "transitions": "The next frame develops through, cream first and blue after; a soft wash of blue sweeps the frame and hardens; a specimen's silhouette grows until it is the whole frame.",
+   "sound": "Quiet and aqueous: water being poured, a soft paper peel, a low drone, a distant bird, a single struck glass.",
+   "post": {
+    "grain": 0.16,
+    "vignette": 0.3
+   },
+   "card": {
+    "palette": [
+     "#0a2d4d",
+     "#114b75",
+     "#1c5a86",
+     "#75b6cf",
+     "#f3f0e4"
+    ],
+    "fonts": [
+     "Cormorant Garamond 300",
+     "Instrument Serif"
+    ],
+    "tr": {
+     "look": "Siyanotip: Prusya mavisi kâğıtta bitkilerin krem siluetleri, fırça izli kenarlar, üst üste binen saydam yapraklar.",
+     "type": "İnce serif, geniş aralıklı, mavi negatifin üstünde krem.",
+     "motion": "Yavaş pozlama: formlar belirir, damarlar çizilir; hiçbir şey sıçramaz.",
+     "sound": "Su, kâğıt, alçak drone, uzak kuş.",
+     "avoid": "Sıcak renk, kontur, saf beyaz, mavi tonlu fotoğraf, gölge."
+    },
+    "en": {
+     "look": "Cyanotype: cream silhouettes of plants on Prussian blue, brushed edges, translucent overlaps.",
+     "type": "Thin serif, wide tracked, cream on the blue negative.",
+     "motion": "Slow exposure: forms bloom in, veins draw on; nothing snaps.",
+     "sound": "Water, paper, low drone, a distant bird.",
+     "avoid": "Warm colour, outlines, pure white, blue-tinted photos, shadows."
+    }
+   }
+  },
+  {
+   "id": "manga_screentone",
+   "name": "Manga screentone",
+   "tr": "Manga (tram)",
+   "essence": "Black and white manga: clean ink contours of varying weight, shadows laid in as screentone dot patterns or solid black, radiating speed lines, and panels cut by a hard black border.",
+   "not": "Not grayscale airbrush, not anime cel colour, no soft gradients, no speech balloons, no photorealism, no grey fills where a dot screen belongs.",
+   "render": "White paper, one ink: #0d0d0d. Contours are paths with a deliberately uneven weight - 10-14 px on the outside of a silhouette, 3-5 px for details - and closed, never broken. Shadow is a SCREEN, not a tint: an SVG <pattern> of black circles r 2.6 on a 9 px grid rotated 45 deg (a second, coarser r 4.5 / 14 px for large areas) clipped to the shaded shape, plus solid black for the deepest core; a mid tone only ever appears as dots. Speed lines are 40-70 hairlines (2-4 px) radiating from a point behind the subject, drawn from radius 260 out to the frame edge with irregular lengths and a few gaps, densest at the edges. Panels: 8-10 px solid black borders with a 24-40 px white gutter, one wide panel and one narrow one, the subject breaking the border on one side only. Impact marks (a few tapered spikes) are allowed at the frame edge.",
+   "texture": "halftone",
+   "composition": "Portrait, low angle: the face fills the lower panel, the hair breaking the top border, the headline in the narrow panel above; open white gutter between them and the speed lines bursting from behind the head.",
+   "colour": "Black #0d0d0d on white #ffffff, one flat grey #7a7a7a only as a dot screen, and at most one #d90429 accent on the single object that matters.",
+   "type": "Anton or Poppins 700 for the title, set as if hand-lettered inside the panel with a slight italic lean; small Inter Tight caps for a caption strip knocked out of black.",
+   "motion": "On twos, decisive: panels slam in with a 1-frame black flash, speed lines flicker between two seeded sets, the face holds dead still; a sudden 1.06 snap on the impact.",
+   "camera": "Manga camera: a low-angle push into the eyes, a hard cut between panels, a whip pan that leaves speed lines behind.",
+   "transitions": "A panel border slams in and becomes the next frame; speed lines wipe across; a white flash on the beat.",
+   "sound": "Ink and impact: brush on paper, a paper slap, a taiko hit on the reveal, a single distorted guitar stab, silence between.",
+   "post": {
+    "grain": 0.14
+   },
+   "card": {
+    "palette": [
+     "#ffffff",
+     "#0d0d0d",
+     "#7a7a7a",
+     "#d90429"
+    ],
+    "fonts": [
+     "Anton",
+     "Poppins 700",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Siyah beyaz manga: değişken kalınlıkta mürekkep konturlar, tram noktalı gölgeler, hız çizgileri, panel kenarları.",
+     "type": "Elle yazılmış gibi Anton başlık, panelin içinde.",
+     "motion": "İki karede bir: paneller çarparak girer, hız çizgileri titreşir, yüz hareketsiz.",
+     "sound": "Fırça, kâğıt şaklaması, taiko, tek gitar vuruşu.",
+     "avoid": "Gri hava fırçası, renkli sel, konuşma balonu, yumuşak gradyan."
+    },
+    "en": {
+     "look": "Black and white manga: ink contours of varying weight, screentone shadows, speed lines, panel borders.",
+     "type": "Anton title set like hand lettering inside the panel.",
+     "motion": "On twos: panels slam in, speed lines flicker, the face holds still.",
+     "sound": "Brush, paper slap, taiko, one guitar stab.",
+     "avoid": "Grey airbrush, cel colour, speech balloons, soft gradients."
+    }
+   }
+  },
+  {
+   "id": "art_nouveau",
+   "name": "Art Nouveau",
+   "tr": "Art Nouveau",
+   "essence": "A Mucha lithograph: a woman in three-quarter view inside a mosaic arch and a beaded halo, her long hair uncoiling into whiplash curls, stylised lilies climbing the border, flat muted tones sealed by one uniform brown line.",
+   "not": "Not a children's-book drawing, not big-eyed cartoon faces, not a plain rectangular photo frame, not bright saturated colour, no shadows or gradients on the figure, no photoreal rendering.",
+   "render": "One SVG (1080x1920), CURVES ONLY: every stem, lock and fold is a cubic bezier that ends by curling back on itself, no path straight for more than 40 px, all outlines ONE brown #5e3f2b - 6-10 px on the outside of the figure, 2.5-4 px for features - and each material one flat tone, never a gradient. The halo is a flat cream disc r 300 with two thin rings and a row of 26 gold beads; behind it an ARCH (semicircle r 340 on two straight legs) filled as MOSAIC: four concentric bands of flat gold, cream and terracotta, cut into tiles by 13 radial rules from the arc centre and two horizontal rules down the legs, clipped to the arch, every tile edge 5 px brown. The figure is a bust drawn anatomically: three-quarter head (nose line, heavy-lidded almond eyes, small bowed mouth with a #c97967 lower lip), a long neck with a shadow under the jaw, bare sloping shoulders and upper arms, a small gold pendant, and a sage gown whose gold neckline follows a sweetheart curve with a row of terracotta dots; folds are 2.5 px brown lines. Hair is 5 closed whiplash masses in #a05f36 with 2 px strand lines and separate spiral curls that end in a hook. Lilies are 6 tepals (two whorls of 3, 60 deg apart) as pointed bezier shields with a centre vein, 5 stamen lines with dots; leaves are paired teardrops. The border is a thin brown double rule with lily stems climbing over it and three big lilies across the bottom.",
+   "texture": "paper",
+   "composition": "Vertical poster, centre-heavy but never symmetrical: the title in wide-tracked serif caps in the paper above the arch, the arch filling the middle two thirds, the figure a half-length bust inside it - head in the halo, bare shoulders above the gold neckline of the gown - hair falling to both sides and sweeping right, three lilies and their whiplash stems along the bottom edge cutting the gown, small lilies climbing both side margins.",
+   "colour": "Cream #f4f1de ground, gold #e0b96a with #f0d79a, sage #8fa886 with #b3c4a8, dusty terracotta #d08a75 with #e0a48c, skin #ecc9a2 with #d9a97e, hair #a05f36, one outline brown #5e3f2b; each material one flat tone and at most one darker line.",
+   "type": "Cormorant Garamond 300 caps with 0.3 em tracking for the title, small gold-brown #8a6a3b sitting above the arch like a dedication; a smaller italic line beneath in #5e3f2b.",
+   "motion": "Curves grow, they never slide: the arch tiles fade in band by band, the halo blooms in scale, hair curls draw on 0.8 s after the face, lilies unfurl last. Nothing bounces, nothing snaps.",
+   "camera": "Slow and lyrical: a 1.06 push on the face, a vertical drift up a stem, a slight parallax between the ornament and the figure.",
+   "transitions": "A stem spiral unwinds into the next scene's line; the halo grows to fill the frame; a petal wipe.",
+   "sound": "Harp, muted strings, a solo flute, a soft cymbal swell; a warm room reverb, nothing percussive.",
+   "post": {
+    "grain": 0.18,
+    "vignette": 0.16
+   },
+   "card": {
+    "palette": [
+     "#f4f1de",
+     "#e0b96a",
+     "#8fa886",
+     "#d08a75",
+     "#5e3f2b",
+     "#a05f36"
+    ],
+    "fonts": [
+     "Cormorant Garamond 300",
+     "Playfair Display"
+    ],
+    "tr": {
+     "look": "Mucha gibi: mozaik kemer ve boncuklu hâle içinde üç çeyrek figür, kamçı gibi kıvrılan saç, zambak bordürü, tek kahve kontur, düz yumuşak renkler.",
+     "type": "Küçük, geniş aralıklı serif büyük harfler; kemerin üstünde bir ithaf gibi.",
+     "motion": "Eğriler büyür, kaymaz; saç yüzden bir vuruş sonra yerleşir.",
+     "sound": "Arp, yaylılar, flüt, yumuşak zil.",
+     "avoid": "Dikdörtgen çerçeve, simetri, sert köşe, parlak renk, çocuk kitabı yüzü."
+    },
+    "en": {
+     "look": "Mucha-like: a three-quarter figure in a mosaic arch and a beaded halo, hair uncoiling in whiplash curls, a lily border, one brown outline, flat muted tones.",
+     "type": "Small wide-tracked serif caps, above the arch like a dedication.",
+     "motion": "Curves grow, never slide; the hair settles a beat after the face.",
+     "sound": "Harp, muted strings, flute, soft cymbal.",
+     "avoid": "Rectangular frames, symmetry, hard corners, bright colour, children's-book faces."
+    }
+   }
+  },
+  {
+   "id": "cave_painting",
+   "name": "Cave painting",
+   "tr": "Mağara resmi",
+   "essence": "Pigment on a rock wall by firelight: ochre and charcoal animals drawn with crude confidence, hand stencils blown around a palm, uneven coverage where the rock drinks the paint, no outlines that close cleanly.",
+   "not": "Not a clean vector animal, not a museum illustration, no black line-art on white, no smooth gradients, no modern objects, no neat rows.",
+   "render": "Two pigments only: ochre #8b3a1f / #c47a3d and charcoal #2b2018, every mark at .55-.9 alpha so the rock #d9c3a0 shows through and doubles the colour. The wall is the whole frame: a base #d9c3a0 with 6-9 huge blurred blotches (#a88b6a, #6e4b32, #c9b590; blur 80-160, .18-.4) and 3-4 thin dark crack lines wandering across it. Animals are built from 3-6 crude primitives (a body ellipse, a hump ellipse, a wedge head, four tapered legs, a whip tail) welded into one group and pushed through <filter><feTurbulence baseFrequency='.012' numOctaves='3'/><feDisplacementMap scale='14'/></filter>, so every edge crumbles; the fill is flat ochre with a few darker strokes where pigment pooled. A second animal is charcoal outline only, 6-10 px, broken by the rock. Hand stencils are negative: a sprayed ochre ellipse (blur 12, turbulence) masked <mask> by a black hand path so the palm stays bare rock. Humans are 3-5 stroke tapered stick figures, slightly too small beside the animals. Scatter 8-12 finger dots in a row, never in a line.",
+   "texture": "grain",
+   "composition": "A frieze, not a poster: the big animal off-centre and low, a smaller one higher and to the side, stencilled hands at the frame edges, tiny hunters beside the herd, no horizon and no sky - the wall is the whole world. Empty rock is part of the image.",
+   "colour": "Rock #d9c3a0 with blotches #a88b6a / #6e4b32, ochre #8b3a1f and #c47a3d, charcoal #2b2018; pigment is always translucent enough that the stone changes it.",
+   "type": "Cormorant Garamond 700 or Instrument Serif in caps, charcoal #2b2018, edges pushed through the same turbulence so the lettering looks painted with a finger; small, low in the frame, never centred.",
+   "motion": "Painted, not animated: marks appear like a hand passing over the rock (a 0.4-0.6 s reveal with a 2-3 px displacement wobble that settles), the firelight brightens and dims the whole frame slowly, nothing slides.",
+   "camera": "Locked to the wall; a very slow push that makes the rock grain crawl, or a firelight flicker as the only movement.",
+   "transitions": "A hand shadow sweeps across the wall; the next pigment bleeds in from one edge; a cut as the fire flares.",
+   "sound": "Fire, dripping water, a low bone flute, breath, a struck stone; deep reverb like a cave.",
+   "post": {
+    "grain": 0.5,
+    "vignette": 0.4
+   },
+   "card": {
+    "palette": [
+     "#d9c3a0",
+     "#a88b6a",
+     "#6e4b32",
+     "#8b3a1f",
+     "#c47a3d",
+     "#2b2018"
+    ],
+    "fonts": [
+     "Cormorant Garamond 700",
+     "Instrument Serif"
+    ],
+    "tr": {
+     "look": "Mağara duvarında aşı boyası ve kömür: kaba ama kararlı hayvanlar, avuç çevresine üflenmiş el şablonları, düzensiz pigment.",
+     "type": "Parmakla yazılmış gibi pürüzlü büyük harfler, kömür rengi.",
+     "motion": "Boyalı, animasyonlu değil: izler belirir, ateş ışığı kareyi yavaşça aydınlatır.",
+     "sound": "Ateş, damlayan su, kemik flüt, taş vuruşu, derin yankı.",
+     "avoid": "Temiz vektör, siyah kontur, beyaz zemin, düz gradyan, modern nesne."
+    },
+    "en": {
+     "look": "Ochre and charcoal on a cave wall: crude confident animals, hand stencils blown around a palm, uneven pigment.",
+     "type": "Rough painted caps in charcoal, as if by finger.",
+     "motion": "Painted, not animated: marks appear, firelight slowly lifts the frame.",
+     "sound": "Fire, dripping water, bone flute, struck stone, deep reverb.",
+     "avoid": "Clean vectors, black line art, white ground, flat gradients, modern objects."
+    }
+   }
   }
  ]
 }

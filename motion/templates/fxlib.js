@@ -1585,8 +1585,10 @@
                        crt: "scanlines", hud: "scanlines", vhs: "scanlines", film: "grain", noise: "grain", board: "chalk" };
   // style id -> the texture its bible already describes (data/film_styles.json carries the same map: tests keep them equal)
   FX.STYLE_TEXTURE = { riso_print: "halftone", ink_wash: "watercolor", cut_paper: "paper", blueprint: "hatching",
-                       archive_film: "grain", hologram_hud: "scanlines", woodcut: "hatching", chalkboard: "chalk",
-                       sketchnote: "paper", vhs_tape: "scanlines", noir: "grain" };
+                       archive_film: "grain", hologram_hud: "scanlines", woodcut: "hatching", chalkboard: "chalk", noir: "grain",
+                       sketchnote: "paper", vhs_tape: "scanlines", ottoman_miniature: "paper", ukiyo_e: "paper", art_deco: "paper",
+                       constructivist: "paper", linocut: "paper", cyanotype: "paper", manga_screentone: "halftone",
+                       art_nouveau: "paper", cave_painting: "grain" };
   FX.textureFor = (style) => FX.STYLE_TEXTURE[String(style || "").replace(/^style\./, "")] || "";
   FX.rgbOf = (css, fb = [0, 0, 0]) => {   // '#aabbcc' / '#abc' / 'rgb(..)' / 'rgba(..)' / 'var(--ink)' -> [r, g, b]
     const c = String(css || "").trim();
