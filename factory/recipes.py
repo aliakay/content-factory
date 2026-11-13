@@ -28,6 +28,8 @@ FAMILIES = {
     "rhythm": {"tr": "Ritim", "en": "Rhythm"},
     "lineart": {"tr": "Çizgi animasyon", "en": "Line-art animation"},
     "three": {"tr": "3 boyut", "en": "3D"},
+    "geo": {"tr": "Harita ve bayrak", "en": "Maps and flags"},
+    "texture": {"tr": "Doku", "en": "Texture"},
 }
 FIELDS = ("id", "name", "use", "call", "timing", "pitfalls", "seconds", "demo")
 LANGS = ("tr", "en")
@@ -159,6 +161,12 @@ def card_text(ids, lang="en"):
                 out.insert(0, f.read().strip())
         except OSError:
             pass
+    if any(i.startswith("geo.") for i in dict.fromkeys(ids or [])):   # the maps-and-flags kit's API and rules (fxgeo.js)
+        try:
+            with open(os.path.join(SRC, "geo_note.md"), encoding="utf-8") as f:
+                out.insert(0, f.read().strip())
+        except OSError:
+            pass
     return "\n\n".join(out)
 
 
@@ -206,6 +214,9 @@ def bundle(cid):
     if not c:
         raise KeyError(cid)
     dur = float(c["seconds"])
+    if "FX.geo" in c["demo"]:   # a map of another year needs its history slice (factory/geo.py; a no-op without a year)
+        from . import geo
+        geo.prepare(c["demo"])
     # a Lab card may bring its own helper module (motion/templates/lab/<id>.js, registering FX.lab.<name>): it is
     # inlined ahead of the demo, so the demo page stays the plain shell and only lab cards carry extra JS
     extra = helper(cid)

@@ -31,6 +31,11 @@ def make_bundle(spec, design):
                        "html": d.get("html", ""), "css": d.get("css", ""),
                        "js": recipes.lab_helpers(d.get("js", "")) + d.get("js", ""),   # approved Lab helpers the scene calls
                        "lines_t": [{"start": round(x["start"], 3), "end": round(x["end"], 3)} for x in lt[a:b + 1]]})
+    try:   # maps of another year (FX.geo.map {year}) need their history slice written once (factory/geo.py)
+        from factory import geo
+        geo.prepare("\n".join(x["js"] for x in scenes))
+    except Exception:
+        pass
     w, h = ASPECTS.get(spec.get("aspect", "9:16"), ASPECTS["9:16"])
     return {"palette": design["meta"].get("palette") or {}, "global_css": design.get("global_css", ""), "words": words,
             "scenes": scenes, "duration": spec["duration"], "w": w, "h": h, "captions": spec.get("captions") or {},

@@ -61,6 +61,14 @@ window.ready = (async () => {
       await FX.load3d();
     } catch (e) { console.error("three: " + e.message); }
   }
+  // maps + flags from real data (fxgeo.js, FX.geo): d3-geo / topojson-client are vendored under assets/geo; only for a film whose scenes use FX.geo
+  if (B.geo === true || (B.geo !== false && /FX\.geo\b/.test((B.scenes || []).map((s) => s.js || "").join("\n")))) {
+    try {
+      for (const f of ["assets/geo/vendor/d3-array.min.js", "assets/geo/vendor/d3-geo.min.js", "assets/geo/vendor/topojson-client.min.js", "motion/templates/fxgeo.js"])
+        await new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "/" + f; sc.onload = ok; sc.onerror = () => no(new Error(f + " not found")); document.head.appendChild(sc); });
+      await FX.geo.load();
+    } catch (e) { console.error("geo: " + e.message); }
+  }
   if (B.math || /FX\.(math|eqSteps|tex)\b|k\.label\([^)]*tex/.test((B.scenes || []).map((s) => s.js || "").join("\n"))) {
     await new Promise((ok) => {   // KaTeX for equations (FX.math / FX.eqSteps), only when a scene writes one
       const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "/motion/node_modules/katex/dist/katex.min.css"; document.head.appendChild(l);

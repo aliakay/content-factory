@@ -290,7 +290,8 @@ def entries(pid, d=None):
     plates, made, sources = plate_entries(pid, d), made_entries(assets), source_entries(pid, d)
     known = [r.get("file") for r in stocks + sfx + plates + made + sources + typefaces]
     plan = {**plan, "project_id": pid}
-    rows = stocks + untracked_media(plan, known) + sfx + plates + made + sources + typefaces
+    from . import geo   # map data and flags of FX.geo (Cliopatria's CC BY credit when a map asks for a year)
+    rows = stocks + untracked_media(plan, known) + sfx + plates + made + sources + typefaces + geo.ledger(_plan_text(plan))
     unique, seen = [], set()
     for row in rows:
         key = os.path.normpath(str(row.get("file") or row.get("url") or row.get("what") or ""))
