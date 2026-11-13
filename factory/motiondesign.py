@@ -97,6 +97,20 @@ FX_DOC = """FX LIBRARY (available in every scene's JS as `FX`; deterministic, us
           clay|studio|paper|blueprint|neon}); k.text3d / k.number3d / k.bars / k.globe / k.product / k.explode / k.city /
           k.flythrough / k.swarm / k.stack (tl, at, ...); k.move(push_in|orbit|pull_out|..., {at, dur}); one stage per
           scene, 0.3-0.8 s a frame; full API, budget and rules in the three.* recipe cards (ask for them)
+          3D PEOPLE: f = k.figure({build, skin, hair, top, bottom, ...}); f.pose / f.gesture / f.walk / f.talk / f.lookAt /
+          f.hold (tl, at, ...); they idle (breath, blinks) by themselves; 1-2 a scene (+0.5 s a frame each). A held set
+          keeps moving on its own (camera sway, dust: {idle: false} opts out); k.beat(tl, at, turn|pulse|hop|push|swing|
+          ...) adds a second visible action in a long scene. Cards: three.figure_* / three.duo
+  LIFE + MEDIUM (2D): FX.build(tl, at, [{els: room}, {els: objects}, {els: people}, {els: labels}], {dur: shot}) (the
+          set assembles in order, done within 40 % of the shot) · FX.ambience(tl, root, rain|snow|dust|embers|confetti|
+          fog|rays|flicker, {density, dur}) · FX.texture(root, paper|watercolor|chalk|halftone|hatching|grain|scanlines,
+          {strength}) (the film style's medium; paper/grain/halftone nearly double render time, use once per scene) ·
+          FX.paperBase(el) (opaque paper under translucent washes). Entrances are capped by FX.PACE (≤0.9 s; {slow: true}
+          to opt out). Cards: texture.* / living.* / rhythm.build_in
+  MAPS + FLAGS from real data (Natural Earth borders, flag-icons; offline): g = FX.geo.map(tl, root, T, {region: 'Türkiye'|
+          'europe'|[..], projection: 'mercator'|'globe', highlight: [..], year: 1453 for that year's borders}); g.highlight /
+          g.route / g.pin / g.fly / g.choropleth (at, ...); FX.geo.flag / FX.geo.flagRow(tl, root, at, [codes]); places are
+          country or city names (Turkish or English), ISO codes or [lat, lon]; full API and rules in the geo.* recipe cards
   maths + science (Manim-style): FX.math(tl, root, at, "LaTeX", {x, y, size, mark}) (KaTeX, written term by term;
           \\hl{...} lights a part at `mark`) · FX.eqSteps(tl, root, [{tex, at}], {y, size}) (a derivation, older lines move
           up and dim) · FX.plot(tl, root, {box: [x, y, w, h], x: [min, max, step], y: [..], fns: [{f: (x) => .., at, dur,

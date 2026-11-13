@@ -451,8 +451,12 @@ def _film_styles(own=True):
 def film_style_bible(st):
     """One film style as the designer's visual bible."""
     keys = ("essence", "not", "render", "composition", "colour", "type", "motion", "camera", "transitions", "sound")
-    return f"FILM STYLE {st['name']} (the whole visual bible; follow it):\n" + "\n".join(
+    out = f"FILM STYLE {st['name']} (the whole visual bible; follow it):\n" + "\n".join(
         f"  {k.upper()}: {st[k]}" for k in keys if st.get(k))
+    if st.get("texture"):   # the pack's medium, drawn by the kit (fxlib.js FX.texture; recipe cards texture.*)
+        out += (f"\n  TEXTURE: open every scene with `FX.texture(root, '{st['texture']}', {{strength: 0.9}})` "
+                f"(the layer the medium needs: normal alpha, under the captions; do not fake it with per-shape filters)")
+    return out
 
 
 def register_style(st):

@@ -139,3 +139,34 @@
   bpm: 120
   demo: |
     FX.typePrompt(tl, root, 0.2, {label: 'PROMPT', text: [['make a '], ['viral', 1], [' video']], enterAt: FX.B(7)});
+- id: rhythm.build_in
+  name: {tr: "Sahneyi parça parça kurma", en: "Build the set in"}
+  use: {tr: "Her sahnenin ilk çekimi: önce oda, sonra eşya, sonra kişiler, en son yazı. Sahne hazır başlamasın.", en: "A scene's first shot: the room, then the furniture, then the people, then the labels. The shot should not open already assembled."}
+  call: "FX.build(tl, at, [{els: roomEls, kind: 'room'}, {els: furniture, kind: 'object'}, {els: people, kind: 'person'}, {els: labels, kind: 'label'}], {dur: T.dur})"
+  timing: {tr: "Gruplar 0.15 / 0.15 / 0.35 s arayla girer, her giriş 0.35 s; hepsi çekimin ilk %40'ında biter. Kısa çekimde aralıklar sıkışır (k = %40·süre / 1.15 s).", en: "Groups enter 0.15 / 0.15 / 0.35 s apart, each entrance 0.35 s; all finish inside the first 40 % of the shot. On a short shot the gaps compress (k = 40 %·dur / 1.15 s)."}
+  pitfalls:
+    tr: ["Kendi girişi olan öğeye dokunma (yürüyerek giren kişi): gruba {skip: true} ver.", "Eşya sıçrayarak gelir; 1.2 m'den büyük nesne (uçak, dolap) solarak gelmeli: mode 'fade'.", "Zemini (oda) ayrı grup yap; yoksa oda da sıçrar."]
+    en: ["Never re-enter an element with its own entrance (a person who walks in): pass {skip: true} for that group.", "Objects pop; anything taller than 1.2 m (an aircraft, a cabinet) should fade: mode 'fade'.", "Keep the ground (the room) in its own group, or the room pops too."]
+  seconds: 4
+  demo: |
+    const room = [D('', 'left:0;right:0;top:1180px;height:740px;background:#1b2233'), D('', 'left:0;right:0;top:0;height:1180px;background:#151b29')];
+    const furn = [D('', 'left:110px;top:900px;width:320px;height:220px;background:#3b4a6b;border-radius:12px'),
+                  D('', 'left:640px;top:960px;width:260px;height:160px;background:#43536f;border-radius:12px')];
+    const people = [D('', 'left:300px;top:700px;width:120px;height:420px;background:#e8dfc8;border-radius:60px'),
+                    D('', 'left:620px;top:740px;width:110px;height:380px;background:#cfe4ef;border-radius:55px')];
+    const labels = [D('THE ROOM BUILDS ITSELF', 'left:90px;top:300px;font:900 84px Inter Tight;color:#f4efe6')];
+    FX.build(tl, T.start, [{els: room, kind: 'room'}, {els: furn, kind: 'object'}, {els: people, kind: 'person'}, {els: labels, kind: 'label'}], {dur: T.dur});
+- id: rhythm.pace_cap
+  name: {tr: "Giriş temposu (hayalet katman yok)", en: "Entrance pace (no ghost layers)"}
+  use: {tr: "Yönetmen bir girişe uzun bir pencere verdiyse: tween kısalır, öğe yarı saydam asılı kalmaz.", en: "When a director gives an entrance a long window: the tween gets shorter so nothing hangs half transparent."}
+  call: "FX.PACE = {pop, fade, slide, text, out}; otomatik: FX.rise / FX.pop / FX.blurWords / FX.blurFly / FX.whipIn hepsi kısaltır; FX.pace(dur, kind, {slow}) ile elle de sorabilirsin"
+  timing: {tr: "pop 0.5 s · fade 0.8 s · slide 0.9 s · text 0.9 s · çıkış 0.8 s. Başlangıç zamanı (anlatımla gelen) sabit kalır.", en: "pop 0.5 s · fade 0.8 s · slide 0.9 s · text 0.9 s · exit 0.8 s. The start (timed to the narration) does not move."}
+  pitfalls:
+    tr: ["Bilinçli uzun bir açılış istiyorsan {slow: true} ver; sessizce 4 s'lik bir fade yazma.", "draw_on kısaltılmaz: kalem ne kadar sürerse o kadar.", "Kısaltma konsola bir uyarı yazar (FX._clamps), denetim onu görür."]
+    en: ["Pass {slow: true} for a deliberate long reveal; do not silently write a 4 s fade.", "draw_on is never shortened: the pen takes as long as it takes.", "A clamp logs one warning (FX._clamps) the lint can read."]
+  seconds: 3
+  demo: |
+    const a = D('THIS ENTRANCE WOULD HAVE TAKEN 3 s', 'left:80px;top:700px;width:920px;font:900 76px Inter Tight;color:#f4efe6');
+    FX.blurWords(tl, a, 0.2, {dur: 3});
+    const b = D('now 0.9 s (see the console)', 'left:80px;top:980px;width:920px;font:600 48px Inter Tight;color:#9aa3b5');
+    FX.rise(tl, b, 1.4, {dur: 4});
