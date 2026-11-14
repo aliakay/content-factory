@@ -318,6 +318,8 @@ def assets(pid, s, note=None, d=None):
             prompt = "Instrumental, no vocals. " + prompt
         if composed(mu):
             music = compose_music(pid, prompt, secs, times, True, d)
+        elif themed(mu):
+            music = theme_music(pid, mu, secs, times, -22, d)
         else:
             gen = min(secs, MUSIC_MAX)
             mpath, mcost = eleven.generate(con, "music", productions.MUSIC_MODEL, prompt, {"duration_seconds": gen,
@@ -410,6 +412,27 @@ def loop_music(path, secs, out):
 def composed(mu):
     """The proposal chose our own composer (no credits) instead of ElevenLabs music."""
     return (mu or {}).get("source") == "composer"
+
+
+def themed(mu):
+    """The music is the channel's own theme track (factory/hat/channel.py): the same file in every episode."""
+    return (mu or {}).get("source") == "channel" and bool((mu or {}).get("file"))
+
+
+def theme_music(pid, mu, secs, line_times, db, d=None):
+    """The channel's theme under this film: looped when the film is longer, its ending placed on the end card.
+    No credits: the track was bought once, for the channel's pilot."""
+    from .. import fftools
+    src = os.path.join(ROOT, mu["file"])
+    if not os.path.isfile(src):
+        raise P.GateError("the channel's theme track is missing: save the channel's template again")
+    if fftools.measure(src)["duration"] < secs:
+        out = P.path(pid, "work", "music-long.m4a", d=d)
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        src = loop_music(src, secs, out)
+    P.decision(pid, "music", "channel theme", d=d, reason="the channel template's own track; no credits")
+    return end_on_card(pid, {"file": _rel(src), "prompt": mu.get("prompt") or "", "credits": 0,
+                             "db": mu.get("db", db), "source": "channel"}, line_times, d)
 
 
 def cut_facts(path, sp, pid=None, d=None):
@@ -508,6 +531,9 @@ def _music_only(pid, p, prop, con, account, d=None):
     if composed(mu):
         mcost = 0.0
         music = {**compose_music(pid, prompt, secs, timing(pid, d)[1], False, d), "db": -10}
+    elif themed(mu):
+        mcost = 0.0
+        music = theme_music(pid, mu, secs, timing(pid, d)[1], -10, d)
     else:
         mpath, mcost = eleven.generate(con, "music", productions.MUSIC_MODEL, prompt, {"duration_seconds": secs,
                                        "instrumental": True}, secs, "s", ext="mp3",

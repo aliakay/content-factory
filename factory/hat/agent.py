@@ -36,6 +36,10 @@ def expand(text, p):
 
 def skill(line_id, sid, p=None):
     path = os.path.join(SKILLS, "pipelines", line_id, sid + ".md")
+    if not os.path.exists(path):              # a line may use another line's briefs (manifest `briefs: <line id>`)
+        base = manifest.get(line_id).get("briefs")
+        if base:
+            path = os.path.join(SKILLS, "pipelines", base, sid + ".md")
     if not os.path.exists(path):
         raise AgentError(f"no stage brief {os.path.relpath(path, ROOT)}")
     return expand(open(path, encoding="utf-8").read(), p or {})
@@ -48,6 +52,7 @@ def contract():
 def task(pid, s, note=None, d=None):
     """The full instruction text for one stage run."""
     from .. import proof, sceneedit
+    from . import channel
     p = P.load(pid, d)
     m = manifest.get(p["line"])
     earlier = [x["artifact"] for x in m["stages"][:[y["id"] for y in m["stages"]].index(s["id"])]
@@ -75,7 +80,7 @@ Aspect: {p.get('aspect')} · Earlier artifacts you can read: {', '.join(earlier)
 {review}
 
 ## Stage brief
-{skill(p['line'], s['id'], p)}{proof.brief(pid, s, d)}{sceneedit.brief(pid, s, d)}
+{skill(p['line'], s['id'], p)}{channel.brief(pid, s, d)}{proof.brief(pid, s, d)}{sceneedit.brief(pid, s, d)}
 """
 
 

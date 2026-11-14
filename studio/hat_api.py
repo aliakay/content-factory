@@ -19,6 +19,10 @@ POST /api/hat/project/<id>/deliver {platforms: [...]}   queue the deliver job (n
 GET  /api/hat/project/<id>/clips       the MiniMax clip card (t508): clips, their drafts/finals, estimates, budget left
 POST /api/hat/project/<id>/clips {action: draft|redraft|approve|discard, ...}   draft = new clip + its 480p draft job;
                                        approve = the creator approves a draft and its final job is queued (credits)
+GET  /api/hat/templates                channels with a saved template (factory/hat/channel.py), for the episode form
+POST /api/hat/template      {action: save, project, channel, music: reuse|new}   a finished film becomes its channel's template
+                            {action: update, channel, credit_cap?, notes?} | {action: delete, channel}
+POST /api/hat/episodes      {channel, topics: [...], proof?}   one channel episode per topic; they start a few at a time
 POST /api/hat/lang          {lang}     the user's interface language (tr | en)
 POST /api/hat/projects      {line, brief, title?, video_lang, aspect, channel?, proof?, images?}   create and start
 POST /api/hat/suggest       {brief, images?}   the line router (t604): which line makes this, and how
@@ -136,9 +140,38 @@ def _public(name, data):
     return data
 
 
-def project(pid):
+def templates(con):
+    """Channels that have a template, with the template as the Studio shows it."""
+    from factory import channels
+    from factory.hat import channel
+    out = []
+    for c in channels.listing(con, counts=False):
+        tpl = channel.summary(channel.load(c["id"]))
+        if tpl:
+            out.append({**tpl, "channel": c["id"], "name": c["name"], "color": c.get("color")})
+    return out
+
+
+def _template_card(pid, con):
+    """What the project page needs for its channel-template card: the episode's template, or whether this film can
+    become one and for which channel."""
+    from factory import channels
+    from factory.hat import channel
+    p = P.load(pid)
+    snap = channel.of(pid)
+    if snap:
+        return {"episode": channel.summary(channel.load(snap.get("channel")) or snap)}
+    if p["line"] not in channel.SOURCES or _archived(pid) or con is None:
+        return None
+    return {"episode": None, "why": channel.can_capture(pid), "channel": p.get("channel"),
+            "channels": [{"id": c["id"], "name": c["name"], "has": bool(channel.load(c["id"]))}
+                         for c in channels.listing(con, counts=False)]}
+
+
+def project(pid, con=None):
     _check(pid)
     f = P.flow(pid, lang())
+    f["template"] = _template_card(pid, con)
     for s in f["stages"]:
         art = P.read_artifact(pid, s["artifact"]) if s["status"] not in ("pending",) else None
         s["output"] = _public(s["artifact"], art) if art is not None else None
@@ -338,6 +371,8 @@ def get(con, path, q):
         from factory import series
         return [{"id": x["series_id"], "title": x["title"], "episodes": x["episodes"], "made": x["made"]}
                 for x in series.listing(con) if x["status"] == "ready"]
+    if path == "/api/hat/templates":
+        return templates(con)
     if path == "/api/hat/styles":           # the film style library: cards in the UI language with preview frames
         from factory import filmstyles
         return filmstyles.cards(lang())
@@ -365,7 +400,7 @@ def get(con, path, q):
         return clips_view(_check(m.group(1)))
     m = re.fullmatch(r"/api/hat/project/([\w-]+)", path)
     if m:
-        return project(m.group(1))
+        return project(m.group(1), con)
     raise ValueError("unknown hat endpoint")
 
 
@@ -389,8 +424,14 @@ def _post(con, path, b, queue):
     if path == "/api/hat/suggest":          # t604: which line makes this brief, and how (one quick call, no credits)
         from factory.hat import router
         return router.suggest(b.get("brief"), lang(), imgs=b.get("images"))
+    if path == "/api/hat/template":
+        return _template_post(con, b, uid)
+    if path == "/api/hat/episodes":
+        return _episodes(con, b, queue, uid)
     if path == "/api/hat/projects":
         line = manifest.get(b.get("line") or "")
+        if "channel_template" in (line.get("inputs") or []):      # a channel episode is started from its template
+            return _episodes(con, {**b, "topics": [b.get("brief")]}, queue, uid)
         if line["status"] != "ready":
             raise ValueError({"tr": "Bu hat henüz hazır değil.", "en": "This line is not ready yet."}[lang()])
         brief = str(b.get("brief") or "").strip()
@@ -482,6 +523,82 @@ def _post(con, path, b, queue):
             raise ValueError("unknown action")
         return {"id": pid, "state": state, "stage": stage}
     raise ValueError("unknown hat endpoint")
+
+
+def _template_post(con, b, uid):
+    from factory import channels
+    from factory.hat import channel
+    cid, a = str(b.get("channel") or ""), b.get("action")
+    c = channels.get(con, cid)
+    if not c:
+        raise ValueError({"tr": "Bir kanal seç.", "en": "Pick a channel."}[lang()])
+    if a == "save":
+        pid = _check(str(b.get("project") or ""))
+        tpl = channel.capture(pid, cid, name=c["name"], music="new" if b.get("music") == "new" else "reuse", by=uid)
+        p = P.load(pid)
+        if not p.get("channel"):               # the pilot belongs to the channel it became the template of
+            p["channel"] = cid
+            P.save(p)
+        return channel.summary(tpl)
+    if a == "update":
+        kw = {}
+        if "credit_cap" in b:
+            try:
+                kw["credit_cap"] = int(b["credit_cap"]) if str(b["credit_cap"] or "").strip() else None
+            except (TypeError, ValueError):
+                raise ValueError({"tr": "Kredi tavanı bir sayı olmalı.", "en": "The credit cap must be a number."}[lang()]) from None
+        if "notes" in b:
+            notes = b["notes"]
+            kw["notes"] = notes.splitlines() if isinstance(notes, str) else list(notes or [])
+        return channel.summary(channel.update(cid, **kw))
+    if a == "delete":
+        channel.remove(cid)
+        return {"deleted": cid}
+    raise ValueError("unknown action")
+
+
+TOPICS_MAX = 12
+
+
+def _episodes(con, b, queue, uid):
+    """One channel episode per topic. Every project is created at once; only the first few start, the rest start as
+    those stop at their script gate (factory/hat/channel.next_in_batch)."""
+    import time
+    from factory import channels, proof
+    from factory.hat import channel
+    cid = str(b.get("channel") or "")
+    c = channels.get(con, cid)
+    topics = [str(x).strip() for x in b.get("topics") or [] if str(x or "").strip()]
+    if not c or not channel.load(cid):
+        raise ValueError({"tr": "Şablonu kayıtlı bir kanal seç.", "en": "Pick a channel that has a template."}[lang()])
+    if not topics or any(len(x) < 8 for x in topics):
+        raise ValueError({"tr": "Her konuyu birkaç kelimeyle yaz (satır başına bir konu).",
+                          "en": "Write each topic in a few words (one topic per line)."}[lang()])
+    if len(topics) > TOPICS_MAX:
+        raise ValueError({"tr": f"Bir seferde en çok {TOPICS_MAX} konu.", "en": f"At most {TOPICS_MAX} topics at a time."}[lang()])
+    tpl, extra = channel.extra(cid)
+    extra = {"ui_lang": lang(), "eleven_account": accounts.default_eleven(uid), **extra}
+    if extra.get("voice_id"):
+        try:                                   # the template's narrator on the account that will speak
+            extra["voice_id"] = _voice(extra["voice_id"], extra["eleven_account"])
+        except ValueError:
+            pass                               # the voice step resolves it again and says why if it cannot
+    if b.get("proof") and proof.supports(manifest.get(channel.LINE)):
+        extra["proof"] = True
+    if len(topics) > 1:
+        extra["batch"] = f"{cid}-{int(time.time())}"
+    made = []
+    for topic in topics:
+        title = (str(b.get("title") or "").strip() if len(topics) == 1 else "") or topic.split(".")[0][:60]
+        p = P.create(channel.LINE, title, brief=topic, video_lang=tpl.get("video_lang") or "tr",
+                     aspect=tpl.get("aspect") or "9:16", channel=cid, user=uid, con=con, extra=extra)
+        channel.attach(p["id"], {**tpl, "name": c["name"]})
+        made.append(p["id"])
+    state, stage = None, None
+    for pid in made[:channel.BATCH_LANES]:
+        st, sg = runner.advance(pid, queue, by=uid)
+        state, stage = state or st, stage or sg
+    return {"id": made[0], "ids": made, "state": state, "stage": stage}
 
 
 def _voice(vid, account):

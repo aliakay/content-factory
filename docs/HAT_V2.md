@@ -248,6 +248,29 @@ Var olan bir serinin sıradaki bölümü; seri kitabı, karakterler ve çizim di
 
 **Durum:** Hazır (t205). Kitap ve karakter sayfaları Seriler sayfasında; hat bir bölümü üretir: bölüm metni + maliyet, konuşanlarıyla satırlar, karakter sayfalarından çizimler (bütçe içinde), sesler + müzik, final.
 
+### 6.15 Kanal bölümü · `channel_episode` *(bize özel)*
+Aynı formatta düzenli yayın yapan kanal için: format bir kez, pilot videoda kararlaştırılır; sonraki bölümlerde yalnız
+konu değişir. Pilot "Konu anlatımı" hattından yedi kapıyla geçer; sayfasındaki **Kanal şablonu olarak kaydet** onun
+yön panosunu, sahne tasarım dilini (palet, global CSS, kit), sesini, müziğini, süresini, senaryo kalıbını ve onaylı
+sahnelerini kanala kilitler (`data/channels/<kanal>/template.json`, `factory/hat/channel.py`).
+
+**Aşamalar:** araştırma → şablon (öneri; kod, kapı yok, bütçe bitince kilitlenir) → **senaryo 🔒** → yön panosu
+(şablondan, kapı yok) → sahne planı (kanalın tasarım dili bağlayıcı, sahne kitaplığından başlar, kapı yok) →
+**animatik 🔒** (kredi harcanmadan önceki son bakış) → varlıklar → kurgu → render → **yayın 🔒**.
+
+- **Kredi:** müzik pilotun parçasıysa sonraki bölümlerde kredi harcamaz. Kanalın bölüm başına kredi tavanı vardır;
+  senaryonun ses maliyeti tavanı aşıyorsa senaryo kapısı onayı reddeder.
+- **Kalıcı notlar:** kanal şablonundaki notlar her bölümün araştırma, senaryo, sahne ve yayın adımına eklenir. Bir
+  kapıda "kanal: ..." diye başlayan geri bildirim notu da bu listeye girer.
+- **Kitaplık:** yayın kapısında onaylanan bölümün sahneleri kanalın kitaplığına eklenir (mekanizma + kamera hareketi
+  başına en yeni sahne, en çok 24).
+- **Konu listesi:** başlatma formuna her satıra bir konu yazılır (en çok 12); bölümler ikişer ikişer araştırılıp
+  yazılır ve her biri senaryo kapısında bekler.
+- Bölüm, başladığı andaki şablonun bir kopyasını taşır (`channel_template` artifact'i); şablonu yeniden kaydetmek
+  yoldaki bölümü değiştirmez. Tavan ve kalıcı notlar canlı okunur.
+
+**Durum:** Hazır. Gerçek ücretli çalışma henüz yok.
+
 ## 7. Studio: sade arayüz
 
 - **Ana sayfa:** "Ne üretelim?" kutusu + 14 hat kartı. Yazılan istekten planner bir hat önerir; kart seçmek de olur.

@@ -135,6 +135,10 @@ def made_entries(assets):
         if music.get("source") == "composer":
             out.append({"kind": "music", "file": music["file"], "what": "Original score", "author": "composed here",
                         "licence": "made for this video", "url": "", "page": "", "credit": False})
+        elif music.get("source") == "channel":
+            out.append({"kind": "music", "file": music["file"], "what": "Channel theme", "author": "ElevenLabs",
+                        "licence": "generated for this channel on the account's plan", "url": "", "page": "",
+                        "credit": False})
         else:
             out.append({"kind": "music", "file": music["file"], "what": "Music track", "author": "ElevenLabs",
                         "licence": "generated for this video on the account's plan", "url": "", "page": "",

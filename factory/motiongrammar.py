@@ -39,7 +39,7 @@ CAMERA SPEED AND CUTS (after cinecode's camera vocabulary; numbers, not adjectiv
 - Every cut has a reason you could say aloud: the next step, this caused that, this becomes that, into or out of the
   subject, later, back to an earlier picture changed. A cut with no reason is the one to remove."""
 
-LINES = ("explainer", "long_explainer")            # lines whose scenes must name a mechanism
+LINES = ("explainer", "long_explainer", "channel_episode")            # lines whose scenes must name a mechanism
 
 # id -> (what it explains, the beats setup / action / resolution, the motion, a trap to avoid)
 MECHANISMS = {

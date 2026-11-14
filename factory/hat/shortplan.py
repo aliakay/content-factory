@@ -110,7 +110,7 @@ def _brief_problems(briefs, lines):
 
 def _design_prompt(pid, s, script, board, research, d, note=None):
     from .. import camera_deck
-    from . import agent
+    from . import agent, channel
     p = P.load(pid, d)
     pal = ", ".join(f"{k} {v}" for k, v in (board.get("palette") or {}).items()) or "choose from the brief"
     typ = board.get("type") or {}
@@ -137,7 +137,7 @@ Rules:
 
 Script lines:
 {_script_text(script)}
-
+{channel.design_brief(pid, d)}
 Write the design system and the scene list. Every line of the script must be covered, in order, by exactly one scene;
 the numbers in brackets above are the indices to write (`lines` is 0-based, first line 0, last line {max(0, len(script.get('lines') or []) - 1)}).
 Reply ONLY JSON:
@@ -155,7 +155,7 @@ same number of seconds reads as a slideshow.
 
 
 def _scene_prompt(pid, s, design, part, script, d):
-    from . import agent
+    from . import agent, channel
     p = P.load(pid, d)
     from .. import words as _w
     def must(sc):
@@ -183,7 +183,7 @@ Script lines:
 
 Your scenes (draw exactly these, in this order):
 {briefs}
-
+{channel.scene_library(pid, part, d)}
 Reply ONLY JSON: {{"scenes": [{{"id": "...", "lines": [a, b], "mechanism": "...", "shows": "...",
   "camera": {{"move": "...", "seconds": 1.5, "easing": "...", "target": "..."}},
   "html": "<div class=\\"w\\">…</div>", "css": "scene-only CSS", "js": "timeline code using T.start"}}]}}
@@ -198,7 +198,10 @@ def design(pid, s, script, board, research, d=None, ask=None, note=None):
     Cached while the script and the board are unchanged — unless a note comes with the repair: the cut laws live in
     the scene `lines` ranges, so a note that names where the cuts land has to re-decide them here, not only inside the
     scenes."""
-    sig = _hash([script.get("title"), script.get("lines"), board.get("fingerprint"), note or ""])
+    from . import channel
+    fixed = channel.design_system(pid, d)      # a channel episode: the channel's palette, CSS and kit, word for word
+    sig = _hash([script.get("title"), script.get("lines"), board.get("fingerprint"), note or ""]
+                + ([fixed] if fixed else []))
     cur = P.read_artifact(pid, DESIGN, d) or {}
     if cur.get("sig") == sig and cur.get("scenes"):
         return cur
@@ -207,7 +210,7 @@ def design(pid, s, script, board, research, d=None, ask=None, note=None):
     if not out.get("scenes"):
         raise ShortError("the design pass returned no scene list")
     art = {"sig": sig, "concept": out.get("concept"), "palette": out.get("palette") or board.get("palette") or {},
-           "global_css": out.get("global_css") or "", "kit": out.get("kit") or "", "scenes": out["scenes"]}
+           "global_css": out.get("global_css") or "", "kit": out.get("kit") or "", "scenes": out["scenes"], **fixed}
     P.write_artifact(pid, DESIGN, art, d)
     P.event(pid, "design_system", d=d, stage=s["id"], scenes=len(art["scenes"]),
             palette=len(art["palette"]), model_digest=sig)
