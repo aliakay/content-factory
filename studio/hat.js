@@ -759,7 +759,7 @@ async function viewProject(pid) {
     <h1 class="mt12">${esc(p.title)}</h1>
     ${progressHtml(f, done, cur, upcoming)}
     ${actionHtml(s, f)}
-    <div class="split mt16"><div class="col" style="gap:10px">${history.length ? `<div class="row"><h3 style="margin:0">${esc(t("history"))}</h3><span class="sp"></span><span class="tiny faint">${esc(t("history_hint"))}</span></div>` : ""}
+    <div class="split hl-split mt16"><div class="col" style="gap:10px">${history.length ? `<div class="row"><h3 style="margin:0">${esc(t("history"))}</h3><span class="sp"></span><span class="tiny faint">${esc(t("history_hint"))}</span></div>` : ""}
         ${history.map((x) => historyItem(x, f)).join("")}
         ${p.brief ? `<details class="card"><summary class="small muted">${esc(t("brief"))}</summary><div class="small mt8">${esc(p.brief)}</div></details>` : ""}</div>
       <div class="col sticky" style="gap:14px">${voiceCard(f)}${templateCard(f)}${reportHtml(f)}${proofHtml(s.proof)}${exportHtml(f)}${deliverHtml(f)}${clipsHtml(f)}${reviewHtml(s.review)}${eventsHtml(f)}</div></div>`;
