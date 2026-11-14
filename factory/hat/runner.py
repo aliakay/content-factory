@@ -48,9 +48,10 @@ def approve(pid, sid, queue, by=None, note=None, d=None):
             tools.Ctx(pid, sid, d), st["schema"], artifact)
         if found:
             raise P.GateError("This stage does not pass its artifact checks:\n" + "\n".join("- " + x for x in found))
-    if st["gate"] and st["artifact"] == "scene_plan" and st["schema"] == "scene_plan":
+    checks = P.checks_enabled()                      # CF_HAT_CHECKS=0: no quality rules at the gate
+    if checks and st["gate"] and st["artifact"] == "scene_plan" and st["schema"] == "scene_plan":
         _verify_scene_determinism(pid, sid, d)
-    if st["gate"] and st["artifact"] == "animatic":
+    if checks and st["gate"] and st["artifact"] == "animatic":
         plan_stage = next((x for x in manifest.get(P.load(pid, d)["line"])["stages"] if x["artifact"] == "scene_plan"), None)
         if plan_stage and not plan_stage["gate"] and plan_stage["schema"] == "scene_plan":
             _verify_scene_determinism(pid, plan_stage["id"], d)   # a line without a scene plan gate checks it here
@@ -58,8 +59,9 @@ def approve(pid, sid, queue, by=None, note=None, d=None):
         if found:
             raise P.GateError("Opening-motion rule: the animatic does not pass:\n" + "\n".join("- " + x for x in found))
     proof.guard(pid, sid, d)          # proof mode: a number without its source cannot pass the gate
-    hookrule.guard(pid, sid, d)       # the hook rule: line 1 must land in 3 s, concrete and on-subject
-    coldtest.guard(pid, sid, d)       # an independent reader must understand the exact lines at the script gate
+    if checks:
+        hookrule.guard(pid, sid, d)   # the hook rule: line 1 must land in 3 s, concrete and on-subject
+        coldtest.guard(pid, sid, d)   # an independent reader must understand the exact lines at the script gate
     channel.guard(pid, sid, d)        # a channel episode's script cannot cost more than the channel's credit cap
     rows = licence.guard(pid, sid, d) # the attribution ledger: no unlicensed asset, no missing required credit
     if rows is not None:

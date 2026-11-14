@@ -180,6 +180,8 @@ def _meaning(ctx, schema, data):
         structural = shotplan.problems(data.get("scenes") or [], lines, partial=schema == "scene_part")
         if structural:
             return structural
+        if not P.checks_enabled():                 # CF_HAT_CHECKS=0: structure only, the author's first take goes on
+            return []
         story = data | {"scenes": scenes}
         found = motiongrammar.problems(scenes) if p["line"] in motiongrammar.LINES else []
         if not found and p["line"] in camera.LINES:
@@ -190,7 +192,7 @@ def _meaning(ctx, schema, data):
                      or direction_problems(ctx, story))
         if found:
             return found
-    if schema in ("script", "long_script") and hookrule.authored(p["line"], ctx.stage):
+    if schema in ("script", "long_script") and hookrule.authored(p["line"], ctx.stage) and P.checks_enabled():
         lang = p.get("video_lang") or "tr"
         found = hookrule.problems(data, lang) + coldtest.problems(data, lang)
         evidence = P.read_artifact(ctx.pid, "cold_read", ctx.d) or {}

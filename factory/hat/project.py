@@ -91,6 +91,14 @@ def next_number(con=None, d=None):
     return max(used + [0]) + 1
 
 
+def checks_enabled():
+    """The quality checks can be switched off for the whole studio: CF_HAT_CHECKS=0 in config.env (default on). Off,
+    an agent's first output goes through: no camera / subject / determinism / originality / direction-board checks on
+    submit, and no hook, cold-test or animatic rule at the gate. Schema, structure, budget, proof mode and the licence
+    ledger still apply."""
+    return os.environ.get("CF_HAT_CHECKS", "1").strip().lower() not in ("0", "false", "no", "off")
+
+
 def create(line_id, title, brief="", video_lang="tr", aspect="9:16", channel=None, user=None, con=None, d=None,
            num=None, extra=None):
     m = manifest.get(line_id)

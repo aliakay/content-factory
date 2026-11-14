@@ -321,6 +321,8 @@ def validate(plan, script, board, refs=(), sp=None, lang="tr"):
     starts = [sc.get("start") for sc in (sp or {}).get("scenes") or []]
     found = (shotplan.problems(scenes_, lines, words=words, starts=starts if words and all(s is not None for s in starts) else None)
              or T.validate_artifact("scene_plan", plan))
+    if not P.checks_enabled():         # CF_HAT_CHECKS=0: structure and schema only, like the gate (no repair round)
+        return found
     found += camera.problems(scenes_) or motiongrammar.problems(scenes_) or subjectqc.problems(scenes_, lines, lang) \
         or determinism.problems(plan) or originality.problems(plan, lines, refs) \
         or direction_problems(plan, board)

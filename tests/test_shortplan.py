@@ -206,3 +206,13 @@ def test_the_designers_see_the_approved_concept_and_the_shared_kit_runs_in_every
     assert all(v["js"].startswith("function buildSet(){ return 1; }\n") for v in js.values())
     assert X.design({**plan, "kit_js": ""})["scenes"]["s0"]["js"] == plan["scenes"][0]["js"]
     assert SP.concept(_project(d)) == ""
+
+
+def test_with_the_checks_off_the_stage_keeps_only_structure(monkeypatch):
+    plan = {"scenes": [{**_scene(i, [i, i], move="push_in"), "camera": {"move": "push_in", "seconds": 3.5,
+                                                                        "easing": "ease_out", "target": "the figure"}}
+                       for i in range(3)], "concept": "c", "palette": {}, "global_css": "", "summary": "s"}
+    monkeypatch.setenv("CF_HAT_CHECKS", "1")
+    on = SP.validate(plan, SCRIPT, BOARD)
+    monkeypatch.setenv("CF_HAT_CHECKS", "0")
+    assert on and SP.validate(plan, SCRIPT, BOARD) == []
