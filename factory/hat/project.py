@@ -373,7 +373,7 @@ def flow(pid, lang="tr", d=None):
     state, current = next_stage(pid, d)
     return {"project": p, "line": {k: m[k] for k in ("id", "name", "tagline", "status")}, "state": state,
             "current": current,
-            "stages": [{**{k: s[k] for k in ("id", "name", "says", "gate_says", "gate", "run", "artifact")},
+            "stages": [{**{k: s.get(k) for k in ("id", "name", "says", "gate_says", "ask", "gate", "run", "artifact")},
                         **{k: cps[s["id"]].get(k) for k in ("status", "revisions", "review", "cost", "summary", "error",
                                                             "note", "history")}} for s in m["stages"]],
             "spent": {"credits": sum(c["cost"].get("credits", 0) for c in cps.values()),

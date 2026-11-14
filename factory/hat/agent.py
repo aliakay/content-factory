@@ -49,6 +49,16 @@ def contract():
     return open(os.path.join(SKILLS, "meta", "stage-agent.md"), encoding="utf-8").read()
 
 
+def checks_off(s):
+    """With CF_HAT_CHECKS=0 the hook rule, the cold test and the words check are not enforced: say so, so the writer does
+    not spend a minute of the stage running them (007: three cold tests were 40 s of an 80 s script run)."""
+    if P.checks_enabled() or s.get("artifact") not in ("script", "long_script"):
+        return ""
+    return ("\n## Quality checks are switched off in this studio\nThe hook rule, the cold test and the words check are not "
+            "enforced: do not run `cold_test` or `words_check`, and ignore the brief's lines that require them. The length, "
+            "the claims and their sources still apply. Write the script once, carefully, and submit it.\n")
+
+
 def task(pid, s, note=None, d=None):
     """The full instruction text for one stage run."""
     from .. import proof, sceneedit
@@ -80,7 +90,7 @@ Aspect: {p.get('aspect')} · Earlier artifacts you can read: {', '.join(earlier)
 {review}
 
 ## Stage brief
-{skill(p['line'], s['id'], p)}{channel.brief(pid, s, d)}{proof.brief(pid, s, d)}{sceneedit.brief(pid, s, d)}
+{skill(p['line'], s['id'], p)}{checks_off(s)}{channel.brief(pid, s, d)}{proof.brief(pid, s, d)}{sceneedit.brief(pid, s, d)}
 """
 
 

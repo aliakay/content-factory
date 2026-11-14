@@ -55,6 +55,15 @@ const TX = {
     ev_reopen: "{0} yeniden açıldı", ev_revise: "Not geri gönderildi: {0}", ev_queued: "{0} sıraya alındı", ev_tool_error: "Araç hatası: {0}",
     ev_budget_refit: "Bütçe yazılan metne göre güncellendi",
     ev_template_saved: "Kanal şablonu olarak kaydedildi", ev_channel_note: "Not kanalın kalıcı notlarına eklendi", ev_channel_library: "Sahneler kanalın kitaplığına eklendi",
+    ev_design_system: "Sahne tasarım dili hazır ({0} sahne)", ev_waiting: "{0} hazır, kararını bekliyor", ev_done_in: "{0} bitti · {1}",
+    ev_agent_done: "Model yazdı · {0} · ${1}", ev_model_working: "{0} için model çalışıyor ({1})", ev_part_failed: "Bir sahne çizilemedi, yeniden deneniyor",
+    ev_lines_rebased: "Sahne satır numaraları düzeltildi", ev_submit_rejected: "Model çıktısı kontrolden dönmedi, düzeltiyor", ev_lint_skipped: "Yerleşim kontrolü atlandı",
+    you_title: "Senden beklenen", you_now: "Şu an çalışıyor", you_none: "Senden bir şey beklenmiyor", you_done: "Video hazır", you_failed: "Bir aşama hata verdi",
+    you_busy_hint: "Bitince burada senden ne beklendiği yazacak. Sayfayı açık tutman gerekmiyor.", you_done_hint: "Bütün aşamalar tamamlandı. Videoyu indirebilir ya da platform dosyalarını hazırlayabilirsin.",
+    progress: "İlerleme", progress_n: "{0}/{1} aşama tamam", next_up: "Sırada", history: "Tamamlanan aşamalar", history_hint: "En son biten en üstte; açmak için tıkla.",
+    rp_title: "Süre ve maliyet", rp_stage: "Aşama", rp_work: "Çalışma", rp_wait: "Seni bekledi", rp_claude: "Claude", rp_eleven: "ElevenLabs", rp_total: "Toplam",
+    rp_span: "Baştan sona {0} · makinede {1} · senin kararlarında {2}", rp_voice: "Ses {0} kredi", rp_music: "Müzik {0} kredi", rp_music_free: "Müzik ücretsiz ({0})", rp_runs: "{0} tur",
+    voice_set: "Ses seçildi", voice_change: "Sesi değiştir",
     tp_title: "Kanal şablonu", tp_ep: "Bu video {0} kanalının şablonuyla üretiliyor. Görünüm, ses, müzik ve süre şablondan gelir.", tp_ep_note: "Geri bildirim notunu \"kanal:\" ile başlatırsan not kanalın sonraki bütün bölümlerine de uygulanır.",
     tp_save_lead: "Bu videonun görünümünü, sesini, müziğini, süresini ve senaryo kalıbını bir kanalın şablonu yap. Sonraki bölümler \"Kanal bölümü\" hattıyla yalnız 3 onayla üretilir.", tp_not_yet: "Şablon için videonun senaryosu, yön panosu ve sahne planı hazır olmalı.",
     tp_channel: "Kanal", tp_has: "şablonu var, üzerine yazılır", tp_music: "Müzik", tp_music_reuse: "Bu videonun parçası kanalın müziği olsun (sonraki bölümlerde kredi harcamaz)", tp_music_new: "Her bölümde aynı tarifle yeni parça üret (kredi harcar)",
@@ -115,6 +124,15 @@ const TX = {
     ev_reopen: "{0} reopened", ev_revise: "Note sent back to: {0}", ev_queued: "{0} queued", ev_tool_error: "Tool error: {0}",
     ev_budget_refit: "Budget re-priced from the written script",
     ev_template_saved: "Saved as the channel's template", ev_channel_note: "Note added to the channel's standing notes", ev_channel_library: "Scenes added to the channel's library",
+    ev_design_system: "Scene design system ready ({0} scenes)", ev_waiting: "{0} ready, waiting for you", ev_done_in: "{0} finished · {1}",
+    ev_agent_done: "Model wrote it · {0} · ${1}", ev_model_working: "Model working on {0} ({1})", ev_part_failed: "A scene could not be drawn; retrying",
+    ev_lines_rebased: "Scene line numbers corrected", ev_submit_rejected: "The model's output failed a check; it is fixing it", ev_lint_skipped: "Layout check skipped",
+    you_title: "Waiting for you", you_now: "Working now", you_none: "Nothing is waiting for you", you_done: "The video is ready", you_failed: "A stage failed",
+    you_busy_hint: "When it finishes, this panel says what you need to do. You do not need to keep the page open.", you_done_hint: "Every stage is complete. Download the video or prepare the platform files.",
+    progress: "Progress", progress_n: "{0}/{1} stages done", next_up: "Next", history: "Completed stages", history_hint: "The latest at the top; click to open.",
+    rp_title: "Time and cost", rp_stage: "Stage", rp_work: "Working", rp_wait: "Waited for you", rp_claude: "Claude", rp_eleven: "ElevenLabs", rp_total: "Total",
+    rp_span: "{0} from start to end · {1} on the machine · {2} in your decisions", rp_voice: "Voice {0} credits", rp_music: "Music {0} credits", rp_music_free: "Music free ({0})", rp_runs: "{0} runs",
+    voice_set: "Voice chosen", voice_change: "Change the voice",
     tp_title: "Channel template", tp_ep: "This film is made from the template of the channel {0}. Look, voice, music and length come from the template.", tp_ep_note: "Start a feedback note with \"channel:\" and it is also applied to every later episode of the channel.",
     tp_save_lead: "Make this film's look, voice, music, length and script mould a channel's template. Later episodes are made on the \"Channel episode\" line with only 3 approvals.", tp_not_yet: "A template needs the film's script, direction board and scene plan.",
     tp_channel: "Channel", tp_has: "has a template; it is replaced", tp_music: "Music", tp_music_reuse: "Use this film's track as the channel's music (no credits in later episodes)", tp_music_new: "Make a new track from the same prompt in every episode (spends credits)",
@@ -625,23 +643,87 @@ function decisionHtml(s, f) {
   if (f.state === "run" && f.current === s.id && s.run !== "planned") return `<div class="card hl-dec"><button class="btn accent block" data-act="hatAct" data-a="advance" data-stage="${id}">${esc(t("start_stage"))}</button></div>`;
   return `<div class="card hl-dec"><div class="small muted">${esc(s.run === "planned" ? t("not_built") : t("waiting_prev"))}</div></div>`;
 }
-function eventText(e, f) {
+const QUIET = new Set(["tool", "tool_error", "queued", "review_skipped", "stage_start", "created"]);
+const dur = (s) => (s >= 90 ? `${Math.round(s / 60)} ${L() === "tr" ? "dk" : "min"}` : `${Math.round(s)} ${L() === "tr" ? "sn" : "s"}`);
+function eventText(e, f, started) {
   const nm = (sid) => ((f.stages.find((x) => x.id === sid) || {}).name || sid || "");
+  if (QUIET.has(e.kind)) return "";
+  if (e.kind === "stage_finish") {
+    if (e.status === "awaiting_approval") return t("ev_waiting", nm(e.stage));
+    const s0 = started[e.stage];
+    return s0 ? t("ev_done_in", nm(e.stage), dur((new Date(e.at) - new Date(s0)) / 1000)) : t("ev_stage_finish", nm(e.stage));
+  }
+  if (e.kind === "agent_start") return t("ev_model_working", nm(e.stage), e.model || "");
+  if (e.kind === "agent_end") return t("ev_agent_done", dur(e.seconds || 0), (e.cost_usd || 0).toFixed(2));
+  if (e.kind === "design_system") return t("ev_design_system", e.scenes || "");
   const k = "ev_" + e.kind;
   if (!(k in TX.tr)) return "";
-  if (e.kind === "tool" || e.kind === "tool_error") return t(k, e.tool || "");
-  if (e.kind === "agent_start" || e.kind === "review") return t(k, e.model || "");
+  if (e.kind === "review") return t(k, e.model || "");
   return t(k, nm(e.stage));
 }
 function eventsHtml(f) {
-  const rows = f.events.slice().reverse().map((e) => [e, eventText(e, f)]).filter(([, x]) => x).slice(0, 18);
+  const started = {}, rows = [];
+  for (const e of f.events) {
+    if (e.kind === "stage_start") started[e.stage] = e.at;
+    const x = eventText(e, f, started);
+    if (x) rows.push([e, x]);
+  }
+  rows.reverse(); rows.splice(18);
   return `<div class="card"><h3>${esc(t("live"))}</h3><div class="hl-ev">${rows.map(([e, x]) => `<div><time>${esc(dt(e.at))}</time><span>${esc(x)}${e.seconds != null && e.kind !== "tool" ? ` <span class="faint">${e.seconds}s</span>` : ""}</span></div>`).join("")}</div>
     <div class="tiny muted mt8">${esc(t("spent"))}: ${num(f.spent.credits)} ${esc(t("credits"))} · $${(f.spent.usd || 0).toFixed(2)}</div></div>`;
+}
+// The top of a production's page: what is done, what runs, what comes next — in words, not icons.
+function progressHtml(f, done, cur, upcoming) {
+  const n = f.stages.length;
+  const chip = (x, cls) => `<span class="hl-chip ${cls}">${cls === "done" ? "✓ " : cls === "now" ? (x.status === "running" ? '<span class="spin"></span> ' : "● ") : ""}${esc(x.name)}</span>`;
+  return `<div class="hl-progress mt12"><div class="small"><b>${esc(t("progress"))}:</b> ${esc(t("progress_n", done.length, n))}</div>
+    <div class="hl-chips mt8">${done.map((x) => chip(x, "done")).join("")}${cur ? chip(cur, "now") : ""}${upcoming.map((x) => chip(x, "next")).join("")}</div></div>`;
+}
+// The one panel that says what the creator has to do now, with the stage's output and the buttons next to it.
+function actionHtml(s, f) {
+  const waiting = s.status === "awaiting_approval", running = s.status === "running" || (f.state === "busy" && !waiting),
+    failed = s.status === "failed", finished = f.state === "done";
+  const head = waiting ? `🔒 ${t("you_title")}: ${s.name}` : failed ? `! ${t("you_failed")}: ${s.name}` : finished ? `✓ ${t("you_done")}`
+    : running ? `${t("you_now")}: ${s.name}` : `${t("next_up")}: ${s.name}`;
+  const hint = waiting ? (s.ask || s.gate_says || "") : running ? `${s.says || ""} ${t("you_busy_hint")}` : finished ? t("you_done_hint") : (s.says || "");
+  return `<div class="card hl-action mt16 ${waiting ? "gate" : failed ? "bad" : ""}">
+    <div class="row"><h2 style="margin:0">${running ? '<span class="spin"></span> ' : ""}${esc(head)}</h2></div>
+    ${hint ? `<div class="hl-ask mt8">${esc(hint)}</div>` : ""}
+    ${s.note ? `<div class="note mt12 small"><b>${esc(t("feedback"))}:</b> ${esc(s.note)}</div>` : ""}
+    <div class="hl-action-body mt16 ${finished ? "solo" : ""}"><div class="hl-action-out">${outputHtml(s, f)}</div>
+      ${finished ? "" : `<div class="hl-action-dec">${decisionHtml(s, f)}</div>`}</div></div>`;
+}
+// One completed stage in the history: closed, with its time and cost; open it to see what it made.
+function historyItem(x, f) {
+  const r = ((f.report || {}).stages || []).find((y) => y.id === x.id) || {};
+  const meta = [r.work_s ? dur(r.work_s) : "", r.runs > 1 ? t("rp_runs", r.runs) : "", r.usd ? "$" + r.usd.toFixed(2) : "", r.credits ? r.credits + " " + t("credits") : ""].filter(Boolean).join(" · ");
+  const canBack = x.status === "approved" && !f.stages.some((y) => y.status === "running") && f.state !== "archived";
+  return `<details class="card hl-hist"><summary><span class="ok">✓</span> <b>${esc(x.name)}</b>${meta ? ` <span class="tiny faint">· ${esc(meta)}</span>` : ""}
+      ${x.summary ? `<div class="small muted mt8">${esc(x.summary)}</div>` : ""}</summary>
+    <div class="mt12">${outputHtml(x, f)}</div>${canBack ? `<button class="btn ghost sm mt12" data-act="hatAct" data-a="back" data-stage="${esc(x.id)}">${ICON.back}${esc(t("go_back"))}</button>` : ""}</details>`;
+}
+// Time and money: per stage, with the minutes the line waited for the creator kept apart from the machine's.
+function reportHtml(f) {
+  const r = f.report;
+  if (!r || !r.stages) return "";
+  const rows = r.stages.filter((x) => x.runs || x.usd || x.credits);
+  if (!rows.length) return "";
+  const el = r.eleven || {};
+  const music = el.music_source === "channel" || el.music_source === "composer" ? t("rp_music_free", el.music_source) : t("rp_music", el.music || 0);
+  return `<details class="card"><summary><b>${esc(t("rp_title"))}</b> <span class="tiny faint">· ${esc(dur(r.span_s || 0))} · $${(r.usd || 0).toFixed(2)} · ${num((el.voice || 0) + (el.music || 0))} ${esc(t("credits"))}</span></summary>
+    <div class="tiny muted mt8">${esc(t("rp_span", dur(r.span_s || 0), dur(r.work_s || 0), dur(r.wait_s || 0)))}</div>
+    <div style="overflow-x:auto"><table class="mt8 small"><thead><tr><th>${esc(t("rp_stage"))}</th><th class="num">${esc(t("rp_work"))}</th><th class="num">${esc(t("rp_wait"))}</th><th class="num">${esc(t("rp_claude"))}</th><th class="num">${esc(t("rp_eleven"))}</th></tr></thead>
+    <tbody>${rows.map((x) => `<tr><td>${esc(x.name)}${x.runs > 1 ? ` <span class="tiny faint">(${esc(t("rp_runs", x.runs))})</span>` : ""}</td><td class="num">${x.work_s ? esc(dur(x.work_s)) : "—"}</td><td class="num">${x.wait_s ? esc(dur(x.wait_s)) : "—"}</td><td class="num">${x.usd ? "$" + x.usd.toFixed(2) : "—"}</td><td class="num">${x.credits ? num(x.credits) : "—"}</td></tr>`).join("")}
+    <tr><td><b>${esc(t("rp_total"))}</b></td><td class="num"><b>${esc(dur(r.work_s || 0))}</b></td><td class="num"><b>${esc(dur(r.wait_s || 0))}</b></td><td class="num"><b>$${(r.usd || 0).toFixed(2)}</b></td><td class="num"><b>${num(r.credits || 0)}</b></td></tr></tbody></table></div>
+    <div class="tiny faint mt8">${esc(t("rp_voice", el.voice || 0))} · ${esc(music)}</div></details>`;
 }
 // narrator suggestions on the project page (until the film is done): same cards as the create form
 function voiceCard(f) {
   const p = f.project;
   if (!p || f.state === "done" || f.state === "archived" || p.legacy) return "";
+  if (f.stages.some((x) => x.id === "assets" && ["approved", "done"].includes(x.status))) return "";   // the voice is made
+  if (p.voice_id) return `<details class="card"><summary class="small"><b>${esc(t("voice"))}</b> · ${esc(t("voice_set"))} <span class="faint">· ${esc(t("voice_change"))}</span></summary>
+    <div class="vsug mt8" data-pick="hat" data-lang="${esc(p.video_lang || "tr")}" data-kind="social" data-sel="${esc(p.voice_id || "")}"></div><div class="tiny faint mt8">${esc(t("voice_next"))}</div></details>`;
   return `<div class="card"><h3>${esc(t("voice"))}</h3><div class="vsug" data-pick="hat" data-lang="${esc(p.video_lang || "tr")}" data-kind="social" data-sel="${esc(p.voice_id || "")}"></div>
     <div class="tiny faint mt8">${esc(t("voice_next"))}</div></div>`;
 }
@@ -665,18 +747,24 @@ async function viewProject(pid) {
   if (HS.delivering && HS.delivering.pid === pid && (ndv !== HS.delivering.had || HS.delivering.polls > 300)) HS.delivering = null;
   const delivering = HS.delivering && HS.delivering.pid === pid;
   if (delivering) HS.delivering.polls++;
-  const sel = HS.sel[pid] && f.stages.some((x) => x.id === HS.sel[pid]) ? HS.sel[pid] : (f.current || f.stages[f.stages.length - 1].id);
-  const s = f.stages.find((x) => x.id === sel);
+  // the stage the creator has to look at: the one waiting, running or failed; at the end the final film
+  const cur = f.stages.find((x) => x.id === f.current) || null;
+  const finalStage = [...f.stages].reverse().find((x) => x.artifact === "render" && x.output) || [...f.stages].reverse().find((x) => x.output);
+  const s = cur || finalStage || f.stages[f.stages.length - 1];
+  const done = f.stages.filter((x) => ["approved", "done"].includes(x.status));
+  const upcoming = f.stages.filter((x) => !["approved", "done"].includes(x.status) && x.id !== (cur || {}).id);
+  const history = done.filter((x) => x.id !== s.id).reverse();       // newest first, the first stage at the bottom
   const html = `<div class="row"><a class="btn ghost sm" href="#/uretimler">${ICON.back}${esc(t("back_list"))}</a><span class="sp"></span>
       <span class="badge">${esc(f.line.name)}</span><span class="badge">${esc((p.video_lang || "").toUpperCase())}</span><span class="badge">${esc(p.aspect || "")}</span>${p.proof ? `<span class="badge ok">${esc(t("proof_mode"))}</span>` : ""}${stateBadge(f.state)}</div>
-    <h1 class="mt12">${esc(p.title)}</h1>${p.brief ? `<div class="lead hl-brief">${esc(p.brief)}</div>` : ""}
-    ${flowRail(f, sel)}
-    <div class="split mt16"><div class="col" style="gap:14px"><div class="card"><div class="row"><h2 style="margin:0">${esc(s.name)}</h2><span class="sp"></span>
-        <span class="badge hl-sb st-${esc(s.status)}">${esc(t("st_" + s.status))}</span></div><div class="small muted mt8">${esc(s.says)}</div>
-        ${s.note ? `<div class="note mt12 small"><b>${esc(t("feedback"))}:</b> ${esc(s.note)}</div>` : ""}<div class="mt16">${outputHtml(s, f)}</div></div></div>
-      <div class="col sticky" style="gap:14px">${voiceCard(f)}${decisionHtml(s, f)}${templateCard(f)}${proofHtml(s.proof)}${exportHtml(f)}${deliverHtml(f)}${clipsHtml(f)}${reviewHtml(s.review)}${eventsHtml(f)}</div></div>`;
+    <h1 class="mt12">${esc(p.title)}</h1>
+    ${progressHtml(f, done, cur, upcoming)}
+    ${actionHtml(s, f)}
+    <div class="split mt16"><div class="col" style="gap:10px">${history.length ? `<div class="row"><h3 style="margin:0">${esc(t("history"))}</h3><span class="sp"></span><span class="tiny faint">${esc(t("history_hint"))}</span></div>` : ""}
+        ${history.map((x) => historyItem(x, f)).join("")}
+        ${p.brief ? `<details class="card"><summary class="small muted">${esc(t("brief"))}</summary><div class="small mt8">${esc(p.brief)}</div></details>` : ""}</div>
+      <div class="col sticky" style="gap:14px">${voiceCard(f)}${templateCard(f)}${reportHtml(f)}${proofHtml(s.proof)}${exportHtml(f)}${deliverHtml(f)}${clipsHtml(f)}${reviewHtml(s.review)}${eventsHtml(f)}</div></div>`;
   const busy = f.state === "busy" || f.stages.some((x) => x.status === "running");
-  paint(html, JSON.stringify([L(), sel, f.state, f.current, f.stages.map((x) => [x.status, x.revisions, x.proof ? x.proof.unmatched : null]), f.events.length, nex, !!exporting, ndv, !!delivering, f.clips ? f.clips.clips.map((c) => [c.id, c.status, c.busy]) : 0]));
+  paint(html, JSON.stringify([L(), s.id, f.state, f.current, f.stages.map((x) => [x.status, x.revisions, x.proof ? x.proof.unmatched : null]), f.events.length, nex, !!exporting, ndv, !!delivering, f.clips ? f.clips.clips.map((c) => [c.id, c.status, c.busy]) : 0]));
   const clipping = f.clips && f.clips.clips.some((c) => c.busy);
   return { poll: busy || exporting || delivering || clipping ? 4000 : 0 };
 }

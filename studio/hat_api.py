@@ -168,10 +168,50 @@ def _template_card(pid, con):
                          for c in channels.listing(con, counts=False)]}
 
 
+def report(pid, f):
+    """Time and money per stage, from the project's own events and checkpoints: how many runs, the machine's minutes,
+    the minutes the line waited for the creator, Claude dollars and ElevenLabs credits (voice and music apart)."""
+    import datetime as dt
+    at = lambda s: dt.datetime.fromisoformat(s)
+    ev = P.tail(pid, n=100000)
+    start, rows = {}, {s["id"]: {"id": s["id"], "name": s["name"], "runs": 0, "work_s": 0.0, "wait_s": 0.0,
+                                  "usd": round((s.get("cost") or {}).get("usd", 0) or 0, 3),
+                                  "credits": round((s.get("cost") or {}).get("credits", 0) or 0)} for s in f["stages"]}
+    waiting = {}
+    for e in ev:
+        sid, k = e.get("stage"), e.get("kind")
+        if sid not in rows:
+            continue
+        if k == "stage_start":
+            start[sid] = at(e["at"])
+            if sid in waiting:                    # a note re-ran the stage: the wait ends here
+                rows[sid]["wait_s"] += (at(e["at"]) - waiting.pop(sid)).total_seconds()
+        elif k in ("stage_finish", "stage_fail") and sid in start:
+            rows[sid]["runs"] += 1
+            rows[sid]["work_s"] += (at(e["at"]) - start.pop(sid)).total_seconds()
+            if e.get("status") == "awaiting_approval":
+                waiting[sid] = at(e["at"])
+        elif k in ("approve", "revise") and sid in waiting:
+            rows[sid]["wait_s"] += (at(e["at"]) - waiting.pop(sid)).total_seconds()
+    assets = P.read_artifact(pid, "assets") or {}
+    voice, music = (assets.get("voice") or {}), (assets.get("music") or {})
+    eleven = {"voice": round(voice.get("credits") or 0), "music": round(music.get("credits") or 0),
+              "music_source": music.get("source") or ("elevenlabs" if music.get("file") else None)}
+    out = [r | {"work_s": round(r["work_s"]), "wait_s": round(r["wait_s"])} for r in rows.values()]
+    span = (at(ev[-1]["at"]) - at(ev[0]["at"])).total_seconds() if ev else 0
+    return {"stages": out, "work_s": sum(r["work_s"] for r in out), "wait_s": sum(r["wait_s"] for r in out),
+            "span_s": round(span), "usd": round(sum(r["usd"] for r in out), 2),
+            "credits": sum(r["credits"] for r in out), "eleven": eleven}
+
+
 def project(pid, con=None):
     _check(pid)
     f = P.flow(pid, lang())
     f["template"] = _template_card(pid, con)
+    try:
+        f["report"] = report(pid, f)
+    except Exception:                       # a report must never take the page down
+        f["report"] = None
     for s in f["stages"]:
         art = P.read_artifact(pid, s["artifact"]) if s["status"] not in ("pending",) else None
         s["output"] = _public(s["artifact"], art) if art is not None else None

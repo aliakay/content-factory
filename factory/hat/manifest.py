@@ -77,6 +77,7 @@ def validate(m, vocab):
                 "schema": st.get("schema") or st.get("artifact") or base.get("artifact") or sid,
                 "name": st.get("name") or base["name"], "says": st.get("says") or base.get("says") or {"tr": "", "en": ""},
                 "gate_says": st.get("gate_says") or base.get("gate_says") or {"tr": "", "en": ""},
+                "ask": st.get("ask") or base.get("ask") or {"tr": "", "en": ""},          # what the creator is asked to do
                 "pass_score": st.get("pass_score")}
         if full["pass_score"] is not None and not (isinstance(full["pass_score"], int) and 50 <= full["pass_score"] <= 100):
             raise ManifestError(f"{where}.{sid}: pass_score must be a whole number 50-100")
@@ -131,6 +132,7 @@ def localize(m, lang):
         out[k] = pick(m[k])
     for k in OPTIONAL_LISTS:
         out[k] = pick(m.get(k) or {lang: []})
-    out["stages"] = [{**s, "name": pick(s["name"]), "says": pick(s["says"]), "gate_says": pick(s["gate_says"])}
+    out["stages"] = [{**s, "name": pick(s["name"]), "says": pick(s["says"]), "gate_says": pick(s["gate_says"]),
+                      "ask": pick(s.get("ask") or {lang: ""})}
                      for s in m["stages"]]
     return out

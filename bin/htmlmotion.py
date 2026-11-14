@@ -341,7 +341,11 @@ def render_bundle(bundle, spec, workdir, dst, preview=False):
     audiofx.mix(silent, mixed, total, voice=voice, music=music, cues=cues, words=words, voice_offset=vs,
                 chain=spec.get("voice_chain"))
     vpost = post_vf(spec.get("post_fx"), preview)
-    vcodec = ["-vf", vpost, "-c:v", "libx264", "-preset", "veryfast" if preview else "medium", "-crf", "24" if preview else "17",
+    # Temporal grain is pure noise: at crf 17 x264 spends ~170 Mbit/s on it (007: a 46 s film became 978 MB, the
+    # encode took 4.6 min and every QA pass after it read the gigabyte again). The platforms re-encode to ~10 Mbit/s
+    # anyway, so the final is capped at 20 Mbit/s (still twice what they keep) and encoded with a faster preset.
+    vcodec = ["-vf", vpost, "-c:v", "libx264", "-preset", "veryfast" if preview else "faster", "-crf", "24" if preview else "18",
+              *([] if preview else ["-maxrate", "20M", "-bufsize", "40M"]),
               "-tune", "grain", "-pix_fmt", "yuv420p"] if vpost else ["-c:v", "copy"]
     subprocess.run([FFMPEG, "-y", "-v", "error", "-i", mixed, *vcodec, "-af",
                     f"loudnorm=I=-14:TP=-1.5:LRA=11,atrim=0:{total:.3f}", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",

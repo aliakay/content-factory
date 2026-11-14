@@ -306,7 +306,7 @@ def assets(pid, s, note=None, d=None):
     lang = p.get("video_lang", "tr")
     account = p.get("eleven_account") or accounts.default_eleven(p.get("created_by"))
     if not narrated(script):
-        return _music_only(pid, p, prop, con, account, d)
+        return _music_only(pid, p, prop, con, account, d, s)
     voice_id = (prop.get("voice") or {}).get("voice_id") or p.get("voice_id") or formats.default_voice(lang, account)
     path, cost = narrate(pid, con, lines, voice_id, account, [c.get("line") for c in script.get("chapters") or []], d)
     path, trimmed = pretrim_voice(pid, path, lines, lang, p, d)
@@ -339,8 +339,10 @@ def assets(pid, s, note=None, d=None):
         music = _tempo(music)
     art = {"voice": voice, "music": music}
     P.write_artifact(pid, "assets", art, d)          # the preview reads the real timing from here
-    res, sp = _render(pid, final=False, d=d)
     total = round(cost + mcost)
+    if not s.get("gate"):                            # nobody approves a preview here: the final render is next
+        return _no_preview(pid, p, art, total, dur, music, d)
+    res, sp = _render(pid, final=False, d=d)
     art.update(preview=_rel(res["file"]), duration=sp["duration"],
                summary={"tr": f"Ses hazır ({dur:.1f} sn, {total} kredi){', müzikle' if music else ''}. Önizlemeyi izle.",
                         "en": f"Voice ready ({dur:.1f} s, {total} credits){', with music' if music else ''}. Watch the preview."
@@ -527,7 +529,18 @@ def _tempo(music):
     return music
 
 
-def _music_only(pid, p, prop, con, account, d=None):
+def _no_preview(pid, p, art, total, dur, music, d=None):
+    """The assets stage of a line that does not stop here (a channel episode): the draft render would only cost a
+    minute nobody watches, so the final render follows directly."""
+    ui = p.get("ui_lang") if p.get("ui_lang") in ("tr", "en") else "tr"
+    art["duration"] = round(float(dur or 0), 2)
+    art["summary"] = {"tr": f"Ses hazır ({float(dur or 0):.1f} sn, {total} kredi){', müzikle' if music else ''}. Final video hazırlanıyor.",
+                      "en": f"Voice ready ({float(dur or 0):.1f} s, {total} credits){', with music' if music else ''}. Rendering the final."}[ui]
+    P.write_artifact(pid, "assets", art, d)
+    return {"artifact": art, "summary": art["summary"], "cost": {"credits": total}}
+
+
+def _music_only(pid, p, prop, con, account, d=None, s=None):
     from .. import eleven, productions
     _, _, dur, _ = timing(pid, d)
     secs = round(dur + VOICE_START + TAIL + 1.5, 1)
@@ -550,6 +563,8 @@ def _music_only(pid, p, prop, con, account, d=None):
     music = _tempo(music)
     art = {"voice": None, "music": music}
     P.write_artifact(pid, "assets", art, d)
+    if not (s or {"gate": True}).get("gate"):
+        return _no_preview(pid, p, art, round(mcost), timing(pid, d)[2], music, d)
     res, sp = _render(pid, final=False, d=d)
     ui = p.get("ui_lang") if p.get("ui_lang") in ("tr", "en") else "tr"
     art.update(preview=_rel(res["file"]), duration=sp["duration"],

@@ -422,7 +422,9 @@ def build(pid, s, note=None, d=None, ask=None, build=None, parallel=PARALLEL):
     briefs = design_art["scenes"]
     current = P.read_artifact(pid, "scene_plan", d) or {}
     keep = {sc["id"]: sc for sc in current.get("scenes") or [] if sc.get("id")}
-    groups = parts(briefs, parallel)
+    # one scene per designer call, `parallel` calls at a time: a part of two heavy scenes was still one 30k-token
+    # reply the whole stage waited for (007: 2 min of a 4.7 min stage); a scene alone is about half that
+    groups = parts(briefs, len(briefs))
     asked = named(note, briefs)
     # a note that names scenes repairs those parts only — unless the design itself changed (new ids or ranges), in which
     # case keeping an old scene next to a new design would mix two films: draw every part again
