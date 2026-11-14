@@ -78,7 +78,8 @@ def test_design_then_scenes_then_a_merged_plan(d, monkeypatch):
     assert plan["palette"]["accent"] == "#FFD93D" and plan["global_css"]
     assert plan["parts"]["rebuilt"] == ["s0", "s1", "s2"] and plan["parts"]["kept"] == []
     assert P.read_artifact(pid, SP.DESIGN, d)["sig"] and out["cost"]["usd"] == pytest.approx(0.03, abs=0.05)
-    assert len(calls) == 3                                                     # one design + two parts
+    assert len(calls) == 4                                       # one design + a part per scene (PARALLEL >= 3)
+    assert len(SP.parts(_design(6)["scenes"], 2)) == 2           # a smaller machine still splits in fewer parts
 
 
 def test_a_note_that_names_a_scene_repairs_only_its_part(d, monkeypatch):
@@ -93,11 +94,13 @@ def test_a_note_that_names_a_scene_repairs_only_its_part(d, monkeypatch):
     SP.build(pid, _stage(), d=d, ask=fake_ask)
     first = P.read_artifact(pid, "scene_plan", d)
     before = {s["id"]: s["html"] for s in first["scenes"]}
-    # s2 lives in the second half; the first half must survive untouched
-    out = SP.build(pid, _stage(), note="s2 daha büyük olsun", d=d, ask=fake_ask)
+    # in two parts s2 lives in the second half: the first half must survive untouched
+    out = SP.build(pid, _stage(), note="s2 daha büyük olsun", d=d, ask=fake_ask, parallel=2)
     plan = P.read_artifact(pid, "scene_plan", d)
     assert out["artifact"]["parts"]["kept"] == ["s0", "s1"]              # the other part is untouched
     assert "s2" in out["artifact"]["parts"]["rebuilt"] and "s3" in out["artifact"]["parts"]["rebuilt"]
+    out = SP.build(pid, _stage(), note="s2 daha büyük olsun", d=d, ask=fake_ask, parallel=4)
+    assert out["artifact"]["parts"]["kept"] == ["s0", "s1", "s3"]        # a part per scene: only s2 is redrawn
     assert [s["html"] for s in plan["scenes"] if s["id"] == "s0"] == [before["s0"]]   # kept byte for byte
 
 
@@ -178,3 +181,28 @@ def test_a_plan_the_checks_refuse_never_reaches_the_gate(d):
         SP.build(pid, _stage(), d=d, ask=fake_ask, build=builder)
     plan = P.read_artifact(pid, "scene_plan", d)
     assert plan and plan["checked"]                      # the artifact is there to look at, but the stage failed
+
+
+def test_the_designers_see_the_approved_concept_and_the_shared_kit_runs_in_every_scene(d):
+    from factory.hat import explainer as X
+    pid = _project(d)
+    P.write_artifact(pid, "proposal", {"chosen": "x", "look": "look.set3d", "techniques": ["look.night_palette"],
+                                       "concepts": [{"id": "x", "key_frame": "ghost body floats over the red diff"}]}, d)
+    seen = []
+
+    def fake_ask(prompt):
+        seen.append(prompt)
+        if "the design system only" in prompt:
+            return {**_design(3), "kit_js": "function buildSet(){ return 1; }"}
+        ids = [x for x in ("s0", "s1", "s2") if f'"id": "{x}"' in prompt]
+        return {"scenes": [_scene(int(i[1:]), [int(i[1:]), int(i[1:])]) for i in ids]}
+
+    SP.build(pid, _stage(), d=d, ask=fake_ask)
+    assert all("APPROVED CONCEPT" in x and "look.set3d" in x and "ghost body" in x for x in seen)
+    assert all("function buildSet" in x for x in seen[1:])                 # every designer is told what it may call
+    plan = P.read_artifact(pid, "scene_plan", d)
+    assert plan["kit_js"].startswith("function buildSet")
+    js = X.design(plan)["scenes"]
+    assert all(v["js"].startswith("function buildSet(){ return 1; }\n") for v in js.values())
+    assert X.design({**plan, "kit_js": ""})["scenes"]["s0"]["js"] == plan["scenes"][0]["js"]
+    assert SP.concept(_project(d)) == ""

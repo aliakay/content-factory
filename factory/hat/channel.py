@@ -156,7 +156,8 @@ def capture(pid, cid, name=None, music="reuse", by=None, d=None):
            "design": {"concept": design.get("concept") or plan.get("concept") or "",
                       "palette": plan.get("palette") or design.get("palette") or board.get("palette") or {},
                       "global_css": plan.get("global_css") or design.get("global_css") or "",
-                      "kit": plan.get("kit") or design.get("kit") or ""},
+                      "kit": plan.get("kit") or design.get("kit") or "",
+                      "kit_js": plan.get("kit_js") or design.get("kit_js") or ""},
            "publish": {k: publish[k] for k in ("caption", "hashtags") if publish.get(k)},
            "library": _merge_library(_library(pid, plan), old.get("library")),
            "notes": old.get("notes") or [], "films": old.get("films") or []}
@@ -416,7 +417,7 @@ def design_system(pid, d=None):
     """The channel's design system for the scene plan's design pass: {palette, global_css, kit}, or {}."""
     tpl = of(pid, d) or {}
     ds = tpl.get("design") or {}
-    return {k: ds[k] for k in ("palette", "global_css", "kit") if ds.get(k)}
+    return {k: ds[k] for k in ("palette", "global_css", "kit", "kit_js") if ds.get(k)}
 
 
 def design_brief(pid, d=None):
@@ -434,6 +435,7 @@ Palette: {json.dumps(ds.get('palette') or {}, ensure_ascii=False)}
 Global CSS:
 {ds.get('global_css') or ''}
 Kit: {ds.get('kit') or ''}
+kit_js: {ds.get('kit_js') or '(none)'}
 
 CHANNEL SCENE LIBRARY (scenes the creator approved in earlier episodes)
 Where a line fits one of these, give the scene the same mechanism and end its brief with "like: <library id>": the

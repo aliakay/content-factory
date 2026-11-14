@@ -17,7 +17,11 @@ import hashlib, json, os, re, time
 from . import project as P
 from . import tools as T
 
-PARALLEL = 2          # 4 cores: the stills render contends, so two designers at a time
+# Designers at a time. A designer is a model call: it uses no local CPU (the stills are rendered once, after the merge),
+# so the old limit of two only made the film wait for its longest part. Measured on 006: the parts' replies were 2.7k,
+# 11.6k and 26k output tokens, and the stage waited 3.3 min for the 26k one. Four parts keep each reply small; every
+# call is one CLI process (~250 MB), so CF_SCENE_PARALLEL lowers it on a small machine.
+PARALLEL = max(1, int(os.environ.get("CF_SCENE_PARALLEL") or 4))
 DESIGN = "design_short"
 
 
@@ -42,6 +46,28 @@ def _hash(*parts):
 
 def _board(pid, d=None):
     return P.read_artifact(pid, "direction", d) or {}
+
+
+def concept(pid, d=None):
+    """The approved concept as the designers must see it: the look, the key frame and the techniques the creator chose
+    at the proposal gate. Without it the design pass only had the palette and drew a flat 2D film for an approved 3D
+    x-ray set (006: four of five scene plan runs went to getting the approved look back)."""
+    prop = P.read_artifact(pid, "proposal", d) or {}
+    chosen = next((c for c in prop.get("concepts") or [] if isinstance(c, dict) and c.get("id") == prop.get("chosen")), {})
+    rows = [("Look", prop.get("look") or chosen.get("look")), ("Key frame", chosen.get("key_frame")),
+            ("Structure", chosen.get("structure")), ("Techniques", ", ".join(prop.get("techniques") or [])),
+            ("On-screen text", prop.get("on_screen_text"))]
+    rows = [(k, str(v).strip()) for k, v in rows if v and str(v).strip()]
+    if not rows:
+        return ""
+    return ("APPROVED CONCEPT (binding: the creator approved this look; every scene is drawn in it, none falls back to "
+            "a plainer technique)\n" + "\n".join(f"{k}: {v}" for k, v in rows) + "\n")
+
+
+KIT_JS = ("`kit_js` is real JavaScript that runs at the top of EVERY scene's js (same arguments: tl, root, T, gsap, $, "
+          "FX): put the functions the scenes share there (e.g. a buildSet() that builds the one 3D set), so a scene "
+          "only calls them. Every name a scene's js uses must be defined in kit_js or in that scene's own js; the "
+          "`kit` paragraph is prose for the designers and is never run.")
 
 
 def _ask(prompt):
@@ -129,6 +155,7 @@ PROPOSED CAMERA DECK (dealt for this film; give each scene the next card, in ord
 {chr(10).join(f"- {d['move']} · {d['seconds']:g} s · {d['easing']}" + (" · the one big move" if d['big'] else "")
               for d in deck)}
 
+{concept(pid, d)}
 APPROVED DIRECTION BOARD (binding)
 Palette: {pal}
 Type: {typ.get('display')} display · {typ.get('body')} body
@@ -145,10 +172,12 @@ Reply ONLY JSON:
   "palette": {{"bg": "#..", "ink": "#..", "muted": "#..", "accent": "#..", "accent2": "#.."}},
   "global_css": "the shared CSS (fonts, type scale, .w stage, caption-safe area)",
   "kit": "the reusable components every scene uses (title block, figure, label, chart, source line) as one paragraph",
+  "kit_js": "shared JavaScript functions every scene may call (may be empty)",
   "scenes": [{{"id": "lower-case-id", "lines": [first, last] (0-based indices, inclusive), "brief": "what this scene must make the viewer see",
               "shows": "the subject and what it does (an action verb)", "mechanism": "one catalogue mechanism",
               "camera": {{"move": "push_in", "seconds": 1.5, "easing": "ease_out", "target": "what it lands on"}}}}]}}
 Use the board's palette and type pairing exactly; no other colour, no other font.
+{KIT_JS}
 Give the camera moves different lengths (a quick 1.5 s push, a long 5 s pull-back): a film where every move lasts the
 same number of seconds reads as a slideshow.
 {("The creator's note about this film (it may ask to move where the scenes cut): " + str(note)) if note else ""}"""
@@ -171,12 +200,15 @@ def _scene_prompt(pid, s, design, part, script, d):
 
 # This run: the scenes {[sc['id'] for sc in part]}
 The design system is approved and fixed — use its palette, its CSS and its kit, invent nothing else.
-
+{concept(pid, d)}
 Palette: {json.dumps(design.get('palette') or {}, ensure_ascii=False)}
 Global CSS:
 {design.get('global_css') or ''}
 
 Kit: {design.get('kit') or ''}
+
+kit_js (already runs before your js in every scene; call these, do not paste or redefine them):
+{design.get('kit_js') or '(none: define everything your scene uses in its own js)'}
 
 Script lines:
 {_script_text(script)}
@@ -210,7 +242,8 @@ def design(pid, s, script, board, research, d=None, ask=None, note=None):
     if not out.get("scenes"):
         raise ShortError("the design pass returned no scene list")
     art = {"sig": sig, "concept": out.get("concept"), "palette": out.get("palette") or board.get("palette") or {},
-           "global_css": out.get("global_css") or "", "kit": out.get("kit") or "", "scenes": out["scenes"], **fixed}
+           "global_css": out.get("global_css") or "", "kit": out.get("kit") or "", "kit_js": out.get("kit_js") or "",
+           "scenes": out["scenes"], **fixed}
     P.write_artifact(pid, DESIGN, art, d)
     P.event(pid, "design_system", d=d, stage=s["id"], scenes=len(art["scenes"]),
             palette=len(art["palette"]), model_digest=sig)
@@ -426,7 +459,7 @@ def build(pid, s, note=None, d=None, ask=None, build=None, parallel=PARALLEL):
     scenes_out = _assemble(briefs, drawn, keep)
     plan = {"concept": design_art.get("concept") or "", "palette": design_art.get("palette") or {},
             "global_css": design_art.get("global_css") or "", "kit": design_art.get("kit") or "",
-            "scenes": scenes_out,
+            "kit_js": design_art.get("kit_js") or "", "scenes": scenes_out,
             "parts": {"rebuilt": sorted(drawn), "kept": sorted(set(keep) & {b["id"] for b in briefs} - set(drawn))}}
     if current.get("edits"):
         plan["edits"] = current["edits"]

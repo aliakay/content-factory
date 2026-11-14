@@ -162,10 +162,17 @@ def spec(pid, plan=None, d=None):
 
 
 def design(plan):
-    """Scene plan -> the design dict htmlmotion.make_bundle expects."""
+    """Scene plan -> the design dict htmlmotion.make_bundle expects. The plan's `kit_js` (functions the scenes share)
+    runs at the top of every scene's js: the shell runs each scene's js in its own function, so a helper defined in one
+    scene does not exist in the next (006: every scene called an undefined buildSet() and the whole 3D film was blank)."""
+    kit = str(plan.get("kit_js") or "").strip()
+    def js(sc):
+        own = sc.get("js", "") or ""
+        return f"{kit}\n{own}" if kit else own
     return {"meta": {"palette": plan.get("palette") or {}, "concept": plan.get("concept", "")},
             "global_css": plan.get("global_css", ""),
-            "scenes": {sc["id"]: {k: sc.get(k, "") for k in ("html", "css", "js")} for sc in plan.get("scenes") or []}}
+            "scenes": {sc["id"]: {"html": sc.get("html", ""), "css": sc.get("css", ""), "js": js(sc)}
+                       for sc in plan.get("scenes") or []}}
 
 
 def bundle(pid, plan=None, d=None):
