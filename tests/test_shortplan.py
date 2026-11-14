@@ -215,3 +215,27 @@ def test_with_the_checks_off_the_stage_keeps_only_structure(monkeypatch):
     on = SP.validate(plan, SCRIPT, BOARD)
     monkeypatch.setenv("CF_HAT_CHECKS", "0")
     assert on and SP.validate(plan, SCRIPT, BOARD) == []
+
+
+def test_a_physical_subject_is_drawn_from_its_real_anatomy_and_photos(d):
+    pid = _project(d)
+    P.write_artifact(pid, "research", {"anatomy": [
+        {"part": "Refrigerator", "looks_like": "tall white two-door box", "photo_query": "refrigerator back"},
+        {"part": "Compressor", "looks_like": "black steel dome the size of a melon", "where": "bottom back",
+         "photo_query": "refrigerator compressor"},
+        {"part": "Thermostat", "looks_like": "small dial"}]}, d)
+    asked = []
+
+    def find(q):
+        asked.append(q)
+        return {"file": f"assets/stock/{len(asked)}.jpg", "title": q, "license": "CC BY-SA 4.0", "author": "x"}
+
+    rows = SP.photos(pid, d, find=find)
+    assert [r["part"] for r in rows] == ["Refrigerator", "Compressor"] and rows[0]["file"] == "/assets/stock/1.jpg"
+    text = SP.anatomy(pid, d)
+    assert "REALISM" in text and "black steel dome the size of a melon; sits bottom back" in text
+    assert "REFERENCE PHOTOS" in SP._photo_text(rows) and SP._photo_text([]) == ""
+    P.write_artifact(pid, SP.DESIGN, {"photos": rows}, d)
+    assert SP.photos(pid, d, find=lambda q: 1 / 0) == rows                 # fetched once per project
+    other = _project(d)
+    assert SP.anatomy(other, d) == "" and SP.photos(other, d, find=lambda q: 1 / 0) == []

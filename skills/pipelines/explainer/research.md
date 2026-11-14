@@ -18,11 +18,19 @@ creator or a Discovery card: start with those).
 - For any specific film or video the creator names as a visual reference, record an observed signature in
   `visual_signatures`: title/URL plus the palette, camera order, visual mechanisms, beat lengths and compositions you
   can actually verify. Leave a field empty rather than inventing a measurement.
+- When the subject is a physical thing (a machine, a device, an organ, a building, a vehicle, a natural system), write
+  its **anatomy**: every part the film will show, as it really looks, so the designers draw what a viewer who owns or
+  has seen it recognises at a glance. One entry per part: `part`, `looks_like` (shape, material, colour, size against
+  the whole: "black steel dome the size of a melon"), `where` (its real position: "bottom back, behind the kick
+  plate"), `does` (one line) and `photo_query` (2-4 English words to find a real photo of it on Wikimedia Commons).
+  Add the whole object as the first entry. Read a teardown, a manufacturer's diagram or a repair guide for this;
+  never guess a shape.
 - For news, the date matters: use `today` from `project_info` and state how fresh each figure is ("28 Oct intraday").
 
 ## Output (`research`)
 - `insight`, `misconception`, `sources[{url, title}]`, `data_points[{claim, value, source}]`,
-  `angles[{title, grounded_in}]`, `visual_refs[]`, optional `visual_signatures[]`, `summary`.
+  `angles[{title, grounded_in}]`, `visual_refs[]`, optional `visual_signatures[]`,
+  `anatomy[{part, looks_like, where, does, photo_query}]` for a physical subject, `summary`.
 - Write the research itself in English (sources may be in any language). `summary` is for the creator, in the
   interface language: the insight, the strongest number, and anything uncertain they should know.
 - Never invent a figure. If something important cannot be confirmed, say so in `summary` instead of guessing.

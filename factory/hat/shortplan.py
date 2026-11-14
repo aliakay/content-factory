@@ -64,6 +64,59 @@ def concept(pid, d=None):
             "a plainer technique)\n" + "\n".join(f"{k}: {v}" for k, v in rows) + "\n")
 
 
+PHOTOS_MAX = 3            # real reference photos fetched for the designers (Wikimedia Commons, open licences)
+REALISM = ("REALISM (binding): a viewer who owns or has seen the real thing must recognise every part at a glance. Draw "
+           "each part with its real silhouette, real proportions, real position in the whole and its real material and "
+           "colour (tinted into the palette, never replaced by a flat box, a blob or a squiggle). Show the object first as "
+           "it really looks, then cut it open; label lines point at the real part. The channel's palette, type and motion "
+           "are the style; the anatomy below is the world's and is not stylised away.")
+
+
+def anatomy(pid, d=None):
+    """The research's anatomy of a physical subject, as the designers read it (empty for an abstract topic)."""
+    rows = [a for a in (P.read_artifact(pid, "research", d) or {}).get("anatomy") or [] if isinstance(a, dict) and a.get("part")]
+    if not rows:
+        return ""
+    lines = "\n".join(f"- {a['part']}: looks like {a.get('looks_like') or '?'}"
+                      + (f"; sits {a['where']}" if a.get("where") else "") + (f"; {a['does']}" if a.get("does") else "")
+                      for a in rows[:14])
+    return f"{REALISM}\nREAL-WORLD ANATOMY (from the research)\n{lines}\n"
+
+
+def photos(pid, d=None, find=None):
+    """Up to PHOTOS_MAX open-licence photos of the subject and its parts, fetched once per project and kept in the
+    design cache: the designers place a real photo as the anchor of a scene and draw the cutaway over it. Never fails
+    the stage: no network, no hit, no photo."""
+    cached = (P.read_artifact(pid, DESIGN, d) or {}).get("photos")
+    if cached is not None:
+        return cached
+    if find is None:
+        from .. import stock
+        find = stock.find
+    out, seen = [], set()
+    for a in (P.read_artifact(pid, "research", d) or {}).get("anatomy") or []:
+        q = str((a or {}).get("photo_query") or "").strip()
+        if not q or q.lower() in seen or len(out) >= PHOTOS_MAX:
+            continue
+        seen.add(q.lower())
+        try:
+            hit = find(q)
+        except Exception:
+            hit = None
+        if hit and hit.get("file"):
+            out.append({"part": a.get("part"), "file": "/" + hit["file"].lstrip("/"), "title": hit.get("title"),
+                        "license": hit.get("license"), "author": hit.get("author")})
+    return out
+
+
+def _photo_text(rows):
+    if not rows:
+        return ""
+    return ("REFERENCE PHOTOS (real, open licence; place one with <img src=\"<file>\"> as the real anchor of a scene and "
+            "draw the cutaway or labels over it, or use it only to get the shapes right; credits are added automatically)\n"
+            + "\n".join(f"- {r['part']}: {r['file']}" for r in rows) + "\n")
+
+
 KIT_JS = ("`kit_js` is real JavaScript that runs at the top of EVERY scene's js (same arguments: tl, root, T, gsap, $, "
           "FX): put the functions the scenes share there (e.g. a buildSet() that builds the one 3D set), so a scene "
           "only calls them. Every name a scene's js uses must be defined in kit_js or in that scene's own js; the "
@@ -156,6 +209,7 @@ PROPOSED CAMERA DECK (dealt for this film; give each scene the next card, in ord
               for d in deck)}
 
 {concept(pid, d)}
+{anatomy(pid, d)}{_photo_text(photos(pid, d))}
 APPROVED DIRECTION BOARD (binding)
 Palette: {pal}
 Type: {typ.get('display')} display · {typ.get('body')} body
@@ -201,6 +255,7 @@ def _scene_prompt(pid, s, design, part, script, d):
 # This run: the scenes {[sc['id'] for sc in part]}
 The design system is approved and fixed — use its palette, its CSS and its kit, invent nothing else.
 {concept(pid, d)}
+{anatomy(pid, d)}{_photo_text(design.get('photos') or [])}
 Palette: {json.dumps(design.get('palette') or {}, ensure_ascii=False)}
 Global CSS:
 {design.get('global_css') or ''}
@@ -243,7 +298,7 @@ def design(pid, s, script, board, research, d=None, ask=None, note=None):
         raise ShortError("the design pass returned no scene list")
     art = {"sig": sig, "concept": out.get("concept"), "palette": out.get("palette") or board.get("palette") or {},
            "global_css": out.get("global_css") or "", "kit": out.get("kit") or "", "kit_js": out.get("kit_js") or "",
-           "scenes": out["scenes"], **fixed}
+           "scenes": out["scenes"], "photos": photos(pid, d), **fixed}
     P.write_artifact(pid, DESIGN, art, d)
     P.event(pid, "design_system", d=d, stage=s["id"], scenes=len(art["scenes"]),
             palette=len(art["palette"]), model_digest=sig)
