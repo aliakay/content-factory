@@ -98,8 +98,11 @@ PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIG
 OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-AI-Video-Factory — the fifteen history / culture / print film styles added to `data/film_styles.json` (ottoman_miniature,
-byzantine_mosaic, illuminated_manuscript, anatolian_kilim, egyptian_papyrus, greek_vase, stained_glass, ukiyo_e, art_deco,
-constructivist, linocut, cyanotype, manga_screentone, art_nouveau, cave_painting) take their choice of media and the starting
+AI-Video-Factory — the 43 media film styles added to `data/film_styles.json` (ottoman_miniature, byzantine_mosaic,
+illuminated_manuscript, anatolian_kilim, egyptian_papyrus, greek_vase, stained_glass, ukiyo_e, art_deco, constructivist,
+linocut, cyanotype, manga_screentone, art_nouveau, cave_painting, vintage_engraving, watercolor, gouache, oil_impasto,
+charcoal, graphite_sketch, crayon, scratchboard, mid_century, comic_pop, bauhaus, synthwave, silkscreen_travel,
+botanical_plate, technical_cutaway, pictogram, felt_applique, embroidery, sand_art, paper_quilling, origami, wood_inlay,
+low_poly, vinyl_toy, frosted_glass, cyberpunk, gothic, terracotta_relief) take their choice of media and the starting
 palettes / art-direction notes from the style packs in `packages/core/src/styles.ts` of the same MIT-licensed project
 (Copyright (c) Ersin KOÇ). The cards' render recipes, the preview scenes in `styles/<id>.json` and all TR/EN text are our own.

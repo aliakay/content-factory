@@ -1588,7 +1588,12 @@
                        archive_film: "grain", hologram_hud: "scanlines", woodcut: "hatching", chalkboard: "chalk", noir: "grain",
                        sketchnote: "paper", vhs_tape: "scanlines", ottoman_miniature: "paper", ukiyo_e: "paper", art_deco: "paper",
                        constructivist: "paper", linocut: "paper", cyanotype: "paper", manga_screentone: "halftone",
-                       art_nouveau: "paper", cave_painting: "grain" };
+                       art_nouveau: "paper", cave_painting: "grain", vintage_engraving: "paper", watercolor: "watercolor",
+                       gouache: "paper", oil_impasto: "paper", charcoal: "paper", graphite_sketch: "paper", crayon: "paper",
+                       scratchboard: "paper", mid_century: "paper", comic_pop: "halftone", bauhaus: "paper", synthwave: "scanlines",
+                       silkscreen_travel: "paper", botanical_plate: "paper", technical_cutaway: "paper", pictogram: "paper",
+                       sand_art: "grain", paper_quilling: "paper", origami: "paper", low_poly: "grain", frosted_glass: "grain",
+                       cyberpunk: "grain", gothic: "grain" };
   FX.textureFor = (style) => FX.STYLE_TEXTURE[String(style || "").replace(/^style\./, "")] || "";
   FX.rgbOf = (css, fb = [0, 0, 0]) => {   // '#aabbcc' / '#abc' / 'rgb(..)' / 'rgba(..)' / 'var(--ink)' -> [r, g, b]
     const c = String(css || "").trim();

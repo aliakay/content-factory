@@ -1587,6 +1587,1339 @@
      "avoid": "Clean vectors, black line art, white ground, flat gradients, modern objects."
     }
    }
+  },
+  {
+   "id": "vintage_engraving",
+   "name": "Steel engraving",
+   "tr": "Çelik gravür",
+   "essence": "A 19th-century banknote plate: nothing is filled, every tone is a family of burin lines and their spacing alone builds the light, cut in sepia-black into cream paper, with the banknote's guilloche rosette and rule frame.",
+   "not": "Not a sepia photo filter, not a flat vector shape with an outline, not a pencil drawing; no solid grey or tonal fills, no gradient shading, no soft shadows, no halftone dots, no colour beyond sepia ink.",
+   "render": "Ink #221a12 on cream #efe6d2, plus its dilutions #6a5138 and #a98d67 - no third hue, no fill anywhere. Every area is ONE <path> holding many subpaths (`M..h..` per line) with stroke-width 1.2-2.2 so a whole family is a single node: sky = fine horizontals at pitch 7-8, crowded to 4.5 near the horizon and wiped away by a <mask> whose radial gradient covers the rosette; any cylinder (tower, hull, trunk) = verticals at x = cx + half*sin(theta) so the lines crowd at the silhouette and open in the middle, plus TWO crossing families on the shadow side (60-70 deg and -35 deg) at pitch 2.6-3.4 that run close to solid. Add tapered burin spindles (a lens-shaped filled path with a point at each end, 60-260 px long) over the shadow side so the strokes swell in the middle and taper out. The value range runs from bare paper white to near-black line-mass: the darkest sides of the tower, the islet, the hull and the foreground water carry pitch 1.4-2.4. Sea = tight horizontals at pitch 3-4 with a wavy swell family over them and vertical squiggle reflections under the subject; hills and rocks = two crosshatched families at -25 and 40 deg at pitch 3. Highlights are the plate wiped back to paper (paper-colour strokes), never white paint. Banknote furniture: a guilloche rosette of 16 nested parametric rings (r = R + a*sin(k*theta)) that also serves as the sun, a double rule frame, tiny engraved caps. Push line groups through <filter><feTurbulence baseFrequency='.02' numOctaves='2'/><feDisplacementMap scale='1.6'/></filter> so no line is machine-straight.",
+   "texture": "paper",
+   "composition": "One tower on its islet on the centre line, the guilloche rosette burning in the sky behind its crown, ruled water filling the lower third, the Asia shore a thin hatched strip at the horizon, a caique low on the left, the headline stacked in the upper left and the rule frame closing the plate.",
+   "colour": "Cream #efe6d2, burin black-brown #221a12, warm sepia #6a5138, pale washed sepia #a98d67; every 'grey' is a line pitch of those inks, never a mixed flat.",
+   "type": "DM Serif Display 400 caps, 130-160 px, stacked and letterspaced .01 em, in the ink; a small Inter Tight 500 caps line at .3 em under it, and 22 px engraved caps inside the frame if a date or place is needed.",
+   "motion": "The plate is bitten in: line families fade up in the order an engraver would cut them, sky then hills then water then the tower, each with a .3-.5 s dissolve and no movement at all; the rosette's rings draw on with stroke-dashoffset; text comes up .2 s after the sky. Nothing drifts, nothing scales.",
+   "camera": "Locked, like a note under a magnifier: at most a 1.05 push toward the tower or a 3 px drift of the whole plate.",
+   "transitions": "A line family sweeps across and becomes the next horizon; the plate is wiped to paper and the next drawing is bitten in; the frame closes in to the rosette.",
+   "sound": "Dry and precise: a burin scratching copper, a press roller, a paper rustle, a single low string, a distant gull; no reverb bloom.",
+   "post": {
+    "grain": 0.2,
+    "vignette": 0.16
+   },
+   "card": {
+    "palette": [
+     "#efe6d2",
+     "#221a12",
+     "#6a5138",
+     "#a98d67"
+    ],
+    "fonts": [
+     "DM Serif Display",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Çelik gravür: hiç dolgu yok, her ton çizgi sıklığıyla; sepya mürekkep krem kâğıtta, banknot gülü ve ince çerçeve.",
+     "type": "DM Serif Display büyük harf, hafif aralıklı; altında küçük aralıklı sans.",
+     "motion": "Plaka oyulur gibi: çizgi grupları sırayla belirir, hiçbir şey kaymaz.",
+     "sound": "Kalem cızırtısı, pres, kâğıt, tek alçak yaylı, uzak martı.",
+     "avoid": "Dolgu, gri ton, gradyan, yumuşak gölge, halftone nokta, sepya foto filtre."
+    },
+    "en": {
+     "look": "Steel engraving: no fills, tone only from line pitch; sepia ink on cream, banknote rosette and a fine rule frame.",
+     "type": "DM Serif Display caps, lightly tracked; a small tracked sans beneath.",
+     "motion": "Bitten into the plate: line families come up in cutting order, nothing drifts.",
+     "sound": "Burin scratch, press roller, paper, one low string, a distant gull.",
+     "avoid": "Fills, greys, gradients, soft shadows, halftone dots, sepia photo filters."
+    }
+   }
+  },
+  {
+   "id": "watercolor",
+   "name": "Watercolour",
+   "tr": "Sulu boya",
+   "essence": "Wet paint on cold-pressed paper: translucent washes that bloom into each other, a darker ring where the pigment dried at the edge, granulation in the shadow, and the white of the paper left unpainted as the only light.",
+   "not": "Not flat vector colour, not a digital painting with an airbrush, not sumi ink (that is ink_wash); no hard outlines, no opaque white paint, no gradients that shade smoothly, no drop shadows.",
+   "render": "Paper #fbf6ea carries all light: never paint it, only leave it. Build the value structure in three steps - a light graded sky of 3-4 broad horizontal band washes (#6f8ea3 at .08-.15, warm ochre bleeding in near the horizon), mid-tone buildings in ochre #cf8f44 and rose #c0644f at .3-.4, then only a handful of near-dark accents (indigo #2f4b63 to #1d2b36 at .55-.8) in windows, cap, trousers, shoes and cast shadow. Every wash is a closed blob path (a closed quadratic chain of 10-14 jittered points) and each one is painted four times: the fill at .3-.6 alpha, a mottle of the same hue (a 380 px <pattern> of soft radial blotches at .18-.3, so no wash is one even colour), a granulation speckle (a 26 px pattern of 1-3 px dots at .1-.2), and the dried edge - the same path stroked 10-18 px in a deeper ink at .25-.4, clipped INSIDE the shape and broken with an irregular stroke-dasharray and a 8 px turbulence displacement, so the pigment ring appears in patches and reads as a hard dried edge, never as an outline. Group the big washes behind <filter><feTurbulence baseFrequency='.008' numOctaves='2'/><feDisplacementMap scale='34'/><feGaussianBlur stdDeviation='2.4'/></filter>; the figure behind a tighter one (baseFrequency .02, scale 6, blur .7) so its edges wander as water but the drawing stays readable. Paint the figure with the SAME washes as the background - no opaque fills: a white shirt and apron are unpainted paper with two translucency shadow washes clipped inside their shape, trousers are a wash at .55 with a darker fold wash, skin a single ochre-pink wash with a rose cheek. Leave white gaps cutting into every wash as highlights, and add 3-4 isolated blooms / cauliflowers (a pale lifted disc inside a hard dark ragged ring) in the sky and on the ground. Final dry-brush accents: 6-10 short strokes at .5-.7 with ragged ends.",
+   "texture": "watercolor",
+   "composition": "A simit seller with a tall mound of simits on a brass tray on his head, standing full figure on the sunny corner of an Istanbul street, slightly right of centre; an ochre building with dark windows on the left and a rose building with an awning on the right frame a slice of pale graded sky with a distant mosque and minaret; the street fills the lower quarter, the cast shadow stretching left, the headline in the upper left where the paper is still white.",
+   "colour": "Indigo #2f4b63 and its pale #6f8ea3, warm ochre #cf8f44, faded rose #c0644f, olive grey #6d7f63, skin #e9b98f; all of it translucent so the paper's cream shows through every wash, the buildings warm and mid-toned, the few darks concentrated in the figure and the windows, and where two washes cross the tone deepens instead of mixing flat.",
+   "type": "Cormorant Garamond 600 caps, 120-150 px, letterspaced .02 em, in indigo, as if lettered with a brush; a small Inter Tight 500 caps line at .26 em under it in ochre-brown.",
+   "motion": "Paint arrives wet: each wash blooms up from .82 scale and .4 alpha to full over .6-.9 s with a slight settle, the pigment ring sharpening last; blooms spread open; brush accents appear in one stroke. All sine easing, nothing slides or snaps.",
+   "camera": "Locked on the paper; a very slow 1.05 push on the figure, or a drift as if the sheet were being turned to the light.",
+   "transitions": "A wash floods the frame and the next scene develops inside it; the paper is blotted and a new drawing appears; a bloom opens until it is the whole frame.",
+   "sound": "Water, a wet brush on rough paper, a distant street, a light nay or clarinet phrase, one soft chime; room tone rather than music.",
+   "post": {
+    "grain": 0.14,
+    "vignette": 0.22
+   },
+   "card": {
+    "palette": [
+     "#fbf6ea",
+     "#2f4b63",
+     "#6f8ea3",
+     "#cf8f44",
+     "#c0644f",
+     "#6d7f63"
+    ],
+    "fonts": [
+     "Cormorant Garamond 600",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Sulu boya: kâğıdın beyazı ışığı taşır, saydam yıkamalar birbirine akar, kenarda pigment halkası, gölgede granülasyon.",
+     "type": "Cormorant Garamond büyük harf, fırçayla yazılmış gibi; altında küçük aralıklı sans.",
+     "motion": "Boya ıslak gelir: yıkamalar açılıp oturur, halka en son keskinleşir; hiçbir şey kaymaz.",
+     "sound": "Su, ıslak fırça, uzak sokak, tek ney cümlesi, yumuşak çıngırak.",
+     "avoid": "Düz vektör renk, hava fırçası, sert kontur, opak beyaz, pürüzsüz gradyan, gölge."
+    },
+    "en": {
+     "look": "Watercolour: the paper's white carries the light, translucent washes bleed into each other, a pigment ring at the edge, granulation in shadow.",
+     "type": "Cormorant Garamond caps, lettered like a brush; a small tracked sans beneath.",
+     "motion": "Paint arrives wet: washes open and settle, the ring sharpens last; nothing slides.",
+     "sound": "Water, a wet brush, a distant street, one nay phrase, a soft chime.",
+     "avoid": "Flat vector colour, airbrush, hard outlines, opaque white, smooth gradients, shadows."
+    }
+   }
+  },
+  {
+   "id": "gouache",
+   "name": "Gouache poster",
+   "tr": "Guaj boya",
+   "essence": "Opaque gouache brushed flat: matte, chalky colour laid in solid poster shapes, where every edge is a brush's edge, light is painted over dark, and the whole surface is dry and evenly dull - a mid-century travel poster made with a loaded brush.",
+   "not": "Not watercolour (nothing is translucent or blooming), not vector flat-design, not screen print; no gradients, no glow, no soft blur, no visible canvas or gloss, no outline drawing.",
+   "render": "Opaque and matte: no gradient anywhere, each field a single flat #hex at full alpha. Build each shape as three passes: an under-shape of the same path translated 5-8 px in a DARKER tint (the paint's own shadow edge), the flat colour on top, then 10-20 bristle streaks (6-10 px lines at 5-24 deg, clipped to the shape, .28-.4 alpha of a 6 % lighter or darker tint) and one 16-18 px white stroke at .16 along the loaded edge so the brush drag is visible; every shape sits in one <g> under <filter><feTurbulence baseFrequency='.008' numOctaves='3'/><feDisplacementMap scale='11'/></filter> so its contour is cut by hand. Light is painted over dark: the dark ink skyline goes down first, then the hull, the deck and the window rows land on top and leave a dark seam. Break colour at the edges only where the brush ran out: 6-10 short dry 3 px strokes in the paper colour along an edge. Keep at most six colours, mixed warm (ochre, vermilion) against one cold (teal), all at the same chalky value so nothing glows.",
+   "texture": "paper",
+   "composition": "A Bosphorus ferry broadside in the middle band, its red funnel crossing the sky; flat sea filling the bottom third with three cream wave shapes; the city as a low ink silhouette on the horizon; a matte mustard sun disc high right; the headline in caps at the upper left and one small departure line under it.",
+   "colour": "Cream #f3e7cd, deep teal #1f4e5f, vermilion #d1503a, mustard #e3a13c, sage #9cb3a6, ink #16242c; every field flat, adjacent colours close in value so the poster reads calm rather than loud.",
+   "type": "Anton caps 150-200 px, tight, in ink or cream, flat, no shadow; a small Inter Tight 500 caps line at .3 em in vermilion under it.",
+   "motion": "Painted in flat: each shape lands whole in two frames, then a 6-10 px brush drag settles it (0.25 s); the wave shapes advance in steps, the ferry holds still. No fades on the shapes, no scaling, no floating.",
+   "camera": "Locked poster frame; at most a 1.04 push on the funnel or a 4 px slide as if the sheet were being squared up.",
+   "transitions": "A brush stroke of flat colour sweeps the frame and becomes the next sky; a shape is painted over the old scene; the poster is wiped with a rag.",
+   "sound": "Dry and matte: a ferry horn, a brush on board, a low bowed string, water slapping a hull, seagulls far off.",
+   "post": {
+    "grain": 0.2,
+    "vignette": 0.14
+   },
+   "card": {
+    "palette": [
+     "#f3e7cd",
+     "#1f4e5f",
+     "#d1503a",
+     "#e3a13c",
+     "#9cb3a6",
+     "#16242c"
+    ],
+    "fonts": [
+     "Anton",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Guaj boya: opak, mat, düz poster renkleri; her kenar fırça izi, açık koyunun üstüne boyanmış, yüzey kuru ve tozlu.",
+     "type": "Anton büyük harf, düz, gölgesiz; altında küçük aralıklı sans.",
+     "motion": "Düz boyanır: şekil iki karede bütün olarak gelir, sonra fırça 6-10 px sürüklenip oturur.",
+     "sound": "Vapur düdüğü, tahtaya fırça, alçak yaylı, su şapırtısı, uzak martı.",
+     "avoid": "Saydamlık, gradyan, parlama, kontur çizimi, vektör düzlük, kanvas doku."
+    },
+    "en": {
+     "look": "Gouache: opaque matte poster colour, every edge a brush edge, light painted over dark, the surface dry and chalky.",
+     "type": "Anton caps, flat, no shadow; a small tracked sans beneath.",
+     "motion": "Painted flat: a shape lands whole in two frames, then a 6-10 px brush drag settles it.",
+     "sound": "Ferry horn, brush on board, low strings, water on a hull, gulls far off.",
+     "avoid": "Transparency, gradients, glow, outline drawing, vector flatness, canvas texture."
+    }
+   }
+  },
+  {
+   "id": "oil_impasto",
+   "name": "Oil impasto",
+   "tr": "Yağlı boya",
+   "essence": "Thick oil paint pushed on with a loaded brush: every form is a heap of short directional strokes whose ridges catch the light, colour is broken into warm and cool flecks laid side by side, and the canvas weave shows between them.",
+   "not": "Not smooth airbrushed shading, not a flat vector shape, not watercolour transparency, not photorealism; no gradients, no soft blur, no outlines, no even single-colour fills.",
+   "render": "Build the whole picture from 450-600 short loaded strokes and nothing else - no base fill is ever seen. Each stroke is a <path> drawn as one quadratic curve with stroke-width 12-30, stroke-linecap round, and it is painted twice: the body in its own colour, then a ridge 2-4 px to one side in a colour 18-30 % lighter at .4-.6 alpha, so the paint looks raised and catches light from the upper left (a thin darker echo 3 px to the other side sells the thickness). Direction is a flow field, not random: sky strokes run nearly horizontal with a slow arc, sea strokes horizontal and shorter near the horizon, the tower's strokes vertical and crowded at its silhouette, the roof's strokes radial from the apex, grass strokes upward. Colour is BROKEN: each region owns 4-6 neighbouring hues and each stroke is picked from them by position plus 10 % chance of its complement (a warm ochre fleck in the cool sea), and neighbouring strokes are never the same value - no field is one colour. Ground is a canvas weave: an 8 px <pattern> of crossing 1.4 px threads at #b9a583 under everything, visible at the edges and in thin passages.",
+   "texture": "paper",
+   "composition": "A lighthouse on a rocky headland right of centre, its tower catching the last warm light, sea filling the lower third in long horizontal strokes with the reflection broken underneath, the sky a broken field of cool greys above and warm ochre at the horizon; headline in the calm upper left over the palest sky.",
+   "colour": "Cool sky greys #9fb0bd / #b9c6cf over warm cream #e7d3b4 and ochre #e0a96d at the horizon; sea in #2e4a56 / #3a5866 / #5d7f85 with warm flecks #b98a5e; rock #4a3f36 / #6b5a4a; the tower's lit side #f0e3c9 against #a89c86; roof #8c4a3a.",
+   "type": "Playfair Display 700 caps, 130-160 px, in deep slate #2a3a44, slightly open; a small Inter Tight 500 caps line at .3 em underneath in the ochre.",
+   "motion": "The canvas is painted on: groups of strokes arrive in broad passes of .4-.6 s (sky, then rock, then tower, then sea), each pass wiping in from one side while its strokes stay perfectly still; nothing scales or floats after it lands.",
+   "camera": "Locked as if on an easel; a slow 1.05 push toward the tower, or a drift that shows the weave at the edge.",
+   "transitions": "A loaded brush drags across the frame and becomes the next horizon; a colour field is pushed over the old scene; the camera pulls back until the painting is a canvas on a wall.",
+   "sound": "Bristle on canvas, a low cello, a distant buoy bell, wind, gulls; warm analogue room, no digital air.",
+   "post": {
+    "grain": 0.26,
+    "vignette": 0.2
+   },
+   "card": {
+    "palette": [
+     "#e7d3b4",
+     "#2e4a56",
+     "#5d7f85",
+     "#e0a96d",
+     "#8c4a3a",
+     "#2a3a44"
+    ],
+    "fonts": [
+     "Playfair Display 700",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Yağlı boya: kalın, yönlü fırça vuruşları; sırtları ışık tutar, renk yan yana kırılmış, tuval dokusu aralarında görünür.",
+     "type": "Playfair Display büyük harf, koyu kurşuni; altında küçük aralıklı sans.",
+     "motion": "Tuval boyanır: vuruş grupları geniş paslarla gelir, indikten sonra hiçbiri kıpırdamaz.",
+     "sound": "Tuvale fırça, alçak çello, uzak şamandıra çanı, rüzgâr, martı.",
+     "avoid": "Pürüzsüz gölgeleme, gradyan, düz vektör şekil, saydamlık, kontur."
+    },
+    "en": {
+     "look": "Oil impasto: thick directional brush strokes, ridges catching light, colour broken side by side, canvas weave showing through.",
+     "type": "Playfair Display caps in deep slate; a small tracked sans beneath.",
+     "motion": "The canvas is painted: groups of strokes arrive in broad passes and then hold perfectly still.",
+     "sound": "Bristle on canvas, low cello, a distant buoy bell, wind, gulls.",
+     "avoid": "Smooth shading, gradients, flat vector shapes, transparency, outlines."
+    }
+   }
+  },
+  {
+   "id": "charcoal",
+   "name": "Charcoal drawing",
+   "tr": "Füzen",
+   "essence": "Vine charcoal on rough grey paper: soft black masses smudged with the thumb, a pale window lifted out with an eraser, fur and whiskers scratched back to the paper, the tooth of the sheet breaking every edge.",
+   "not": "Not graphite pencil (that is fine line hatching on white), not an ink wash, not a photo in greyscale; no colour, no sharp vector edges, no even grey fills, no white paint.",
+   "render": "Warm grey paper #cfc6b6, charcoal #191512 in three densities (mass, mid #5b544a, dust .2-.4) - no colour, no white paint: every light is ERASED back to the paper. Masses are three or four overlapping ellipse/path shapes in ONE <g> under <filter><feTurbulence baseFrequency='.012' numOctaves='2'/><feDisplacementMap scale='24'/><feGaussianBlur stdDeviation='5'/></filter> so their overlaps melt into a single sooty form. Smudging is a second pass: 10-14 long low-alpha (#5b544a .18-.3) blurred strokes dragged along the form, plus a dust layer of the tooth pattern (a 26 px <pattern> of 1-3 px specks) over every mass at .3. The tooth breaks the edge: clip each mass with a noise mask so its contour is eaten into flecks rather than a line. Lights come back with eraser strokes filled in paper #efe9db at .8-.95 (ragged 3-12 px paths, one group with a 2 px displacement and .8 blur): the window as a big lifted rectangle, a rim of light along the back and skull, whiskers as six hairlines. Highlight edges never close, they stop where the eraser stopped.",
+   "texture": "paper",
+   "composition": "A cat sits in profile on a windowsill, nearly black against the erased window light, its tail curled along the ledge; the window is a lifted pale rectangle with a soft mullion cross behind it; smudge drifts out past the frame into the empty grey paper; headline in the upper left over untouched paper.",
+   "colour": "Paper #cfc6b6, a second warm grey #b8ae9d for the lifted window, charcoal #191512 and its mid #5b544a; no hue at all beyond what the paper already carries.",
+   "type": "Anton caps 170-200 px in charcoal, blunt and pressed hard, as if the letters were blocked in with the side of the stick; a small Inter Tight 500 caps line at .3 em under it in the mid grey.",
+   "motion": "Charcoal, not animation: a mass is smudged in over .4-.6 s from a slightly larger, softer state to its final shape; eraser lights are dragged on left to right over .3 s each; whiskers draw on last. No bounce, no float.",
+   "camera": "Locked on the sheet; a slow 1.05 push toward the cat, or a drift that shows more of the grey paper.",
+   "transitions": "An eraser wipe clears the frame; a smudge of black spreads and becomes the next night; the sheet is turned over and the next drawing is already there.",
+   "sound": "Charcoal on rough paper, an eraser rub, a low piano note, a soft breath, a distant street; no music beat.",
+   "post": {
+    "grain": 0.3,
+    "vignette": 0.26
+   },
+   "card": {
+    "palette": [
+     "#cfc6b6",
+     "#b8ae9d",
+     "#efe9db",
+     "#5b544a",
+     "#191512"
+    ],
+    "fonts": [
+     "Anton",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Füzen: yumuşak siyah kütleler parmakla dağıtılmış, pencere silgiyle kâğıda geri açılmış, tüyler ve bıyıklar kazınmış, kâğıdın dokusu her kenarı kırıyor.",
+     "type": "Anton büyük harf, kömürle bloklanmış gibi; altında küçük aralıklı sans.",
+     "motion": "Kütleler dağıtılarak gelir, silgi ışıkları soldan sağa çekilir, bıyıklar en son çizilir.",
+     "sound": "Kâğıtta füzen, silgi, tek piyano notası, uzak sokak.",
+     "avoid": "Renk, keskin vektör kenar, düz gri dolgu, beyaz boya, foto gri ton."
+    },
+    "en": {
+     "look": "Charcoal: soft black masses thumbed out, the window lifted back to paper with an eraser, fur and whiskers scratched in, the sheet's tooth breaking every edge.",
+     "type": "Anton caps, blocked in like charcoal; a small tracked sans beneath.",
+     "motion": "Masses smudge in, eraser lights drag left to right, whiskers drawn last.",
+     "sound": "Charcoal on rough paper, an eraser, one piano note, a distant street.",
+     "avoid": "Colour, sharp vector edges, flat grey fills, white paint, greyscale photos."
+    }
+   }
+  },
+  {
+   "id": "graphite_sketch",
+   "name": "Graphite sketch",
+   "tr": "Kurşun kalem eskiz",
+   "essence": "A drawing still in progress: pencil on paper, construction lines and the block-in box left in, hatching that changes pressure line by line, thumb smudges, eraser bites, and an edge where the pencil simply stopped.",
+   "not": "Not charcoal (no black masses or smudged tonal fields), not a clean vector line drawing, not an ink drawing; no flat fills, no colour, no perfect curves, no finished-looking polish.",
+   "render": "Only graphite on paper #f5f1e8: #3a3733 at .15-.85 alpha, 0.8-3.4 px, round caps, every path nudged by a 0.4-1.2 px seeded jitter so no two lines are parallel. Form is HATCHING, not fill: each shadow is a family of 12-40 separate short lines at one angle (55-80 deg for verticals, 10-25 deg for the table) whose alpha and width wander line to line - at least 4 values per family - and a second family crossing at 25-40 deg only where the tone is darkest. Layer three passes on the shadow side (base, cross, and a tight 6B #1b1815 pass at pitch 3-4) until it is close to solid near-black, with the paper left as the only highlight. The still life is drawn big: pot, cup and saucer fill about half the frame height. Leave the drawing OPEN: long construction lines run through and past the objects at .12-.2 (horizontals that overshoot both edges, one vertical guide, one diagonal), visible ellipse guides at the rim, base and saucer, a light bounding box around the pot with its corners overshooting, and the hatching stops dead at an invisible boundary rather than following the form to the end. Smudges: 4-6 blurred graphite patches at .12-.28 where a thumb rested, heavier on one side of the sheet; eraser bites: 3-5 paper-colour soft blobs at .5-.8 cutting into the shading, with the hatching resuming thinner on the other side.",
+   "texture": "paper",
+   "composition": "A copper cezve and a small coffee cup on its saucer stand on a table line across the lower half, the cezve left of centre with its long handle sweeping up to the right, the cup to its right; the table line, a vertical guide and ellipse construction lines run through and past both objects, the cast shadow is hatched out to the right, the headline sits in the clean upper left and the shading stops before the right edge, leaving the drawing unfinished there.",
+   "colour": "Paper #f5f1e8 and graphite #3a3733 in five pressures down to #b9b2a6, with a 6B #1b1815 for the deepest shadow side; nothing else - the 'warmth' comes from the paper, not from the pencil.",
+   "type": "Instrument Serif 400 caps, 130-160 px, letterspaced .02 em, in graphite as if lettered by hand; a small Inter Tight 500 caps line at .3 em under it, lighter than the headline.",
+   "motion": "Drawn on: hatching groups wipe in left to right behind a clip edge over .4-.7 s each, construction lines draw first and stay, the outline strokes come in 0.2 s after their hatch, eraser beats wipe back over a shadow. Nothing moves after it lands.",
+   "camera": "Locked on the sheet, as if on a drawing board; a slow 1.06 push on the pot, or a drift to show the unfinished edge.",
+   "transitions": "A pencil line is drawn and becomes the next horizon; the page is turned; an eraser wipes the old drawing out of the frame.",
+   "sound": "Pencil on paper, an eraser, paper being turned, a soft graphite scrape, a low room tone with a distant street and a spoon on porcelain.",
+   "post": {
+    "grain": 0.16,
+    "vignette": 0.14
+   },
+   "card": {
+    "palette": [
+     "#f5f1e8",
+     "#3a3733",
+     "#8d8880",
+     "#c9c2b6"
+    ],
+    "fonts": [
+     "Instrument Serif",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Kurşun kalem eskiz: cezve ve fincan kare boyunun yarısını doldurur, yapım çizgileri ve elipsler kalmış, tarama 6B'ye kadar koyulaşıyor, parmak izi, silgi ısırığı.",
+     "type": "Instrument Serif büyük harf, elle yazılmış gibi; altında küçük ve daha açık sans.",
+     "motion": "Çizilir: taramalar soldan sağa silinerek girer, yapım çizgileri önce gelir ve kalır.",
+     "sound": "Kâğıtta kalem, silgi, sayfa çevirme, uzak sokak, porselende kaşık.",
+     "avoid": "Füzen kütlesi, düz dolgu, renk, kusursuz eğri, bitmiş cila."
+    },
+    "en": {
+     "look": "Graphite sketch: the cezve and cup fill half the frame, construction lines and ellipses left in, hatching darkening to 6B, thumb smudges, eraser bites, the pencil stopping at one edge.",
+     "type": "Instrument Serif caps, hand-lettered; a small, lighter tracked sans beneath.",
+     "motion": "Drawn: hatching wipes in left to right, construction lines arrive first and stay.",
+     "sound": "Pencil on paper, an eraser, a page turned, a distant street, a spoon on porcelain.",
+     "avoid": "Charcoal masses, flat fills, colour, perfect curves, finished polish."
+    }
+   }
+  },
+  {
+   "id": "crayon",
+   "name": "Wax crayon",
+   "tr": "Mum boya",
+   "essence": "A drawing made with wax crayons by a confident child: fat broken strokes that skip over the tooth of the paper, colour scribbled in until it is almost solid, outlines overshooting their corners, bright primaries laid straight on the sheet.",
+   "not": "Not coloured pencil (too fine and blended), not pastel/chalk dust, not watercolour, not vector flat colour; no gradients, no soft shading, no clean closed outlines, no muted palette.",
+   "render": "Six wax colours only (#e03b2f, #ef7c22, #f2c130, #3f9d4e, #2f5fb0, #33302c) on paper #fbf8ef. Every area is SCRIBBLED IN, never filled: 2-3 passes of a zigzag path (a single <path> whose d alternates l/l-l with a 3-9 deg wobble, 40-80 teeth per pass) at a slightly different angle per pass, stroke-width 9-22, .55-.9 alpha, so the strokes cross and leave paper between them. The wax skips: put each group under one <mask> whose fill is a 19x21 px <pattern> of small black specks covering 5-12 % - the tooth of the sheet - so strokes thin out and break in flecks instead of ending clean; the stroke DIRECTION has to stay readable, so keep the specks small and the passes 25-30 px apart rather than filling solid. Outlines are laid over the fill 2-4 px out of register, darker and heavier, overshooting the corner by 10-30 px. Press harder where the child pressed: a second pass in the same colour at .9 inside the middle of the shape. Where two colours overlap (blue over yellow) let the lower one show through the holes.",
+   "texture": "paper",
+   "composition": "A sparrow sits on a branch that runs across the lower third, drawn big and round with one enormous eye; a scribbled sun with straight rays in the upper right; a band of green grass scribbled along the bottom edge, pale blue sky scribbled only in patches; the headline lettered big in the clean upper left.",
+   "colour": "Red #e03b2f, orange #ef7c22, yellow #f2c130, green #3f9d4e, blue #2f5fb0 and black #33302c, all at full brightness on cream paper; at most three colours per subject, no tints or shades.",
+   "type": "Shrikhand or Anton caps, 150-190 px, in a single wax colour with wobbly edges, as if spelled out by a careful child; a small Inter Tight 500 caps line under it.",
+   "motion": "Crayon on paper: each scribble pass wipes on in .25-.4 s in the direction it was drawn, the outline comes after the fill, the colour overshoots by 8 px and settles; a colour is pressed in twice on the beat. No float, no fade-ins, no scaling.",
+   "camera": "Locked on the sheet, as if the drawing were lying on a table; at most a 1.05 push toward the bird or a small drift.",
+   "transitions": "A fat crayon line is dragged across and becomes the next horizon; a colour scribbles the old frame out; the page is turned.",
+   "sound": "Wax on paper, a wooden chair, a child humming, a bird outside, a xylophone; warm room, no polish.",
+   "post": {
+    "grain": 0.18,
+    "vignette": 0.12
+   },
+   "card": {
+    "palette": [
+     "#fbf8ef",
+     "#e03b2f",
+     "#ef7c22",
+     "#f2c130",
+     "#3f9d4e",
+     "#2f5fb0"
+    ],
+    "fonts": [
+     "Shrikhand",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Mum boya: kâğıdın dokusunda atlayan kalın kırık çizgiler, neredeyse doluya kadar karalanmış parlak ana renkler, köşeleri taşan konturlar.",
+     "type": "Shrikhand büyük harf, tek renk, çocuk eliyle yazılmış gibi.",
+     "motion": "Karalama pasları çizildikleri yönde girer, kontur dolgudan sonra gelir, renk 8 px taşıp oturur.",
+     "sound": "Kâğıtta mum boya, tahta sandalye, çocuk mırıltısı, dışarıda kuş, ksilofon.",
+     "avoid": "Gradyan, yumuşak gölge, düz vektör renk, ince uçlu kalem, soluk palet."
+    },
+    "en": {
+     "look": "Wax crayon: fat broken strokes skipping over the paper's tooth, bright primaries scribbled nearly solid, outlines overshooting their corners.",
+     "type": "Shrikhand caps, one wax colour, as if spelled out by a careful child.",
+     "motion": "Scribble passes wipe on in the direction they were drawn, outline after fill, colour overshoots 8 px and settles.",
+     "sound": "Wax on paper, a wooden chair, a child humming, a bird outside, a xylophone.",
+     "avoid": "Gradients, soft shading, flat vector colour, fine pencil, muted palette."
+    }
+   }
+  },
+  {
+   "id": "scratchboard",
+   "name": "Scratchboard",
+   "tr": "Kazıma (skratçbord)",
+   "essence": "White lines scratched out of a black-inked board: there is no paint at all, only the burin's bright cut, and every tone of the picture is the distance between two scratches - dense where the light falls, bare black in the shadow.",
+   "not": "Not white ink drawn on black paper, not a photo negative, not a linocut (which prints black on light paper); no grey fills, no blur, no soft shading, no second colour.",
+   "render": "A #0d0c0b ground and NOTHING but #f6f2e8 scratches 1.4-3.2 px wide, round caps, .75-1 alpha: tone is pitch, never a fill - light areas have scratches every 4-5 px, mid every 8-11, shadow has none at all and stays black. Build each area as one <path> of many subpaths under a <clipPath>: feathers as nested elliptical ARCS (M..A..) at radii stepping 5-7 px with 20-30 % of each ring missing, so the form turns; the wing and branch as two straight families crossing at 40-60 deg; the belly as arcs crowded to 3.5 px. Every scratch is jittered 0.6-1.4 px and its ends never quite meet, so nothing reads as a printed screen. The moon is scratched nearly solid (pitch 2.4, two crossing families) with its limb left black; the pupil and the gap under the bird stay pure black. A dozen stray scratches wander off the drawing into the black where the burin slipped.",
+   "texture": "paper",
+   "composition": "An owl sits front-on in the middle, its eye discs the brightest thing in the frame, feathers turning with the body, talons closing on a branch that crosses the lower third; a scratched moon high right; the headline in the upper left in scratch-white, and black air around the bird so it reads as one bright shape.",
+   "colour": "Board black #0d0c0b, scratch white #f6f2e8, and the bone #cfc6b4 of scratches made with a duller point; no hue anywhere, no grey - only line density.",
+   "type": "Anton caps 170-200 px, scratch-white, with the edges broken like a cut; a small Inter Tight 500 caps line at .32 em underneath in the bone tone.",
+   "motion": "Scratched in: the burin runs - a clip edge sweeps each group in the direction the lines were cut (.3-.5 s), densest areas last; the eyes are cut open with two quick circles. Nothing moves after it is cut.",
+   "camera": "Locked on the board; at most a 1.05 push toward the eyes, or a drift that reveals more black at the edge.",
+   "transitions": "A scratch line sweeps and becomes the next horizon; the frame is scratched away to black; the board is wiped with ink and the next drawing is cut into it.",
+   "sound": "A steel point scratching clay, a dry board tap, an owl far off, a low bowed string with no reverb; near silence between cuts.",
+   "post": {
+    "grain": 0.22,
+    "vignette": 0.24
+   },
+   "card": {
+    "palette": [
+     "#0d0c0b",
+     "#f6f2e8",
+     "#cfc6b4"
+    ],
+    "fonts": [
+     "Anton",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Kazıma: siyah zeminden beyaz çizgiler kazınmış; hiç dolgu yok, ton yalnızca çizgi sıklığı; tüyler gövdeye göre dönen yaylar.",
+     "type": "Anton büyük harf, kazınmış gibi kırık kenarlı; altında küçük aralıklı sans.",
+     "motion": "Kazınır: keski çizgileri sırayla açar, en yoğun yerler en son; sonra hiçbir şey kıpırdamaz.",
+     "sound": "Kile kazınan çelik uç, tahta tıkırtısı, uzak baykuş, alçak yaylı.",
+     "avoid": "Beyaz boya, gri dolgu, bulanıklık, ikinci renk, negatif fotoğraf."
+    },
+    "en": {
+     "look": "Scratchboard: white lines cut out of black, no fill anywhere, tone only from line pitch, feathers as arcs turning with the body.",
+     "type": "Anton caps, broken edges like a cut; a small tracked sans beneath.",
+     "motion": "Scratched in: the burin opens groups in order, densest last, then nothing moves.",
+     "sound": "Steel on clay board, a dry tap, an owl far off, a low bowed string.",
+     "avoid": "White paint, grey fills, blur, a second colour, photo negatives."
+    }
+   }
+  },
+  {
+   "id": "mid_century",
+   "name": "Mid-century illustration",
+   "tr": "50'ler illüstrasyonu",
+   "essence": "A 1950s-60s advertising illustration: flat poster colour printed a few millimetres out of register, every form held by a confident black keyline, atomic starbursts, boomerangs and tapered steam curls, a household object treated like a monument.",
+   "not": "Not a photo, not a clean vector logo, not grain-free digital flatness, not pastel, not retro-sixties psychedelia; no gradients inside a shape, no soft shadow, no rounded friendly blob without a keyline, no halftone dots (that is riso).",
+   "render": "Four inks on cream: #f3e7cd paper, mustard #e3a72f, teal #2f7d78, coral #d95f3b, charcoal #241f1b. Every shape is drawn TWICE: first a flat ghost of the same path filled with the neighbouring ink, translated 16-24 px on x and 12-18 px on y and never stroked; then the real shape, filled flat and stroked with charcoal at 7-9 px (linejoin round, no dashes). That ghost peeking out along one edge is the whole medium - it must happen on the big blocks, on the subject and on the type. Form is closed and simple: one silhouette, no internal gradient, shadow described by a second flat shape or a keyline that thickens on the shaded side. Nuclear-age ornament, always in the margin: an atomic starburst of 12-16 tapered solid triangles radiating from a dot with small circles at the tips, and boomerangs (a crescent made of two arcs, one pointed end) floating at 15-40 deg. Steam, smoke and motion are single curling ribbons with a round cap. Keep all keylines the same weight in one picture; the eye should feel a screen print of an ad, not a cartoon.",
+   "texture": "paper",
+   "composition": "Poster stack: headline in the top left, a starburst balancing it at the top right, a big flat colour block behind the subject, the subject centred in the lower middle third on a saucer or a ground line, boomerangs in the empty corners, one small tracked caption near the bottom; generous cream margins, nothing touching the frame.",
+   "colour": "Cream #f3e7cd, mustard #e3a72f, teal #2f7d78, coral #d95f3b, charcoal #241f1b - and a lighter glass white #fbf3e2 for transparencies. Each area is ONE flat ink; a colour is never a tint or a gradient. Coral and mustard carry the warmth, teal is the cool counterweight, charcoal only for keylines, type and one solid band.",
+   "type": "Poppins 700 or Montserrat 700, caps, 100-130 px, tracking 0.01-0.03 em, charcoal, sometimes with a 10 px coral or mustard offset copy behind it (the type is printed out of register too); a small line in Inter Tight 500 caps tracked 0.3 em beneath.",
+   "motion": "Mechanical and cheerful: each piece slides in 40-70 px on its own diagonal in 0.3 s with power3.out and a 2 % overshoot, then holds dead still; the starburst pops from its centre once; nothing loops, nothing breathes, no slow drift.",
+   "camera": "Locked and frontal like a printed page; at most a 1.04 push toward the subject, or a 4 px lateral drift as if the sheet were fed through a press.",
+   "transitions": "A flat colour block wipes across and becomes the next ground; the starburst blooms open to reveal the next frame; a keyline draws itself around the frame edge and closes on the cut.",
+   "sound": "Warm mid-century lounge: vibraphone, upright bass, brushed snare, a small brass stab on the starburst, a teaspoon on porcelain, a soft paper slide.",
+   "post": {
+    "grain": 0.3,
+    "vignette": 0.12
+   },
+   "card": {
+    "palette": [
+     "#f3e7cd",
+     "#e3a72f",
+     "#2f7d78",
+     "#d95f3b",
+     "#241f1b",
+     "#fbf3e2"
+    ],
+    "fonts": [
+     "Poppins 700",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "50'ler reklam illüstrasyonu: krem kâğıt üzerine düz baskı renkleri birkaç milim kaymış, her form kalın siyah konturlu; atom yıldızı, bumerang, kıvrık buhar, sıradan bir ev eşyası anıt gibi.",
+     "type": "Poppins 700 büyük harf, altında ince aralıklı küçük satır; yazının da arkasında kaymış renk kopyası.",
+     "motion": "Mekanik ve neşeli: parçalar kendi köşegeninde kayar, bir kez taşar ve durur; yıldız bir kez açılır.",
+     "sound": "Vibrafon, kontrbas, fırçalı davul, kısa brass vuruşu, porselen kaşık.",
+     "avoid": "Gradyan, yumuşak gölge, pastel, kontursuz yuvarlak leke, tram noktaları."
+    },
+    "en": {
+     "look": "1950s ad illustration: flat inks on cream printed a few millimetres out of register, every form held by a black keyline; atomic starburst, boomerangs, curling steam, an everyday object as a monument.",
+     "type": "Poppins 700 caps over a thin tracked line; the type carries its own offset colour ghost.",
+     "motion": "Mechanical and cheerful: parts slide on their own diagonal, overshoot once, hold; the burst opens once.",
+     "sound": "Vibraphone, upright bass, brushed snare, a short brass stab, a porcelain spoon.",
+     "avoid": "Gradients, soft shadows, pastels, unlined round blobs, halftone dots."
+    }
+   }
+  },
+  {
+   "id": "comic_pop",
+   "name": "Comic pop panel",
+   "tr": "Çizgi roman panosu",
+   "essence": "One 1960s comic-book panel blown up to the frame: Ben-Day dots in every flat field, a thick black contour around everything, four primaries, and a speech balloon with hand-lettered caps - a street-corner scene, not a copy of a famous panel.",
+   "not": "Not clean vector cartoon, not anime, not a halftone photo, not soft shading, not pastel; no gradient, no thin outline, no realistic anatomy, no brand characters, no copy of an existing comic panel.",
+   "render": "Four inks only: paper #f7f2e4, black #141414, red #d5281f, yellow #f5c518, blue #1d63b8 (plus one ochre #e0a33f for the simit). Ground fields are FLAT colour with Ben-Day dots: an SVG <pattern> of r 7 circles on a 26 px cell, rotated 15-20 deg, dot and ground in two different inks (red dots on yellow, white dots on blue); a second dot pattern on transparent is clipped over the shadow side of the face and the shirt. Every contour is one black stroke at 9-14 px, linejoin round, closed; no interior line under 6 px. Shading is a second flat shape or dot field, never a gradient - a shadow is a hard-edged shape in the darker ink laid over the dots. The speech balloon is a rounded polygon in paper white with a 10 px black contour and a triangular tail pointed at the mouth; its lettering is heavy caps inside the balloon.",
+   "texture": "halftone",
+   "composition": "A framed panel with a 16 px black border and a cream page margin: balloon in the upper third, a head-and-shoulders figure in the centre looking at us and shouting, a tray of simits held at the bottom right, flat dot fields behind. Diagonal energy lines in the empty corners, nothing overlapping the balloon.",
+   "colour": "Red #d5281f, yellow #f5c518, blue #1d63b8, black #141414 on paper #f7f2e4, plus ochre #e0a33f for the pastry. Colours are flat and pure; each field is a solid + its own dot screen, and the black is reserved for contour, hair and lettering.",
+   "type": "Poppins 700 caps inside the balloon at 90-110 px, tight leading, letterspaced -0.01 em, black on white; a small sticker line in Montserrat 700 caps. No lowercase lettering in the panel.",
+   "motion": "Comic timing: the panel border snaps in, the balloon pops from 0.8 with one 6 % overshoot, the figure rises 90 px and stops, a dot field can flash one step darker for two frames on the shout. Nothing smooth, nothing slow, no cross-fades.",
+   "camera": "Dead frontal, flat as printed paper; the only move is a 1.05 push into the face or a 3 px shake on the shout.",
+   "transitions": "A colour field slams across the frame; the balloon's outline draws itself around the cut; a hard cut on the shout with one frame of inverted dots.",
+   "sound": "Bright and punchy: a snare crack, a tuba blat, a vibraphone run, crowd murmur on the quay, a paper rustle, one shouted syllable.",
+   "post": {
+    "grain": 0.18
+   },
+   "card": {
+    "palette": [
+     "#f7f2e4",
+     "#d5281f",
+     "#f5c518",
+     "#1d63b8",
+     "#141414",
+     "#e0a33f"
+    ],
+    "fonts": [
+     "Poppins 700",
+     "Montserrat 700"
+    ],
+    "tr": {
+     "look": "Tek çizgi roman karesi: her düz alanda Ben-Day noktaları, her şeyin çevresinde kalın siyah kontur, dört ana renk, konuşma balonu.",
+     "type": "Balonun içinde kalın büyük harfler; küçük etikette sıkı aralıklı satır.",
+     "motion": "Komik zamanlama: çerçeve çat diye girer, balon bir kez taşarak açılır, figür yükselip durur.",
+     "sound": "Trampet şaklaması, tuba, vibrafon, iskele uğultusu, kâğıt hışırtısı.",
+     "avoid": "Gradyan, ince çizgi, yumuşak gölge, pastel, gerçekçi anatomi, ünlü bir kareyi kopyalamak."
+    },
+    "en": {
+     "look": "One comic panel: Ben-Day dots in every flat field, thick black contour on everything, four primaries, a speech balloon.",
+     "type": "Heavy caps inside the balloon; a tight tracked sticker line.",
+     "motion": "Comic timing: the frame snaps in, the balloon pops with one overshoot, the figure rises and stops.",
+     "sound": "Snare crack, tuba blat, vibraphone run, quay murmur, paper rustle.",
+     "avoid": "Gradients, thin lines, soft shading, pastels, realistic anatomy, copying a famous panel."
+    }
+   }
+  },
+  {
+   "id": "bauhaus",
+   "name": "Bauhaus study",
+   "tr": "Bauhaus etüdü",
+   "essence": "A Bauhaus poster-study: the whole picture built from a circle, a square and a triangle in the three primaries on off-white, everything on a strict orthogonal grid, a lowercase sans headline, no ornament at all - an object analysed into its primitive solids.",
+   "not": "Not a retro pastiche, not 1970s graphic design, not decoration, not hand-drawn, not textured, not asymmetric for its own sake; no gradients, no keylines around forms (except the one black construction line), no more than three colours plus black, no script or serif type.",
+   "render": "One off-white ground #f2efe4; every form is ONE flat primitive: a circle (fill #d8352a), a square (#1f4fa8) and a triangle (#f2c11c), plus black #141414 as line, dot and type. No outlines - forms touch each other by overlap and colour change, which is how the object is described. The composition sits on a single black horizontal construction line (8-10 px) and one vertical rule; the object's parts are laid on those two axes, so the picture looks measured. Type is lowercase, sans, black, one word, set flush to the left margin with wide air around it; a small lowercase line at 0.25 em tracking. Primitives are pure: a true 60 degree triangle, a circle, a square with square corners - never rounded, never skewed, never duplicated as decoration. Empty off-white is a material: keep at least a third of the frame bare.",
+   "texture": "paper",
+   "composition": "Asymmetrical balance on a grid: a huge lowercase word in the upper left, the constructed object centred on the lower two thirds, a small triad of the three primitives as a footnote in the bottom corner, one black line through everything; all margins different, nothing centred.",
+   "colour": "Off-white #f2efe4, red #d8352a, blue #1f4fa8, yellow #f2c11c, black #141414. Exactly three chromatic inks, each used once or twice, in large flat areas; black is only type, the construction line and small solids. No tints, no shades, no fourth hue.",
+   "type": "Poppins 500 lowercase, 240-300 px, tight tracking -0.03 em, black; one small lowercase line in Poppins 500 with 0.24 em tracking. No caps, no italic, no underline.",
+   "motion": "Constructed in front of us: the circle grows from 0.86 to 1 in 0.3 s, the square drops 40 px and lands, the triangle turns 8 deg into place, the black line draws from left to right; power2.out only, everything stops dead, long hold after 2 s.",
+   "camera": "Locked, orthogonal, like a photograph of a print; no push, no parallax - at most a 3 px re-centre.",
+   "transitions": "A square grows from the centre and fills the frame; the black construction line sweeps across and the next scene is drawn on it; a hard cut on the beat.",
+   "sound": "Dry and precise: a woodblock, a single piano note with the pedal down, a soft mallet on metal, paper sliding on a table; no melody.",
+   "post": {
+    "grain": 0.2
+   },
+   "card": {
+    "palette": [
+     "#f2efe4",
+     "#d8352a",
+     "#1f4fa8",
+     "#f2c11c",
+     "#141414"
+    ],
+    "fonts": [
+     "Poppins 500"
+    ],
+    "tr": {
+     "look": "Bauhaus etüdü: daire, kare, üçgen; kırmızı-sarı-mavi, kırık beyaz zemin, katı bir ızgara, siyah inşa çizgisi, süs yok.",
+     "type": "Poppins küçük harf, çok büyük tek kelime; altında geniş aralıklı küçük satır.",
+     "motion": "Önümüzde kurulur: daire büyür, kare düşer, üçgen yerine döner, çizgi soldan çekilir; hepsi birden durur.",
+     "sound": "Ahşap blok, tek piyano notası, yumuşak tokmak, kâğıt.",
+     "avoid": "Gradyan, gölge, süs, kontur, dördüncü renk, el çizimi, eğri köşe."
+    },
+    "en": {
+     "look": "Bauhaus study: circle, square, triangle; red-yellow-blue on off-white, a strict grid, one black construction line, no ornament.",
+     "type": "Poppins lowercase, one very large word; a wide-tracked small line under it.",
+     "motion": "Built in front of us: the circle grows, the square lands, the triangle turns into place, the line draws; all stop dead.",
+     "sound": "Woodblock, one piano note, a soft mallet, paper.",
+     "avoid": "Gradients, shadows, ornament, outlines, a fourth colour, hand drawing, rounded corners."
+    }
+   }
+  },
+  {
+   "id": "synthwave",
+   "name": "Synthwave retro-future",
+   "tr": "Synthwave retro-fütür",
+   "essence": "An 1980s retro-future night: a striped neon sun setting behind hard mountain silhouettes, an infinite magenta grid floor to the vanishing point, chrome display type burning over it, and a boxy coupe driving away into the glow.",
+   "not": "Not cyberpunk city clutter, not anime, not 1990s clip art, not pastel vapourwave; no daylight, no photorealism, no flat vector without glow, no rounded friendly shapes, no real brand logos.",
+   "render": "A vertical <linearGradient> sky #12002b -> #3b0b52 -> #8a1a6a with the horizon at 61 % of the height; the sun is one circle with a <linearGradient> #ffe66d -> #ff9f43 -> #ff2d95, masked by a <mask> of black horizontal bars whose thickness grows toward the bottom, so the lower half is sliced into stripes. Mountains are hard polygons #130726 with a 4 px #26e0ff rim on the ridge only. The floor is a plane in perspective: 19 <line>s from the vanishing point (540, 1180) to the bottom edge, crossed by 12 horizontals at y = 1180 + 740 * (k/12)^2.4, all #ff2d95 at .5-.7 alpha, each drawn twice - a 7 px blurred copy for bloom plus a 2.5 px crisp line. Chrome type = a CSS linear-gradient (white -> #9fe8ff -> #2b8cff -> #7a2bff -> #ff5ec4 -> white) with background-clip:text, plus two drop-shadows (pink 18 px, cyan 46 px). The car is a single dark polygon with cyan rim light on its left edge, magenta on its right, a tail-light bar drawn three times (blurred #ff2d5e, crisp #ff2d5e, hot #ffd0e0 core) and a chrome bumper strip.",
+   "texture": "scanlines",
+   "composition": "Symmetrical stage: sun dead centre over the horizon, chrome word across the top third, the car low and centred with the grid vanishing exactly under it, mountain silhouettes left and right framing the glow; empty sky between the type and the sun.",
+   "colour": "Night #12002b, deep purple #3b0b52, hot magenta #ff2d95, cyan #26e0ff, sun yellow #ffe66d, hot red #ff2d5e, chrome white #f2fbff. Saturated neon on near-black only; each glow is the same hue as the line it belongs to.",
+   "type": "Poppins 700 caps, 150-175 px, tracking 0.04-0.08 em, chromed with the gradient and glowing; one small line in Inter Tight 500 caps tracked 0.4 em in cyan below it. Type is always centred on the axis.",
+   "motion": "Slow synth pads, fast machines: the sun rises 40 px and holds, grid lines fade up from the horizon outward, the car glides in from the bottom with power2.out and settles, the chrome type flickers once like a neon tube striking. Nothing rotates, nothing bounces.",
+   "camera": "Locked on the axis; one slow 1.05 push toward the sun, or a low tilt that ends on the chrome word.",
+   "transitions": "The grid accelerates and swallows the frame; a horizontal scanline wipe; the sun's stripes close into a solid disc and cut to the next scene.",
+   "sound": "Gated reverb drums, a saw bass arpeggio, glassy pads, a car door thud, a neon buzz on the type reveal.",
+   "post": {
+    "grain": 0.2,
+    "vignette": 0.25
+   },
+   "card": {
+    "palette": [
+     "#12002b",
+     "#3b0b52",
+     "#ff2d95",
+     "#26e0ff",
+     "#ffe66d",
+     "#ff2d5e",
+     "#f2fbff"
+    ],
+    "fonts": [
+     "Poppins 700",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "80'ler retro-fütür gece: şeritli neon güneş, sert dağ siluetleri, ufka giden macenta ızgara zemin, krom yazı, arkadan uzaklaşan kutu gibi bir coupe.",
+     "type": "Krom kaplı kalın büyük harfler, eksene ortalanmış; altında ince aralıklı camgöbeği satır.",
+     "motion": "Yavaş pedallar, hızlı makineler: güneş yükselip durur, ızgara ufuktan dışa açar, araba aşağıdan süzülüp oturur, yazı bir kez flaş gibi titrer.",
+     "sound": "Gate'li davul, testere bas arpej, cam gibi pedler, araba kapısı, neon uğultusu.",
+     "avoid": "Gündüz, fotogerçekçilik, pastel vapourwave, şehir kalabalığı, gerçek marka logosu."
+    },
+    "en": {
+     "look": "80s retro-future night: striped neon sun, hard mountain silhouettes, a magenta grid floor to the horizon, chrome type, a boxy coupe driving away.",
+     "type": "Chrome heavy caps centred on the axis; a thin tracked cyan line beneath.",
+     "motion": "Slow pads, fast machines: the sun rises and holds, the grid opens from the horizon, the car glides in and settles, the type flickers once.",
+     "sound": "Gated drums, saw bass arpeggio, glassy pads, a car door, neon buzz.",
+     "avoid": "Daylight, photorealism, pastel vapourwave, city clutter, real brand logos."
+    }
+   }
+  },
+  {
+   "id": "silkscreen_travel",
+   "name": "Silkscreen travel poster",
+   "tr": "Serigrafi seyahat afişi",
+   "essence": "A 1950s travel poster pulled in 5 flat screen inks: a huge landscape reduced to three or four silhouettes, a destination set in a bold condensed sans, no gradients anywhere, the paper doing the light.",
+   "not": "Not a photoreal landscape, not an illustration with shading, not riso dots, not a gradient sky, not an outlined drawing; no more than 5 inks, no thin detail under 8 px, no copy of an existing tourist poster.",
+   "render": "Exactly 5 inks on paper #f2e6cd: ochre #e0a23e, terracotta #c2553a, dusty rose #d98f7a, deep teal #1c4f55. Each ink is ONE flat shape layer, back to front, edge to edge with no outline and no gradient; depth comes from stacking the inks, never from a tint - a shape is either an ink or paper. The Cappadocia valley is built from 2-3 overlapping planes, one ink each: a distant rose ridge with small cones, a mid ochre plane of fairy chimneys, and a near terracotta plane of large capped cones that overlap each other and run down to y ~1740. Every chimney is a silhouette with a tapered base, a narrow waist and a wide rounded cap; group many chimneys into a single <path> of subpaths per plane. Where two inks meet, let them overlap 2-4 px and multiply (a screen print overprints); a 2-3 px misregistration on ONE layer per poster is allowed. Balloons are large enough to carry the sky: a body of gores (paper, teal, ochre rectangles clipped to the balloon profile), ropes and a basket. Type is a solid block of one ink, knocked out or printed over the lightest band, never outlined. Keep the horizon high and leave the upper sky as bare paper so the type can breathe.",
+   "texture": "paper",
+   "composition": "Poster hierarchy: destination name in the top left, a line of small tracked type under it, three balloons at different depths in the sky (the largest right of centre), then the Cappadocia valley receding in three overlapping planes - a distant rose ridge, a mid ochre row of fairy chimneys, and a near terracotta band of big capped cones that fill the frame down to y ~1740, the paper left as sky and as a narrow margin along the bottom.",
+   "colour": "Paper #f2e6cd, ochre #e0a23e, terracotta #c2553a, dusty rose #d98f7a, deep teal #1c4f55. Five inks, each a large flat area; the teal is the darkest and carries the type, the rose is atmosphere, the ochre is the light.",
+   "type": "Anton caps at 120-140 px, tracking 0.01 em, deep teal, set flush left; a line of Inter Tight 500 caps tracked 0.32 em underneath in terracotta. Type is printed flat, no shadow, no outline, no curve.",
+   "motion": "Screen-print flats: each ink layer slides up 30-50 px into register in 0.3 s and stops; the balloons drift less than 10 px; the type stamps in last, whole, one frame of overshoot. Long hold.",
+   "camera": "Locked, poster-flat; a 1.05 push toward the balloons or a 5 px vertical drift as the sheet is fed.",
+   "transitions": "An ink band wipes up the frame; the horizon line rises and becomes the next sky; a hard cut with one frame of the previous ink.",
+   "sound": "Open air and light: a warm string swell, an accordion or clarinet phrase, wind, a distant balloon burner, paper.",
+   "post": {
+    "grain": 0.3,
+    "vignette": 0.1
+   },
+   "card": {
+    "palette": [
+     "#f2e6cd",
+     "#e0a23e",
+     "#c2553a",
+     "#d98f7a",
+     "#1c4f55"
+    ],
+    "fonts": [
+     "Anton",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Serigrafi seyahat afişi: beş düz mürekkep, kâğıt ışığı taşır, manzara üç dört siluete indirgenmiş, kontur ve gradyan yok.",
+     "type": "Anton büyük harf, sola yaslı; altında geniş aralıklı ince satır.",
+     "motion": "Düz mürekkepler: her katman 30-50 px kayıp yerine oturur ve durur; balonlar ancak 10 px süzülür.",
+     "sound": "Yaylılar, klarnet, rüzgâr, uzakta balon brülörü, kâğıt.",
+     "avoid": "Gradyan, fotogerçekçilik, tram noktaları, kontur, ince detay, var olan bir afişi kopyalamak."
+    },
+    "en": {
+     "look": "Silkscreen travel poster: five flat inks, paper carries the light, the landscape reduced to three or four silhouettes, no outline and no gradient.",
+     "type": "Anton caps flush left; a wide-tracked thin line beneath.",
+     "motion": "Flat inks: each layer slides 30-50 px into register and stops; balloons drift under 10 px.",
+     "sound": "Strings, clarinet, wind, a distant burner, paper.",
+     "avoid": "Gradients, photorealism, halftone dots, outlines, fine detail, copying an existing poster."
+    }
+   }
+  },
+  {
+   "id": "botanical_plate",
+   "name": "Botanical plate",
+   "tr": "Botanik levha",
+   "essence": "An 18th-19th century hand-coloured engraving: one specimen drawn in fine burin lines and cross-hatching on aged paper, tinted with thin watercolour washes, its parts dissected and numbered at the side, and a thin Latin caption under a ruled plate mark.",
+   "not": "Not a modern infographic, not a photo, not a flat vector flower, not a children's illustration; no thick outlines, no saturated colour, no drop shadows, no sans-serif caption, no clip-art leaves.",
+   "render": "Aged paper #e9dcc0 with 6-8 foxing blotches (#b5905a at .1, blurred) and a plate mark: a 2 px double rule 8 px apart around the drawing, and the sheet left bare outside it. All drawing is ONE sepia ink #4a3623: outlines at 2.4-3.4 px, never filled - shadow is a field of parallel burin lines (an SVG <pattern> of 1.6 px lines on 8 px, rotated 38 deg) or a cross-hatch at 38/-38 deg for the darkest passages, plus stipple dots for soft transitions. Hand tint sits UNDER the lines: flat muted washes (sage #7f9161, rose #b5695d, ochre #c79a4e, blue-grey #93a7a3) at .3-.45 opacity, their edges blurred 5-8 px so they look floated on, never a hard vector fill and never covering a contour. The plate carries a specimen (flower, stem, leaves, bulb and roots) plus 4-5 dissected details stacked in a side column, each with a small engraved number; a hairline leader only where the part is far away.",
+   "texture": "paper",
+   "composition": "Portrait plate: specimen filling the left two thirds, dissected details in a narrow column at the right, the Latin caption on the baseline inside the plate mark, a wider bare margin at the bottom; nothing is centred, the stem is the vertical the eye follows.",
+   "colour": "Aged paper #e9dcc0, sepia ink #4a3623, sage #7f9161, rose #b5695d, ochre #c79a4e, blue-grey #93a7a3. The tints are washes at a third strength, always inside the lines, never a flat poster colour; no pure black, no white.",
+   "type": "Cormorant Garamond for the plate name (caps, 110-130 px, tracked 0.08 em, sepia) and for the Latin caption (italic, 26-30 px, with the author abbreviation and Tab. number); a tracked small-caps serif line for the vernacular name. No sans-serif anywhere.",
+   "motion": "Drawn like a plate being inked: the specimen's contour draws in 0.5-0.7 s, the hatched shadow fades in 0.2 s later, the washes bloom in last under the lines; the numbers appear one at a time with the details. Everything settles by 2.2 s and holds.",
+   "camera": "Locked flat on the page, slight top-light; a 1.06 push toward the flower head, or a slow vertical pan down the stem to the bulb.",
+   "transitions": "A hairline draws across and becomes the plate's rule; the paper tone washes over the frame; a hard page turn.",
+   "sound": "Quiet study: a nib on paper, a page turn, a small harpsichord or lute phrase, a glass of water, birds far outside.",
+   "post": {
+    "grain": 0.16,
+    "vignette": 0.18
+   },
+   "card": {
+    "palette": [
+     "#e9dcc0",
+     "#4a3623",
+     "#7f9161",
+     "#b5695d",
+     "#c79a4e",
+     "#93a7a3"
+    ],
+    "fonts": [
+     "Cormorant Garamond"
+    ],
+    "tr": {
+     "look": "18.-19. yüzyıl el boyaması gravür: yaşlı kâğıtta ince burin çizgileri ve tarama, üstüne sulu boya yıkama, yanda numaralı kesitler, altında ince Latince künye.",
+     "type": "Cormorant Garamond büyük harf başlık; italik Latince künye, aralıklı küçük serif satır.",
+     "motion": "Levha mürekkeplenir gibi: kontur çizilir, tarama sonra belirir, yıkamalar en son altta açar; numaralar tek tek gelir.",
+     "sound": "Kâğıtta kalem, sayfa çevirme, lavta, uzakta kuşlar.",
+     "avoid": "Kalın kontur, doygun renk, gölge, sans-serif, fotoğraf, düz vektör çiçek."
+    },
+    "en": {
+     "look": "18th-19th c. hand-coloured engraving: fine burin lines and hatching on aged paper, thin watercolour washes over them, numbered dissections at the side, a Latin caption below.",
+     "type": "Cormorant Garamond caps for the name; italic Latin caption, tracked small serif line.",
+     "motion": "Inked like a plate: the contour draws, the hatching fades in after, the washes bloom last under the lines; numbers arrive one by one.",
+     "sound": "Nib on paper, a page turn, lute, birds outside.",
+     "avoid": "Thick outlines, saturated colour, shadows, sans-serif, photography, flat vector flowers."
+    }
+   }
+  },
+  {
+   "id": "technical_cutaway",
+   "name": "Technical cutaway",
+   "tr": "Teknik kesit",
+   "essence": "A drafted cutaway plate: one object sliced open so its insides read as clearly as its outside, every part traced in two or three line weights, cut faces hatched, leader lines with numbered labels at the side, a scale note underneath.",
+   "not": "Not a blueprint (no cyan, no white-on-blue), not an isometric illustration, not a patent drawing with clutter, not a photo with arrows; no gradients, no shading except hatch, no dotted texture, no more than one accent colour.",
+   "render": "Black ink #1f1f1f on drafting white #f5f3ec, with ONE accent #d9762b and a pale water blue #cfe3ec. Three line weights only: silhouettes 3.5-4 px, part outlines 2 px, leaders and centrelines 1.2 px (the centreline dash-dot: 26 8 4 8). The cut is a window: the object is drawn closed, then a rectangular opening on one side is cut with an even-odd <path> whose 14 px band is filled with a 45 deg hatch <pattern> (1.4 px lines, 6 px apart) - that hatched band is what makes it read as a section. Inside the window the contents are flat pale fills with their own outlines (water #cfe3ec, heat/tea #e8c9a6, firebox #d9762b at .5). Labels are numbered circles (r 15) at the end of a 1.2 px leader that touches the part with a 4 px dot; the text is Inter Tight 500 lowercase at 28 px, 6 px from the circle. Nothing else on the sheet: no border, no grid, no colour blocks.",
+   "texture": "paper",
+   "composition": "Sheet layout: the object centred left on its vertical centreline, the cutaway window on its right half, the numbered labels stacked at the right in the order of the parts, one label on the left for the part that faces that way, headline above in the top left and a scale note on the baseline.",
+   "colour": "Drafting white #f5f3ec, ink #1f1f1f, pale water blue #cfe3ec, warm section #e8c9a6, one accent #d9762b (used only for heat, the firebox and the tap); no second accent, no tints of the ink.",
+   "type": "Montserrat 700 caps at 90-110 px for the object name, tracked 0.04 em; Inter Tight 500 lowercase for the numbered parts at 28 px, and Inter Tight 500 caps tracked 0.3 em for the scale note. All type in ink, never in the accent.",
+   "motion": "Drafted: the silhouette draws first, the cut window opens (a wipe from the cut edge), the contents fade in, then each leader draws out and its number lands with a tick. 0.3 s each, power2.out, everything settled by 2.2 s.",
+   "camera": "Locked orthographic; a slow 1.06 push into the cut window, or a vertical tilt from the object name to the base.",
+   "transitions": "A leader line draws across the cut and becomes the next scene's centreline; a hatched band wipes the frame; hard cut on the beat.",
+   "sound": "Drafting room: a pencil on paper, a ruler tap, a metal tick on each number, a low room tone, a kettle whistle at the end.",
+   "post": {
+    "grain": 0.14
+   },
+   "card": {
+    "palette": [
+     "#f5f3ec",
+     "#1f1f1f",
+     "#d9762b",
+     "#cfe3ec",
+     "#e8c9a6"
+    ],
+    "fonts": [
+     "Montserrat 700",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Teknik kesit levhası: nesne ortadan kesilip içi gösterilir, kesit yüzeyi taranmış, üç çizgi kalınlığı, numaralı kılavuz çizgileri, altta ölçek notu.",
+     "type": "Montserrat büyük harf başlık; Inter Tight küçük harf parça adları, aralıklı ölçek notu.",
+     "motion": "Çizilir: siluet, kesit penceresi, iç parçalar, sonra her kılavuz ve numarası sırayla gelir.",
+     "sound": "Kâğıtta kurşun kalem, cetvel tıkırtısı, her numarada metal tık, çaydanlık ıslığı.",
+     "avoid": "Mavi kopya, izometrik, fotoğraf, gradyan, tarama dışı gölge, ikinci vurgu rengi."
+    },
+    "en": {
+     "look": "Technical cutaway plate: the object is sectioned to show its inside, cut faces hatched, three line weights, numbered leaders, a scale note below.",
+     "type": "Montserrat caps for the name; Inter Tight lowercase parts, tracked scale note.",
+     "motion": "Drafted: silhouette, cut window, contents, then each leader and its number in order.",
+     "sound": "Pencil on paper, ruler tap, a metal tick per number, a kettle whistle.",
+     "avoid": "Blueprints, isometrics, photos, gradients, shading other than hatch, a second accent."
+    }
+   }
+  },
+  {
+   "id": "pictogram",
+   "name": "Isotype pictogram chart",
+   "tr": "Isotype piktogram",
+   "essence": "An Isotype / Otl Aicher pictogram chart: one standardised symbol - a tea glass - repeated on a strict grid, one symbol standing for ten million, the quantity read by counting rows, a single accent symbol for the remainder, no illustration anywhere.",
+   "not": "Not an infographic with bars and axes, not emoji, not outline icons, not a dashboard, not decorative icon soup; no gradients, no shadows, no more than two colours plus grey, no tilted or perspective symbols, no numbers written on every icon.",
+   "render": "One off-white sheet #f7f5ef, one ink #17324d, one accent #e4572e, one grey #b9b7ae. The symbol is a single closed silhouette (a tulip tea glass with a saucer bar) drawn once on a 60x84 unit grid and repeated by transform - never redrawn by eye, so all copies are identical. Repeat on a mathematical grid: cell 150x130, five across, five down, symbols centred in their cells, with a 6 px tick at each row and column start (ink at .3 alpha) instead of a frame. Quantity = count: 24 solid symbols and one whose lower half is accent and upper half grey (the .5), so the total is read without a single axis. The text is a two-line statement at the top and a legend line with one symbol at 36 px, nothing else; numerals in Montserrat 700, labels in Inter Tight 500 with wide tracking. Everything is flat and axis-aligned; white space carries the chart.",
+   "texture": "paper",
+   "composition": "Top left: the statement, set large, three lines. Below it a 5x5 field of identical symbols with the half symbol last, then a legend line with one symbol, then a small source note. All flush left to the same margin at x 96; the right edge is left open.",
+   "colour": "Paper #f7f5ef, navy #17324d for every full symbol and the type, orange #e4572e only for the half symbol and nothing else, grey #b9b7ae for the empty half and the small note. Two colours plus one grey; no tint of the navy.",
+   "type": "Montserrat 700 for the headline numbers (130-140 px) and Inter Tight 500 caps for the words, tracked 0.06-0.3 em; the legend at 26-30 px, the source note at 24-26 px in grey. Lowercase is never used for the legend; the headline is caps with correct Turkish dotted/dotless i.",
+   "motion": "Counting: the symbols land one after another, row by row, 40-60 ms apart, each with a 4 % overshoot; the half symbol lands last and its orange half fills. The headline is already there. Everything stops by 2 s, no loop.",
+   "camera": "Locked flat on the sheet; at most a 1.04 push toward the grid, or a fast cut between two counts.",
+   "transitions": "A row of symbols slides in and becomes the next row; the grid wipes upward; hard cut on the beat.",
+   "sound": "Precise and light: a woodblock tick per symbol (panned left to right), a muted marimba, a room tone, a single low note under the half symbol.",
+   "post": {
+    "grain": 0.12
+   },
+   "card": {
+    "palette": [
+     "#f7f5ef",
+     "#17324d",
+     "#e4572e",
+     "#b9b7ae"
+    ],
+    "fonts": [
+     "Montserrat 700",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Isotype piktogram: tek bir standart sembol ızgarada tekrarlanır, bir sembol on milyonu temsil eder, miktar satır sayılarak okunur, kalan için tek vurgu sembolü.",
+     "type": "Montserrat kalın rakamlar, Inter Tight geniş aralıklı büyük harf; açıklama satırı 26-30 px.",
+     "motion": "Sayma: semboller satır satır, 40-60 ms arayla, hafif taşarak iner; yarım sembol en son gelir.",
+     "sound": "Her sembolde ahşap tık (soldan sağa), marimba, tek bas notası.",
+     "avoid": "Grafik eksenleri, emoji, kontur ikon, gradyan, gölge, her ikona sayı yazmak."
+    },
+    "en": {
+     "look": "Isotype pictogram: one standard symbol repeated on a grid, one symbol = ten million, quantity read by counting rows, one accent symbol for the remainder.",
+     "type": "Montserrat bold numerals, wide-tracked Inter Tight caps; a legend line at 26-30 px.",
+     "motion": "Counting: symbols land row by row, 40-60 ms apart, a small overshoot; the half symbol arrives last.",
+     "sound": "A wooden tick per symbol (left to right), marimba, one low note.",
+     "avoid": "Chart axes, emoji, outline icons, gradients, shadows, a number on every icon."
+    }
+   }
+  },
+  {
+   "id": "felt_applique",
+   "name": "Felt appliqué",
+   "tr": "Keçe aplikasyon",
+   "essence": "Shapes cut from wool felt and sewn onto a felt ground: thick matte pieces with soft fuzzy fibre edges, blanket stitches straddling every outline, running stitches inside the shapes, and each layer casting a soft shadow on the one below.",
+   "not": "Not cut paper (no crisp edges, no hard drop shadow), not knitting, not embroidery on linen, not vector flat shapes; no gradients inside a piece, no gloss, no thin lines, no outline-only drawing.",
+   "render": "Ground: a cream felt sheet (#efe2c9) covered with 400-600 faint 6-16 px hairs at .04-.06 alpha, plus 8-12 broad lighter/darker patches at .05 so the sheet is not flat. Every felt piece is a FILLED shape in one flat #hex (wool has no sheen), its silhouette pushed through <filter><feTurbulence baseFrequency='.09' numOctaves='3'/><feDisplacementMap scale='6'/></filter> so no edge is die-cut. Around the edge, inside a clip made of the same path stroked 30 px, draw 150-250 random 6-16 px hairs in a 12-18 % lighter and darker tint of the piece at .3-.45 alpha: that is the fibre halo. Inside the piece clip, 80-140 tiny 3-8 px hairs at .1 make the wool. Under each piece put the same path translated 10-14 px down, filled rgba(30,24,20,.28) and blurred 9 px: a soft felt shadow, never a hard one. Attach every piece with BLANKET STITCH: sample the outline at 44-52 px steps, draw a 26-32 px bar centred on the edge, perpendicular to it, 6-7 px wide, round caps, in a contrasting thread (rust on cream, cream on dark green), plus a 2.4 px dashed thread (12 26) running along the same edge; a few pieces get a RUNNING STITCH seam instead (5 px dashed 26 18). Wool form is shown by 3-6 dashed stitch lines or 3-4 overlapping scalloped bumps, never by shading. Keep pieces big and flat: 6-8 felt colours, all matte, one deep umber for real dark.",
+   "composition": "A felt ram in profile filling the middle, made of scalloped wool bumps, charcoal head and legs, a rust spiral horn; three felt hills stacked behind it with stitched seams, a mustard felt sun disc, two felt tulips on a deep umber foreground band, the headline huge upper left with a stitched underline.",
+   "colour": "Felt palette: cream #f8f2e4 and oat ground #efe2c9, olive #6d7f4f and sage #8e9b6b hills, rust #b5502f with #8a3a22 shadow thread, mustard #dfa63f, charcoal #2f2a24, deep umber #241d17; thread is always a value step away from the felt, never a tint.",
+   "type": "Anton caps 170-195 px in charcoal, letterspaced 0.02 em, sitting on the felt like a cut patch; a small Inter Tight 500 caps line at .3 em under it, and a 5 px rust running stitch under the headline.",
+   "motion": "Hand-placed: each felt piece lands whole in 2 frames and settles 6-10 px with a soft bounce, one piece after another; the stitches are already on the piece as it lands. No fades on shapes, no scaling, no floating.",
+   "camera": "Locked flat lay; at most a 1.04 push or a 4 px drift as if the sheet were being smoothed by hand.",
+   "transitions": "A felt shape is laid over the frame and becomes the next ground; a blanket-stitch line runs across and pulls the next scene in; a shadow sweeps as a hand passes.",
+   "sound": "Soft and textile: scissors through felt, a needle pulling thread, a wool thump, a low frame drum, a quiet hum, fabric smoothed by hand.",
+   "post": {
+    "grain": 0.25,
+    "vignette": 0.12
+   },
+   "card": {
+    "palette": [
+     "#efe2c9",
+     "#f8f2e4",
+     "#6d7f4f",
+     "#b5502f",
+     "#dfa63f",
+     "#2f2a24",
+     "#241d17"
+    ],
+    "fonts": [
+     "Anton",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Keçe aplikasyon: yün keçeden kesilmiş kalın parçalar, tüylü kenarlar, kenarı kavrayan verev dikişler, içte yorgan dikişi, her katmanın altına yumuşak gölge.",
+     "type": "Anton büyük harf, keçe yama gibi; altında küçük aralıklı sans ve rust renkli teyel çizgisi.",
+     "motion": "Elle yerleştirilir: her parça iki karede bütün gelir, 6-10 px oturur; dikişler parçayla birlikte gelir.",
+     "sound": "Keçe makası, iğne-iplik, yün gümbürtüsü, alçak davul, kumaş düzeltme.",
+     "avoid": "Keskin kâğıt kenarı, sert gölge, parlama, gradyan, ince çizgi, örgü."
+    },
+    "en": {
+     "look": "Felt appliqué: thick wool pieces with fuzzy fibre edges, blanket stitches straddling every outline, running stitches, a soft shadow under each layer.",
+     "type": "Anton caps like a cut felt patch; a small tracked sans and a rust tacking line under it.",
+     "motion": "Hand-placed: each piece lands whole in two frames, settles 6-10 px; its stitches arrive with it.",
+     "sound": "Felt scissors, needle and thread, wool thump, low drum, fabric smoothed.",
+     "avoid": "Crisp paper edges, hard shadows, gloss, gradients, thin lines, knitting."
+    }
+   }
+  },
+  {
+   "id": "embroidery",
+   "name": "Hand embroidery",
+   "tr": "Kanaviçe işleme",
+   "essence": "A motif sewn in thread on open linen: every shape built from individual satin stitches that lie side by side with a sheen, outlines in twisted stem stitch, a cross-stitch sampler band, the loose needle still threaded.",
+   "not": "Not a printed illustration, not felt appliqué, not cross-stitch pixels only, not smooth vector fills; no flat colour area without stitches, no gloss, no gradients, no soft airbrush shading.",
+   "render": "Ground: coarse linen, base #ded0b0, a 7 px SVG pattern with a 1.6 px horizontal weft line (#c9b995, .55), a 1.4 px vertical warp line (#f0e5cb, .5) and two 1 px offset threads, so the weave is visible under everything; a radial lighter patch at 30 % 25 % and darker corners. Each motif shape is filled by SATIN STITCH: 100-200 parallel strands at 9-11 px pitch, each 7-8 px thick, following the form (vertical on the fruit, 35 deg on the leaves, diagonal on the calyx), bowed 12-20 px so the stitch direction follows the volume; every strand is drawn three times: 2.4 px offset down-right in a 45 % darker thread, the main colour, and a 2 px offset up-left highlight at .4. Outlines and stems are STEM STITCH: a 8-10 px line with a 3 px lighter dash (13 9) alternating phase on top, so the thread looks twisted. Small seeds and knots are 30-40 px satin blobs with a gold highlight; the sampler band at the bottom is CROSS STITCH: 34 px X marks, each two 6 px strokes, alternating indigo/madder/gold on the linen. A real steel needle with an eye and a loose madder thread lies at the right. Never show a shape as flat fill.",
+   "composition": "A whole pomegranate with a five-point calyx and two leaves in the middle, a cut half in front showing ruby seed chambers and a cream membrane, a threaded needle at the right, a cross-stitch sampler band across the bottom, the headline upper left with a stitched rule under it.",
+   "colour": "Linen #ded0b0, madder #a3312b with deep #6e1e1c and bright #c4513c threads, olive #5a6b3a, pomegranate-seed gold #cf9a3a, indigo #2e4468, cream #efe3c6, stem brown #6b4a2f; thread colours stay close in value except the ruby seeds, which are the one saturated note.",
+   "type": "Cormorant Garamond 600 caps 150-168 px in deep madder, letterspaced 0.02 em, calm and sampler-like; a small Inter Tight 500 caps line at .3 em, with a 3 px stem-stitch rule between them.",
+   "motion": "Sewn on: the motif appears area by area, each area wiping in along its stitch direction in 0.2 s, then holds; the needle slides in last with the thread drawing behind it. No scaling of the finished motif, no floating.",
+   "camera": "Locked macro on the linen; at most a 1.05 push toward the fruit or a 3 px drift as if the hoop were being turned.",
+   "transitions": "A thread is pulled across the frame and becomes the next outline; a satin-stitch area wipes the scene in its stitch direction; the hoop edge passes the lens.",
+   "sound": "Textile and close: needle through linen, thread pulled with a soft zip, scissors, a low lute, a quiet room, fabric on a wooden table.",
+   "post": {
+    "grain": 0.2,
+    "vignette": 0.12
+   },
+   "card": {
+    "palette": [
+     "#ded0b0",
+     "#a3312b",
+     "#6e1e1c",
+     "#cf9a3a",
+     "#5a6b3a",
+     "#2e4468",
+     "#efe3c6"
+    ],
+    "fonts": [
+     "Cormorant Garamond 600",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Kanaviçe: keten üstünde ipekle işlenmiş nar; her yüzey yan yana saten dikişlerden, saplar burgulu sap işi, altta kanaviçe bordür, iğne hâlâ iplikli.",
+     "type": "Cormorant Garamond büyük harf, koyu kök kırmızısı; altında küçük aralıklı sans ve dikişli çizgi.",
+     "motion": "Dikilerek gelir: her alan kendi dikiş yönünde 0.2 sn'de sıvanır, sonra durur; iğne en son ipliğiyle girer.",
+     "sound": "Keten üstünde iğne, iplik çekişi, makas, alçak ud, sessiz oda.",
+     "avoid": "Düz vektör dolgu, parlama, gradyan, hava fırçası gölge, keçe, baskı."
+    },
+    "en": {
+     "look": "Hand embroidery: a pomegranate sewn in silk on linen, every area side-by-side satin stitches, stems in twisted stem stitch, a cross-stitch band, the needle still threaded.",
+     "type": "Cormorant Garamond caps in deep madder; a small tracked sans and a stitched rule.",
+     "motion": "Sewn on: each area wipes in along its stitch direction in 0.2 s and holds; the needle enters last with its thread.",
+     "sound": "Needle through linen, thread pulled, scissors, low lute, a quiet room.",
+     "avoid": "Flat vector fills, gloss, gradients, airbrush shading, felt, print."
+    }
+   }
+  },
+  {
+   "id": "sand_art",
+   "name": "Sand art on a light table",
+   "tr": "Işıklı masada kum sanatı",
+   "essence": "A drawing poured and finger-swept in dark sand on a glowing light table: granular silhouettes that break into individual grains at every edge, thin sand reading as translucent brown, finger-wiped lines showing the light through, loose grains scattered around the motif.",
+   "not": "Not an airbrushed silhouette, not ink, not a photograph of sand, not flat vector black; no crisp vector edge, no gloss, no hard shadow, no coloured paint, no smooth gradient inside the sand.",
+   "render": "Ground: the light table, a big radial gradient from #ffe9bd at 45 % 38 % through #e8a95a to #8a4a16 at the corners, plus a wide soft white glow behind the motif. Sand is ONE colour family: #2a1c11 for thick masses, #4a3420 for mid, #6d5236 where the sand is thin; the light does the rest. Every sand mass is a filled shape under <filter><feTurbulence baseFrequency='.05' numOctaves='3'/><feDisplacementMap scale='9'/></filter> so its contour is torn, then 200-300 2-5 px grains (a mix of the sand colour and a 40 % lighter tint) are clipped to a 30 px band around that contour, and 120 more inside at .15, so no edge is a line: it is grains. A blurred copy of the shape at 12-20 % sits behind it as the thin-sand halo. Finger marks are 8-16 px strokes with round caps in a 25 % lighter sand, and where a finger wiped the sand away the line is the glow colour (#ffe0aa); a thin sand line is a 3-5 px stroke with grains along it. Loose grains: 200-400 2-4 px dots clustered at the base and along the sweep, darker on the glow, lighter inside the masses. Keep the sand masses large and simple; detail comes from erased lines, not outlines.",
+   "texture": "grain",
+   "composition": "A camel caravan in profile filling the middle: one big camel, hump, long curved neck and small head, thin legs, a blanket drawn with erased lines; a torn sand dune across the bottom third, a thin sand sun ring high right, three finger-drawn birds, the headline upper left in dark sand.",
+   "colour": "Light table amber #8a4a16 - #e8a95a - #ffe9bd, sand #2a1c11, mid sand #4a3420, thin sand #6d5236, erased line #ffe0aa; only warm amber and brown-black, no other hue, with real dark in every mass.",
+   "type": "Anton caps 150-165 px in dark sand brown, letterspaced 0.02 em, with a slightly soft edge as if swept; a small Inter Tight 500 caps line at .3 em in mid-brown under it.",
+   "motion": "Poured and swept: the dunes settle first, the camel mass fades up with a 2-3 px grain jitter, the finger lines draw on from one end over 0.25 s, grains scatter last. Nothing slides as a whole shape.",
+   "camera": "Locked top-down on the light table; at most a 1.05 push or a 3 px drift as if the table were nudged.",
+   "transitions": "A hand sweeps the sand off the frame and the next scene is revealed; a poured line becomes the next horizon; grains blow across and reform as the next subject.",
+   "sound": "Dry and intimate: sand poured, a palm sweeping the table, soft tabla, a low ney, a quiet room, grains falling.",
+   "post": {
+    "grain": 0.3,
+    "vignette": 0.2
+   },
+   "card": {
+    "palette": [
+     "#ffe9bd",
+     "#e8a95a",
+     "#8a4a16",
+     "#2a1c11",
+     "#4a3420",
+     "#6d5236"
+    ],
+    "fonts": [
+     "Anton",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Işıklı masada kum: parlayan amber zemin üzerinde koyu kum kütleleri, her kenar tanelere ayrışır, parmakla sıvanmış çizgiler ışığı gösterir, etrafa dağılmış taneler.",
+     "type": "Anton büyük harf, koyu kum rengi, hafif yumuşak kenarlı; altında küçük aralıklı sans.",
+     "motion": "Dökülür ve sıvanır: kumullar önce oturur, deve taneli bir titreşimle belirir, parmak çizgileri bir uçtan çizilir, taneler en son dağılır.",
+     "sound": "Kum dökülüşü, avuç süpürmesi, yumuşak tabla, alçak ney, sessiz oda.",
+     "avoid": "Hava fırçası silüet, mürekkep, keskin vektör kenar, parlama, sert gölge, renkli boya."
+    },
+    "en": {
+     "look": "Sand art on a light table: dark sand masses on glowing amber, every edge breaking into grains, finger-swept lines showing the light, loose grains scattered.",
+     "type": "Anton caps in dark sand brown, softly edged; a small tracked sans beneath.",
+     "motion": "Poured and swept: dunes settle first, the camel rises with a grain jitter, finger lines draw on from one end, grains scatter last.",
+     "sound": "Sand poured, palm sweeping, soft tabla, low ney, a quiet room.",
+     "avoid": "Airbrushed silhouettes, ink, crisp vector edges, gloss, hard shadows, coloured paint."
+    }
+   }
+  },
+  {
+   "id": "paper_quilling",
+   "name": "Paper quilling",
+   "tr": "Kâğıt kıvırma",
+   "essence": "A picture built from narrow paper strips stood on edge: tight coils, loose spirals and marquise shapes packed side by side so every element shows its strip thickness, an inner spiral line and a soft shadow, forming one motif on a card.",
+   "not": "Not cut paper shapes, not rolled-paper tubes seen from the side, not flat vector circles, not embroidery or felt; no glossy plastic, no gradients inside a strip, no outline drawing, no thin lines that are not paper.",
+   "texture": "paper",
+   "render": "Ground: a cream card (#f2e8d4) with a paper grain; the motif casts a soft grey shadow on it. Every quilled element is drawn as a STRIP SEEN ON EDGE: a disc of the strip colour, a 2-3 px darker rim (the strip's cut edge), an inner disc 2 px smaller offset up-left in the face colour, then the spiral: an Archimedean path from r*0.16 to r*0.86, 2-2.5 turns, stroke 2.2 in a 35 % darker tone at .75, so you see the wound strip. A 2.6 px white arc along the top-left at .45 is the paper sheen, never a gradient. Teardrops and marquises are the same disc pulled to a point. Shadows: all the coils of one band share ONE group shadow (a blurred copy translated 5-8 px down at 22-30 %), never a per-coil filter. Straight strips are rounded rectangles with a dark bottom edge and a 2 px white top line; a gore or a rope is one strip 8-14 px wide curving with the form, its shadow 3 px below. Pack coils so they touch and slightly overlap, sizes vary 26-40 px; 5-6 strip colours, each band one colour.",
+   "composition": "A Cappadocia hot-air balloon filling the middle: the envelope built of horizontal bands of coils in five colours, three curved gores of paper strip, four strip ropes down to a small basket of stacked strips, two quilled scroll clouds at the sides, the headline upper left in plum with a strip rule under it.",
+   "colour": "Card #f2e8d4, strip colours coral #d0705a, ochre #dfa53f, terracotta #bf5a38, teal #3f7d78, plum #6d3b56, cream strip #f0e4c8, cut edges #3a2a22; bands are flat colour, value steps between neighbours make the winding read.",
+   "type": "Anton caps 180-195 px in plum #4a2f45 with a 3 px cream strip shadow, like a paper cut-out; a small Inter Tight 500 caps line at .3 em in terracotta under it.",
+   "motion": "Wound on: each band of coils appears whole, band by band from the top down, with a 1.5 % overshoot and a 2 px settle; the ropes and basket drop in last; the clouds curl in. Nothing spins.",
+   "camera": "Locked flat lay on the card; at most a 1.04 push or a 3 px drift as if the card were turned.",
+   "transitions": "A strip curls across the frame and becomes the next outline; a coil unwinds and fills the frame; the card is lifted away.",
+   "sound": "Paper and close: strips sliding, a coil springing open, scissors, a soft kaval, a quiet room, a fingertip press.",
+   "post": {
+    "grain": 0.2,
+    "vignette": 0.1
+   },
+   "card": {
+    "palette": [
+     "#f2e8d4",
+     "#d0705a",
+     "#dfa53f",
+     "#bf5a38",
+     "#3f7d78",
+     "#6d3b56"
+    ],
+    "fonts": [
+     "Anton",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Kâğıt kıvırma: dar şeritler dikine durur; sıkı kangal, gevşek spiral ve damla biçimleri yan yana, her birinde şerit kalınlığı, iç spiral çizgisi ve yumuşak gölge.",
+     "type": "Anton büyük harf, erik rengi, kâğıt kesimi gibi; altında küçük aralıklı sans.",
+     "motion": "Sarılarak gelir: her kangal kuşağı bütün olarak üstten alta yerleşir, hafif oturur; ipler ve sepet en son iner.",
+     "sound": "Kâğıt şerit kayışı, kangal açılışı, makas, yumuşak kaval, sessiz oda.",
+     "avoid": "Düz vektör daire, parlak plastik, gradyan, kontur çizimi, keçe, nakış."
+    },
+    "en": {
+     "look": "Paper quilling: narrow strips stood on edge, tight coils, loose spirals and marquises packed together, each showing strip thickness, an inner spiral and a soft shadow.",
+     "type": "Anton caps in plum like a paper cut-out; a small tracked sans beneath.",
+     "motion": "Wound on: each band of coils lands whole, top band first, with a slight settle; ropes and basket drop in last.",
+     "sound": "Paper strips sliding, a coil springing, scissors, soft kaval, a quiet room.",
+     "avoid": "Flat vector circles, glossy plastic, gradients, outline drawing, felt, embroidery."
+    }
+   }
+  },
+  {
+   "id": "origami",
+   "name": "Origami",
+   "tr": "Kâğıt katlama",
+   "essence": "A model folded from one sheet: crisp straight creases, every plane a flat facet with its own light or shadow, the paper's grain visible, no curve and no outline that is not a fold.",
+   "not": "Not cut paper, not a 3D render with smooth shading, not a papercraft kit with printed texture, not low-poly CGI; no gradients across a facet, no rounded corners, no soft airbrush, no colour that is not the sheet.",
+   "render": "One warm paper, #f7f1e2, lit from the upper left. The subject is a set of POLYGONS that share edges exactly: each facet is one flat #hex from a 6-step ramp (#fbf6e9 lit, #f7f1e2, #e9dec6, #dbcfb6, #cbbda1, #b3a488 in shadow), assigned by which way the plane faces, never by a gradient. Every shared edge gets a CREASE: a 2.2 px line rgba(52,42,28,.24) on the shadow side and a 1.6 px #fff9e6 line at .3 offset 1.2 px up-left on the lit side, so each fold catches light. The silhouette gets a 3 px warm rim light at .45. A soft contact shadow (blurred ellipse at 40 %, 22 px) sits under the model; a blurred 8 px line along the base fold reads as the crease shadow. Background is two big paper planes split by one diagonal crease, #26342f and #1d2825, the same crease treatment, so the backdrop is folded paper too. Paper grain over all of it, and every edge dead straight: no curves, no double lines.",
+   "texture": "paper",
+   "composition": "A single origami crane in three-quarter profile filling the middle, wing raised and fanned into three facets, long neck and pointed beak to the left, tail to the right, a soft contact shadow under the body; background split by one diagonal crease; the headline upper left in warm paper cream.",
+   "colour": "Paper cream #f7f1e2 with the facet ramp #fbf6e9 to #b3a488, background deep slate green #26342f and #1d2825, crease shadow #342a1e, rim light #fff9e6; one paper only, the whole image is value.",
+   "type": "Anton caps 185-200 px in paper cream #f2ebd8, letterspaced 0.02 em, dead flat like type cut from the same sheet; a small Inter Tight 500 caps line at .3 em in sage #a9b8a5.",
+   "motion": "Folded into place: each facet lands flat in 2 frames, the wing opens last by rotating 8-12 deg around its base crease and snapping to its rest angle; no scaling, no floating, no fade on the paper.",
+   "camera": "Locked orthographic three-quarter; at most a 1.04 push or a 2 px drift as if the sheet were being turned.",
+   "transitions": "A crease line runs across the frame and the paper folds over into the next scene; the sheet rotates once and is the next ground; the model unfolds flat and becomes a new sheet.",
+   "sound": "Paper and precise: a sheet unfolded, a sharp crease press, scissors nowhere, a soft koto or kanun, a quiet room.",
+   "post": {
+    "grain": 0.18,
+    "vignette": 0.16
+   },
+   "card": {
+    "palette": [
+     "#f7f1e2",
+     "#e9dec6",
+     "#cbbda1",
+     "#b3a488",
+     "#26342f",
+     "#1d2825"
+    ],
+    "fonts": [
+     "Anton",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Origami: tek kâğıttan katlanmış turna; keskin düz katlar, her yüzey kendi ışığında düz bir facet, kâğıt dokusu görünür, eğri çizgi yok.",
+     "type": "Anton büyük harf, kâğıt kremi, aynı tabakadan kesilmiş gibi düz; altında küçük aralıklı sans.",
+     "motion": "Katlanarak gelir: her facet iki karede düz oturur, kanat en son 8-12 derece açılıp yerine oturur.",
+     "sound": "Kâğıt açılışı, keskin kat baskısı, yumuşak kanun, sessiz oda.",
+     "avoid": "Kesme kâğıt, yumuşak 3B gölge, gradyan, yuvarlak köşe, baskı deseni."
+    },
+    "en": {
+     "look": "Origami: a crane folded from one sheet, crisp straight creases, every plane a flat facet with its own light, paper grain visible, no curve.",
+     "type": "Anton caps in paper cream, flat as if cut from the same sheet; a small tracked sans beneath.",
+     "motion": "Folded into place: each facet lands flat in two frames, the wing opens last by 8-12 deg and snaps to rest.",
+     "sound": "Sheet unfolded, a sharp crease press, soft kanun, a quiet room.",
+     "avoid": "Cut paper, soft 3D shading, gradients, rounded corners, printed patterns."
+    }
+   }
+  },
+  {
+   "id": "wood_inlay",
+   "name": "Wood inlay marquetry",
+   "tr": "Ahşap kakma",
+   "essence": "A picture made of thin wood veneers laid into one surface: every petal, leaf and frame member a different wood with its grain running its own way, tight dark joints between the pieces, and a varnished sheen lying over the whole panel.",
+   "not": "Not woodcut printing, not carved relief, not a painted picture on wood, not veneer photo texture; no drawn outlines standing in for joints, no grain that runs the same way in every piece, no flat graphic shapes, no matte surface.",
+   "render": "A single flat panel fills the frame. Frame members are four mitered trapezoids of walnut #5b3a26, grain along the member (horizontal on the top and bottom, vertical on the sides). The field is satinwood #c8a265, grain 3-5 deg off horizontal. Each motif piece is its own veneer: mahogany #7b3b26, rosewood #5f2b1e, light padauk #a85833, olive ash #6b6b3e and #55562c, ebony stem #3a2618. In every piece draw 18-30 wavy grain lines, clipped to the piece, at that piece's own angle (vertical in the petals, 40 deg in the leaves, along the frame), 2-4 px wide, one pass in a 45 % darker tint at .16 and one in a 35 % lighter tint at .1; add 20-40 1 px pores. JOINT: each piece is drawn over a copy of itself translated 2-4 px down-right in near-black, then outlined 2.5-3 px in rgba(30,18,10,.6), so neighbouring veneers are separated by a tight dark seam, with a 1.2 px light bevel at .25 up-left. The varnish is the last layer: a warm 20 % highlight from the top-left, two blurred diagonal specular streaks at .05-.07 and a 25 % vignette, so the panel looks polished. No drawn contour lines beyond the joints.",
+   "composition": "One large tulip with a stem, two long leaves and a bud in the middle of a light satinwood field, framed by a thick walnut border with mitered corners and a double ebony-and-maple stringing line, the headline upper left in dark walnut, a small wood-name line under it.",
+   "colour": "Satinwood #c8a265 field, walnut #5b3a26 frame, mahogany #7b3b26 and rosewood #5f2b1e petals, padauk #a85833 highlight petal, olive ash #6b6b3e and #55562c leaves, ebony #3a2618 stem and stringing; all warm browns with real near-black in the joints, no other hue.",
+   "type": "Anton caps 190-205 px in dark walnut #2a170c, letterspaced 0.02 em, flat like an inlaid letter; a small Inter Tight 500 caps line at .3 em in mid walnut under it.",
+   "motion": "Laid in: pieces appear whole in 2 frames, petal by petal and leaf by leaf, with a 1 px settle as if pressed into the bed; the varnish sheen travels once across the finished panel. Nothing scales or floats.",
+   "camera": "Locked flat-on to the panel; at most a 1.05 push toward the flower or a 3 px drift as if the panel were tilted to the light.",
+   "transitions": "A veneer piece slides in and becomes the next field; the sheen sweeps across and the next scene is under it; the frame closes in from the edges.",
+   "sound": "Wood and workshop: a veneer sheet lifted, a scalpel on wood, a press, a low kanun, a brush of varnish, a quiet room.",
+   "post": {
+    "grain": 0.2,
+    "vignette": 0.2
+   },
+   "card": {
+    "palette": [
+     "#c8a265",
+     "#5b3a26",
+     "#7b3b26",
+     "#5f2b1e",
+     "#a85833",
+     "#6b6b3e",
+     "#2a170c"
+    ],
+    "fonts": [
+     "Anton",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Ahşap kakma: ince kaplamalardan tek yüzeyde resim; her yaprak ve taç yaprağı ayrı ağaç, damarlar kendi yönünde, aralarında sıkı koyu ek yerleri, üstte vernik parlaklığı.",
+     "type": "Anton büyük harf, koyu ceviz, kakma harf gibi düz; altında küçük aralıklı sans.",
+     "motion": "Yerleştirilir: parçalar iki karede bütün gelir, taç yaprak yaprak, 1 px oturur; vernik parlaklığı en son bir kez geçer.",
+     "sound": "Kaplama yaprağı, ahşapta bıçak, pres, alçak kanun, vernik fırçası.",
+     "avoid": "Ahşap baskı, oyma kabartma, ahşap üstüne boya, aynı yönde damar, düz grafik şekil, matsız yüzey."
+    },
+    "en": {
+     "look": "Wood inlay: a picture of thin veneers in one surface, each petal and leaf a different wood with its own grain direction, tight dark joints, a varnished sheen on top.",
+     "type": "Anton caps in dark walnut, flat like an inlaid letter; a small tracked sans beneath.",
+     "motion": "Laid in: pieces land whole in two frames, petal by petal, with a 1 px press; the varnish sheen passes once at the end.",
+     "sound": "Veneer lifted, scalpel on wood, a press, low kanun, varnish brush.",
+     "avoid": "Woodcut printing, carved relief, paint on wood, one grain direction, flat graphic shapes, matte surface."
+    }
+   }
+  },
+  {
+   "id": "low_poly",
+   "name": "Low-poly render",
+   "tr": "Low-poly",
+   "essence": "A faceted 3D mesh: every surface is broken into visible triangles, each one filled flat with its own value, so a single hard light from the upper left builds the whole picture out of facets - no gradient, no outline, no smooth curve.",
+   "not": "Not flat vector, not a papercraft cut-out, not a smooth 3D render with soft shading, not a wireframe; no gradients, no blur, no texture detail inside a facet, no round un-faceted shapes, no neon.",
+   "render": "Build every object as a triangulated surface in 3D coordinates (x, y, z) and project it orthographically: a rock is a ring stack of 10-12 vertices at 6-8 heights, a balloon an ellipsoid of 8 gores, the ground a jittered grid split into triangles. For each triangle compute its outward normal, N, and fill it with ONE flat colour: face = tint x (0.42 + 0.72 x max(0, N.L)), with L the light direction normalised (-0.46, -0.62, 0.63) in screen space (x right, y down, z toward viewer); flip a normal that points inward. Sort the faces by the z of their centroid and paint far to near. Every polygon carries stroke equal to its own fill at 0.6 px so no AA seam shows. Palette is per material, not per object: rock #d69660 in five values, ground #5b3b3d to #241a28, sky in four warm-to-cold bands made of big triangles; never add a gradient. The silhouette must stay angular: nothing curved, and the facets on the subject are 50-120 px wide so they read at phone size.",
+   "texture": "grain",
+   "composition": "Cappadocia valley at dusk: one tall fairy chimney on the centre axis, a shorter one left and one right, a faceted sun low left and a tiny hot-air balloon high right; a triangulated ground plane in the lower third and a jagged ridge behind; headline above the chimneys.",
+   "colour": "Dusk sky #141a34 -> #3a2f5c -> #8a4a66 -> #d9825f at the horizon; rock #d69660 with shadow #6a3b2a and lit #f4cd97; ground #5b3b3d / #35242c; balloon red #e8503f with cream #f2c46a and teal #3f7d8c; every value flat, the darkest facet near black and the lightest near white.",
+   "type": "Anton caps 120-135 px in warm cream #f6e3c8, tight, sitting on the sky; Inter Tight 500 caps at 26 px, tracked 0.32 em, in a pale sand tone beneath; no shadow, no outline.",
+   "motion": "Built in layers: the ground settles, each rock rises 90 px into place as one mesh, the balloon drifts up 40 px, the sun scales 0.86 -> 1; everything arrives in 0.5 s power2.out steps and is still by 2.2 s. Nothing rotates or wobbles.",
+   "camera": "Locked orthographic; at most a 1.05 push toward the tall chimney, or a 12 px vertical drift as if the camera settled on its tripod.",
+   "transitions": "The front facets of the rock open like a fan into the next frame; a hard triangulated wipe of three big polygons; the balloon rises out of frame and cuts.",
+   "sound": "Wind over tuff, a low drone, a balloon burner roar and a distant dog; sparse, dry, no music bed.",
+   "post": {
+    "grain": 0.18,
+    "vignette": 0.16
+   },
+   "card": {
+    "palette": [
+     "#141a34",
+     "#3a2f5c",
+     "#d9825f",
+     "#d69660",
+     "#f4cd97",
+     "#5b3b3d",
+     "#e8503f"
+    ],
+    "fonts": [
+     "Anton",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Low-poly mesh: her yüzey görünür üçgenlere bölünmüş, her üçgen tek düz renkle, sert bir üst-sol ışıkla; Kapadokya peribacaları, balon ve ufuk.",
+     "type": "Anton sıcak krem büyük harf, gökyüzüne oturur; altında ince aralıklı sans satır.",
+     "motion": "Katman katman kurulur: zemin oturur, kayalar 90 px yükselip yerleşir, balon süzülür, güneş büyür; 2,2 s'de her şey durur.",
+     "sound": "Tüf üstünde rüzgâr, alçak drone, balon brülörü, uzak köpek.",
+     "avoid": "Düz vektör, kâğıt kesme, yumuşak gölgeli 3D, tel kafes, gradyan, bulanıklık, neon."
+    },
+    "en": {
+     "look": "Low-poly mesh: every surface is visible triangles, each one flat colour under one hard upper-left light; Cappadocia fairy chimneys, a balloon, a faceted horizon.",
+     "type": "Anton warm-cream caps on the sky; a thin tracked sans line beneath.",
+     "motion": "Built in layers: ground settles, rocks rise 90 px, the balloon drifts, the sun grows; still by 2.2 s.",
+     "sound": "Wind over tuff, a low drone, a balloon burner, a dog far off.",
+     "avoid": "Flat vector, papercraft, smooth-shaded 3D, wireframe, gradients, blur, neon."
+    }
+   }
+  },
+  {
+   "id": "vinyl_toy",
+   "name": "Vinyl toy",
+   "tr": "Vinil oyuncak",
+   "essence": "A designer vinyl figure on a seamless studio backdrop: soft matte-plastic colour under one big softbox, a few hard specular spots, an over-large head with simple features, mould seams, and a quiet contact shadow - the object is a toy, and the picture is a product photograph of it.",
+   "not": "Not 3D-rendered clay, not a cartoon illustration with outlines, not a plush toy, not a photo with props or hands; no flat vector fills, no dark background, no harsh spotlights, no logos, no more than one figure.",
+   "render": "Soft plastic = a body built from radial CSS/SVG gradients, never a flat fill: every part is a <radialGradient> whose light centre sits at 34 % / 24 % of the shape (#fff0cf -> #f7c47f -> #d98f4e -> #b06a36), so the form turns away from the light on its lower right. On top of that, specular highlights: one big 70-90 px white ellipse at 45 % opacity with an feGaussianBlur of 8 (the softbox), one 20-30 px hard white ellipse at 90 % opacity (the reflection), and a 3 px white stroke at 55 % only along the upper-left contour (the rim). Darken where forms meet with a blurred #7a3f1e ellipse at 30-40 % (ambient occlusion at the neck, armpits, under the head, under the feet), so parts sit on each other instead of merging. Surfaces are silky smooth and slightly satin: no texture inside a shape, one thin darker mould seam down the crown of the head. Backdrop is a seamless cyclorama: a radial gradient #e6f7f2 -> #a8dcd4 -> #6cb8b1 with the floor a separate soft vertical gradient; a 300 x 60 px blurred contact shadow under the feet and a warm bounce on the shadow side. Keep the silhouette chunky and simple: a head 44 % of the figure's height, ears as separate balls, arms and legs as capsules with round paws.",
+   "composition": "One figure dead centre on a seamless mint studio sweep: the big head on the upper third, small body beneath, feet planted on a soft shadow; the headline high above it in deep teal and a product line under the headline; nothing else in the frame.",
+   "colour": "Mint studio #e6f7f2 / #a8dcd4 / #6cb8b1, toy amber #f7c47f with shadow #b06a36 and cream #fff0cf, rosette brown #5e3320, muzzle cream #fff6e6, eye near-black #1a100b, one accent coral #ef6f5a for the inner ear and the toy's bead, deep teal type #134a48.",
+   "type": "Poppins 700 caps 92-100 px in deep teal, tracked 0.02 em, with a small Inter Tight 500 caps line at 26 px, tracked 0.3 em, under it; text is centred and never on the figure.",
+   "motion": "A toy placed on a table: the figure pops in from 0.86 with a gentle back.out and settles in 0.55 s, the softbox highlight slides 20 px across the head once, the bead swings 8 degrees and stops; the type fades up 18 px. No rotation, no bounce after settling.",
+   "camera": "Locked product frame; a very slow 1.04 push toward the face, or a 10 px rise from the feet to the eyes.",
+   "transitions": "A soft light sweep crosses the set and cuts; the figure turns away out of frame; a shallow-focus pull to the next subject.",
+   "sound": "Studio quiet: a soft plastic squeak, a box lid, a soft thud as the figure lands, a low airy pad.",
+   "post": {
+    "grain": 0.1
+   },
+   "card": {
+    "palette": [
+     "#e6f7f2",
+     "#a8dcd4",
+     "#f7c47f",
+     "#b06a36",
+     "#5e3320",
+     "#ef6f5a",
+     "#134a48"
+    ],
+    "fonts": [
+     "Poppins 700",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Tasarım vinil oyuncak: dikişsiz mint stüdyo zemininde yumuşak plastik gövde, büyük kafa, basit yüz, sert speküler parlamalar, yumuşak temas gölgesi.",
+     "type": "Poppins kalın derin deniz yeşili büyük harf; altında ince aralıklı ürün satırı.",
+     "motion": "Masaya konur: figür 0.86'dan yaylanarak 0.55 s'de oturur, parlama bir kez kayar, boncuk 8 derece salınıp durur.",
+     "sound": "Stüdyo sessizliği: plastik gıcırtı, kutu kapağı, yumuşak tok iniş, havadar ped.",
+     "avoid": "Kil 3D, konturlu çizim, pelüş, sahne propsu, düz vektör, karanlık zemin, logo."
+    },
+    "en": {
+     "look": "Designer vinyl toy on a seamless mint studio sweep: soft plastic body, oversized head, simple face, hard speculars, quiet contact shadow.",
+     "type": "Poppins bold deep-teal caps; a thin tracked product line beneath.",
+     "motion": "Placed on a table: the figure pops from 0.86 and settles in 0.55 s, a highlight slides once, the bead swings 8 degrees and stops.",
+     "sound": "Studio quiet: a plastic squeak, a box lid, a soft landing thud, an airy pad.",
+     "avoid": "Clay 3D, outlined cartoon, plush, props, flat vector, dark ground, logos."
+    }
+   }
+  },
+  {
+   "id": "frosted_glass",
+   "name": "Frosted glass",
+   "tr": "Buzlu cam",
+   "essence": "Glassmorphism as a place: a stack of translucent frosted panels floating over soft colour blobs, each panel with a bright 1 px lit edge, a blurred world seen through it and a sharp engraved scene on its face - depth comes from layers, not from perspective.",
+   "not": "Not a flat UI mockup, not a dashboard with charts, not glossy plastic, not a photograph of real glass; no hard black, no flat opaque cards, no drop-shadow-only depth, no icon set, no more than three panels.",
+   "render": "Two glass recipes only. The ground is dark #061621 with 4-5 oversized radial-gradient blobs (#ff7a45, #ff3d81, #17c3b2, #3d5afe) and a sharp repeating-linear-gradient of 2 px white lines at 115 deg, 26 px apart - the lines are the proof of frost: crisp outside a panel, smeared to nothing behind it. A panel is a div at 8-18 % white with border-radius 40 px, border 1 px rgba(255,255,255,.5), backdrop-filter: blur(30px) saturate(160%), and an inset light: inset 0 1px 0 rgba(255,255,255,.75), inset 1px 0 0 rgba(255,255,255,.25), inset 0 -1px 0 rgba(255,255,255,.1), 0 30px 70px rgba(0,10,20,.5); one diagonal linear-gradient sheen at 12 % crosses the top-left half. Depth is a back panel rotated -3 deg behind the front one, plus one small chip floating on top, each with its own blur. The scene on the front panel is drawn sharp in 3 px white at .8-.95 alpha with a 14 px cyan glow: a suspension bridge, its cables sagging between two towers, water lines under the deck, all in white line so it reads as etched on the glass, never as a photo.",
+   "texture": "grain",
+   "composition": "Portrait stage: frosted head above, a big panel across the middle holding an etched Bosphorus bridge and a pale sun behind it, a back panel offset behind at -3 deg, two small glass chips on the front panel; the headline on the dark ground above the glass, a tracked line under it.",
+   "colour": "Deep night #061621, orange blob #ff7a45, magenta #ff3d81, teal #17c3b2, blue #3d5afe, glass white #f2fbff at 8-18 %, frosted highlights #ffffff, etched line #eaf8ff; the colours only ever appear blurred through glass, never as flat fills.",
+   "type": "Inter Tight 800 caps 150 px in #f2fbff for the headline with 0.01 em tracking; Inter Tight 500 caps 26 px tracked 0.34 em in #bfeef0 for the line beneath; chip labels in Inter Tight 500 at 24 px, white at .85.",
+   "motion": "Layers settle: the back panel rises 30 px and stops, the front panel follows 0.12 s later, the etched bridge fades in line by line, the blobs drift 30 px over the whole shot, the chip slides 16 px. Slow, weightless, nothing rotates after landing, all still by 2.3 s.",
+   "camera": "Locked frontal; a 1.04 push into the bridge through the glass, or a slow 20 px parallax between the panels.",
+   "transitions": "A panel slides across and becomes the next frame; the frost clears to sharp; a light sweep crosses all layers at once.",
+   "sound": "Clean and airy: a soft glass chime, a low pad, a bridge cable hum, water far below, one muted click as the chip lands.",
+   "post": {
+    "grain": 0.08,
+    "vignette": 0.18
+   },
+   "card": {
+    "palette": [
+     "#061621",
+     "#ff7a45",
+     "#ff3d81",
+     "#17c3b2",
+     "#3d5afe",
+     "#f2fbff",
+     "#bfeef0"
+    ],
+    "fonts": [
+     "Inter Tight 800",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Buzlu cam: koyu zemin üzerinde renk lekeleri, üst üste yarı saydam buzlu paneller, 1 px ışıklı kenarlar, panelde kazınmış gibi Boğaz köprüsü; derinlik katmanlardan.",
+     "type": "Inter Tight kalın beyaz büyük harf; altında ince aralıklı camgöbeği satır.",
+     "motion": "Katmanlar oturur: arka panel 30 px yükselir, ön panel 0,12 s sonra gelir, köprü çizgi çizgi belirir, lekeler 30 px süzülür.",
+     "sound": "Cam çıngırağı, alçak ped, köprü kablosu uğultusu, uzakta su, tek yumuşak tık.",
+     "avoid": "Düz UI maketi, grafik paneli, parlak plastik, gerçek cam fotoğrafı, sert siyah, ikon seti."
+    },
+    "en": {
+     "look": "Frosted glass: colour blobs on a dark ground, stacked translucent panels with 1 px lit edges, a Bosphorus bridge etched on the front panel, depth from layers.",
+     "type": "Inter Tight heavy white caps; a thin tracked cyan line beneath.",
+     "motion": "Layers settle: back panel rises 30 px, front panel 0.12 s later, the bridge fades in line by line, blobs drift 30 px.",
+     "sound": "Glass chime, low pad, bridge-cable hum, water far below, one soft click.",
+     "avoid": "Flat UI mockups, dashboards, glossy plastic, real glass photos, hard black, icon sets."
+    }
+   }
+  },
+  {
+   "id": "cyberpunk",
+   "name": "Cyberpunk street",
+   "tr": "Cyberpunk sokak",
+   "essence": "A narrow, rain-soaked street at two in the morning: shutters and pipes in dirty near-black, Turkish neon signs buzzing in magenta, cyan and sodium orange, steam hanging in the air, and every light repeated and broken in the wet asphalt - a real place, not a grid.",
+   "not": "Not synthwave (no grid floor, no sun, no mountains, no chrome type), not anime, not a clean futuristic city, not daylight, not a game HUD; no flat vector buildings, no bright saturated sky, no legible brand logos, no tidy symmetry.",
+   "render": "One-point perspective: the alley's vanishing point at (540, 1080); the left wall is the quad (0,300)-(350,540)-(350,1080)-(0,1360) and the right wall mirrors it, so every window is a perspective quad placed by a (u, v) grid on that wall (u = depth, v = height). Walls are #0b0812 with window fills picked from #0a070f, warm #ffcf7a, cyan #7ef0ff and magenta #ff5ec4; about one window in four is lit and each lit one gets a 12 px blur copy. Neon is built in three layers: a 10 px blurred stroke at 35 %, a 5 px stroke of the pure colour, and a 2 px near-white core, all with stdDeviation 8; signs are dark boxes with a 2 px neon tube border and Turkish text (ÇAY, SİMİT, KOKOREÇ). Wet ground: the whole city group is mirrored about y = 1080 (`transform='translate(0,2160) scale(1,-1)'`), clipped to y 1080-1620, blurred 7 px, at 40 % and faded out by a vertical gradient, then broken by 20 horizontal ripple dashes and 6 elliptical puddle gradients in the signs' own colours. Rain: 70 thin 1.5 px streaks at 12 deg from vertical, white-blue at .10-.28, plus a slow fall tween; haze is 3 huge radial gradients (#ff2d95, #26e0ff, sodium #ff9b3d) at .18-.3. Keep the darks dirty: #06040c ground, #120a18 walls, never pure black blocks.",
+   "texture": "grain",
+   "composition": "Looking down an alley: neon ÇAY sign on the left wall, SİMİT on the right, KOKOREÇ low on the left, a lit doorway at the far end on the vanishing point, one figure with an umbrella small in the lower middle, the wet street filling the bottom third with the signs repeated in it; headline in the sky gap above the alley.",
+   "colour": "Night #06040c, wall #120a18, wet asphalt #0a0710, magenta #ff2d95, cyan #26e0ff, sodium orange #ff9b3d, dirty teal #14424a, sign white #f4fbff; each glow is the same hue as its tube, and the darks stay brown-violet rather than black.",
+   "type": "Anton caps 140-160 px in #f4fbff with a 3 px magenta shadow to the left and a 3 px cyan shadow to the right (a tube mis-registration, not a gradient); Inter Tight 500 caps 27 px tracked 0.3 em in cyan for the place line; the neon signs use Poppins 700 in their own colour.",
+   "motion": "Rain never stops: streaks fall 1.2 screen-heights over 2.2 s, the neon buzzes with two 0.06 s flickers, steam drifts 24 px sideways, reflections shiver by 2-3 px, the figure shifts its weight once under the umbrella. No camera move except a 1.03 push; nothing pops in.",
+   "camera": "Locked at eye level on the vanishing point; a slow 1.03 push down the alley, or a 14 px handheld drift with a 2 px roll.",
+   "transitions": "A sheet of rain crosses the lens and wipes to the next scene; the neon flickers out and the frame cuts on the dark; a reflection stretches and becomes the next image.",
+   "sound": "Rain on metal awnings, a sign transformer buzz, a distant tram, water in a drain, one motorcycle far off, a low sub drone.",
+   "post": {
+    "bloom": 0.34,
+    "grain": 0.32,
+    "vignette": 0.42
+   },
+   "card": {
+    "palette": [
+     "#06040c",
+     "#120a18",
+     "#ff2d95",
+     "#26e0ff",
+     "#ff9b3d",
+     "#14424a",
+     "#f4fbff"
+    ],
+    "fonts": [
+     "Anton",
+     "Inter Tight 500",
+     "Poppins 700"
+    ],
+    "tr": {
+     "look": "Yağmurlu neon sokak: tek kaçış noktalı dar ara sokak, Türkçe neon tabelalar (ÇAY, SİMİT, KOKOREÇ), ıslak asfaltta kırılan yansımalar, buhar ve kirli karanlıklar.",
+     "type": "Anton beyaz büyük harf, iki yana kaçmış macenta/camgöbeği gölge; altında ince aralıklı camgöbeği satır.",
+     "motion": "Yağmur hiç durmaz, neon iki kez titreşir, buhar kayar, yansımalar 2-3 px titrer, figür bir kez ağırlığını kaydırır; kamera neredeyse sabit.",
+     "sound": "Tenekede yağmur, trafo uğultusu, uzak tramvay, lağımda su, uzak motosiklet, alçak bas.",
+     "avoid": "Synthwave ızgara, güneş, dağ, krom yazı, anime, temiz fütüristik şehir, gündüz, oyun HUD'u, marka logosu."
+    },
+    "en": {
+     "look": "Rain-soaked neon alley: one-point perspective, Turkish neon signs (ÇAY, SİMİT, KOKOREÇ), reflections breaking in wet asphalt, steam and dirty near-blacks.",
+     "type": "Anton white caps with a magenta and cyan shadow pulled sideways; a thin tracked cyan line below.",
+     "motion": "Rain never stops, the neon flickers twice, steam drifts, reflections shiver 2-3 px, the figure shifts its weight once; the camera is almost still.",
+     "sound": "Rain on tin, transformer buzz, a distant tram, water in a drain, a far motorcycle, a low sub.",
+     "avoid": "Synthwave grid, sun, mountains, chrome type, anime, clean futurism, daylight, game HUDs, brand logos."
+    }
+   }
+  },
+  {
+   "id": "gothic",
+   "name": "Gothic illumination",
+   "tr": "Gotik aydınlatma",
+   "essence": "A cathedral chancel at night: pointed arches stacked on pointed arches, rib vaults disappearing into black, a rose window burning cold above an altar of candles, and everything modelled by one warm candle and one cold window - stone in chiaroscuro, with a drawn blackletter initial as the sign of the script.",
+   "not": "Not a fantasy castle, not a Halloween scene, not a flat stained-glass poster, not a bright tourist photo; no neon, no daylight, no symmetrical flat colour fields, no rounded Romanesque arches, no modern props, no legible Bible text.",
+   "render": "Darkness is the ground: #070504 at the corners, stone only where a light touches it. Stone is 3-4 flat values (#2a2019 shadow, #3a2c21, #4a3828, #6b5038 lit, #a07a4e on a worn edge) laid as facet bands, never a smooth gradient; every arch is pointed, built from two quadratic arcs meeting at an apex (M x1 y0 Q x1 y1 apex), mouldings 18-40 px thick with a 2 px warm highlight on the light side. The rose window is a 12-fold wheel at (540, 720), r 232: a stone ring, 12 radial mullions 12 px wide, a ring of 12 trefoil circles at r 150, glass wedges alternating #1d2c5c, #5e1c20, #a86a28, #1f4340, all under a radial #ffcf7a -> #a85a20 glow, so it reads as backlit glass. Candlelight: each flame is a 3 px teardrop with three stacked radial gradients (#fff6d8, #ffcf7a at .5, #ff9b3d at 0) 120-260 px wide, and a blurred #ff9b3d ellipse under it; cast light is a warm radial gradient pooled on the stone, with the stone facets nearest the flame 3 values lighter. Chiaroscuro means the top third and outer edges go to near-black (a CSS radial vignette at 70 %), while the altar and the candle bases carry the only bright values. Blackletter accent: a drawn capital K of thick vertical strokes, diamond serifs and angular broken arms, gold #d8b06a with a dark outline, as an illuminated initial beside the headline - no blackletter font exists, so it is drawn.",
+   "texture": "grain",
+   "composition": "Dead-centre chancel: the rose window on the axis at the upper third, a triple lancet and a candle altar beneath it, clustered piers left and right, rib vault lines converging above, two tall candle stands flanking the altar, one censer hanging off-axis at the left; the headline and its drawn blackletter initial across the top, the place line under it.",
+   "colour": "Near-black #070504, stone #2a2019 / #3a2c21 / #4a3828, lit stone #6b5038 and #a07a4e, gold #c9a063 / #e9cd95, glass blue #1d2c5c, oxblood #5e1c20, amber #a86a28, candle #ffcf7a and #ff9b3d; no colour outside candle-warm and window-cold.",
+   "type": "Cormorant Garamond 700 caps 128 px, tracked 0.08 em, in gold #e9cd95, preceded by a drawn blackletter K (gold strokes, diamond serifs) as an illuminated initial; Inter Tight 500 caps 27 px tracked 0.34 em in #b99a6b for the line beneath. No sans headline.",
+   "motion": "Candlelight moves, stone does not: flames flicker on 0.18 s sines with different phases, the censer swings 3 degrees and settles, the window glow pulses once, the altar light breathes; the type is simply present by 0.8 s. No camera move.",
+   "camera": "Locked on the axis, slightly low; at most a 1.03 push toward the rose, or a 20 px tilt up the vault.",
+   "transitions": "A candle flame grows and swallows the frame; the rose window's spokes rotate into the next scene; the image falls to black except one candle.",
+   "sound": "Stone room tone, a low choir drone, candle wicks, a censer chain, a distant bell, a single high boy's voice.",
+   "post": {
+    "grain": 0.3,
+    "vignette": 0.5,
+    "bloom": 0.2
+   },
+   "card": {
+    "palette": [
+     "#070504",
+     "#2a2019",
+     "#4a3828",
+     "#a07a4e",
+     "#c9a063",
+     "#5e1c20",
+     "#1d2c5c",
+     "#ffcf7a"
+    ],
+    "fonts": [
+     "Cormorant Garamond 700",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Gotik katedral şanseli: sivri kemerler, kaburgalı tonoz, gül pencere, mum ışığıyla chiaroscuro; altınla çizilmiş bir blackletter K baş harfi.",
+     "type": "Cormorant Garamond kalın altın büyük harf, çizilmiş blackletter K ile; altında ince aralıklı toprak tonu satır.",
+     "motion": "Taş durur, mum oynar: alevler farklı fazlarda titrer, buhurdan 3 derece salınır, pencere bir kez nabız atar.",
+     "sound": "Taş oda tonu, alçak koro, mum fitilleri, buhurdan zinciri, uzak çan, tek yüksek çocuk sesi.",
+     "avoid": "Fantezi şato, Halloween, düz vitray afiş, parlak turistik fotoğraf, neon, gündüz, yuvarlak Roman kemeri."
+    },
+    "en": {
+     "look": "Gothic cathedral chancel: pointed arches, rib vault, rose window, candlelight chiaroscuro, a drawn gold blackletter K initial.",
+     "type": "Cormorant Garamond bold gold caps with the drawn blackletter K; a thin tracked earth-tone line below.",
+     "motion": "Stone is still, candlelight moves: flames flicker in phases, the censer swings 3 degrees, the window pulses once.",
+     "sound": "Stone room tone, a low choir, candle wicks, a censer chain, a distant bell, one high boy's voice.",
+     "avoid": "Fantasy castles, Halloween, flat stained-glass posters, bright tourist photos, neon, daylight, round Roman arches."
+    }
+   }
+  },
+  {
+   "id": "terracotta_relief",
+   "name": "Terracotta relief",
+   "tr": "Pişmiş toprak rölyef",
+   "essence": "A fired-clay frieze panel lit hard from the side: figures modelled in low relief, every raised edge catching a warm highlight and dropping a soft cast shadow to the lower right, the slab chipped at the corners, its surface pitted and cracked, the colour of cooked earth from orange-buff to deep red-brown.",
+   "not": "Not a flat illustration or a vector icon, not stone or bronze, not glazed ceramic (no shine), not a museum photo of a real artefact; no gradients that read as paint, no modern symbols, no smooth plastic surfaces, no cool colours.",
+   "render": "One slab of clay: a polygon of 5-7 px jitter on every edge (a feTurbulence + feDisplacementMap at scale 7 roughens the outline), filled with a 135 deg gradient #d68a5a -> #b4683f -> #8f4a2b, then mottled with 3 large #7a3a20 radial patches at .12, 240 pitted dots (1-4 px, half darker #5e2a15, half lighter #e0a077) clipped to the slab, and 2-3 hairline cracks with a light lower lip. Every raised form is built the same way: a dark #5a2412 copy of its path translated (11, 14) and blurred 3 px (the cast shadow), the form itself in a 135 deg clay gradient, a 2.5-3 px #e6a97e stroke on its upper-left edge (the lit bevel) and a 2 px #6e3018 stroke on its lower-right edge. Legs, antlers and stems are strokes: a wider dark offset, the clay stroke at 14-22 px, a 2 px light edge. The border is a raised band 34 px deep with stamped triangles cut into it (dark fill, light bottom lip). The frieze itself: a rayed sun disc, two stags facing it, a zig-zag register and a row of bosses - all raised, no outlines, and the slab's own cast shadow falls on the dark wall behind it.",
+   "composition": "A portrait slab centred in the frame, its border band and inscription across the top, the rayed sun disc in the middle of the field with a stag on either side facing it, a zig-zag register and bosses along the bottom; the headline carved into the clay above the frieze, a small line beneath it.",
+   "colour": "Clay #d68a5a lit, #b4683f mid, #8f4a2b shadow, #5a2412 cast shadow and incision, #e6a97e bevel highlight, #f0d2b4 slip for the letters; nothing outside fired earth except the near-black background #1a0f0b.",
+   "type": "Cormorant Garamond 700 caps 92 px in warm slip #f7e7cf with a hard 3 px #6e3018 shadow down-right and a 1 px #f0c39a highlight up-left, so the letters read as pressed into the clay; Inter Tight 500 caps 26 px tracked 0.3 em in #f0d2b4 beneath.",
+   "motion": "Lit, not animated: a slow raking light travels across the relief once (1.5 s) and the carving seems to deepen; the slab itself is static. At most a 1.03 push; no element flies in.",
+   "camera": "Locked frontal, very slightly above the slab; a slow 8 px lateral drift so the relief's shadows move against the wall.",
+   "transitions": "The raking light crosses and cuts; a crack opens across the slab and becomes the next cut; the slab turns edge-on into a dark wall.",
+   "sound": "Dry clay: a fingertip on terracotta, a low warm drone, a single struck clay drum, a chisel tap, wind outside a dig house.",
+   "post": {
+    "grain": 0.18,
+    "vignette": 0.22
+   },
+   "card": {
+    "palette": [
+     "#1a0f0b",
+     "#8f4a2b",
+     "#b4683f",
+     "#d68a5a",
+     "#e6a97e",
+     "#5a2412",
+     "#f0d2b4"
+    ],
+    "fonts": [
+     "Cormorant Garamond 700",
+     "Inter Tight 500"
+    ],
+    "tr": {
+     "look": "Pişmiş toprak rölyef: yandan sert ışıkla kabartma figürler, her kabarık kenarda sıcak vurgu ve sağ altına düşen gölge, çatlak ve kırık köşeli levha, pişmiş toprak rengi.",
+     "type": "Cormorant kalın, kile bastırılmış gibi koyu gölgeli ve açık üst kenarlı; altında ince aralıklı toprak tonu satır.",
+     "motion": "Işıkla canlanır: tek bir yandan ışık levhanın üzerinden geçer, gölgeler 4 px uzayıp kısalır; levha hareketsiz.",
+     "sound": "Kuru kil: parmak terrakotada, alçak sıcak drone, tek vurmalı kil davul, keski tıkırtısı, kazı evinin dışında rüzgâr.",
+     "avoid": "Düz illüstrasyon, taş veya bronz, sırlı seramik, müze fotoğrafı, soğuk renk, modern sembol."
+    },
+    "en": {
+     "look": "Fired-clay relief: side-lit raised figures, warm bevel highlights and cast shadows to the lower right, chipped slab, pitted surface, terracotta colour.",
+     "type": "Cormorant bold, pressed into the clay with a dark lower-right shadow and a light upper-left lip; a thin tracked earth-tone line below.",
+     "motion": "Lit, not animated: one raking light crosses the slab, shadows stretch 4 px; the slab is still.",
+     "sound": "Dry clay: a fingertip on terracotta, a low warm drone, one struck clay drum, a chisel tap, wind outside.",
+     "avoid": "Flat illustration, stone or bronze, glazed ceramic, museum photos, cool colours, modern symbols."
+    }
+   }
   }
  ]
 }
