@@ -21,7 +21,13 @@ revisions). Nothing spends ElevenLabs credits beyond the budget locked when the 
 is in [docs/HAT_V2.md](docs/HAT_V2.md).
 
 Lines: explainer, long_explainer (16:9), animation, travel_vlog, hybrid, talking_head, series_episode, avatar,
-character, cinematic, documentary, clip_factory, podcast, screen_demo, localize.
+character, cinematic, documentary, clip_factory, podcast, screen_demo, localize, channel_episode.
+
+**Channel templates** (`factory/hat/channel.py`): a finished explainer film can be saved as its channel's template
+("Kanal şablonu olarak kaydet" on its page). The `channel_episode` line then makes the next films from it with three
+gates instead of seven (script, animatic, publish): proposal and direction board come from the template without a
+model, the scene plan is held to the channel's design system and starts from its library of approved scenes, the
+pilot's music track is reused, and a script above the channel's credit cap cannot be approved.
 
 ```
 pipelines/*.yaml        one file per line: stages, tools, rubric, gates; _artifacts.yaml = the artifact schemas

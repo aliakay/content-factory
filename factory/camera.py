@@ -64,7 +64,7 @@ def speed_of(text):
 BIG = ("orbit", "dolly_zoom")                 # once per video
 HOLD_MAX = 2.5                                # a hold longer than this is a still, not a shot
 SECONDS = (0.5, 8.0)                          # a camera move shorter than this is a cut; longer is a drone shot
-LINES = ("explainer", "long_explainer", "animation")
+LINES = ("explainer", "long_explainer", "animation", "channel_episode")
 
 # free text -> canonical id (folded with factory.words.fold, longest match wins)
 SYNONYMS = {

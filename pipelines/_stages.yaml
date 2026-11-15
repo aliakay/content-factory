@@ -12,7 +12,8 @@ research:
 
 proposal:
   artifact: proposal
-  name: {tr: Öneri, en: Proposal}
+  ask: {tr: "Üç konseptten seçilene bak. Uygunsa Devam et; başka bir konsept ya da görünüm istiyorsan not yaz.", en: "Look at the chosen concept of the three. Continue if it fits; write a note for another concept or look."}
+  name: {tr: Konsept, en: Concept}
   says: {tr: "Üç farklı konsept, seçilen yol, kalem kalem maliyet ve render süresi.",
          en: "Three distinct concepts, the chosen path, an itemised cost and the render time."}
   gate_says: {tr: "Onaylarsan konsept ve bütçe kilitlenir. Kredi harcayan adımlar bu bütçeyi aşamaz.",
@@ -27,6 +28,7 @@ idea:
 
 script:
   artifact: script
+  ask: {tr: "Metni oku. Uygunsa Devam et; değiştirmek istediğin satırı not olarak yaz.", en: "Read the text. Continue if it fits; write the line you want changed as a note."}
   name: {tr: Senaryo, en: Script}
   says: {tr: "Seslendirme metni satır satır, süresi ve doğrulanmış iddialarıyla.",
          en: "The narration line by line, with its timing and verified claims."}
@@ -57,7 +59,8 @@ outline:
 
 scene_plan:
   artifact: scene_plan
-  name: {tr: Sahne planı, en: Scene plan}
+  ask: {tr: "Sahne karelerine bak. Uygunsa Devam et; bir sahneyi değiştirmek için notta numarasını yaz (“sahne 3: ...”).", en: "Look at the scene frames. Continue if they fit; to change one, name it in a note (“scene 3: ...”)."}
+  name: {tr: Sahneler, en: Scenes}
   says: {tr: "Sahne sahne görsel dil, zamanlama ve tasarım kareleri.",
          en: "Scene by scene: the visual language, timing and design frames."}
   gate_says: {tr: "Onaylarsan tasarım kilitlenir; varlıklar bu plana göre üretilir.",
@@ -65,7 +68,8 @@ scene_plan:
 
 direction:
   artifact: direction
-  name: {tr: Yön panosu, en: Direction board}
+  ask: {tr: "Renk ve yazı tipine bak. Uygunsa Devam et; istediğin renkleri ya da yazı tipini not olarak yaz.", en: "Check the colours and type. Continue if they fit; name the colours or font you want in a note."}
+  name: {tr: Renk ve yazı, en: Look}
   says: {tr: "Filmin görünüşü bir kez karara bağlanır: palet, yazı eşleşmesi, ışık/doku ve hareket kuralları, referanslar. Pano PNG olarak çizilir.",
          en: "The film's look is decided once: palette, type pairing, light/texture and motion rules, references. The board is drawn as a PNG."}
   gate_says: {tr: "Onaylarsan sahneler bu panoyla çizilir. Renk ya da yazı tipi adı veren bir not panoyu yeniden çizer.",
@@ -73,7 +77,8 @@ direction:
 
 animatic:
   artifact: animatic
-  name: {tr: Animatik, en: Animatic}
+  ask: {tr: "Sessiz taslak filmi izle: zamanlama ve sahne sırası doğru mu? Onaylarsan ses ve müzik üretilir (kredi harcanır).", en: "Watch the silent draft: are the timing and scene order right? Approving makes the voice and music (spends credits)."}
+  name: {tr: Taslak film, en: Draft film}
   says: {tr: "Sahne planı taslak zamanlamayla küçük ve sessiz çizilir; her satır başına bir tık, her sahne başına pes bir tık eklenir. Kredi harcanmaz.",
          en: "The scene plan drawn small and silent at draft timing, with a tick where each line starts and a lower one where each scene starts. No credits."}
   gate_says: {tr: "Onaylarsan ses ve müzik bu zamanlamayla üretilir. Bir sorun varsa not yaz: animatik notu doğru aşamaya geri gönderir (sahne, kesme, geçiş → sahne planı; metin, süre, ritim → senaryo).",
@@ -81,7 +86,8 @@ animatic:
 
 assets:
   artifact: assets
-  name: {tr: Varlıklar, en: Assets}
+  ask: {tr: "Önizlemeyi sesli izle (düşük kalite taslak). Ses ve müzik uygunsa Devam et; final video tam kalitede hazırlanır.", en: "Watch the preview with sound (a low-quality draft). Continue if the voice and music fit; the final is rendered at full quality."}
+  name: {tr: Ses ve müzik, en: Voice and music}
   says: {tr: "Ses, müzik, görseller ve klipler üretilir; önizleme hazırlanır.",
          en: "Voice, music, images and clips are made; a preview is prepared."}
   gate_says: {tr: "Onaylarsan önizlemedeki ses ve görseller finalde kullanılır.",
@@ -89,21 +95,22 @@ assets:
 
 edit:
   artifact: edit
-  name: {tr: Kurgu, en: Edit}
+  name: {tr: Son ayar, en: Finishing}
   says: {tr: "Kesimler, geçişler, altyazı ve ses miksi kararları.",
          en: "Cuts, transitions, captions and sound-mix decisions."}
   gate_says: {tr: "Onaylarsan kurgu bu haliyle render edilir.", en: "Approving renders the edit as it is."}
 
 compose:
   artifact: render
-  name: {tr: Render, en: Render}
+  name: {tr: Final video, en: Final video}
   says: {tr: "Final render ve teknik, görsel, ses kalite kontrolü.",
          en: "The final render and its technical, visual and sound quality checks."}
   gate_says: {tr: "", en: ""}
 
 publish:
   artifact: publish
-  name: {tr: Yayın, en: Publish}
+  ask: {tr: "Bitmiş videoyu izle, açıklamayı ve etiketleri kontrol et. Onaylarsan video hazır olur.", en: "Watch the finished film and check the caption and hashtags. Approving marks it ready."}
+  name: {tr: Paylaşım, en: Post}
   says: {tr: "Açıklama, etiketler ve kapak adayları; video indirilmeye hazır.",
          en: "Caption, hashtags and cover candidates; the video is ready to download."}
   gate_says: {tr: "Onaylarsan video \"hazır\" olur; paylaşınca linkini ekleyebilirsin.",

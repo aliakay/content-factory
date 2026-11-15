@@ -23,6 +23,13 @@ research:
       minItems: 2
       items: {type: object, required: [title, grounded_in], properties: {title: {type: string}, grounded_in: {type: string}}}
     visual_refs: {type: array, items: {type: string}}
+    anatomy:                         # a physical subject's parts as they really look (the designers draw from it)
+      type: array
+      items:
+        type: object
+        required: [part, looks_like]
+        properties: {part: {type: string}, looks_like: {type: string}, where: {type: string}, does: {type: string},
+                     photo_query: {type: string}}
     visual_signatures:
       type: array
       items:

@@ -162,10 +162,17 @@ def spec(pid, plan=None, d=None):
 
 
 def design(plan):
-    """Scene plan -> the design dict htmlmotion.make_bundle expects."""
+    """Scene plan -> the design dict htmlmotion.make_bundle expects. The plan's `kit_js` (functions the scenes share)
+    runs at the top of every scene's js: the shell runs each scene's js in its own function, so a helper defined in one
+    scene does not exist in the next (006: every scene called an undefined buildSet() and the whole 3D film was blank)."""
+    kit = str(plan.get("kit_js") or "").strip()
+    def js(sc):
+        own = sc.get("js", "") or ""
+        return f"{kit}\n{own}" if kit else own
     return {"meta": {"palette": plan.get("palette") or {}, "concept": plan.get("concept", "")},
             "global_css": plan.get("global_css", ""),
-            "scenes": {sc["id"]: {k: sc.get(k, "") for k in ("html", "css", "js")} for sc in plan.get("scenes") or []}}
+            "scenes": {sc["id"]: {"html": sc.get("html", ""), "css": sc.get("css", ""), "js": js(sc)}
+                       for sc in plan.get("scenes") or []}}
 
 
 def bundle(pid, plan=None, d=None):
@@ -299,7 +306,7 @@ def assets(pid, s, note=None, d=None):
     lang = p.get("video_lang", "tr")
     account = p.get("eleven_account") or accounts.default_eleven(p.get("created_by"))
     if not narrated(script):
-        return _music_only(pid, p, prop, con, account, d)
+        return _music_only(pid, p, prop, con, account, d, s)
     voice_id = (prop.get("voice") or {}).get("voice_id") or p.get("voice_id") or formats.default_voice(lang, account)
     path, cost = narrate(pid, con, lines, voice_id, account, [c.get("line") for c in script.get("chapters") or []], d)
     path, trimmed = pretrim_voice(pid, path, lines, lang, p, d)
@@ -318,6 +325,8 @@ def assets(pid, s, note=None, d=None):
             prompt = "Instrumental, no vocals. " + prompt
         if composed(mu):
             music = compose_music(pid, prompt, secs, times, True, d)
+        elif themed(mu):
+            music = theme_music(pid, mu, secs, times, -22, d)
         else:
             gen = min(secs, MUSIC_MAX)
             mpath, mcost = eleven.generate(con, "music", productions.MUSIC_MODEL, prompt, {"duration_seconds": gen,
@@ -330,8 +339,10 @@ def assets(pid, s, note=None, d=None):
         music = _tempo(music)
     art = {"voice": voice, "music": music}
     P.write_artifact(pid, "assets", art, d)          # the preview reads the real timing from here
-    res, sp = _render(pid, final=False, d=d)
     total = round(cost + mcost)
+    if not s.get("gate"):                            # nobody approves a preview here: the final render is next
+        return _no_preview(pid, p, art, total, dur, music, d)
+    res, sp = _render(pid, final=False, d=d)
     art.update(preview=_rel(res["file"]), duration=sp["duration"],
                summary={"tr": f"Ses hazır ({dur:.1f} sn, {total} kredi){', müzikle' if music else ''}. Önizlemeyi izle.",
                         "en": f"Voice ready ({dur:.1f} s, {total} credits){', with music' if music else ''}. Watch the preview."
@@ -410,6 +421,27 @@ def loop_music(path, secs, out):
 def composed(mu):
     """The proposal chose our own composer (no credits) instead of ElevenLabs music."""
     return (mu or {}).get("source") == "composer"
+
+
+def themed(mu):
+    """The music is the channel's own theme track (factory/hat/channel.py): the same file in every episode."""
+    return (mu or {}).get("source") == "channel" and bool((mu or {}).get("file"))
+
+
+def theme_music(pid, mu, secs, line_times, db, d=None):
+    """The channel's theme under this film: looped when the film is longer, its ending placed on the end card.
+    No credits: the track was bought once, for the channel's pilot."""
+    from .. import fftools
+    src = os.path.join(ROOT, mu["file"])
+    if not os.path.isfile(src):
+        raise P.GateError("the channel's theme track is missing: save the channel's template again")
+    if fftools.measure(src)["duration"] < secs:
+        out = P.path(pid, "work", "music-long.m4a", d=d)
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        src = loop_music(src, secs, out)
+    P.decision(pid, "music", "channel theme", d=d, reason="the channel template's own track; no credits")
+    return end_on_card(pid, {"file": _rel(src), "prompt": mu.get("prompt") or "", "credits": 0,
+                             "db": mu.get("db", db), "source": "channel"}, line_times, d)
 
 
 def cut_facts(path, sp, pid=None, d=None):
@@ -497,7 +529,18 @@ def _tempo(music):
     return music
 
 
-def _music_only(pid, p, prop, con, account, d=None):
+def _no_preview(pid, p, art, total, dur, music, d=None):
+    """The assets stage of a line that does not stop here (a channel episode): the draft render would only cost a
+    minute nobody watches, so the final render follows directly."""
+    ui = p.get("ui_lang") if p.get("ui_lang") in ("tr", "en") else "tr"
+    art["duration"] = round(float(dur or 0), 2)
+    art["summary"] = {"tr": f"Ses hazır ({float(dur or 0):.1f} sn, {total} kredi){', müzikle' if music else ''}. Final video hazırlanıyor.",
+                      "en": f"Voice ready ({float(dur or 0):.1f} s, {total} credits){', with music' if music else ''}. Rendering the final."}[ui]
+    P.write_artifact(pid, "assets", art, d)
+    return {"artifact": art, "summary": art["summary"], "cost": {"credits": total}}
+
+
+def _music_only(pid, p, prop, con, account, d=None, s=None):
     from .. import eleven, productions
     _, _, dur, _ = timing(pid, d)
     secs = round(dur + VOICE_START + TAIL + 1.5, 1)
@@ -508,6 +551,9 @@ def _music_only(pid, p, prop, con, account, d=None):
     if composed(mu):
         mcost = 0.0
         music = {**compose_music(pid, prompt, secs, timing(pid, d)[1], False, d), "db": -10}
+    elif themed(mu):
+        mcost = 0.0
+        music = theme_music(pid, mu, secs, timing(pid, d)[1], -10, d)
     else:
         mpath, mcost = eleven.generate(con, "music", productions.MUSIC_MODEL, prompt, {"duration_seconds": secs,
                                        "instrumental": True}, secs, "s", ext="mp3",
@@ -517,6 +563,8 @@ def _music_only(pid, p, prop, con, account, d=None):
     music = _tempo(music)
     art = {"voice": None, "music": music}
     P.write_artifact(pid, "assets", art, d)
+    if not (s or {"gate": True}).get("gate"):
+        return _no_preview(pid, p, art, round(mcost), timing(pid, d)[2], music, d)
     res, sp = _render(pid, final=False, d=d)
     ui = p.get("ui_lang") if p.get("ui_lang") in ("tr", "en") else "tr"
     art.update(preview=_rel(res["file"]), duration=sp["duration"],
@@ -553,7 +601,9 @@ def compose(pid, s, note=None, d=None):
     tech = qa.technical(res["file"], sp["duration"])
     try:
         starts = [sc["start"] for sc in sp.get("scenes") or []][1:]
-        snd = soundqa.review(res["file"], cues=res.get("placed") or None, total=sp["duration"], cuts=starts)
+        vf = ((P.read_artifact(pid, "assets", d) or {}).get("voice") or {}).get("file")
+        snd = soundqa.review(res["file"], cues=res.get("placed") or None, total=sp["duration"], cuts=starts,
+                             voice_file=os.path.join(ROOT, vf) if vf else None)
         sound = {"findings": snd.get("findings", []), "metrics": snd.get("metrics", {})}
         if len(starts) >= 2:
             from .. import craftcheck

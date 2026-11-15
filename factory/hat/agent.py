@@ -36,6 +36,10 @@ def expand(text, p):
 
 def skill(line_id, sid, p=None):
     path = os.path.join(SKILLS, "pipelines", line_id, sid + ".md")
+    if not os.path.exists(path):              # a line may use another line's briefs (manifest `briefs: <line id>`)
+        base = manifest.get(line_id).get("briefs")
+        if base:
+            path = os.path.join(SKILLS, "pipelines", base, sid + ".md")
     if not os.path.exists(path):
         raise AgentError(f"no stage brief {os.path.relpath(path, ROOT)}")
     return expand(open(path, encoding="utf-8").read(), p or {})
@@ -45,9 +49,20 @@ def contract():
     return open(os.path.join(SKILLS, "meta", "stage-agent.md"), encoding="utf-8").read()
 
 
+def checks_off(s):
+    """With CF_HAT_CHECKS=0 the hook rule, the cold test and the words check are not enforced: say so, so the writer does
+    not spend a minute of the stage running them (007: three cold tests were 40 s of an 80 s script run)."""
+    if P.checks_enabled() or s.get("artifact") not in ("script", "long_script"):
+        return ""
+    return ("\n## Quality checks are switched off in this studio\nThe hook rule, the cold test and the words check are not "
+            "enforced: do not run `cold_test` or `words_check`, and ignore the brief's lines that require them. The length, "
+            "the claims and their sources still apply. Write the script once, carefully, and submit it.\n")
+
+
 def task(pid, s, note=None, d=None):
     """The full instruction text for one stage run."""
     from .. import proof, sceneedit
+    from . import channel
     p = P.load(pid, d)
     m = manifest.get(p["line"])
     earlier = [x["artifact"] for x in m["stages"][:[y["id"] for y in m["stages"]].index(s["id"])]
@@ -75,7 +90,7 @@ Aspect: {p.get('aspect')} · Earlier artifacts you can read: {', '.join(earlier)
 {review}
 
 ## Stage brief
-{skill(p['line'], s['id'], p)}{proof.brief(pid, s, d)}{sceneedit.brief(pid, s, d)}
+{skill(p['line'], s['id'], p)}{checks_off(s)}{channel.brief(pid, s, d)}{proof.brief(pid, s, d)}{sceneedit.brief(pid, s, d)}
 """
 
 
@@ -85,6 +100,12 @@ PASS_SCORE = 85                                  # rubric points (of 100) a stag
 # notes — a 88/100 with no critical used to send the whole stage back for a rewrite nobody needed.
 OTHER_MODEL = {"opus": "sonnet", "sonnet": "opus", "haiku": "sonnet"}
 SEVERITIES = ("critical", "suggestion", "nitpick")
+
+
+def review_enabled():
+    """The reviewer can be switched off for the whole studio: CF_HAT_REVIEW=0 in config.env (default on). Off, every
+    stage goes from its author straight to its gate (or the next stage); gates, budgets and proof mode still apply."""
+    return os.environ.get("CF_HAT_REVIEW", "1").strip().lower() not in ("0", "false", "no", "off")
 
 
 def run_stage(pid, s, note=None, d=None, user=None):
@@ -110,6 +131,9 @@ def run_stage(pid, s, note=None, d=None, user=None):
             break
         cost += out["cost"]["usd"]
         if not s["review"] or want == 0:
+            break
+        if not review_enabled():
+            P.event(pid, "review_skipped", d=d, stage=s["id"], reason="CF_HAT_REVIEW=0")
             break
         review = review_stage(pid, s, d, user, rnd)
         cost += review.pop("cost_usd", 0) or 0

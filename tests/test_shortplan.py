@@ -78,7 +78,8 @@ def test_design_then_scenes_then_a_merged_plan(d, monkeypatch):
     assert plan["palette"]["accent"] == "#FFD93D" and plan["global_css"]
     assert plan["parts"]["rebuilt"] == ["s0", "s1", "s2"] and plan["parts"]["kept"] == []
     assert P.read_artifact(pid, SP.DESIGN, d)["sig"] and out["cost"]["usd"] == pytest.approx(0.03, abs=0.05)
-    assert len(calls) == 3                                                     # one design + two parts
+    assert len(calls) == 4                                       # one design + one call per scene
+    assert len(SP.parts(_design(6)["scenes"], 2)) == 2           # a smaller machine still splits in fewer parts
 
 
 def test_a_note_that_names_a_scene_repairs_only_its_part(d, monkeypatch):
@@ -93,11 +94,12 @@ def test_a_note_that_names_a_scene_repairs_only_its_part(d, monkeypatch):
     SP.build(pid, _stage(), d=d, ask=fake_ask)
     first = P.read_artifact(pid, "scene_plan", d)
     before = {s["id"]: s["html"] for s in first["scenes"]}
-    # s2 lives in the second half; the first half must survive untouched
-    out = SP.build(pid, _stage(), note="s2 daha büyük olsun", d=d, ask=fake_ask)
+    # a designer call per scene: only s2 is redrawn, every other scene survives untouched (two at a time or four)
+    out = SP.build(pid, _stage(), note="s2 daha büyük olsun", d=d, ask=fake_ask, parallel=2)
     plan = P.read_artifact(pid, "scene_plan", d)
-    assert out["artifact"]["parts"]["kept"] == ["s0", "s1"]              # the other part is untouched
-    assert "s2" in out["artifact"]["parts"]["rebuilt"] and "s3" in out["artifact"]["parts"]["rebuilt"]
+    assert out["artifact"]["parts"]["kept"] == ["s0", "s1", "s3"] and out["artifact"]["parts"]["rebuilt"] == ["s2"]
+    out = SP.build(pid, _stage(), note="s2 daha büyük olsun", d=d, ask=fake_ask, parallel=4)
+    assert out["artifact"]["parts"]["kept"] == ["s0", "s1", "s3"]
     assert [s["html"] for s in plan["scenes"] if s["id"] == "s0"] == [before["s0"]]   # kept byte for byte
 
 
@@ -178,3 +180,62 @@ def test_a_plan_the_checks_refuse_never_reaches_the_gate(d):
         SP.build(pid, _stage(), d=d, ask=fake_ask, build=builder)
     plan = P.read_artifact(pid, "scene_plan", d)
     assert plan and plan["checked"]                      # the artifact is there to look at, but the stage failed
+
+
+def test_the_designers_see_the_approved_concept_and_the_shared_kit_runs_in_every_scene(d):
+    from factory.hat import explainer as X
+    pid = _project(d)
+    P.write_artifact(pid, "proposal", {"chosen": "x", "look": "look.set3d", "techniques": ["look.night_palette"],
+                                       "concepts": [{"id": "x", "key_frame": "ghost body floats over the red diff"}]}, d)
+    seen = []
+
+    def fake_ask(prompt):
+        seen.append(prompt)
+        if "the design system only" in prompt:
+            return {**_design(3), "kit_js": "function buildSet(){ return 1; }"}
+        ids = [x for x in ("s0", "s1", "s2") if f'"id": "{x}"' in prompt]
+        return {"scenes": [_scene(int(i[1:]), [int(i[1:]), int(i[1:])]) for i in ids]}
+
+    SP.build(pid, _stage(), d=d, ask=fake_ask)
+    assert all("APPROVED CONCEPT" in x and "look.set3d" in x and "ghost body" in x for x in seen)
+    assert all("function buildSet" in x for x in seen[1:])                 # every designer is told what it may call
+    plan = P.read_artifact(pid, "scene_plan", d)
+    assert plan["kit_js"].startswith("function buildSet")
+    js = X.design(plan)["scenes"]
+    assert all(v["js"].startswith("function buildSet(){ return 1; }\n") for v in js.values())
+    assert X.design({**plan, "kit_js": ""})["scenes"]["s0"]["js"] == plan["scenes"][0]["js"]
+    assert SP.concept(_project(d)) == ""
+
+
+def test_with_the_checks_off_the_stage_keeps_only_structure(monkeypatch):
+    plan = {"scenes": [{**_scene(i, [i, i], move="push_in"), "camera": {"move": "push_in", "seconds": 3.5,
+                                                                        "easing": "ease_out", "target": "the figure"}}
+                       for i in range(3)], "concept": "c", "palette": {}, "global_css": "", "summary": "s"}
+    monkeypatch.setenv("CF_HAT_CHECKS", "1")
+    on = SP.validate(plan, SCRIPT, BOARD)
+    monkeypatch.setenv("CF_HAT_CHECKS", "0")
+    assert on and SP.validate(plan, SCRIPT, BOARD) == []
+
+
+def test_a_physical_subject_is_drawn_from_its_real_anatomy_and_photos(d):
+    pid = _project(d)
+    P.write_artifact(pid, "research", {"anatomy": [
+        {"part": "Refrigerator", "looks_like": "tall white two-door box", "photo_query": "refrigerator back"},
+        {"part": "Compressor", "looks_like": "black steel dome the size of a melon", "where": "bottom back",
+         "photo_query": "refrigerator compressor"},
+        {"part": "Thermostat", "looks_like": "small dial"}]}, d)
+    asked = []
+
+    def find(q):
+        asked.append(q)
+        return {"file": f"assets/stock/{len(asked)}.jpg", "title": q, "license": "CC BY-SA 4.0", "author": "x"}
+
+    rows = SP.photos(pid, d, find=find)
+    assert [r["part"] for r in rows] == ["Refrigerator", "Compressor"] and rows[0]["file"] == "/assets/stock/1.jpg"
+    text = SP.anatomy(pid, d)
+    assert "REALISM" in text and "black steel dome the size of a melon; sits bottom back" in text
+    assert "REFERENCE PHOTOS" in SP._photo_text(rows) and SP._photo_text([]) == ""
+    P.write_artifact(pid, SP.DESIGN, {"photos": rows}, d)
+    assert SP.photos(pid, d, find=lambda q: 1 / 0) == rows                 # fetched once per project
+    other = _project(d)
+    assert SP.anatomy(other, d) == "" and SP.photos(other, d, find=lambda q: 1 / 0) == []

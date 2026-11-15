@@ -186,9 +186,23 @@ def generate(con, kind, model, prompt_text, params, units, unit, idea_id=None, e
     before = eleven_api.subscription(acc["key"])["used"]
     data = (eleven_api.music if kind == "music" else eleven_api.sound)(acc["key"], prompt_text, secs)
     path = _write(data, ext, key)
-    cost = float(max(0, eleven_api.subscription(acc["key"])["used"] - before))
+    cost = _measured(acc["key"], before) or _estimated(kind, model, units, approved)
     credits.record(con, kind, model, units, unit, cost, idea_id, prompt_text[:60], account)
     return path, cost
+
+
+def _measured(key, before, tries=4, wait=2.5):
+    """Credits the subscription counter moved by since `before`. The counter lags a long generation by a few seconds
+    (007: a 48 s track was recorded as 0 credits and the ledger missed ~600), so it is read again before giving up."""
+    import time
+    for i in range(tries):
+        used = eleven_api.subscription(key)["used"]
+        if used > before:
+            return float(used - before)
+        if i + 1 < tries:
+            time.sleep(wait)
+    return 0.0
+
 
 
 # ---------------------------------------------------------------- images

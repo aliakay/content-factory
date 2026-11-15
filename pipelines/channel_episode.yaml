@@ -1,0 +1,122 @@
+id: channel_episode
+order: 1.2
+status: ready
+category: generated
+inputs: [topic, channel_template]     # a channel whose template is saved (factory/hat/channel.py)
+briefs: explainer                     # the stage briefs are the explainer's; the template is added to each run
+duration: [20, 120]
+
+name: {tr: Kanal bölümü, en: Channel episode}
+tagline:
+  tr: "Şablonu kayıtlı bir kanala yeni bölüm: görünüm, ses ve bütçe sabit, yalnız konu değişir."
+  en: "A new episode for a channel with a saved template: the look, voice and budget are fixed, only the topic changes."
+makes:
+  tr: "Kanalın pilot videosuyla aynı kalıpta bir anlatım videosu. Öneri, yön panosu ve sahne tasarım dili şablondan gelir; sen yalnız senaryoyu, animatiği ve bitmiş videoyu onaylarsın."
+  en: "An explainer in the mould of the channel's pilot film. The proposal, the direction board and the scene design system come from the template; you approve only the script, the animatic and the finished film."
+good_for:
+  tr: ["Aynı formatta düzenli yayın yapan kanallar", "Bir konu listesinden arka arkaya bölüm üretmek", "Her videoda aynı ses, aynı görünüm, aynı uzunluk"]
+  en: ["Channels that publish regularly in one format", "Making episodes back to back from a list of topics", "The same voice, look and length in every film"]
+not_for:
+  tr: ["Kanalın ilk (pilot) videosu (→ Konu anlatımı; bitince şablon olarak kaydet)", "Formatı her seferinde değişen videolar"]
+  en: ["The channel's first (pilot) film (→ Explainer; save it as the template when done)", "Films whose format changes every time"]
+needs:
+  tr: "Şablonu kayıtlı bir kanal ve bir konu (ya da her satırda bir konu olan bir liste)."
+  en: "A channel with a saved template and a topic (or a list with one topic per line)."
+cost:
+  tr: "Seslendirme kredisi; müzik kanalın kendi parçasıysa ek kredi yok. Şablondaki kredi tavanını aşan senaryo onaylanamaz."
+  en: "Narration credits; no extra credits when the music is the channel's own track. A script above the template's credit cap cannot be approved."
+limits:
+  tr: ["Görünüm, ses, müzik ve süre bölümde değiştirilemez: şablonu güncellemek için kanalın şablonunu yeniden kaydet"]
+  en: ["Look, voice, music and length cannot be changed inside an episode: save the channel's template again to change them"]
+
+stages:
+  - id: research
+    run: agent
+    model: sonnet
+    tools: [web_search, web_fetch]
+    review:
+      - "At least 5 sources with URLs; every data point names its source"
+      - "Numbers carry their unit, date and the exact figure (no rounding without saying so)"
+      - "At least 3 genuinely different angles, each grounded in a finding"
+      - "States the one insight the video must land and the common misconception"
+
+  - id: proposal
+    run: code
+    schema: proposal_code
+    call: factory.hat.channel:proposal
+    name: {tr: Şablon, en: Template}
+    says: {tr: "Süre, görünüm, ses, müzik ve bütçe kanal şablonundan doldurulur. Model çalışmaz, onay beklemez.",
+           en: "Length, look, voice, music and budget are filled in from the channel template. No model runs and nothing waits for approval."}
+
+  - id: script
+    gate: true
+    run: agent
+    model: sonnet          # the mould is the pilot's script: Sonnet writes to it (~$0.15 and ~40 s less than Opus)
+    tools: [read_artifact, web_search, web_fetch, proof_check, words_check, cold_test]
+    review:
+      - "Word count fits the template's duration within 10% (Turkish ~2.4 words/s, English ~2.6)"
+      - "Same shape as the channel's pilot script: its kind of hook, its number of beats, its way of ending"
+      - "Every factual claim is marked verified with a source, or removed"
+      - "Numbers are written the way the narrator should say them"
+      - "words_check has no open findings: no dashes, no stock phrasing, no greeting"
+      - "The hook rule holds: line 1 lands in 3 s, is concrete and shares the title's subject"
+      - "The cold test passes: a stranger's one sentence about the lines is the title's subject"
+    gate_says: {tr: "Onaylarsan metin kilitlenir; sahneler çizilir ve animatik hazırlanır. Metnin ses kredisi kanalın tavanını aşıyorsa onaylanamaz.",
+                en: "Approving locks the text; the scenes are drawn and the animatic is made. A text whose narration costs more than the channel's cap cannot be approved."}
+
+  - id: direction
+    run: code
+    call: factory.hat.channel:direction
+    says: {tr: "Kanalın yön panosu olduğu gibi kullanılır: palet, yazı eşleşmesi ve kurallar şablondan.",
+           en: "The channel's direction board is used as it is: palette, type pairing and rules from the template."}
+
+  - id: scene_plan
+    run: code
+    call: factory.hat.shortplan:build
+    model: opus
+    tools: [read_artifact, catalog, recipes, stock_search, render_stills, layout_lint, contact_sheet, proof_check, rhythm_check, subject_check, originality_check]
+    says: {tr: "Sahneler kanalın tasarım diliyle ve onaylanmış sahne kitaplığıyla çizilir. Onay animatikte verilir.",
+           en: "The scenes are drawn in the channel's design system and from its library of approved scenes. You approve at the animatic."}
+    review:
+      - "Scenes cover the whole script with no gaps; every scene has a trigger word"
+      - "The channel's palette, CSS and kit are used unchanged"
+      - "Layout lint has no errors; no text sits under the caption band"
+      - "Every on-screen number matches the script and the research"
+
+  - id: animatic
+    gate: true
+    run: code
+    call: factory.hat.animatic:run
+    review:
+      - "The whole film at draft timing: half size, 15 fps, silent but for the click track; no credits spent"
+      - "Every script line is shown by a scene; no scene reads faster than the voice can speak"
+      - "The picture moves in the first two seconds and never sits still for long"
+    gate_says: {tr: "Onaylarsan ses ve müzik üretilir, film render edilir ve yayın kapısına kadar durmadan gider: kredi bu onayla harcanır. Bir sorun varsa not yaz; not doğru aşamaya geri gider.",
+                en: "Approving makes the voice and music, renders the film and runs without stopping to the publish gate: this approval spends the credits. If something is wrong, write a note; it goes back to the right stage."}
+
+  - id: assets
+    run: code
+    call: factory.hat.explainer:assets
+    tools: [tts, align_words, music, preview_render]
+
+  - id: edit
+    run: code
+    call: factory.hat.explainer:edit
+    tools: [compile_bundle]
+
+  - id: compose
+    run: code
+    call: factory.hat.explainer:compose
+    tools: [final_render, qa_technical, qa_sound, thumbnails, deliver]
+
+  - id: publish
+    gate: true
+    run: agent
+    model: sonnet
+    tools: [read_artifact, proof_check, safe_area, attribution]
+    review:
+      - "Caption in the video's language, under 150 characters, ends with a question"
+      - "3–5 hashtags that match the topic"
+      - "`credits` is the attribution tool's block verbatim; no asset is unlicensed"
+    gate_says: {tr: "Bitmiş videoyu izle. Onaylarsan video \"hazır\" olur ve sahneleri kanalın kitaplığına eklenir.",
+                en: "Watch the finished film. Approving marks it ready and adds its scenes to the channel's library."}

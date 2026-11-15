@@ -1,5 +1,5 @@
 /* v2 production lines in the Studio (factory/hat, studio/hat_api.py).
-   Pages: #/uret (the 14 lines, start one), #/uretimler (every v2 production), #/receteler (the recipe shotbook), #/u/<project> (one production as a flow:
+   Pages: #/uret (the lines, start one), #/uretimler (every v2 production), #/receteler (the recipe shotbook), #/u/<project> (one production as a flow:
    stages left to right, the selected stage's output, and at a gate one decision: continue, feedback, or go back).
    Every word on these pages comes from TX in the user's interface language (S.me.ui_lang). */
 (() => {
@@ -54,6 +54,26 @@ const TX = {
     ev_review_fix: "Denetçi düzeltme istedi", ev_tool: "Araç: {0}", ev_approve: "{0} onaylandı", ev_feedback: "{0} için not",
     ev_reopen: "{0} yeniden açıldı", ev_revise: "Not geri gönderildi: {0}", ev_queued: "{0} sıraya alındı", ev_tool_error: "Araç hatası: {0}",
     ev_budget_refit: "Bütçe yazılan metne göre güncellendi",
+    ev_template_saved: "Kanal şablonu olarak kaydedildi", ev_channel_note: "Not kanalın kalıcı notlarına eklendi", ev_channel_library: "Sahneler kanalın kitaplığına eklendi",
+    ev_design_system: "Sahne tasarım dili hazır ({0} sahne)", ev_waiting: "{0} hazır, kararını bekliyor", ev_done_in: "{0} bitti · {1}",
+    ev_agent_done: "Model yazdı · {0} · ${1}", ev_model_working: "{0} için model çalışıyor ({1})", ev_part_failed: "Bir sahne çizilemedi, yeniden deneniyor",
+    ev_lines_rebased: "Sahne satır numaraları düzeltildi", ev_submit_rejected: "Model çıktısı kontrolden dönmedi, düzeltiyor", ev_lint_skipped: "Yerleşim kontrolü atlandı",
+    you_title: "Senden beklenen", you_now: "Şu an çalışıyor", you_none: "Senden bir şey beklenmiyor", you_done: "Video hazır", you_failed: "Bir aşama hata verdi",
+    you_busy_hint: "Bitince burada senden ne beklendiği yazacak. Sayfayı açık tutman gerekmiyor.", you_done_hint: "Bütün aşamalar tamamlandı. Videoyu indirebilir ya da platform dosyalarını hazırlayabilirsin.",
+    progress: "İlerleme", progress_n: "{0}/{1} aşama tamam", next_up: "Sırada", history: "Tamamlanan aşamalar", history_hint: "En son biten en üstte; açmak için tıkla.",
+    rp_title: "Süre ve maliyet", rp_stage: "Aşama", rp_work: "Çalışma", rp_wait: "Seni bekledi", rp_claude: "Claude", rp_eleven: "ElevenLabs", rp_total: "Toplam",
+    rp_span: "Baştan sona {0} · makinede {1} · senin kararlarında {2}", rp_voice: "Ses {0} kredi", rp_music: "Müzik {0} kredi", rp_music_free: "Müzik ücretsiz ({0})", rp_runs: "{0} tur",
+    voice_set: "Ses seçildi", voice_change: "Sesi değiştir",
+    tp_title: "Kanal şablonu", tp_ep: "Bu video {0} kanalının şablonuyla üretiliyor. Görünüm, ses, müzik ve süre şablondan gelir.", tp_ep_note: "Geri bildirim notunu \"kanal:\" ile başlatırsan not kanalın sonraki bütün bölümlerine de uygulanır.",
+    tp_save_lead: "Bu videonun görünümünü, sesini, müziğini, süresini ve senaryo kalıbını bir kanalın şablonu yap. Sonraki bölümler \"Kanal bölümü\" hattıyla yalnız 3 onayla üretilir.", tp_not_yet: "Şablon için videonun senaryosu, yön panosu ve sahne planı hazır olmalı.",
+    tp_channel: "Kanal", tp_has: "şablonu var, üzerine yazılır", tp_music: "Müzik", tp_music_reuse: "Bu videonun parçası kanalın müziği olsun (sonraki bölümlerde kredi harcamaz)", tp_music_new: "Her bölümde aynı tarifle yeni parça üret (kredi harcar)",
+    tp_save: "Kanal şablonu olarak kaydet", tp_saved: "Kanal şablonu kaydedildi", tp_no_channel: "Önce bir kanal oluştur.", tp_new_channel: "Yeni kanal",
+    tp_pick: "Kanal", tp_none: "Şablonu kayıtlı bir kanal yok. Önce \"Konu anlatımı\" hattıyla bir pilot video üret; bitince sayfasındaki \"Kanal şablonu olarak kaydet\" ile kanala bağla.",
+    tp_topics: "Konular (her satır bir bölüm)", tp_topics_ph: "Buzdolabı nasıl soğutur?\nMikrodalga yemeği nasıl ısıtır?\nUçak nasıl havada kalır?", tp_topics_hint: "En çok 12 konu. Bölümler ikişer ikişer araştırılıp yazılır; her biri senaryo kapısında seni bekler.",
+    tp_from: "Pilot", tp_len: "Süre", tp_look: "Görünüm", tp_voice: "Ses", tp_voice_yes: "seslendirmeli", tp_voice_no: "seslendirmesiz", tp_music_channel: "kanalın kendi parçası", tp_music_composer: "kendi bestecimiz", tp_music_bought: "her bölümde yeni parça", tp_music_off: "müzik yok",
+    tp_lib: "Sahne kitaplığı", tp_lib_n: "{0} onaylı sahne", tp_films: "{0} bölüm", tp_cap: "Bölüm başına kredi tavanı", tp_cap_hint: "Boş = tavan yok. Senaryo bu tavanı aşarsa onaylanamaz.",
+    tp_notes: "Kalıcı notlar (her satır bir not)", tp_notes_hint: "Her bölümün araştırma, senaryo, sahne ve yayın adımına eklenir.", tp_update: "Tavanı ve notları kaydet", tp_updated: "Kaydedildi", tp_delete: "Şablonu sil", tp_delete_q: "Bu kanalın şablonu silinsin mi? Üretimdeki bölümler etkilenmez.",
+    tp_start: "Bölümleri başlat", tp_started: "{0} bölüm oluşturuldu",
   },
   en: {
     nav_make: "Make", nav_prods: "Productions", nav_fstyles: "Film styles", rc_nav: "Recipes", rc_lead: "The motion recipes the scene planner uses: each card is an FX call, its timing, its pitfalls and a working example. The planner names a scene's recipes by id and the designer gets the whole card.", rc_all: "All", rc_search: "Search: chart, camera, rain…", rc_render: "Render {0} demo clips (free)", rc_rendering: "Rendering clips", rc_queued: "Rendering the demo clips (a few minutes, no credits)", rc_noclip: "No demo clip rendered yet.", rc_call: "Call", rc_timing: "Timing", rc_pitfalls: "Pitfalls", rc_code: "Example code", rc_more: "Details", rc_none: "No recipes in this filter", rc_job: "recipe demo clips", rc_count: "{0} recipes", cm_title: "Frame comments", cm_on: "Comment mode", cm_off: "Done commenting", cm_hint: "Turn comment mode on, click a point on a frame or on the paused preview and write what should change. The comments go to the designer together; only the commented scenes change.", cm_hint_on: "Click a point on a frame or on the preview. The text you click and its source line are added to the comment.", cm_note: "Comment", cm_ph: "What should change? E.g. make this number bigger and red", cm_add: "Add comment", cm_cancel: "Cancel", cm_added: "Comment added", cm_empty: "Write the comment.", cm_del: "Delete", cm_none: "No comments yet.", cm_send: "Send {0} comments to the designer", cm_send_hint: "The designer agent fixes only the commented scenes; every other scene, the colours and the shared CSS are put back as they are. The scene plan gate then waits for your approval again.", cm_send_q: "Send the comments to the designer? The scene plan runs again and stops at its gate (no credits).", cm_sent: "{0} comments sent", cm_running: "The designer is applying the comments…", cm_done: "Last revision: scene {0} fixed.", cm_restored: "Put back what had to stay: {0}.", cm_line: "line {0}", cm_video: "Comment on the preview", cm_video_hint: "Pause the video at any moment, then click a point in the picture.", cm_at: "Moment {0} s picked", cm_st_open: "open", cm_st_sent: "sent", cm_st_done: "applied", mu_composer: "our own composer, no credits", mu_composed: "Original score, {0} BPM, no credits", mu_plain: "Plain score (the agent could not write one), {0} BPM, no credits", pt_label: "Pre-trim", pt_cut: "{0} fillers/restarts the script lacks were cut ({1} s)", parts_reused: "Only the changed scenes were re-rendered: {0} of {1} parts.", dr_type: "Type pairing", dr_style: "Source", dr_scheme: "a scheme derived from the project", dr_rules: "Rules", dr_refs: "References", dr_none: "No rules recorded.", dr_fp: "Board fingerprint {0}", an_free: "No credits spent", an_scenes: "scenes", an_findings: "Animatic findings", an_clean: "no warnings", an_warns: "{0} warning(s)", an_none: "No warnings in the measured checks: every scene is long enough, every line is on screen, the film moves.", an_pace: "Pace, scene by scene", an_words: "words", an_wps: "/s", an_timing_draft: "draft timing", an_timing_beats: "beat timing", an_timing_voice: "real voice", fs_lead: "The library's 12 styles and your own. Make your own by changing a style or from a blank page; once approved it can be picked at proposal gates.", fs_lib: "Library", fs_own: "Your styles", fs_new: "Make your own style", fs_name: "Style name", fs_base: "Where to start?", fs_blank: "Blank page", fs_create: "Start", fs_change: "Change this", fs_st_start: "Start", fs_st_plan: "Plan", fs_st_brand: "Brand", fs_st_sample: "Sample frame", fs_st_approve: "Approve", fs_next: "Next", fs_prev: "Back", fs_save: "Save", fs_skip: "Skip", fs_draw: "Draw the sample frame", fs_drawing: "Drawing (about 1 min)…", fs_redraw: "Draw again", fs_approve: "Approve, add to the library", fs_draft: "draft", fs_sampled: "frame ready", fs_approved: "approved", fs_stale: "Draw the sample frame again after a change.", fs_need: "Unanswered: {0}", fs_logo_up: "Upload logo", fs_logo_ok: "Logo uploaded", fs_delete: "Delete", fs_del_q: "Delete this style?", fs_saved: "Saved", fs_in_lib: "This style is in the library; proposal gates can pick it.", fs_no_cost: "No credits: the frame is drawn by the studio's own engine.", fs_based: "Based on: {0}", lang: "Interface language",
@@ -103,6 +123,26 @@ const TX = {
     ev_review_fix: "Reviewer asked for fixes", ev_tool: "Tool: {0}", ev_approve: "{0} approved", ev_feedback: "Note on {0}",
     ev_reopen: "{0} reopened", ev_revise: "Note sent back to: {0}", ev_queued: "{0} queued", ev_tool_error: "Tool error: {0}",
     ev_budget_refit: "Budget re-priced from the written script",
+    ev_template_saved: "Saved as the channel's template", ev_channel_note: "Note added to the channel's standing notes", ev_channel_library: "Scenes added to the channel's library",
+    ev_design_system: "Scene design system ready ({0} scenes)", ev_waiting: "{0} ready, waiting for you", ev_done_in: "{0} finished · {1}",
+    ev_agent_done: "Model wrote it · {0} · ${1}", ev_model_working: "Model working on {0} ({1})", ev_part_failed: "A scene could not be drawn; retrying",
+    ev_lines_rebased: "Scene line numbers corrected", ev_submit_rejected: "The model's output failed a check; it is fixing it", ev_lint_skipped: "Layout check skipped",
+    you_title: "Waiting for you", you_now: "Working now", you_none: "Nothing is waiting for you", you_done: "The video is ready", you_failed: "A stage failed",
+    you_busy_hint: "When it finishes, this panel says what you need to do. You do not need to keep the page open.", you_done_hint: "Every stage is complete. Download the video or prepare the platform files.",
+    progress: "Progress", progress_n: "{0}/{1} stages done", next_up: "Next", history: "Completed stages", history_hint: "The latest at the top; click to open.",
+    rp_title: "Time and cost", rp_stage: "Stage", rp_work: "Working", rp_wait: "Waited for you", rp_claude: "Claude", rp_eleven: "ElevenLabs", rp_total: "Total",
+    rp_span: "{0} from start to end · {1} on the machine · {2} in your decisions", rp_voice: "Voice {0} credits", rp_music: "Music {0} credits", rp_music_free: "Music free ({0})", rp_runs: "{0} runs",
+    voice_set: "Voice chosen", voice_change: "Change the voice",
+    tp_title: "Channel template", tp_ep: "This film is made from the template of the channel {0}. Look, voice, music and length come from the template.", tp_ep_note: "Start a feedback note with \"channel:\" and it is also applied to every later episode of the channel.",
+    tp_save_lead: "Make this film's look, voice, music, length and script mould a channel's template. Later episodes are made on the \"Channel episode\" line with only 3 approvals.", tp_not_yet: "A template needs the film's script, direction board and scene plan.",
+    tp_channel: "Channel", tp_has: "has a template; it is replaced", tp_music: "Music", tp_music_reuse: "Use this film's track as the channel's music (no credits in later episodes)", tp_music_new: "Make a new track from the same prompt in every episode (spends credits)",
+    tp_save: "Save as channel template", tp_saved: "Channel template saved", tp_no_channel: "Create a channel first.", tp_new_channel: "New channel",
+    tp_pick: "Channel", tp_none: "No channel has a template yet. Make a pilot film on the \"Explainer\" line first; when it is done, use \"Save as channel template\" on its page.",
+    tp_topics: "Topics (one episode per line)", tp_topics_ph: "How does a fridge cool?\nHow does a microwave heat food?\nHow does a plane stay up?", tp_topics_hint: "Up to 12 topics. Episodes are researched and written two at a time; each waits for you at its script gate.",
+    tp_from: "Pilot", tp_len: "Length", tp_look: "Look", tp_voice: "Voice", tp_voice_yes: "narrated", tp_voice_no: "no narration", tp_music_channel: "the channel's own track", tp_music_composer: "our own composer", tp_music_bought: "a new track every episode", tp_music_off: "no music",
+    tp_lib: "Scene library", tp_lib_n: "{0} approved scenes", tp_films: "{0} episodes", tp_cap: "Credit cap per episode", tp_cap_hint: "Empty = no cap. A script above the cap cannot be approved.",
+    tp_notes: "Standing notes (one per line)", tp_notes_hint: "Added to every episode's research, script, scene and publish step.", tp_update: "Save cap and notes", tp_updated: "Saved", tp_delete: "Delete template", tp_delete_q: "Delete this channel's template? Episodes already in production are not affected.",
+    tp_start: "Start the episodes", tp_started: "{0} episodes created",
   },
 };
 const t = (k, ...a) => { let s = (TX[L()] || TX.tr)[k] ?? TX.tr[k] ?? k; a.forEach((v, i) => { s = s.replace("{" + i + "}", v); }); return s; };
@@ -178,7 +218,51 @@ function lineCard(l) {
     ${HS.open === l.id ? startForm(l) : ""}
   </article>`;
 }
+// A channel's saved template (factory/hat/channel.py) as a small fact sheet: what every episode inherits.
+function tplFacts(tp) {
+  const mu = tp.music || {};
+  const music = !mu.use ? t("tp_music_off") : t({ channel: "tp_music_channel", composer: "tp_music_composer" }[mu.source] || "tp_music_bought");
+  const sw = Object.values(tp.palette || {}).slice(0, 6).map((c) => `<span style="display:inline-block;width:16px;height:16px;border-radius:4px;background:${esc(c)};border:1px solid var(--line)"></span>`).join(" ");
+  return `<div class="hl-kv small"><b>${esc(t("tp_from"))}</b><div><a href="#/u/${esc(tp.from || "")}">${esc(tp.title || tp.from || "")}</a></div>
+    <b>${esc(t("tp_len"))}</b><div>${esc(String(tp.seconds || ""))} ${esc(t("sec"))} · ${esc((tp.video_lang || "").toUpperCase())} · ${esc(tp.aspect || "")}</div>
+    <b>${esc(t("tp_look"))}</b><div>${sw} ${esc(tp.look || "")} · ${esc((tp.type || {}).display || "")}</div>
+    <b>${esc(t("tp_voice"))}</b><div>${esc(t(tp.narrate === false ? "tp_voice_no" : "tp_voice_yes"))} · ${esc(music)}</div>
+    <b>${esc(t("tp_lib"))}</b><div>${esc(t("tp_lib_n", (tp.library || []).length))} · ${esc(t("tp_films", tp.films || 0))}</div></div>`;
+}
+// The start form of a line that makes episodes from a channel template: pick the channel, list the topics.
+function channelForm(l) {
+  const list = HS.templates || [];
+  if (!list.length) return `<div class="hl-form mt12"><div class="note small">${esc(t("tp_none"))}</div><div class="row mt12"><button class="btn ghost" data-act="hatClose">${esc(t("cancel"))}</button></div></div>`;
+  const cur = list.find((x) => x.channel === HS.tplCh) || list.find((x) => x.channel === S.ch) || list[0];
+  return `<div class="hl-form mt12">
+    <label class="field"><span>${esc(t("tp_pick"))}</span><select id="epChan" data-change="epChan">${list.map((x) => `<option value="${esc(x.channel)}" ${x.channel === cur.channel ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
+    <div class="mt8">${tplFacts(cur)}</div>
+    <label class="field mt12"><span>${esc(t("tp_topics"))}</span><textarea id="epTopics" data-keep="ep-topics" placeholder="${esc(t("tp_topics_ph"))}" style="min-height:120px"></textarea></label>
+    <div class="tiny faint">${esc(t("tp_topics_hint"))}</div>
+    ${l.proof ? `<label class="mt12" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="hlProof" style="width:auto;margin-top:3px"><span><b>${esc(t("proof_mode"))}</b><div class="tiny faint">${esc(t("proof_hint"))}</div></span></label>` : ""}
+    <div class="row mt12"><button class="btn accent" data-act="epCreate">${esc(t("tp_start"))}</button><button class="btn ghost" data-act="hatClose">${esc(t("cancel"))}</button></div>
+    <details class="mt16"><summary class="small muted">${esc(t("tp_cap"))} · ${esc(t("tp_notes"))}</summary>
+      <label class="field mt8"><span>${esc(t("tp_cap"))}</span><input id="epCap" type="number" min="0" step="50" value="${cur.credit_cap == null ? "" : esc(String(cur.credit_cap))}" style="width:140px"></label><div class="tiny faint">${esc(t("tp_cap_hint"))}</div>
+      <label class="field mt8"><span>${esc(t("tp_notes"))}</span><textarea id="epNotes" style="min-height:80px">${esc((cur.notes || []).join("\n"))}</textarea></label><div class="tiny faint">${esc(t("tp_notes_hint"))}</div>
+      <div class="row mt8"><button class="btn sm" data-act="tplUpdate" data-id="${esc(cur.channel)}">${esc(t("tp_update"))}</button><span class="sp"></span><button class="btn danger ghost sm" data-act="tplDelete" data-id="${esc(cur.channel)}">${esc(t("tp_delete"))}</button></div>
+    </details>
+  </div>`;
+}
+// The channel-template card on a production's page: an episode says which template it runs on; an explainer film can
+// be saved as a channel's template once its script, board and scene plan exist.
+function templateCard(f) {
+  const tc = f.template;
+  if (!tc) return "";
+  if (tc.episode) return `<div class="card"><h3>${esc(t("tp_title"))}</h3><div class="small">${esc(t("tp_ep", tc.episode.name || ""))}</div><div class="mt8">${tplFacts(tc.episode)}</div><div class="tiny faint mt8">${esc(t("tp_ep_note"))}</div></div>`;
+  if (tc.why) return `<div class="card"><h3>${esc(t("tp_title"))}</h3><div class="small muted">${esc(t("tp_not_yet"))}</div></div>`;
+  if (!(tc.channels || []).length) return `<div class="card"><h3>${esc(t("tp_title"))}</h3><div class="small muted">${esc(t("tp_no_channel"))}</div><a class="btn sm mt8" href="#/kanal-yeni">${esc(t("tp_new_channel"))}</a></div>`;
+  return `<div class="card"><h3>${esc(t("tp_title"))}</h3><div class="small muted">${esc(t("tp_save_lead"))}</div>
+    <label class="field mt12"><span>${esc(t("tp_channel"))}</span><select id="tplChan">${tc.channels.map((c) => `<option value="${esc(c.id)}" ${c.id === (tc.channel || S.ch) ? "selected" : ""}>${esc(c.name)}${c.has ? " (" + esc(t("tp_has")) + ")" : ""}</option>`).join("")}</select></label>
+    <label class="field mt8"><span>${esc(t("tp_music"))}</span><select id="tplMusic"><option value="reuse">${esc(t("tp_music_reuse"))}</option><option value="new">${esc(t("tp_music_new"))}</option></select></label>
+    <button class="btn block mt12" data-act="tplSave">${esc(t("tp_save"))}</button><a class="tiny faint mt8" style="display:block" href="#/kanal-yeni">+ ${esc(t("tp_new_channel"))}</a></div>`;
+}
 function startForm(l) {
+  if ((l.inputs || []).includes("channel_template")) return channelForm(l);
   const vl = HS.vlang || L();
   return `<div class="hl-form mt12">
     <label class="field"><span>${esc(t("brief"))}</span><textarea id="hlBrief" data-keep="hl-brief" placeholder="${esc(t("brief_ph"))}"></textarea></label>
@@ -245,9 +329,37 @@ ROUTES["#/uret"] = async () => {
   crumb([t("nav_make")]);
   HS.lines = HS.lines || await api("/api/hat/lines");
   if (HS.open === "series_episode") HS.series = await api("/api/hat/series");
+  const tplLine = (HS.lines.find((x) => x.id === HS.open) || {}).inputs || [];
+  if (tplLine.includes("channel_template")) HS.templates = await api("/api/hat/templates");
   paint(`<h1>${esc(t("make_title"))}</h1><p class="lead">${esc(t("make_lead"))}</p>${routerPanel()}
-    <div class="hl-grid mt16">${HS.lines.map(lineCard).join("")}</div>`, JSON.stringify([L(), HS.open, !!HS.suggesting, HS.suggestN || 0, (HS.briefImgs || []).map((x) => x.file), !!HS.imgBusy]));
+    <div class="hl-grid mt16">${HS.lines.map(lineCard).join("")}</div>`, JSON.stringify([L(), HS.open, !!HS.suggesting, HS.suggestN || 0, (HS.briefImgs || []).map((x) => x.file), !!HS.imgBusy, HS.tplCh || "", HS.tplN || 0, (HS.templates || []).length]));
   return {};
+};
+ACT.epChan = (el) => { HS.tplCh = el.value; S.sig = null; route({ poll: true }); };
+ACT.epCreate = async (el) => {
+  el.disabled = true;
+  try {
+    const topics = $("#epTopics").value.split("\n").map((x) => x.trim()).filter(Boolean);
+    const r = await post("/api/hat/episodes", { channel: $("#epChan").value, topics, proof: $("#hlProof") ? $("#hlProof").checked : false });
+    HS.open = null; S.drafts = {}; toast(r.ids.length > 1 ? t("tp_started", r.ids.length) : t("started"));
+    location.hash = r.ids.length > 1 ? "#/uretimler" : "#/u/" + r.id;
+  } finally { el.disabled = false; }
+};
+ACT.tplUpdate = async (el) => {
+  await post("/api/hat/template", { action: "update", channel: el.dataset.id, credit_cap: $("#epCap").value, notes: $("#epNotes").value });
+  toast(t("tp_updated")); HS.tplN = (HS.tplN || 0) + 1; S.sig = null; route({ poll: true });
+};
+ACT.tplDelete = async (el) => {
+  if (!confirm(t("tp_delete_q"))) return;
+  await post("/api/hat/template", { action: "delete", channel: el.dataset.id });
+  HS.tplCh = null; HS.tplN = (HS.tplN || 0) + 1; S.sig = null; route({ poll: true });
+};
+ACT.tplSave = async (el) => {
+  el.disabled = true;
+  try {
+    await post("/api/hat/template", { action: "save", project: HS.pid, channel: $("#tplChan").value, music: $("#tplMusic").value });
+    toast(t("tp_saved")); S.sig = null; route({ poll: true });
+  } finally { el.disabled = false; }
 };
 ACT.hatSuggest = async () => {
   const brief = $("#hlAsk").value.trim();
@@ -531,23 +643,87 @@ function decisionHtml(s, f) {
   if (f.state === "run" && f.current === s.id && s.run !== "planned") return `<div class="card hl-dec"><button class="btn accent block" data-act="hatAct" data-a="advance" data-stage="${id}">${esc(t("start_stage"))}</button></div>`;
   return `<div class="card hl-dec"><div class="small muted">${esc(s.run === "planned" ? t("not_built") : t("waiting_prev"))}</div></div>`;
 }
-function eventText(e, f) {
+const QUIET = new Set(["tool", "tool_error", "queued", "review_skipped", "stage_start", "created"]);
+const dur = (s) => (s >= 90 ? `${Math.round(s / 60)} ${L() === "tr" ? "dk" : "min"}` : `${Math.round(s)} ${L() === "tr" ? "sn" : "s"}`);
+function eventText(e, f, started) {
   const nm = (sid) => ((f.stages.find((x) => x.id === sid) || {}).name || sid || "");
+  if (QUIET.has(e.kind)) return "";
+  if (e.kind === "stage_finish") {
+    if (e.status === "awaiting_approval") return t("ev_waiting", nm(e.stage));
+    const s0 = started[e.stage];
+    return s0 ? t("ev_done_in", nm(e.stage), dur((new Date(e.at) - new Date(s0)) / 1000)) : t("ev_stage_finish", nm(e.stage));
+  }
+  if (e.kind === "agent_start") return t("ev_model_working", nm(e.stage), e.model || "");
+  if (e.kind === "agent_end") return t("ev_agent_done", dur(e.seconds || 0), (e.cost_usd || 0).toFixed(2));
+  if (e.kind === "design_system") return t("ev_design_system", e.scenes || "");
   const k = "ev_" + e.kind;
   if (!(k in TX.tr)) return "";
-  if (e.kind === "tool" || e.kind === "tool_error") return t(k, e.tool || "");
-  if (e.kind === "agent_start" || e.kind === "review") return t(k, e.model || "");
+  if (e.kind === "review") return t(k, e.model || "");
   return t(k, nm(e.stage));
 }
 function eventsHtml(f) {
-  const rows = f.events.slice().reverse().map((e) => [e, eventText(e, f)]).filter(([, x]) => x).slice(0, 18);
+  const started = {}, rows = [];
+  for (const e of f.events) {
+    if (e.kind === "stage_start") started[e.stage] = e.at;
+    const x = eventText(e, f, started);
+    if (x) rows.push([e, x]);
+  }
+  rows.reverse(); rows.splice(18);
   return `<div class="card"><h3>${esc(t("live"))}</h3><div class="hl-ev">${rows.map(([e, x]) => `<div><time>${esc(dt(e.at))}</time><span>${esc(x)}${e.seconds != null && e.kind !== "tool" ? ` <span class="faint">${e.seconds}s</span>` : ""}</span></div>`).join("")}</div>
     <div class="tiny muted mt8">${esc(t("spent"))}: ${num(f.spent.credits)} ${esc(t("credits"))} · $${(f.spent.usd || 0).toFixed(2)}</div></div>`;
+}
+// The top of a production's page: what is done, what runs, what comes next — in words, not icons.
+function progressHtml(f, done, cur, upcoming) {
+  const n = f.stages.length;
+  const chip = (x, cls) => `<span class="hl-chip ${cls}">${cls === "done" ? "✓ " : cls === "now" ? (x.status === "running" ? '<span class="spin"></span> ' : "● ") : ""}${esc(x.name)}</span>`;
+  return `<div class="hl-progress mt12"><div class="small"><b>${esc(t("progress"))}:</b> ${esc(t("progress_n", done.length, n))}</div>
+    <div class="hl-chips mt8">${done.map((x) => chip(x, "done")).join("")}${cur ? chip(cur, "now") : ""}${upcoming.map((x) => chip(x, "next")).join("")}</div></div>`;
+}
+// The one panel that says what the creator has to do now, with the stage's output and the buttons next to it.
+function actionHtml(s, f) {
+  const waiting = s.status === "awaiting_approval", running = s.status === "running" || (f.state === "busy" && !waiting),
+    failed = s.status === "failed", finished = f.state === "done";
+  const head = waiting ? `🔒 ${t("you_title")}: ${s.name}` : failed ? `! ${t("you_failed")}: ${s.name}` : finished ? `✓ ${t("you_done")}`
+    : running ? `${t("you_now")}: ${s.name}` : `${t("next_up")}: ${s.name}`;
+  const hint = waiting ? (s.ask || s.gate_says || "") : running ? `${s.says || ""} ${t("you_busy_hint")}` : finished ? t("you_done_hint") : (s.says || "");
+  return `<div class="card hl-action mt16 ${waiting ? "gate" : failed ? "bad" : ""}">
+    <div class="row"><h2 style="margin:0">${running ? '<span class="spin"></span> ' : ""}${esc(head)}</h2></div>
+    ${hint ? `<div class="hl-ask mt8">${esc(hint)}</div>` : ""}
+    ${s.note ? `<div class="note mt12 small"><b>${esc(t("feedback"))}:</b> ${esc(s.note)}</div>` : ""}
+    <div class="hl-action-body mt16 ${finished ? "solo" : ""}"><div class="hl-action-out">${outputHtml(s, f)}</div>
+      ${finished ? "" : `<div class="hl-action-dec">${decisionHtml(s, f)}</div>`}</div></div>`;
+}
+// One completed stage in the history: closed, with its time and cost; open it to see what it made.
+function historyItem(x, f) {
+  const r = ((f.report || {}).stages || []).find((y) => y.id === x.id) || {};
+  const meta = [r.work_s ? dur(r.work_s) : "", r.runs > 1 ? t("rp_runs", r.runs) : "", r.usd ? "$" + r.usd.toFixed(2) : "", r.credits ? r.credits + " " + t("credits") : ""].filter(Boolean).join(" · ");
+  const canBack = x.status === "approved" && !f.stages.some((y) => y.status === "running") && f.state !== "archived";
+  return `<details class="card hl-hist"><summary><span class="ok">✓</span> <b>${esc(x.name)}</b>${meta ? ` <span class="tiny faint">· ${esc(meta)}</span>` : ""}
+      ${x.summary ? `<div class="small muted mt8">${esc(x.summary)}</div>` : ""}</summary>
+    <div class="mt12">${outputHtml(x, f)}</div>${canBack ? `<button class="btn ghost sm mt12" data-act="hatAct" data-a="back" data-stage="${esc(x.id)}">${ICON.back}${esc(t("go_back"))}</button>` : ""}</details>`;
+}
+// Time and money: per stage, with the minutes the line waited for the creator kept apart from the machine's.
+function reportHtml(f) {
+  const r = f.report;
+  if (!r || !r.stages) return "";
+  const rows = r.stages.filter((x) => x.runs || x.usd || x.credits);
+  if (!rows.length) return "";
+  const el = r.eleven || {};
+  const music = el.music_source === "channel" || el.music_source === "composer" ? t("rp_music_free", el.music_source) : t("rp_music", el.music || 0);
+  return `<details class="card"><summary><b>${esc(t("rp_title"))}</b> <span class="tiny faint">· ${esc(dur(r.span_s || 0))} · $${(r.usd || 0).toFixed(2)} · ${num((el.voice || 0) + (el.music || 0))} ${esc(t("credits"))}</span></summary>
+    <div class="tiny muted mt8">${esc(t("rp_span", dur(r.span_s || 0), dur(r.work_s || 0), dur(r.wait_s || 0)))}</div>
+    <div style="overflow-x:auto"><table class="mt8 small"><thead><tr><th>${esc(t("rp_stage"))}</th><th class="num">${esc(t("rp_work"))}</th><th class="num">${esc(t("rp_wait"))}</th><th class="num">${esc(t("rp_claude"))}</th><th class="num">${esc(t("rp_eleven"))}</th></tr></thead>
+    <tbody>${rows.map((x) => `<tr><td>${esc(x.name)}${x.runs > 1 ? ` <span class="tiny faint">(${esc(t("rp_runs", x.runs))})</span>` : ""}</td><td class="num">${x.work_s ? esc(dur(x.work_s)) : "—"}</td><td class="num">${x.wait_s ? esc(dur(x.wait_s)) : "—"}</td><td class="num">${x.usd ? "$" + x.usd.toFixed(2) : "—"}</td><td class="num">${x.credits ? num(x.credits) : "—"}</td></tr>`).join("")}
+    <tr><td><b>${esc(t("rp_total"))}</b></td><td class="num"><b>${esc(dur(r.work_s || 0))}</b></td><td class="num"><b>${esc(dur(r.wait_s || 0))}</b></td><td class="num"><b>$${(r.usd || 0).toFixed(2)}</b></td><td class="num"><b>${num(r.credits || 0)}</b></td></tr></tbody></table></div>
+    <div class="tiny faint mt8">${esc(t("rp_voice", el.voice || 0))} · ${esc(music)}</div></details>`;
 }
 // narrator suggestions on the project page (until the film is done): same cards as the create form
 function voiceCard(f) {
   const p = f.project;
   if (!p || f.state === "done" || f.state === "archived" || p.legacy) return "";
+  if (f.stages.some((x) => x.id === "assets" && ["approved", "done"].includes(x.status))) return "";   // the voice is made
+  if (p.voice_id) return `<details class="card"><summary class="small"><b>${esc(t("voice"))}</b> · ${esc(t("voice_set"))} <span class="faint">· ${esc(t("voice_change"))}</span></summary>
+    <div class="vsug mt8" data-pick="hat" data-lang="${esc(p.video_lang || "tr")}" data-kind="social" data-sel="${esc(p.voice_id || "")}"></div><div class="tiny faint mt8">${esc(t("voice_next"))}</div></details>`;
   return `<div class="card"><h3>${esc(t("voice"))}</h3><div class="vsug" data-pick="hat" data-lang="${esc(p.video_lang || "tr")}" data-kind="social" data-sel="${esc(p.voice_id || "")}"></div>
     <div class="tiny faint mt8">${esc(t("voice_next"))}</div></div>`;
 }
@@ -571,18 +747,24 @@ async function viewProject(pid) {
   if (HS.delivering && HS.delivering.pid === pid && (ndv !== HS.delivering.had || HS.delivering.polls > 300)) HS.delivering = null;
   const delivering = HS.delivering && HS.delivering.pid === pid;
   if (delivering) HS.delivering.polls++;
-  const sel = HS.sel[pid] && f.stages.some((x) => x.id === HS.sel[pid]) ? HS.sel[pid] : (f.current || f.stages[f.stages.length - 1].id);
-  const s = f.stages.find((x) => x.id === sel);
+  // the stage the creator has to look at: the one waiting, running or failed; at the end the final film
+  const cur = f.stages.find((x) => x.id === f.current) || null;
+  const finalStage = [...f.stages].reverse().find((x) => x.artifact === "render" && x.output) || [...f.stages].reverse().find((x) => x.output);
+  const s = cur || finalStage || f.stages[f.stages.length - 1];
+  const done = f.stages.filter((x) => ["approved", "done"].includes(x.status));
+  const upcoming = f.stages.filter((x) => !["approved", "done"].includes(x.status) && x.id !== (cur || {}).id);
+  const history = done.filter((x) => x.id !== s.id).reverse();       // newest first, the first stage at the bottom
   const html = `<div class="row"><a class="btn ghost sm" href="#/uretimler">${ICON.back}${esc(t("back_list"))}</a><span class="sp"></span>
       <span class="badge">${esc(f.line.name)}</span><span class="badge">${esc((p.video_lang || "").toUpperCase())}</span><span class="badge">${esc(p.aspect || "")}</span>${p.proof ? `<span class="badge ok">${esc(t("proof_mode"))}</span>` : ""}${stateBadge(f.state)}</div>
-    <h1 class="mt12">${esc(p.title)}</h1>${p.brief ? `<div class="lead hl-brief">${esc(p.brief)}</div>` : ""}
-    ${flowRail(f, sel)}
-    <div class="split mt16"><div class="col" style="gap:14px"><div class="card"><div class="row"><h2 style="margin:0">${esc(s.name)}</h2><span class="sp"></span>
-        <span class="badge hl-sb st-${esc(s.status)}">${esc(t("st_" + s.status))}</span></div><div class="small muted mt8">${esc(s.says)}</div>
-        ${s.note ? `<div class="note mt12 small"><b>${esc(t("feedback"))}:</b> ${esc(s.note)}</div>` : ""}<div class="mt16">${outputHtml(s, f)}</div></div></div>
-      <div class="col sticky" style="gap:14px">${voiceCard(f)}${decisionHtml(s, f)}${proofHtml(s.proof)}${exportHtml(f)}${deliverHtml(f)}${clipsHtml(f)}${reviewHtml(s.review)}${eventsHtml(f)}</div></div>`;
+    <h1 class="mt12">${esc(p.title)}</h1>
+    ${progressHtml(f, done, cur, upcoming)}
+    ${actionHtml(s, f)}
+    <div class="split hl-split mt16"><div class="col" style="gap:10px">${history.length ? `<div class="row"><h3 style="margin:0">${esc(t("history"))}</h3><span class="sp"></span><span class="tiny faint">${esc(t("history_hint"))}</span></div>` : ""}
+        ${history.map((x) => historyItem(x, f)).join("")}
+        ${p.brief ? `<details class="card"><summary class="small muted">${esc(t("brief"))}</summary><div class="small mt8">${esc(p.brief)}</div></details>` : ""}</div>
+      <div class="col sticky" style="gap:14px">${voiceCard(f)}${templateCard(f)}${reportHtml(f)}${proofHtml(s.proof)}${exportHtml(f)}${deliverHtml(f)}${clipsHtml(f)}${reviewHtml(s.review)}${eventsHtml(f)}</div></div>`;
   const busy = f.state === "busy" || f.stages.some((x) => x.status === "running");
-  paint(html, JSON.stringify([L(), sel, f.state, f.current, f.stages.map((x) => [x.status, x.revisions, x.proof ? x.proof.unmatched : null]), f.events.length, nex, !!exporting, ndv, !!delivering, f.clips ? f.clips.clips.map((c) => [c.id, c.status, c.busy]) : 0]));
+  paint(html, JSON.stringify([L(), s.id, f.state, f.current, f.stages.map((x) => [x.status, x.revisions, x.proof ? x.proof.unmatched : null]), f.events.length, nex, !!exporting, ndv, !!delivering, f.clips ? f.clips.clips.map((c) => [c.id, c.status, c.busy]) : 0]));
   const clipping = f.clips && f.clips.clips.some((c) => c.busy);
   return { poll: busy || exporting || delivering || clipping ? 4000 : 0 };
 }

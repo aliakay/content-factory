@@ -308,6 +308,34 @@ RANK = {"impact": 9, "logo_hit": 9, "clunk": 8, "glass": 8, "knock": 8, "hit": 7
 TAKES = 3   # a repeated sound rotates through 3 takes (slight pitch / level), never the same take twice in a row
 
 
+SWOOSH = ("whoosh", "swish")
+
+
+def budget(cues, cuts=(), per30=2, risers30=1, cut_share=0.7):
+    """The sound budget the final's QA measures (craftcheck.sound_budget), applied before the mix instead of reported
+    after it: at most `per30` whooshes/swishes and `risers30` risers in any 30 s, and a designed sound on at most
+    `cut_share` of the cuts (the rest ride on the music). 007 shipped 4 whooshes in its first 30 s and the QA could only
+    say so. The least important cue goes first; cues are dicts with `t` and `kind`."""
+    out = sorted(cues or [], key=lambda c: c["t"])
+    for kinds, cap in ((SWOOSH, per30), (("riser",), risers30)):
+        kept = []
+        for c in [c for c in out if c["kind"] in kinds]:
+            if sum(1 for k in kept if c["t"] - k["t"] < 30) < cap:
+                kept.append(c)
+            else:
+                out.remove(c)
+    cuts = [float(t) for t in cuts or []]
+    if len(cuts) >= 4:
+        def on_cut(c):
+            return any(abs(c["t"] - t) < 0.35 for t in cuts)
+        while sum(any(abs(c["t"] - t) < 0.35 for c in out) for t in cuts) / len(cuts) > cut_share:
+            cands = [c for c in out if on_cut(c)]
+            if not cands:
+                break
+            out.remove(min(cands, key=lambda o: (o["kind"] not in SWOOSH, RANK.get(o["kind"], 3), -o["t"])))
+    return out
+
+
 def clean_cues(raw, total, level="full", gap=0.12, cap=80, per10=9):
     """Cues from a designer (scene JS or an edit plan): known kinds inside the video, the same kind never twice within
     `gap` s, at most `per10` in any 10 s window (the least important go first; restraint is the norm, ~5 per 10 s) and

@@ -34,6 +34,7 @@ def advance(pid, queue, by=None, d=None):
 
 def approve(pid, sid, queue, by=None, note=None, d=None):
     from .. import coldtest, hookrule, licence, proof
+    from . import channel
     cp = P.checkpoint(pid, sid, d)
     if cp["status"] != "awaiting_approval":        # the wrong stage: say so before any rule about its content
         raise P.GateError(f"'{sid}' is not waiting for approval (it is {cp['status']})")
@@ -47,15 +48,21 @@ def approve(pid, sid, queue, by=None, note=None, d=None):
             tools.Ctx(pid, sid, d), st["schema"], artifact)
         if found:
             raise P.GateError("This stage does not pass its artifact checks:\n" + "\n".join("- " + x for x in found))
-    if st["gate"] and st["artifact"] == "scene_plan" and st["schema"] == "scene_plan":
+    checks = P.checks_enabled()                      # CF_HAT_CHECKS=0: no quality rules at the gate
+    if checks and st["gate"] and st["artifact"] == "scene_plan" and st["schema"] == "scene_plan":
         _verify_scene_determinism(pid, sid, d)
-    if st["gate"] and st["artifact"] == "animatic":
+    if checks and st["gate"] and st["artifact"] == "animatic":
+        plan_stage = next((x for x in manifest.get(P.load(pid, d)["line"])["stages"] if x["artifact"] == "scene_plan"), None)
+        if plan_stage and not plan_stage["gate"] and plan_stage["schema"] == "scene_plan":
+            _verify_scene_determinism(pid, plan_stage["id"], d)   # a line without a scene plan gate checks it here
         found = hookrule.animatic_problems(P.read_artifact(pid, "animatic", d) or {})
         if found:
             raise P.GateError("Opening-motion rule: the animatic does not pass:\n" + "\n".join("- " + x for x in found))
     proof.guard(pid, sid, d)          # proof mode: a number without its source cannot pass the gate
-    hookrule.guard(pid, sid, d)       # the hook rule: line 1 must land in 3 s, concrete and on-subject
-    coldtest.guard(pid, sid, d)       # an independent reader must understand the exact lines at the script gate
+    if checks:
+        hookrule.guard(pid, sid, d)   # the hook rule: line 1 must land in 3 s, concrete and on-subject
+        coldtest.guard(pid, sid, d)   # an independent reader must understand the exact lines at the script gate
+    channel.guard(pid, sid, d)        # a channel episode's script cannot cost more than the channel's credit cap
     rows = licence.guard(pid, sid, d) # the attribution ledger: no unlicensed asset, no missing required credit
     if rows is not None:
         art = P.read_artifact(pid, "publish", d) or {}
@@ -68,6 +75,8 @@ def approve(pid, sid, queue, by=None, note=None, d=None):
         lock_budget(pid, by, d)
     elif art == "script":
         refit_budget(pid, by, d)   # the narrated text now exists: price it, so the voice is not refused later
+    elif art == "publish":
+        channel.learn(pid, d)      # an approved channel episode adds its scenes to the channel's library
     return advance(pid, queue, by, d)
 
 
@@ -108,6 +117,8 @@ def feedback(pid, sid, note, queue, by=None, d=None):
             and P.checkpoint(pid, sid, d)["status"] == "awaiting_approval":
         styles.apply(pid, sid, style, by=by, d=d)
         return P.next_stage(pid, d)
+    from . import channel
+    channel.keep_note(pid, note, d)         # "kanal: ..." is also kept for every later episode of the channel
     P.feedback(pid, sid, note, by=by, d=d)
     return advance(pid, queue, by, d)
 
@@ -214,6 +225,8 @@ def execute(pid, sid, d=None):
             raise P.GateError(f"'{sid}' is not built yet on this line")
         cp = P.finish(pid, sid, artifact=out.get("artifact"), review=out.get("review"), cost=out.get("cost"),
                       summary=out.get("summary"), d=d)
+        if s["artifact"] == "proposal" and not s["gate"]:     # a proposal nobody is asked about (a channel template's)
+            lock_budget(pid, "template", d)                   # is its own approval: the budget is fixed here
         r = out.get("revise")
         if r:                                 # it saw the finished work and found the fault in an earlier stage
             P.revise(pid, r["stage"], r["note"], by=sid, d=d)
@@ -230,7 +243,11 @@ def run_job(arg, queue, d=None):
     pid, sid = o["project"], o["stage"]
     execute(pid, sid, d)
     cp = P.checkpoint(pid, sid, d)            # `revise` may have turned this stage stale after it finished
+    from . import channel
     if cp["status"] in ("done", "stale"):
         state, nxt = advance(pid, queue, d=d)
+        if state != "busy":
+            channel.next_in_batch(pid, queue, d)      # this film waits for its creator: the batch's next topic starts
         return f"{sid}: {cp['status']} -> {state} {nxt or ''}".strip()
+    channel.next_in_batch(pid, queue, d)
     return f"{sid}: {cp['status']}"

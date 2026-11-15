@@ -270,4 +270,4 @@ def test_the_manifest_runs_the_animatic_before_the_voice(d):
     assert ids.index("scene_plan") < ids.index("animatic") < ids.index("assets")
     s = manifest.stage(manifest.get("explainer"), "animatic")
     assert s["run"] == "code" and s["gate"] and s["call"] == "factory.hat.animatic:run"
-    assert s["artifact"] == "animatic" and s["name"]["tr"] == "Animatik"
+    assert s["artifact"] == "animatic" and s["name"]["tr"] == "Taslak film"

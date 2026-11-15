@@ -148,3 +148,23 @@ a.hl-style-t{color:inherit;text-decoration:none;display:block}
 .hl-grade-slop{color:#d9534f}
 .hl-grade-orta{color:#d08a1e}
 .hl-grade-maxxed{color:#2e9d5b}
+/* the production page: what is waiting for the creator sits on top, the finished stages below it, newest first */
+.hl-progress{padding:10px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.hl-chips{display:flex;flex-wrap:wrap;gap:6px}
+.hl-chip{font-size:12px;padding:4px 10px;border-radius:99px;border:1px solid var(--line);white-space:nowrap}
+.hl-chip.done{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+.hl-chip.now{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.hl-chip.next{opacity:.6}
+.hl-action{border-width:2px}
+.hl-action.gate{border-color:var(--accent)}
+.hl-action.bad{border-color:var(--bad, #e5484d)}
+.hl-ask{font-size:15px;line-height:1.45}
+.hl-action-body{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+@media (max-width:900px){.hl-action-body{grid-template-columns:1fr}.hl-action-dec{order:-1}}
+.hl-action-dec .card{margin:0}
+.hl-hist summary{cursor:pointer;list-style:none}
+.hl-hist summary::-webkit-details-marker{display:none}
+.hl-hist .ok{color:var(--ok);font-weight:800}
+.hl-action-body.solo{grid-template-columns:1fr}
+/* phone: the completed stages come right after the action panel, the side cards after them */
+@media(max-width:1180px){.hl-split>.sticky{order:0}}
