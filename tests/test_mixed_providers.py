@@ -35,7 +35,7 @@ def test_a_step_can_carry_its_own_cli(users):
 
 def test_an_unknown_cli_is_refused(users):
     with pytest.raises(ValueError):
-        accounts.set_llm_settings("ali", "codex", {}, {"script": "gemini"})
+        accounts.set_llm_settings("ali", "codex", {}, {"script": "mistral"})
     with pytest.raises(ValueError):
         accounts.set_llm_settings("ali", "openai", {}, {})
     assert accounts.llm_settings("ali")["providers"] == {}

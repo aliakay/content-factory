@@ -1,0 +1,198 @@
+# Line-art animation: hand-inked figures and scenes that walk, sway and live (FX.ink, motion/templates/lineart.js). Our own cards.
+# The kit note (motion/recipes/lineart.md) rides along with these cards to the scene designer. Demos are written to work on 9:16 and 16:9.
+- id: lineart.walker_crossing
+  name: {tr: "Yürüyüşçüler birbirini geçer", en: "Walkers crossing"}
+  use: {tr: "Sahneyi canlı açmak, 'gün başlıyor', bir yerden bir yere gidiş, kalabalığın içinde yalnız biri.", en: "Opening a scene alive, 'the day begins', going somewhere, one person among others."}
+  call: "S = FX.ink.stage(root, T, {ground: 0.64}); fig = FX.ink.figure(S, {who: 'man'|'woman'|'child', x, y, scale, hat, scarf, prop}); fig.walk(at, toX, {pace}) -> arrival time"
+  timing: {tr: "Varış süresi mesafeden hesaplanır (ayaklar kaymaz). pace 1-1.5; ekran boyu 3-4 s. Adım sesleri otomatik.", en: "Duration comes from the distance (feet never slide). pace 1-1.5; one screen width in 3-4 s. Footstep ticks are automatic."}
+  pitfalls:
+    tr: ["x,y ayakların yeri; zemin çizgisi S.gy, sokakta y'yi S.gy'den biraz aşağı ver (yakın = aşağı).", "walk(at) MUTLAK film saniyesidir.", "Ölçeği ekrana göre seç: dikeyde ~1.5, yatayda ~1.05; figür 95 birim x ölçek."]
+    en: ["x,y is where the feet are; the ground line is S.gy, give people a y slightly below it (lower = nearer).", "walk(at) takes ABSOLUTE film seconds.", "Scale for the stage: about 1.5 portrait, 1.05 landscape; a figure is 95 units x scale."]
+  seconds: 4
+  demo: |
+    const LA = FX.ink, V = FX._W < FX._H, k = V ? 1.5 : 1.05, S = LA.stage(root, T, {figure: k, ground: 0.64});
+    LA.sky(S, {clouds: 3, hills: true});
+    LA.line(S.layer('back'), [-4, S.gy], [S.w + 4, S.gy]);
+    const a = LA.figure(S, {who: 'man', hat: 'bowler', prop: 'briefcase', x: -16 * k, y: S.gy + 10 * k});
+    a.walk(0.2, S.w + 16 * k, {pace: 1.45});
+    const b = LA.figure(S, {who: 'woman', scarf: '#b3412d', x: S.w + 16 * k, y: S.gy + 26 * k, dir: -1});
+    b.walk(0.6, -16 * k, {pace: 1.3});
+- id: lineart.greeting
+  name: {tr: "Selamlaşma", en: "A greeting"}
+  use: {tr: "Bir figür durup tepki verir: şapka kaldırır, el sallar, oturur. İki kişi arasında küçük bir an.", en: "A figure stops and reacts: tips a hat, waves, sits. A small human moment between two people."}
+  call: "t = man.walk(at, x); man.act(t, 'tipHat'|'wave'|'point'|'bow'|'cheer'|'shrug'|'think'|'present') -> end; fig.sit(at) / fig.stand(at); fig.face(at, -1)"
+  timing: {tr: "Önce yürüyüşü durdur (walk bitişi), 0.1 s sonra jest: tipHat 1.8 s, wave 2.4 s, bow 2.6 s. Karşıdaki 0.8 s sonra karşılık verir.", en: "Let the walk arrive first, gesture 0.1 s later: tipHat 1.8 s, wave 2.4 s, bow 2.6 s. The other answers 0.8 s after."}
+  pitfalls:
+    tr: ["Yürürken jest yok: önce varış, sonra jest.", "Jestler eli taşıdığı eşyadan (valiz) ayırır: aynı kolu iki iş için kullanma.", "Oturmak için bank çiz (LA.bench), yoksa havada oturur."]
+    en: ["No gesture while walking: arrive first, then gesture.", "A gesture takes the hand off its prop (the case): do not ask one arm for two jobs.", "To sit, draw a bench (LA.bench), or the figure sits on air."]
+  seconds: 8
+  demo: |
+    const LA = FX.ink, V = FX._W < FX._H, k = V ? 1.5 : 1.05, S = LA.stage(root, T, {figure: k, ground: 0.64});
+    LA.line(S.layer('back'), [-4, S.gy], [S.w + 4, S.gy]);
+    LA.tree(S, S.w * 0.1, S.gy + 4, {layer: 'back'});
+    const bx = S.w * 0.8; LA.bench(S, bx, S.gy + 8 * k, {w: 36});
+    const m = LA.figure(S, {who: 'man', hat: 'bowler', prop: 'briefcase', x: -14 * k, y: S.gy + 8 * k});
+    const w = LA.figure(S, {who: 'woman', x: S.w * 0.64, y: S.gy + 8 * k, dir: -1, scarf: '#d4a548'});
+    const e = m.walk(0.2, S.w * 0.36, {pace: 1.1});
+    m.act(e + 0.1, 'tipHat'); w.act(e + 0.9, 'wave');
+    m.walk(e + 2.6, S.w + 16 * k, {pace: 1.1});
+    const c = LA.figure(S, {who: 'child', x: bx - 6, y: S.gy + 8 * k, scale: 0.9, hat: 'cap', dir: -1}); c.sit(0.1, {dur: 0.01}); c.act(4.6, 'cheer');
+- id: lineart.draw_on
+  name: {tr: "Sahne kalemle çizilir", en: "Drawn on, stroke by stroke"}
+  use: {tr: "Yeni bir yeri tanıtmak: çizgiler tek tek belirir, sonra figür içeri yürür. Çizimin kendisi gösteri.", en: "Introducing a new place: the lines appear one by one like a pen, then a figure walks in. The drawing is the show."}
+  call: "FX.ink.drawIn(S, S.layer('back'), {at, dur, order: 'lr'|'tb'|'bt'|'out'|'seq', overlap}) -> end time   (call it BEFORE you create the figures that live in that layer)"
+  timing: {tr: "Büyük sahne 2.5-3.5 s; sıra 'lr' soldan sağa, 'bt' alttan yukarı (binalar yükselir). Dolgular çizgi kapanınca solar. Figür çizim bitmeden gelebilir.", en: "A big scene takes 2.5-3.5 s; order 'lr' left to right, 'bt' bottom up (buildings rise). Fills fade in as their outline closes. The figure can enter before the drawing finishes."}
+  pitfalls:
+    tr: ["Önce drawIn, sonra figürler: figür katmanı da çizilirse yürüyenler kalemle belirir.", "Çok kısa süre (<1.5 s) çizgileri okunmaz yapar.", "Metin etiketleri en sonda solarak gelir."]
+    en: ["drawIn first, figures after: figures in the layer would otherwise be drawn too.", "Under 1.5 s the strokes cannot be read.", "Text labels fade in last."]
+  seconds: 7
+  demo: |
+    const LA = FX.ink, V = FX._W < FX._H, k = V ? 1.05 : 0.95, S = LA.stage(root, T, {figure: k, ground: 0.64});
+    LA.sky(S, {clouds: 2});
+    LA.street(S, {seed: 4});
+    LA.drawIn(S, S.layer('back'), {at: 0.2, dur: 2.8, order: 'bt'});
+    LA.drawIn(S, S.layer('mid'), {at: 2.4, dur: 1.0, order: 'lr'});
+    const m = LA.figure(S, {who: 'woman', scarf: '#b3412d', x: -14 * k, y: S.gy + 14 * k});
+    const e = m.walk(3.0, S.w * 0.5, {pace: 1.1}); m.act(e + 0.1, 'wave');
+- id: lineart.street_life
+  name: {tr: "Yaşayan sokak", en: "A living street"}
+  use: {tr: "Bir mahalle, şehir, 'sıradan bir gün': birçok kişi kendi programında; kedi, kuşlar, bisikletli.", en: "A neighbourhood, a town, 'an ordinary day': several people on their own schedules; a cat, birds, a cyclist."}
+  call: "LA.street(S, {seed}); LA.figure(...).walk(at, x) x N (each its own at / pace / y); LA.bike(S, fig).ride(at, x); LA.cat(S, x, y); LA.birds(S, {n}); LA.laundry(S, a, b)"
+  timing: {tr: "Herkesin başlangıcı farklı (0.2, 0.9, 1.6 ...), hızları farklı (pace 0.9-1.4, çocuk 'run'). Her an ekranda 2-4 kişi; kimse aynı anda başlamasın.", en: "Everyone starts at a different time (0.2, 0.9, 1.6 ...) and pace (0.9-1.4, the child 'run'). 2-4 people on screen at any moment; nobody starts together."}
+  pitfalls:
+    tr: ["Hepsi aynı yönde yürürse şerit film olur: yönleri karıştır, birisi dursun.", "y'yi kişiye göre ver (S.gy+8..+30): yakındaki öndedir ve daha büyük görünmeli (scale artsın).", "Kuş ve kedi arka plan hayatı: ana hareketi bölmesin."]
+    en: ["All walking one way makes a conveyor belt: mix directions, let one stop.", "Give each person its own y (S.gy+8..+30): nearer is lower and a bit larger (raise scale).", "Birds and cat are background life: they must not steal the main move."]
+  seconds: 8
+  demo: |
+    const LA = FX.ink, V = FX._W < FX._H, k = V ? 1.05 : 0.95, S = LA.stage(root, T, {figure: k, ground: 0.64, seed: 5});
+    LA.sky(S, {clouds: 2});
+    LA.street(S, {seed: 7, trees: true});
+    LA.birds(S, {n: 6, y: S.h * 0.16, speed: 12});
+    LA.cat(S, S.w * 0.18, S.gy + 6 * k, {patch: '#d9a066'});
+    LA.laundry(S, [S.w * 0.55, S.gy - 38 * k], [S.w * 0.85, S.gy - 40 * k], {sag: 3});
+    const a = LA.figure(S, {who: 'man', hat: 'bowler', prop: 'briefcase', x: -16 * k, y: S.gy + 10 * k});
+    a.walk(0.2, S.w + 16 * k, {pace: 1.2});
+    const b = LA.figure(S, {who: 'woman', prop: 'bag', x: S.w + 16 * k, y: S.gy + 26 * k, dir: -1, scale: 1.1, scarf: '#b3412d'});
+    const e = b.walk(0.9, S.w * 0.5, {pace: 1.1}); b.act(e + 0.2, 'wave'); b.walk(e + 1.8, -16 * k, {pace: 1.1});
+    const c = LA.figure(S, {who: 'child', hat: 'cap', x: -10 * k, y: S.gy + 20 * k, prop: 'balloon', propColour: '#c8473c'});
+    c.walk(2.6, S.w + 16 * k, {gait: 'run', pace: 1});
+    const r = LA.figure(S, {who: 'man', hat: 'cap', x: S.w + 30 * k, y: S.gy + 34 * k, dir: -1, scale: 1.15});
+    LA.bike(S, r); r.ride(4.2, -40 * k, {speed: 50});
+- id: lineart.day_to_night
+  name: {tr: "Gündüzden geceye", en: "Day into night"}
+  use: {tr: "Zamanın geçişi: bir günün özeti, 'akşam oldu', çalışma saatleri, bir yerin hayatı. Çizim tersine döner: koyu çizgi açık kâğıttan açık çizgi lacivert kâğıda.", en: "Time passing: a day in brief, 'evening fell', working hours, a place's life. The drawing inverts: dark ink on warm paper becomes pale ink on indigo."}
+  call: "S = LA.stage(root, T, {daynight: [[0, 0.62], [8, 1.0]]}); LA.sky(S, {stars: 40}); LA.street(S) (windows and lamps light themselves); LA.figure(..., {prop: 'lantern'})"
+  timing: {tr: "tau: 0 gece yarısı, 0.25 şafak, 0.5 öğle, 0.62 öğleden sonra, 0.735 gün batımı, 0.8 gece. 0.62 -> 1.0 arası 8 s güzel okunur. Ateş böceği/ışık tek tek yanar.", en: "tau: 0 midnight, 0.25 dawn, 0.5 noon, 0.62 afternoon, 0.735 sunset, 0.8 night. 0.62 -> 1.0 reads well over 8 s. Lights come on one by one."}
+  pitfalls:
+    tr: ["Renkleri düz hex ver; gece renkler S.tint/nightTint ile paleti izler.", "Çok hızlı (<4 s) geçiş titrek görünür.", "Kendi arka planını çizme: sayfa kâğıdı palette değişir."]
+    en: ["Give flat hex colours; at night they follow the palette through S.tint / nightTint.", "A fast change (<4 s) flickers.", "Do not paint your own background: the paper changes with the palette."]
+  seconds: 8
+  demo: |
+    const LA = FX.ink, V = FX._W < FX._H, k = V ? 1.05 : 0.95, S = LA.stage(root, T, {figure: k, ground: 0.64, daynight: [[0, 0.64], [8, 0.98]], seed: 2});
+    LA.sky(S, {stars: 46, clouds: 2, hills: true});
+    LA.street(S, {seed: 9});
+    LA.birds(S, {n: 5, y: S.h * 0.2, speed: 10});
+    const a = LA.figure(S, {who: 'woman', prop: 'lantern', x: S.w + 16 * k, y: S.gy + 18 * k, dir: -1, scarf: '#b3412d'});
+    a.walk(0.4, -16 * k, {pace: 0.85});
+    const b = LA.figure(S, {who: 'man', hat: 'bowler', prop: 'briefcase', x: -16 * k, y: S.gy + 8 * k});
+    b.walk(0.2, S.w * 0.55, {pace: 1.0});
+- id: lineart.wind_through
+  name: {tr: "Rüzgâr geçiyor", en: "Wind passing through"}
+  use: {tr: "Her şeyin tek bir güçle kıpırdadığını göstermek: ağaçlar, çamaşır, eşarp, duman, balon. Sakin, nefes alan sahne.", en: "Show everything moving with one force: trees, laundry, a scarf, smoke, a balloon. A calm, breathing scene."}
+  call: "S = LA.stage(root, T, {wind: {base: 0.3}}); S.wind.gust(at, {dur, amp}); LA.tree(S, x, y, {kind: 'willow'|'round'|'pine'}); LA.laundry(S, a, b); LA.smoke(S, x, y); LA.figure(..., {scarf, prop: 'balloon'})"
+  timing: {tr: "Bir esinti 1.5-2.5 s sürer (amp 2-3); önce hafif, ortada en güçlü. Her şey aynı rüzgârı okur, gecikmeleri kendinden.", en: "A gust lasts 1.5-2.5 s (amp 2-3): soft, peak in the middle. Everything reads the same wind and lags by itself."}
+  pitfalls:
+    tr: ["Rüzgârı bir fonksiyon olarak kullan: S.wind(t). Kendi sinüsünü ekleme, senkron bozulur.", "Esinti sahne başlamadan kaydedilmeli (kurulumda gust çağır).", "Hepsi aynı anda sallanırsa sahte durur: her ağaç kendi sarkacı."]
+    en: ["Use the wind as a function: S.wind(t). Do not add your own sine, the sync breaks.", "Register gusts at setup, before the first frame.", "If everything swings together it looks fake: each tree has its own pendulum."]
+  seconds: 6
+  demo: |
+    const LA = FX.ink, V = FX._W < FX._H, k = V ? 1.15 : 0.95, S = LA.stage(root, T, {figure: k, ground: 0.66, wind: {base: 0.25, amp: 0.2}, seed: 4});
+    S.wind.gust(1.6, {dur: 2.6, amp: 3});
+    LA.sky(S, {clouds: 3, hills: true});
+    LA.line(S.layer('back'), [-4, S.gy], [S.w + 4, S.gy]);
+    const bw = S.w < S.h ? 70 : 84; LA.building(S, S.w * 0.52, S.gy, bw, 92, {roof: 'gable', chimney: true, accent: '#e8d9c4', seed: 3});
+    LA.smoke(S, S.w * 0.52 + bw * 0.68 + 2, S.gy - 92 - 30, {});
+    LA.tree(S, S.w * 0.12, S.gy + 4, {kind: 'willow', h: 96}); LA.tree(S, S.w * 0.36, S.gy + 6, {h: 64, seed: 3}); LA.tree(S, S.w * 0.93, S.gy + 6, {kind: 'pine', h: 70});
+    LA.laundry(S, [S.w * 0.04, S.gy - 40], [S.w * 0.3, S.gy - 44], {sag: 3});
+    const f = LA.figure(S, {who: 'woman', scarf: '#b3412d', hat: 'beret', x: S.w * 0.7, y: S.gy + 16 * k, dir: -1});
+    f.walk(0.2, S.w * 0.58, {pace: 0.7});
+    const c = LA.figure(S, {who: 'child', prop: 'balloon', x: S.w * 0.46, y: S.gy + 26 * k, scale: 0.95});
+- id: lineart.mechanism_gears
+  name: {tr: "Çizgiyle mekanizma: vites oranı", en: "A mechanism in ink: gear ratio"}
+  use: {tr: "Bir makinenin nasıl çalıştığını anlatmak: pedal dişlisi büyük, arka dişli küçük; zincir döner; kırmızı işaret tur sayısını gösterir. Fikir: küçük dişli daha çok döner.", en: "Explaining how a machine works: a big chainring, a small cog, a moving chain; the red marks count the turns. The idea: the small gear turns more."}
+  call: "d = LA.drivetrain(S, cx, cy, {R1, n1, R2, n2, rate, at}); LA.oval(d.gears[0], R1 * 0.8, 0, 2, 2, {fill: '#b3412d'}); LA.label(S, x, y, '24 teeth'); LA.arrow(S, a, b); LA.drawIn(S, group, {at, dur})"
+  timing: {tr: "Önce dişliler dönmeye başlar (at), 1 s sonra etiketler ve ok kalemle gelir; sonuç cümlesi en son. Büyük dişli ~0.35 tur/s: işaretler sayılabilir.", en: "The gears start turning (at), labels and arrows draw in 1 s later; the conclusion line last. The big gear at ~0.35 turn/s keeps the marks countable."}
+  pitfalls:
+    tr: ["Diş sayıları gerçek oranı versin (24/10 = 2.4); etiket ile çizim çelişmesin.", "Zincir yönü: büyük dişli saat yönünde dönerse zincirin üstü sağa gider; ters çevirme.", "Etiket yazısı >= 5 birim; telefonda okunmaz küçülürse."]
+    en: ["Tooth counts must give the real ratio (24/10 = 2.4); labels and drawing must agree.", "Chain direction: a clockwise chainring pulls the top run to the right; do not flip it.", "Label text >= 5 units or it is unreadable on a phone."]
+  seconds: 7
+  demo: |
+    const LA = FX.ink, S = LA.stage(root, T, {ground: 0.8}), V = S.w < S.h, cx = V ? S.w * 0.2 : S.w * 0.3, cy = V ? S.h * 0.42 : S.h * 0.46;
+    const R1 = V ? 28 : 36, R2 = V ? 11.7 : 15, d = R1 * 3.0;
+    LA.label(S, S.w / 2, V ? S.h * 0.14 : S.h * 0.14, 'How a gear multiplies', {size: V ? 12 : 13, anchor: 'middle'});
+    const dr = LA.drivetrain(S, cx, cy, {R1, n1: 24, R2, n2: 10, d, rate: 2.2, at: 0.2});
+    LA.oval(dr.gears[0], R1 * 0.8, 0, 2.2, 2.2, {fill: '#b3412d'}); LA.oval(dr.gears[1], R2 * 0.72, 0, 1.6, 1.6, {fill: '#b3412d'});
+    const l1 = LA.label(S, cx, cy + R1 + 13, '24 teeth', {size: 8, anchor: 'middle'}), l2 = LA.label(S, cx + d, cy + R1 + 13, '10 teeth', {size: 8, anchor: 'middle'});
+    const a1 = LA.arrow(S, [cx, cy + R1 + 9], [cx, cy + R1 + 2], {bend: 0.2}), a2 = LA.arrow(S, [cx + d, cy + R1 + 9], [cx + d, cy + R2 + 3], {bend: -0.2});
+    const res = LA.label(S, S.w / 2, cy + R1 + (V ? 50 : 44), '1 pedal turn = 2.4 wheel turns', {size: V ? 10 : 11, anchor: 'middle'});
+    LA.drawIn(S, a1, {at: 1.4, dur: 0.6}); LA.drawIn(S, a2, {at: 1.6, dur: 0.6});
+    FX.fade && 0; S.frame((t) => { l1.style.opacity = l2.style.opacity = LA.smooth(1.3, 1.8, t); res.style.opacity = LA.smooth(3.6, 4.2, t); });
+    const f = LA.figure(S, {who: 'child', hat: 'cap', x: S.w * 0.84, y: S.gy, scale: V ? 1.1 : 1.0, dir: -1}); f.act(3.4, 'point', {dur: 2.4, deg: 25});
+- id: lineart.wide_establishing
+  name: {tr: "Geniş açılış planı (16:9)", en: "Wide establishing shot (16:9)"}
+  use: {tr: "YouTube bölümünün başında yeri kurmak: köy, mahalle, liman. Kamera yavaşça kayar, kat kat paralaks; küçük hayatlar içinde.", en: "Setting the place at the start of a YouTube chapter: a village, a quarter, a harbour. A slow camera drift with layered parallax and small lives inside."}
+  call: "S = LA.stage(root, T, {ground: 0.78, camera: [[0, [160, 108, 1.25]], [7, [224, 108, 1.3]]]}); LA.skyline(S); LA.street(S); LA.birds; LA.smoke"
+  timing: {tr: "Çekim 6-9 s; kamera 25 birimden fazla kaymasın, zoom 1.25-1.35 (kenarlar boş görünmesin). Önce yer, sonra insanlar.", en: "6-9 s; the camera must not drift over 25 units, zoom 1.25-1.35 so the edges never show empty. The place first, then the people."}
+  pitfalls:
+    tr: ["Kamera merkezini S.w/2'den çok uzağa koyma: katman kenarı görünür.", "Gökyüzü boş kalsın, yoğunluk binalarda olsun.", "Bu kart yatay (16:9) içindir; dikeyde skyline/uzak katmanları azalt."]
+    en: ["Keep the camera centre close to S.w/2 or a layer edge shows.", "Leave the sky plain; density belongs on the buildings.", "This card is for landscape (16:9); in portrait thin the far layers out."]
+  seconds: 7
+  aspect: "16:9"
+  demo: |
+    const LA = FX.ink, S = LA.stage(root, T, {figure: 0.95, ground: 0.8, seed: 6, camera: [[0, [160, 108, 1.25]], [7, [224, 108, 1.32]]]}), k = 0.95;   // the stage is 384 x 216 units
+    LA.sky(S, {clouds: 4, hills: true});
+    LA.skyline(S, {y: S.gy - 4, minH: 36, maxH: 84, seed: 3});
+    LA.street(S, {seed: 12});
+    LA.birds(S, {n: 7, y: S.h * 0.2, speed: 8, scale: 1.2});
+    LA.cat(S, S.w * 0.3, S.gy + 6, {patch: '#d9a066'});
+    const a = LA.figure(S, {who: 'man', hat: 'bowler', prop: 'briefcase', x: S.w * 0.2, y: S.gy + 10});
+    a.walk(0.3, S.w * 0.85, {pace: 0.9});
+    const b = LA.figure(S, {who: 'woman', scarf: '#b3412d', x: S.w * 0.8, y: S.gy + 20, dir: -1});
+    b.walk(1.2, S.w * 0.2, {pace: 0.85});
+- id: lineart.ink_chart
+  name: {tr: "Mürekkep grafiği", en: "A chart that stays in ink"}
+  use: {tr: "Bir sayıyı göstermek ama çizgi dünyasından çıkmamak: elle çizilmiş çubuklar, taralı dolgu, ok ve daire ile vurgu, yanında anlatan figür.", en: "Showing a number without leaving the drawn world: hand-inked bars with hatching, an arrow and a ring for emphasis, a figure presenting beside it."}
+  call: "LA.bars(S, x, baseY, w, h, [{label, v, colour}], {at, unit}); LA.arrow(S, a, b); LA.circleAround(S, cx, cy, rx, ry); LA.label(S, x, y, 'text', {size}); LA.drawIn(S, group, {at, dur})"
+  timing: {tr: "Çubuklar 0.9 s büyür, 0.18 s arayla; vurgu (daire + ok) çubuk bittikten 0.4 s sonra kalemle çizilir; figür 'present' ile bakışı yönlendirir.", en: "Bars grow in 0.9 s, 0.18 s apart; the emphasis (ring + arrow) is drawn 0.4 s after the bars land; the figure's 'present' leads the eye."}
+  pitfalls:
+    tr: ["Yazı >= 5 birim ve en fazla 6 çubuk; fazlası telefonda sıkışır.", "Vurgulanan çubuk tek: diğerleri nötr kâğıt rengi, o accent.", "Sayı etiketleri çubuk dolduktan sonra belirir (otomatik)."]
+    en: ["Text >= 5 units and at most 6 bars; more is cramped on a phone.", "One highlighted bar: the others stay paper, it gets the accent.", "Value labels appear after the bar fills (automatic)."]
+  seconds: 6
+  demo: |
+    const LA = FX.ink, S = LA.stage(root, T, {ground: 0.8}), V = S.w < S.h;
+    const x = V ? 26 : 36, w = V ? 150 : 190, h = V ? 120 : 120, y = V ? S.h * 0.5 : S.h * 0.74;
+    LA.label(S, x, y - h - 16, 'Riders per hour', {size: V ? 11 : 12});
+    const g = LA.bars(S, x, y, w, h, [{label: '7am', v: 40}, {label: '9am', v: 120}, {label: '1pm', v: 70}, {label: '6pm', v: 160, colour: '#d9a066'}], {at: 0.4, max: 180});
+    const ring = LA.circleAround(S, x + w * 0.875, y - h * 0.82, 15, 15, {colour: '#b3412d'}), ar = LA.arrow(S, [x + w * 0.5, y - h - 8], [x + w * 0.78, y - h * 0.95], {bend: -0.25});
+    const note = LA.label(S, x + w * 0.3, y - h - 10, 'rush hour', {size: 7, anchor: 'middle'});
+    LA.drawIn(S, ring, {at: 2.8, dur: 0.7}); LA.drawIn(S, ar, {at: 3.3, dur: 0.6}); S.frame((t) => { note.style.opacity = LA.smooth(3.4, 3.9, t); });
+    LA.line(S.layer('back'), [-4, S.gy], [S.w + 4, S.gy]);
+    const f = LA.figure(S, {who: 'woman', hat: 'beret', x: V ? S.w * 0.28 : S.w * 0.86, y: S.gy, scale: V ? 0.95 : 0.9, dir: V ? 1 : -1});
+    f.act(2.4, 'present', {dur: 3, arm: 'near'});
+- id: lineart.room_cat
+  name: {tr: "İçeride: oda, kedi, perde", en: "Indoors: room, cat, curtain"}
+  use: {tr: "Sessiz iç mekân: bir odada biri oturur, kedi kuyruk sallar, perde rüzgârla kıpırdar, lamba akşamla yanar. Sakin anlatı, 'evde bir akşam'.", en: "A quiet interior: someone sits in a room, the cat flicks its tail, the curtain stirs, the lamp glows as evening falls. Calm narration, 'an evening at home'."}
+  call: "r = LA.room(S, {floor, winX, tableX}); LA.cat(S, x, y); LA.bench(S, x, y); fig.walk(at, x); fig.sit(at); S = LA.stage(..., {daynight: [[0, .7], [6, .86]]})"
+  timing: {tr: "Gelen kişi yürür, oturur (0.9 s), sonra 3+ s sessizlik; kedinin kıpırtısı bu sessizliği doldurur. Işık 5-6 s'de yavaşça değişir.", en: "The person walks in, sits (0.9 s), then 3+ s of stillness filled by the cat's small life. The light changes slowly over 5-6 s."}
+  pitfalls:
+    tr: ["Oturma bankı çiz, yoksa figür havada oturur.", "LA.room zemin çizgisini kendisi çizer: ayrıca çizme.", "Pencere sky renginde görünür: daynight ile birlikte kullan."]
+    en: ["Draw the bench or the figure sits on air.", "LA.room draws the floor line itself: do not add another.", "The window shows the sky colour: use it together with daynight."]
+  seconds: 6
+  demo: |
+    const LA = FX.ink, V = FX._W < FX._H, k = V ? 1.35 : 1.05, S = LA.stage(root, T, {figure: k, ground: 0.74, daynight: [[0, 0.7], [6, 0.86]], wind: {base: 0.4}, seed: 8});
+    S.wind.gust(2.2, {dur: 2, amp: 2.5});
+    const r = LA.room(S, {floor: S.gy, winX: V ? S.w * 0.14 : S.w * 0.18, winW: V ? 60 : 70, tableX: V ? S.w * 0.78 : S.w * 0.8, tableW: V ? 40 : 56});
+    const bx = V ? S.w * 0.46 : S.w * 0.5; LA.bench(S, bx, S.gy + 6, {w: 36});
+    LA.cat(S, V ? S.w * 0.14 : S.w * 0.28, S.gy + 10, {patch: '#d9a066', scale: 0.9});
+    const m = LA.figure(S, {who: 'man', hat: false, hair: '#1c1c1c', x: -14 * k, y: S.gy + 6});
+    const e = m.walk(0.2, bx + 4, {pace: 0.9}); m.face(e, -1); m.sit(e + 0.2);

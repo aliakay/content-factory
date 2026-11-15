@@ -1322,8 +1322,9 @@ ROUTES["#/hesaplar"] = async () => {
       <option value="gemini" ${ms[k] === "gemini" ? "selected" : ""} ${gm.connected ? "" : "disabled"}>Gemini ${gm.connected ? "" : "· anahtar yok"}</option>
     </select></label>`).join("")}
     <button class="btn accent sm mt8" data-act="mediaSave">Kaydet</button></div>`;
-  const PROVIDER_DEFAULT = { codex: "gpt-6-luna", openrouter: "deepseek/deepseek-v4.1-flash-1017", claude: "opus" };
-  const PNAME = { claude: "Claude Code", codex: "Codex CLI", openrouter: "OpenRouter" };
+  const PROVIDER_DEFAULT = { codex: "gpt-6-luna", openrouter: "deepseek/deepseek-v4.1-flash-1017", gemini: "gemini-3.8-flash", claude: "opus" };
+  const PNAME = { claude: "Claude Code", codex: "Codex CLI", openrouter: "OpenRouter", gemini: "Gemini API" };
+  const LIGHT = { auto: "otomatik · Gemini anahtarı varsa Gemini, yoksa en ucuz Claude", gemini: "Gemini (flash)", claude: "Claude (en ucuz model)" };
   const steps = m.llm_agents || [];
   const saved = lc.providers || {};
   S.llmDraft = { provider: provider, mix: Object.keys(saved).some((k) => k !== "default"),
@@ -1377,9 +1378,14 @@ ROUTES["#/hesaplar"] = async () => {
     <label class="field mt12"><span>Denetim (reviewer)</span><select id="review_rounds">
       ${(m.review_options || [0, 1, 2]).map((n) => `<option value="${n}" ${(m.review_rounds ?? 1) === n ? "selected" : ""}>${n === 0 ? "yok · reviewer çalışmasın" : n === 1 ? "1 tur · varsayılan" : "2 tur · gerekirse düzeltme"}</option>`).join("")}
     </select></label>
+    <label class="field mt12"><span>Hafif işler</span><select id="light_mode" title="Değerlendirici, soğuk test, fikir keşfi, hat önerici, görsel kontroller, lab.*">
+      ${Object.entries(LIGHT).map(([k, n]) => `<option value="${k}" ${(m.light_mode || "auto") === k ? "selected" : ""}>${esc(n)}</option>`).join("")}
+    </select></label>
+    <div class="small muted">Yargılayan, etiketleyen, özetleyen adımlar (değerlendirici, soğuk test, keşif, hat önerici, görsel kontrol) Claude limitini yemesin. Aşağıda bir agent'a kendin CLI ya da model seçtiysen o seçim geçerli kalır.</div>
     <label class="field mt12"><span>CLI</span><select id="llm_provider" data-change="llmProvider">
       <option value="claude" ${!S.llmDraft.mix && provider === "claude" ? "selected" : ""}>Claude Code</option>
       <option value="openrouter" ${!S.llmDraft.mix && provider === "openrouter" ? "selected" : ""}>OpenRouter API</option>
+      <option value="gemini" ${!S.llmDraft.mix && provider === "gemini" ? "selected" : ""} ${gm.connected ? "" : "disabled"}>Google Gemini API${gm.connected ? "" : " · anahtar yok"}</option>
       <option value="codex" ${!S.llmDraft.mix && provider === "codex" ? "selected" : ""}>OpenAI Codex CLI</option>
       <option value="mix" ${S.llmDraft.mix ? "selected" : ""}>Karışık (agent bazında)</option>
     </select></label>
@@ -1392,7 +1398,7 @@ ROUTES["#/hesaplar"] = async () => {
     <div class="row nowrap mt8"><input type="password" id="or_key" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false"><button class="btn accent sm" data-act="openrouterKey">Kaydet</button>${orr.mine ? `<button class="btn sm ghost danger" data-act="openrouterClear">Kaldır</button>` : ""}</div></div>
   <div class="card mt16"><h3>🔷 Google Gemini API</h3>
     <div class="small">${gm.connected ? (gm.mine ? `✅ Bağlı · anahtar ${esc(gm.tail || "")}${gm.at ? " · " + esc(gm.at) : ""}` : "✅ Sunucudaki GEMINI_API_KEY kullanılıyor") : "❌ Bağlı değil"}</div>
-    <p class="small muted mt8">Anahtarını <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey ↗</a> üzerinden al. Anahtar girince Medya üreticisi bölümünde Gemini seçilebilir.${m.gemini_spend ? ` · bu ay <b>$${m.gemini_spend.toFixed(2)}</b>` : ""}</p>
+    <p class="small muted mt8">Anahtarını <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey ↗</a> üzerinden al. Anahtar girince Medya üreticisi bölümünde ve agent’larda Gemini seçilebilir; “Hafif işler: otomatik” iken değerlendirici, soğuk test ve keşif Gemini’de çalışır.${m.gemini_spend ? ` · bu ay <b>$${m.gemini_spend.toFixed(2)}</b>` : ""}</p>
     <div class="row nowrap mt8"><input type="password" id="gm_key" placeholder="AIza…" autocomplete="off" spellcheck="false"><button class="btn accent sm" data-act="geminiKey">Kaydet</button>${gm.mine ? `<button class="btn sm ghost danger" data-act="geminiClear">Kaldır</button>` : ""}</div></div>
   ${mediaCard}
   <div class="card mt16"><h3>🤖 Claude hesabı</h3>${cl}${m.role === "owner" ? "" : `<div id="clflow" class="mt12"><button class="btn sm accent" data-act="claudeStart" data-mode="login">🔗 Tam giriş ile bağla</button> <button class="btn sm" data-act="claudeStart" data-mode="token">🔑 Anahtar ile bağla</button></div>`}</div>
@@ -1429,6 +1435,8 @@ ACT.llmNote = () => {
     ? "Karışık: her agent kendi CLI'ında ve o CLI'ın modeliyle çalışır; soldaki kutudan değiştir. Kaydedince OpenRouter seçili agent'lar OpenRouter anahtarınla, Claude/Codex seçili olanlar kendi CLI oturumlarıyla koşar."
     : p === "codex"
     ? "Tüm agent'lar Codex CLI'da. Codex, sunucuda kurulu ve oturum açmış CLI hesabını kullanır. ElevenLabs de Codex connector'ı üzerinden çalışır."
+    : p === "gemini"
+    ? "Tüm agent'lar Google Gemini API'de (varsayılan Gemini 3.8 Flash), Gemini anahtarınla ve dolar olarak faturalanır; araçlar sunucudaki fabrika araçlarından, web araması Google Search'ten gelir."
     : p === "openrouter"
     ? "Tüm agent'lar OpenRouter'da; varsayılan DeepSeek V4.1 Flash, model kutusundan başka bir model seçebilir ya da kimliğini yazabilirsin. Araçlar sunucudaki fabrika araçlarından, web araması OpenRouter'ın sunucu araçlarından gelir. Ses/müzik/görsel/video, seçtiğin ElevenLabs API hesabından ya da Gemini'den üretilir."
     : "Tüm agent'lar Claude Code'da; varsayılanlar opus/sonnet gibi Claude modelleridir.";
@@ -1460,7 +1468,8 @@ ACT.llmSave = async () => {
   }
   try {
     await post("/api/llm/settings", { provider: S.llmDraft.provider, models, providers, effort,
-                                      review_rounds: parseInt($("#review_rounds").value, 10) });
+                                      review_rounds: parseInt($("#review_rounds").value, 10),
+                                      light_mode: ($("#light_mode") || {}).value || "auto" });
     toast(S.llmDraft.mix ? "Karışık CLI'lar ve modeller kaydedildi" : "CLI ve modeller kaydedildi"); route();
   } catch (e) { toast(e.message, 1); }
 };

@@ -166,7 +166,10 @@ def claude_status(uid=None):
             "connectors": login, "at": c.get("connected_at")}
 
 
-CLI_PROVIDERS = {"claude", "codex", "openrouter"}
+CLI_PROVIDERS = {"claude", "codex", "openrouter", "gemini"}
+# "Hafif işler" (light steps: the reviewer, the cold test, discovery cards, the line picker, image tagging, lab.*):
+# auto = Gemini when this user has a Gemini key, else the cheapest Claude model; gemini / claude force one side.
+LIGHT_MODES = ("auto", "gemini", "claude")
 EFFORT_LEVELS = ("low", "medium", "high")     # what the settings page offers per agent
 REVIEW_ROUNDS = (0, 1, 2)                      # how many review rounds a stage may use (0 = no reviewer)
 
@@ -242,6 +245,21 @@ def gemini_status(uid=None):
     key = own.get("key") or env
     return {"connected": bool(key), "mine": bool(own.get("key")), "env": not own.get("key") and bool(env),
             "tail": "…" + key[-4:] if own.get("key") else None, "at": own.get("connected_at")}
+
+
+def light_mode(uid=None):
+    """Where light steps run when the creator did not route them one by one (llm.light_provider)."""
+    m = (user(uid or current()) or {}).get("light_mode")
+    return m if m in LIGHT_MODES else "auto"
+
+
+def set_light_mode(uid, mode):
+    if mode not in LIGHT_MODES:
+        raise ValueError("Hafif işler seçimi geçersiz")
+    u = users()
+    pref_rec(u, uid)["light_mode"] = mode
+    _save(USERS, u)
+    return mode
 
 
 def review_rounds(uid=None):

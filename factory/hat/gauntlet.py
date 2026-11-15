@@ -30,10 +30,11 @@ def open_entries(led):
     return [e for e in led["entries"] if e["status"] == "open"]
 
 
-def brief(pid, s, d=None):
-    """The reviewer's ledger section: the open entries it must close or keep open."""
+def brief(pid, s, d=None, skip=()):
+    """The reviewer's ledger section: the open entries it must close or keep open. Entries on a rubric line in
+    `skip` are closed by code (rubriccheck measures that line), so the model is not asked about them."""
     led = load(pid, s["id"], d)
-    rows = open_entries(led)
+    rows = [e for e in open_entries(led) if e["item"] not in skip]
     if not rows:
         return ""
     return ("\n## Ledger: findings of earlier reviews still open (binding)\nFor EACH id below, check the output again "
@@ -102,8 +103,9 @@ def fresh_render(pid, s, rnd, d=None):
 def render_brief(r):
     if not r:
         return ""
-    return ("\n## Fresh render (made by the studio from the submitted artifact just now)\nJudge THESE pictures with "
-            "Read; do not trust stills the author made, they can be from an older draft. "
+    return ("\n## Fresh render (made by the studio from the submitted artifact just now)\nJudge THESE pictures: the "
+            "contact sheet is attached to this message (one tile per scene); do not trust stills the author made, they "
+            "can be from an older draft. "
             f"Contact sheet: {r['sheet'] or '(none)'}\nStills (one settled frame per scene, at {r.get('times')} s):\n"
             + "\n".join(f"- {x}" for x in r["stills"])
             + (f"\nJavaScript errors on the page: {r['js_errors']}\n" if r["js_errors"] else "\n")

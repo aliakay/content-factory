@@ -42,7 +42,117 @@ def skill(line_id, sid, p=None):
 
 
 def contract():
-    return open(os.path.join(SKILLS, "meta", "stage-agent.md"), encoding="utf-8").read()
+    """The shared stage contract, plus skills/meta/lessons.md when it exists (the recurring gate refusals and
+    findings of earlier films, written from reviewstats: a lesson learned once instead of every film)."""
+    text = open(os.path.join(SKILLS, "meta", "stage-agent.md"), encoding="utf-8").read()
+    try:
+        lessons = open(os.path.join(SKILLS, "meta", "lessons.md"), encoding="utf-8").read().strip()
+    except OSError:
+        lessons = ""
+    return text + ("\n\n" + lessons + "\n" if lessons else "")
+
+
+# ---------------------------------------------------------------- what the agent is handed up front
+# Every turn of a CLI session re-reads the whole context, so a turn spent on `read_artifact` costs the context again.
+# The earlier artifacts the stage needs travel in the task instead (compact JSON, the long code bodies of a scene plan
+# trimmed), and the gate's hard numbers are stated before the agent writes, not after a refusal.
+EMBED_CHARS = 14_000          # one artifact in a prompt
+EMBED_TOTAL = 36_000          # all embedded artifacts of one prompt (~10k tokens)
+TRIM_KEYS = ("html", "css", "js", "svg", "code", "body", "markup")
+TRIM_AT = 400
+NOT_EMBEDDED = ("review_ledger", "cold_read")
+
+
+def compact(data, limit=EMBED_CHARS):
+    """An artifact as one-line JSON for a prompt: scene code bodies cut to their opening, the whole capped."""
+    def cut(x, k=None):
+        if isinstance(x, dict):
+            return {kk: cut(v, kk) for kk, v in x.items()}
+        if isinstance(x, list):
+            return [cut(v) for v in x]
+        if isinstance(x, str) and k in TRIM_KEYS and len(x) > TRIM_AT:
+            return x[:TRIM_AT] + f"…[{len(x) - TRIM_AT} more chars]"
+        return x
+    text = json.dumps(cut(data), ensure_ascii=False, separators=(",", ":"))
+    return text if len(text) <= limit else text[:limit] + f"…[cut at {limit} of {len(text)} chars]"
+
+
+def embedded(pid, names, d=None, total=EMBED_TOTAL, first=()):
+    """'## Earlier artifacts' with each one's compact JSON: the ones named in `first` (the brief reads them), then
+    the nearest stages first, until `total` is used; the rest are listed for read_artifact."""
+    order = [n for n in first if n in names] + [n for n in reversed(names) if n not in first]
+    parts, used, rest = [], 0, []
+    for n in order:
+        if n in NOT_EMBEDDED:
+            continue
+        data = P.read_artifact(pid, n, d)
+        if data is None:
+            continue
+        room = min(EMBED_CHARS, total - used)
+        if room < 1500:
+            rest.append(n)
+            continue
+        text = compact(data, room)
+        used += len(text)
+        parts.append(f"### `{n}`" + (" (cut: read_artifact for the rest)" if "…[cut at" in text else "")
+                     + f"\n{text}\n")
+    if not parts:
+        return ""
+    return ("\n## Earlier artifacts (embedded below as compact JSON: do not spend a turn on read_artifact for them)\n"
+            + "\n".join(parts) + (f"\nNot embedded (read_artifact if you need them): {', '.join(rest)}\n" if rest else ""))
+
+
+def facts(pid, sid, d=None):
+    """What `project_info` returns, so the first turn is work, not a lookup."""
+    p = P.load(pid, d)
+    try:
+        rev = P.checkpoint(pid, sid, d).get("revisions", 0)
+    except P.GateError:                  # a stage with no checkpoint yet (a preview of the task text)
+        rev = 0
+    keep = {k: p.get(k) for k in ("title", "brief", "video_lang", "aspect", "channel") if p.get(k)}
+    b = p.get("budget") if isinstance(p.get("budget"), dict) else None
+    if b:
+        keep["budget"] = {k: b.get(k) for k in ("credits", "usd", "approved_by") if b.get(k) is not None}
+    keep.update(revision=rev, today=time.strftime("%Y-%m-%d"))
+    return "\n## Project facts (= project_info)\n" + json.dumps(keep, ensure_ascii=False) + "\n"
+
+
+def gate_rules(p, s, d=None):
+    """The hard numbers this stage's gate enforces, stated before the work, plus the refusals that recur across
+    earlier films (reviewstats). Project 121's script was refused three times for exactly these."""
+    from .. import hookrule
+    out = []
+    lang = p.get("video_lang") or "tr"
+    schema = s.get("schema") or s.get("artifact")
+    if schema in ("script", "long_script") and hookrule.authored(p["line"], s["id"]):
+        limit = hookrule.word_limit(lang)
+        out.append(f"- Line 1 (the hook) is at most {limit} words in this film's language "
+                   f"({LANG_NAME.get(lang, lang)}, {hookrule.WPS.get(lang, 2.5)} words/s x {hookrule.HOOK_S:g} s). "
+                   f"Count them before you submit; `hook` is line 1 word for word.")
+        prop = (P.read_artifact(p["id"], "proposal", d) if p.get("id") else None) or {}
+        try:
+            secs = float(prop.get("seconds") or 0)
+        except (TypeError, ValueError):
+            secs = 0
+        if secs:
+            target = secs * hookrule.WPS.get(lang, 2.5)
+            out.append(f"- Word budget: {secs:g} s x {hookrule.WPS.get(lang, 2.5)} = {round(target)} words in all "
+                       f"lines together, within 10% ({round(target * 0.9)}-{round(target * 1.1)}).")
+        out.append("- Order of work: write every line, run words_check and fix, THEN run cold_test on the final title "
+                   "and lines, THEN submit exactly that text. Any edit after cold_test (one word) voids its evidence "
+                   "and the gate refuses; run cold_test again after any edit (an unchanged text is answered from "
+                   "cache, free).")
+    if schema == "proposal":
+        out.append("- Three concepts with three different `structure`s (not one film under three titles); `chosen` "
+                   "is one of their ids; the cost comes from estimate_cost.")
+    try:
+        from . import reviewstats
+        seen = [r for r in reviewstats.report(d)["rejections"] if s["id"] in r["stages"] and r["count"] >= 2][:4]
+    except Exception:
+        seen = []
+    out += [f"- Refused {r['count']}x in earlier films: {r['problem']}" for r in seen]
+    return ("\n## Hard rules for this stage (checked by code: the submit_artifact gate or the scored rubric; meet them before you submit)\n"
+            + "\n".join(out) + "\n") if out else ""
 
 
 def task(pid, s, note=None, d=None):
@@ -52,6 +162,8 @@ def task(pid, s, note=None, d=None):
     m = manifest.get(p["line"])
     earlier = [x["artifact"] for x in m["stages"][:[y["id"] for y in m["stages"]].index(s["id"])]
                if P.read_artifact(pid, x["artifact"], d) is not None]
+    brief = skill(p['line'], s['id'], p)
+    named = [n for n in earlier if re.search(rf"`?read_artifact\s+{re.escape(n)}\b|`{re.escape(n)}`", brief)]
     ui = p.get("ui_lang", "tr")
     review = "\n".join(f"- {r}" for r in s["review"]) or "- (none listed)"
     from . import router
@@ -69,14 +181,14 @@ def task(pid, s, note=None, d=None):
 # This run
 Line: {m['name']['en']} ({m['id']}) · Stage: {s['name']['en']} ({s['id']}) · Output artifact: `{s['artifact']}`
 Video language: {LANG_NAME.get(p.get('video_lang'), p.get('video_lang'))} · Interface language for `summary`: {LANG_NAME.get(ui, ui)}
-Aspect: {p.get('aspect')} · Earlier artifacts you can read: {', '.join(earlier) or 'none'}
-{imgs}{feedback}
+Aspect: {p.get('aspect')} · Earlier artifacts: {', '.join(earlier) or 'none'}
+{facts(pid, s['id'], d)}{imgs}{feedback}{gate_rules(p, s, d)}
 ## Review focus (a separate reviewer checks these; meet them before you submit)
 {review}
 
 ## Stage brief
-{skill(p['line'], s['id'], p)}{proof.brief(pid, s, d)}{sceneedit.brief(pid, s, d)}
-"""
+{brief}{proof.brief(pid, s, d)}{sceneedit.brief(pid, s, d)}
+{embedded(pid, earlier, d, first=named)}"""
 
 
 REVIEW_ROUNDS = 2
@@ -166,54 +278,142 @@ def rubric(focus, raw):
     return [{"item": i, "score": m} for i, m in zip(focus, marks)], round(10 * sum(marks) / len(marks))
 
 
-def review_task(pid, s, d=None, render=None):
+REVIEW_EMBED = 24_000          # the artifact under review: larger than an earlier one, it is the thing judged
+
+
+def settled(pid, s, d=None):
+    """rubriccheck's verdicts on the review lines code can decide: one entry per line, None = a model must judge it.
+    Imported defensively: a missing or broken module only means every line goes to the model, as before."""
+    n = len(s.get("review") or [])
+    try:
+        from . import rubriccheck
+        got = rubriccheck.settle(pid, s, d)
+    except Exception:
+        return [None] * n
+    if not isinstance(got, list) or len(got) != n:
+        return [None] * n
+    out = []
+    for g in got:
+        try:
+            out.append({"score": max(0, min(10, int(g["score"]))), "note": str(g.get("note") or "")[:400]}
+                       if isinstance(g, dict) else None)
+        except (KeyError, TypeError, ValueError):
+            out.append(None)
+    return out
+
+
+def review_task(pid, s, d=None, render=None, done=None, skip=()):
+    """The reviewer's whole input in one prompt (no tools, no turns): its contract, the rubric lines left for a model
+    (the ones code settled are shown as settled), the artifact itself and the earlier artifacts as compact JSON,
+    the ledger's open findings and the fresh render (the contact sheet travels as an attached image)."""
     p = P.load(pid, d)
     ui = p.get("ui_lang", "tr")
-    focus = "\n".join(f"{k}. {r}" for k, r in enumerate(s["review"], 1))
+    focus_all = s["review"]
+    done = done or [None] * len(focus_all)
+    left = [r for r, x in zip(focus_all, done) if x is None]
+    focus = "\n".join(f"{k}. {r}" for k, r in enumerate(left, 1))
+    fixed = "\n".join(f"- {r}: {x['score']}/10 ({x['note'] or 'holds'})" for r, x in zip(focus_all, done) if x)
+    m = manifest.get(p["line"])
+    ids = [y["id"] for y in m["stages"]]
+    earlier = [x["artifact"] for x in m["stages"][:ids.index(s["id"])] if x["artifact"] != s["artifact"]
+               and P.read_artifact(pid, x["artifact"], d) is not None] if s["id"] in ids else []
+    named = [n for n in earlier if re.search(rf"\b{re.escape(n)}\b", " ".join(focus_all))]
+    own = P.read_artifact(pid, s["artifact"], d)
     return f"""{open(os.path.join(SKILLS, "meta", "reviewer.md"), encoding="utf-8").read()}
 
 # This review
 Stage: {s['name']['en']} ({s['id']}) · Artifact to review: `{s['artifact']}`
 Video language: {LANG_NAME.get(p.get('video_lang'), p.get('video_lang'))} · Interface language for `summary`: {LANG_NAME.get(ui, ui)}
-
-## Review focus (the rubric: give one mark per item, in this order, {len(s['review'])} marks in `scores`)
+{facts(pid, s['id'], d)}
+## Review focus (the rubric: give one mark per item, in this order, {len(left)} marks in `scores`)
 {focus}
-Pass mark: {s.get('pass_score') or PASS_SCORE}/100 (the mean of your marks x 10).
-{gauntlet.render_brief(render)}{gauntlet.brief(pid, s, d)}"""
+Pass mark: {s.get('pass_score') or PASS_SCORE}/100 (the mean of all marks x 10).
+{("## Settled by code (measured; do not mark these, do not repeat them in findings)" + chr(10) + fixed + chr(10)) if fixed else ""}
+## The artifact under review: `{s['artifact']}` (compact JSON; long scene code bodies are cut to their opening)
+{compact(own, REVIEW_EMBED) if own is not None else "(missing: the author wrote nothing)"}
+{embedded(pid, earlier, d, first=named)}{gauntlet.render_brief(render)}{gauntlet.brief(pid, s, d, skip=skip)}"""
+
+
+def _code_findings(pid, s, done, d=None):
+    """Settled lines below 10 become findings (a measured miss is critical under 5), and ledger entries on those
+    lines are closed or kept open by the same measurement — never by a model's opinion, never duplicated."""
+    led = gauntlet.load(pid, s["id"], d)
+    open_by_item = {e["item"]: e for e in gauntlet.open_entries(led)}
+    findings, marks = [], []
+    for line, x in zip(s["review"], done):
+        if x is None:
+            continue
+        e = open_by_item.get(line)
+        if x["score"] >= 10:
+            if e:
+                marks.append({"id": e["id"], "status": "fixed"})
+            continue
+        if e:
+            marks.append({"id": e["id"], "status": "open"})        # still failing: the old entry stays the record
+            continue
+        findings.append({"severity": "critical" if x["score"] < 5 else "suggestion", "item": line,
+                         "problem": x["note"] or f"measured {x['score']}/10",
+                         "fix": "Make this line hold; code measures it again at the next review."})
+    return findings, marks
 
 
 def review_stage(pid, s, d=None, user=None, rnd=0):
-    """A fresh reviewer (another model, read-only tools, a new session) judges the submitted artifact, on a render
-    the studio just made of it when the stage can be drawn."""
-    p = P.load(pid, d)
+    """A fresh reviewer judges the submitted artifact in ONE call: everything it needs is in the prompt, so there is
+    no MCP server and no tool turn (a CLI session with tools re-read ~20k tokens of context on every turn). Lines
+    code can measure (rubriccheck) are scored by code; the model marks only the rest, and when nothing is left
+    for it, no model is called at all. The reviewer is never a dearer model than the author."""
     render = gauntlet.fresh_render(pid, s, rnd, d)
-    ours, builtins = T.agent_tools([t for t in s["tools"] if t != "submit_artifact"])
-    ours = [t for t in ours if t != "submit_artifact"]
-    servers = {SERVER: mcp_server.config(pid, s["id"], ours, d=d, user=user or p.get("created_by"))}
-    model = OTHER_MODEL.get(s.get("model") or "sonnet", "sonnet")
-    try:
-        text, meta = llm.ask_text(review_task(pid, s, d, render), tools=tuple([f"mcp__{SERVER}__{n}" for n in ours] + builtins
-                                                                         + ["Read"]),
-                                  timeout=1200, model=model, retries=1, servers=servers,
-                                  budget_usd=BUDGET.get(model, 2.0), max_output=2500)   # a rubric + findings, not an essay
-        r = llm.extract_json(text)
-    except (llm.LLMError, ValueError) as e:   # a broken review never blocks the stage: the gate shows it as missing
-        P.event(pid, "review_error", d=d, stage=s["id"], error=str(e)[:300])
-        return {"verdict": "unknown", "findings": [], "summary": "", "error": str(e)[:300], "cost_usd": 0}
-    findings = [{"severity": f.get("severity") if f.get("severity") in SEVERITIES else "suggestion",
-                 **{k: str(f.get(k, ""))[:600] for k in ("item", "problem", "fix")}}
-                for f in (r.get("findings") or []) if isinstance(f, dict)]
-    marks, score = rubric(s["review"], r.get("scores"))
+    done = settled(pid, s, d)
+    code_find, code_marks = _code_findings(pid, s, done, d)
+    skip = {line for line, x in zip(s["review"], done) if x is not None}
+    left = [r for r, x in zip(s["review"], done) if x is None]
+    model_ledger = [e for e in gauntlet.open_entries(gauntlet.load(pid, s["id"], d)) if e["item"] not in skip]
+    author = s.get("model") or "sonnet"
+    model = llm.cheaper(OTHER_MODEL.get(author, "sonnet"), author)
+    step = "agent.review_stage"
+    provider = llm.provider_for(step, user)
+    used = llm.selected_model(step, model, uid=user, provider=provider)
+    r, meta = {}, {}
+    if left or model_ledger:
+        sheet = (render or {}).get("sheet")
+        try:
+            text, meta = llm.ask_text(review_task(pid, s, d, render, done, skip), tools=(), timeout=900, model=model,
+                                      retries=1, budget_usd=BUDGET.get(model, 2.0), step=step, json_out=True,
+                                      images=[sheet] if sheet and os.path.exists(sheet) else (),
+                                      # a rubric + findings, not an essay; Gemini counts its thinking in the cap
+                                      max_output=8000 if provider == "gemini" else 2500)
+            used = meta.get("model") or used        # the model that answered (Gemini falls back when one is busy,
+            provider = meta.get("provider") or provider    # and a light step falls back to Claude when all are)
+            r = llm.extract_json(text)
+            if not isinstance(r, dict):
+                raise ValueError("the reviewer did not answer with a JSON object")
+        except (llm.LLMError, ValueError) as e:   # a broken review never blocks the stage: the gate shows it missing
+            P.event(pid, "review_error", d=d, stage=s["id"], error=str(e)[:300])
+            return {"verdict": "unknown", "findings": [], "summary": "", "error": str(e)[:300], "cost_usd": 0}
+    findings = code_find + [{"severity": f.get("severity") if f.get("severity") in SEVERITIES else "suggestion",
+                             **{k: str(f.get(k, ""))[:600] for k in ("item", "problem", "fix")}}
+                            for f in (r.get("findings") or []) if isinstance(f, dict)]
+    raw = r.get("scores") if left else []
+    if isinstance(raw, list) and len(raw) == len(s["review"]) != len(left):
+        raw = [m for m, x in zip(raw, done) if x is None]        # a reviewer that marked every line: keep its open ones
+    full = None
+    if isinstance(raw, list) and len(raw) == len(left):
+        it = iter(raw)
+        full = [x["score"] if x is not None else next(it) for x in done]
+    marks, score = rubric(s["review"], full)
     need = s.get("pass_score") or PASS_SCORE
     if marks is None and s["review"]:
         P.event(pid, "review_unscored", d=d, stage=s["id"], got=str(r.get("scores"))[:200])
     verdict = "fix" if any(f["severity"] == "critical" for f in findings) or (score is not None and score < need) \
         else "pass"
-    P.event(pid, "review", d=d, stage=s["id"], model=model, verdict=verdict, findings=len(findings), score=score)
+    P.event(pid, "review", d=d, stage=s["id"], model=model, model_used=used if (left or model_ledger) else "code",
+            provider=provider, verdict=verdict, findings=len(findings), score=score, settled=len(skip),
+            cost_usd=meta.get("cost_usd"))
     return {"verdict": verdict, "findings": findings, "summary": str(r.get("summary", ""))[:800], "model": model,
-            "model_used": llm.selected_model("agent.review_stage", model, provider=llm.provider_for("agent.review_stage")),
+            "model_used": used if (left or model_ledger) else "code", "settled": len(skip),
             "rubric": marks, "score": score, "pass_score": need, "cost_usd": meta.get("cost_usd") or 0,
-            "ledger_marks": [x for x in (r.get("ledger") or []) if isinstance(x, dict)],
+            "ledger_marks": code_marks + [x for x in (r.get("ledger") or []) if isinstance(x, dict)
+                                          and str(x.get("id")) not in {m["id"] for m in code_marks}],
             "render": {"sheet": render["sheet"], "stills": len(render["stills"]), "grade": render.get("grade")}
             if render else None}
 

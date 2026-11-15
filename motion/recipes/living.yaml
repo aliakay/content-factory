@@ -217,3 +217,72 @@
     FX.boil(root, {px: 3});
     const m = FX.stickman(root, {x: 540, y: 1350, h: 460, color: '#222', twos: true}); FX.alive(m); FX.act(m, [[0, 'stand'], [1, 'shrug'], [3, 'shrug']]);
     D('hmm...', 'left:0;right:0;top:600px;text-align:center;font:400 120px Instrument Serif;color:#222');
+- id: living.ambience_weather
+  name: {tr: "Hava: yağmur ve kar", en: "Weather: rain and snow"}
+  use: {tr: "Dış mekân, gece, kış: sahnenin içinde gerçekten yağsın; kare asla donmasın.", en: "Outdoors, night, winter: let it actually rain or snow in the scene, so the frame never freezes."}
+  call: "FX.ambience(tl, root, 'rain' | 'snow', {density, dur, seed, indoors})"
+  timing: {tr: "Sahne boyunca sürekli (dur = T.dur); sayılar tohumdan, her kare t'den hesaplanır.", en: "Continuous through the scene (dur = T.dur); the particles come from a seed, every frame is computed from t."}
+  pitfalls:
+    tr: ["İç mekânda {indoors: true} ver: odaya kar yağmasın (pencerede zaten var).", "Pençe sayısı düşük tutuldu (~310 damla): render süresi ~%10 artar, iki katına çıkarmayın.", "Yağmurun altına ıslak zemin rengi koy, yoksa damlalar havada durur."]
+    en: ["Pass {indoors: true} in a room: no snow on the people (the window already shows it).", "Counts are kept low (~310 drops): about +10 % render time, do not double them.", "Give rain a darker ground, or the drops hang in mid-air."]
+  seconds: 4
+  demo: |
+    D('', 'inset:0;background:linear-gradient(180deg,#243149,#101724)');
+    D('', 'left:0;right:0;top:1250px;height:670px;background:#18222f');
+    FX.ambience(tl, root, 'rain', {dur: T.dur});
+    D('NIGHT SHIFT', 'left:90px;top:300px;font:900 96px Inter Tight;color:#e9eef6');
+- id: living.ambience_motes
+  name: {tr: "Toz zerreleri ve kıvılcım", en: "Dust motes and embers"}
+  use: {tr: "Tozlu bir oda, sıcak bir atölye, ateşin üstünde uçuşan kıvılcım.", en: "A dusty room, a warm workshop, sparks rising off a fire."}
+  call: "FX.ambience(tl, root, 'dust' | 'embers', {density, dur, seed, color})"
+  timing: {tr: "Sahne boyunca; zerreler ekleyerek karışır (additive), yavaş.", en: "Through the scene; the motes blend additively and drift slowly."}
+  pitfalls:
+    tr: ["Tozun yönü yukarı-aşağı karışık olsun diye 2 farklı yoğunluk dene.", "Işık huzmesi (living.ambience_fog) ile birlikte en iyi sonucu verir."]
+    en: ["Try two densities so the motes do not all drift the same way.", "It works best with a light shaft (living.ambience_fog)."]
+  seconds: 4
+  demo: |
+    D('', 'inset:0;background:radial-gradient(ellipse at 50% 30%,#3a3020,#0d0b09)');
+    FX.ambience(tl, root, 'dust', {dur: T.dur});
+    D('WORKSHOP, 6 AM', 'left:90px;top:320px;font:800 88px Inter Tight;color:#f0e2c4');
+- id: living.ambience_fog
+  name: {tr: "Sis ve ışık huzmesi", en: "Fog and light rays"}
+  use: {tr: "Sabah sisi, pencereden süzülen ışık, sahnenin arkasında derinlik.", en: "Morning fog, light through a window, depth behind the scene."}
+  call: "FX.ambience(tl, root, 'fog', {dur, seed}) · FX.ambience(tl, root, 'rays', {dur, seed})"
+  timing: {tr: "Sahne boyunca; bankalar yavaşça yana kayar, huzmeler 1-2° döner.", en: "Through the scene; the banks slide sideways slowly and the beams turn 1-2°."}
+  pitfalls:
+    tr: ["Sis kişilerin ARKASINA gelir (z 2); konuşan yüzü sisle kaplama.", "Yakın yer sisi ince kalır (ekranın alt %22'si): tam kare sis yüzleri yıkar.", "Gradyan yeter; blur filtresi render'ı 4-5 katına çıkarır."]
+    en: ["Fog sits BEHIND people (z 2); never fog a talking face.", "The near ground mist stays thin (bottom 22 % of the frame): full-frame fog washes faces out.", "A gradient is enough; a blur filter multiplies render time by 4-5."]
+  seconds: 4
+  demo: |
+    D('', 'inset:0;background:linear-gradient(180deg,#2a3444,#161d28)');
+    D('', 'left:120px;top:1000px;width:280px;height:520px;background:#0d1219');
+    FX.ambience(tl, root, 'rays', {dur: T.dur});
+    FX.ambience(tl, root, 'fog', {dur: T.dur, seed: 3});
+    D('FIRST LIGHT', 'left:90px;top:320px;font:900 90px Inter Tight;color:#eef2f6');
+- id: living.ambience_flicker
+  name: {tr: "Lamba titremesi", en: "Lamp flicker"}
+  use: {tr: "Mum, petrol lambası, arızalı floresan: sahnenin ışığı yaşasın.", en: "A candle, an oil lamp, a failing tube: let the scene's light live."}
+  call: "FX.ambience(tl, root, 'flicker', {dur, seed})"
+  timing: {tr: "Sahne boyunca; üç sinüs toplamı, görünür periyot yok.", en: "Through the scene; a sum of three sines, no visible period."}
+  pitfalls:
+    tr: ["Alevin kendisi ayrı: FX.flicker(el) (living.flicker).", "Sıcak ışık + vinyet birlikte gelir; koyu paletle kullan."]
+    en: ["The flame itself is separate: FX.flicker(el) (living.flicker).", "It brings warm light and a vignette; use it with a dark palette."]
+  seconds: 4
+  demo: |
+    D('', 'inset:0;background:#12100c');
+    D('', 'left:420px;top:700px;width:260px;height:760px;background:#241c12');
+    FX.ambience(tl, root, 'flicker', {dur: T.dur});
+    D('NO POWER', 'left:90px;top:320px;font:900 96px Inter Tight;color:#f6e6c8');
+- id: living.ambience_confetti
+  name: {tr: "Konfeti", en: "Confetti"}
+  use: {tr: "Zafer, kutlama, lansman: bir kez atılır, yere serilir ve orada kalır.", en: "A win, a celebration, a launch: thrown once, settles on the floor and stays."}
+  call: "FX.ambience(tl, root, 'confetti', {density, dur, seed, colors})"
+  timing: {tr: "İlk 0.8 s içinde çıkar, 300-440 px/s düşer, zemin bandında (0.74-0.97) yassı yatar.", en: "Launched in the first 0.8 s, falls at 300-440 px/s and lies flat in the floor band (0.74-0.97)."}
+  pitfalls:
+    tr: ["İnceleme karesinde havada kâğıt kalmasın: süre 2.5 s'den kısa olmasın.", "Sürekli yağan konfeti yüzleri ve ekranı kaplar (referansta 46 çekimin 40'ı bu notu aldı).", "Sayı ~110 kâğıt; 200'ün üstüne çıkma."]
+    en: ["No paper left in the air at the review moment: keep the shot over 2.5 s.", "Endlessly raining confetti covers faces and screens (40 of 46 reviewed shots in the reference were flagged).", "About 110 papers; never above 200."]
+  seconds: 4
+  demo: |
+    D('', 'inset:0;background:#141b28');
+    D('WE SHIPPED', 'left:0;right:0;top:520px;text-align:center;font:900 116px Inter Tight;color:#f4efe6');
+    FX.ambience(tl, root, 'confetti', {dur: T.dur, seed: 2});

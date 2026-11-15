@@ -1,0 +1,141 @@
+# Texture recipes: the medium a style pack needs on top of every scene (paper, watercolour, chalk, print dots, engraving
+# lines, grain, scanlines) plus the paper base a watercolour pack needs under its translucent drawings. Our own cards
+# (t520), ported from AI-Video-Factory packages/core/src/texture.ts (MIT, (c) Ersin KOÇ) into fxlib.js.
+# One layer, normal alpha, over the whole scene and under the captions: a pack was only a palette before, and a drawn
+# picture is the only thing that says "printed", "painted" or "filmed". Call it ONCE at the top of the scene.
+- id: texture.paper
+  name: {tr: "Kâğıt dokusu", en: "Paper"}
+  use: {tr: "Kesme kâğıt, eskiz, riso, masal kitabı: sahnenin kâğıt üstünde durduğunu hissettirmek.", en: "Cut paper, sketchbook, riso, storybook: making the scene sit on paper."}
+  call: "FX.texture(root, 'paper', {strength, seed, dark})"
+  timing: {tr: "Sahne kurulurken bir kez; dokunun kendi hareketi yok, sayfa sabit.", en: "Once, while the scene is built; the sheet itself never moves."}
+  pitfalls:
+    tr: ["Koyu zeminde {dark: true} ver (yoksa lif görünmez), açık zeminde {dark: false}.", "Yazının üstüne biner: %0.55 tavanı aşma, yoksa başlık kirli okunur.", "Uzun filmde her sahneye ayrı doku koyma; palet zaten aynı, doku da aynı kalsın (aynı seed)."]
+    en: ["On a dark ground pass {dark: true} (a dark fibre disappears), on paper {dark: false}.", "It sits over the text: stay at or under the 0.55 opacity ceiling or the headline reads dirty.", "Do not vary the seed scene by scene; the palette is shared, so is the sheet."]
+  seconds: 4
+  demo: |
+    D('', 'inset:0;background:#f4eee2');
+    D('CUT PAPER', 'left:90px;top:330px;font:900 120px Inter Tight;color:#141a24');
+    D('', 'left:90px;top:760px;width:880px;height:420px;background:#0078bf;clip-path:polygon(0 4%,100% 0,98% 96%,2% 100%)');
+    D('a torn sheet, a flat ink', 'left:130px;top:880px;width:800px;font:800 52px Inter Tight;color:#f4eee2');
+    FX.texture(root, 'paper', {dark: false, strength: 1});
+- id: texture.watercolor
+  name: {tr: "Suluboya lekesi", en: "Watercolour wash"}
+  use: {tr: "Mürekkep/suluboya paketi, masal kitabı: boya birikintileri ve yumuşak kenar.", en: "Ink-wash and storybook packs: pigment pools and soft edges."}
+  call: "FX.texture(root, 'watercolor', {strength, seed, dark})   // 'watercolour' de olur"
+  timing: {tr: "Sahne başında bir kez; leke sabit kalır, boya akmaz.", en: "Once at the scene start; the wash stays put, paint does not run."}
+  pitfalls:
+    tr: ["Bu dokuyu kullanan pakette saydam figürlerin altına FX.paperBase koy (texture.paper_base).", "Leke çok güçlüyse {strength: 0.6}."]
+    en: ["In a pack with this texture, put FX.paperBase under translucent figures (texture.paper_base).", "If the wash dominates, {strength: 0.6}."]
+  seconds: 4
+  demo: |
+    D('', 'inset:0;background:#efe9dc');
+    D('WET INK', 'left:100px;top:340px;font:900 130px Instrument Serif;color:#161513');
+    D('', 'left:120px;top:700px;width:520px;height:300px;border-radius:46% 54% 50% 50%;background:rgba(22,21,19,.55)');
+    D('', 'left:520px;top:900px;width:400px;height:380px;border-radius:50%;background:rgba(200,55,45,.35)');
+    FX.texture(root, 'watercolor', {dark: false, strength: 1});
+- id: texture.chalk
+  name: {tr: "Tebeşir tozu", en: "Chalk dust"}
+  use: {tr: "Kara tahta paketi: tebeşirle çizilmiş bir dünya, toz ve silinti izleri.", en: "A chalkboard pack: a world drawn in chalk, dust and smears."}
+  call: "FX.texture(root, 'chalk', {strength, seed})"
+  timing: {tr: "Sahne başında bir kez.", en: "Once at the scene start."}
+  pitfalls:
+    tr: ["Yalnız koyu zeminde anlamlı (açık zeminde beyaz toz görünmez).", "Tebeşir çizgilerini FX.boil ile titret; dokuya hareket verme."]
+    en: ["Only meaningful on a dark ground (white dust vanishes on paper).", "Boil the chalk strokes with FX.boil; never animate the dust itself."]
+  seconds: 4
+  demo: |
+    D('', 'inset:0;background:#1d2721');
+    D('ONE LESSON', 'left:90px;top:340px;font:900 118px Inter Tight;color:#eef3ec');
+    D('the board keeps the score', 'left:96px;top:500px;font:600 48px Inter Tight;color:#b9c8bd');
+    FX.texture(root, 'chalk', {strength: 1});
+- id: texture.halftone
+  name: {tr: "Baskı noktası", en: "Halftone dots"}
+  use: {tr: "Riso baskı, gazete, pop-art: görüntünün noktalarla basıldığı hissi.", en: "Risograph, newsprint, pop: the picture printed in dots."}
+  call: "FX.texture(root, 'halftone', {size, angle, strength, ink})"
+  timing: {tr: "Sahne başında bir kez; ekran açısı sabit (45°).", en: "Once per scene; the screen angle stays fixed (45°)."}
+  pitfalls:
+    tr: ["Nokta aralığı 6-10 px: daha küçüğü telefonda gri leke olur.", "Yarı tonun üstüne bir de grain koyma; ikisi birden gürültü."]
+    en: ["Dot pitch 6-10 px: smaller reads as a grey smudge on a phone.", "Never stack grain on halftone; together they are noise."]
+  seconds: 4
+  demo: |
+    D('', 'inset:0;background:#f4eee2');
+    D('', 'left:0;top:700px;width:1080px;height:1220px;background:#ff48b0');
+    D('PRINTED TWICE', 'left:70px;top:300px;width:940px;font:900 104px Montserrat;color:#0078bf');
+    D('', 'left:70px;top:470px;width:900px;height:12px;background:#00396b');
+    D('one sheet, two inks,\na dot screen on both', 'left:76px;top:840px;width:880px;font:700 58px Inter Tight;color:#f4eee2;line-height:1.15');
+    FX.texture(root, 'halftone', {size: 9, angle: 45, dark: false});
+- id: texture.hatching
+  name: {tr: "Gravür taraması", en: "Engraving hatching"}
+  use: {tr: "Ahşap baskı, blueprint, gravür: ince çizgilerle taranmış gölge.", en: "Woodcut, blueprint, engraving: shadow hatched in fine lines."}
+  call: "FX.texture(root, 'hatching', {angle, strength, ink})"
+  timing: {tr: "Sahne başında bir kez; tarama yönü sabit (-35°).", en: "Once per scene; the hatch angle stays put (-35°)."}
+  pitfalls:
+    tr: ["Çizgi aralığı 6 px'ten sık olursa kare griye döner.", "Yazının üstünde okunurluğu düşürür: {z: 3} ile arkaya al."]
+    en: ["A pitch tighter than 6 px turns the frame grey.", "Over text it costs legibility: push it back with {z: 3}."]
+  seconds: 4
+  demo: |
+    D('', 'inset:0;background:#efece2');
+    D('SECTION A-A', 'left:80px;top:300px;font:800 96px Inter Tight;color:#1b1b1b;letter-spacing:.02em');
+    D('', 'left:80px;top:560px;width:920px;height:640px;background:#2a1d10');
+    D('hatched shadow, 6 px pitch', 'left:110px;top:640px;width:860px;font:700 54px Inter Tight;color:#efece2');
+    FX.texture(root, 'hatching', {dark: false, strength: 1});
+- id: texture.grain
+  name: {tr: "Film greni", en: "Film grain"}
+  use: {tr: "Arşiv film, noir, VHS: görüntünün film üstünde olduğunu söylemek.", en: "Archive film, noir, VHS: saying that the picture came off film."}
+  call: "FX.texture(root, 'grain', {strength, seed, reseed})"
+  timing: {tr: "Sahne başında bir kez; {reseed: 0.12} ile gren saniyede ~8 kez yenilenir (saatten, rastgele değil).", en: "Once per scene; {reseed: 0.12} refreshes the grain ~8 times a second (from the clock, not randomly)."}
+  pitfalls:
+    tr: ["Gren kareyi sıkıştırılamaz yapar: 6 s sahnede render süresi ~2 katına çıkar. Uzun filmde film sonrası greni (post_fx grain) seç.", "Statik gren fotoğraf gibi durur; en az {reseed: 0.15} ver."]
+    en: ["Grain makes every frame incompressible: a 6 s scene renders about twice as slow. On a long film use the film post grain instead.", "Static grain reads as a still photo; give it at least {reseed: 0.15}."]
+  seconds: 4
+  demo: |
+    D('', 'inset:0;background:#0d0f14');
+    D('ARCHIVE 1962', 'left:90px;top:340px;font:900 110px Inter Tight;color:#f2efe6');
+    D('', 'left:90px;top:640px;width:900px;height:620px;background:repeating-linear-gradient(90deg,#2b2f38 0 60px,#3a3f4a 60px 120px)');
+    FX.texture(root, 'grain', {strength: 1, seed: 4, reseed: 0.15});
+- id: texture.scanlines
+  name: {tr: "Ekran çizgileri", en: "Scanlines"}
+  use: {tr: "Hologram/HUD, VHS, retro ekran: görüntünün bir monitörden geldiği hissi.", en: "Hologram HUD, VHS, retro screen: the picture coming off a monitor."}
+  call: "FX.texture(root, 'scanlines', {strength, ink})"
+  timing: {tr: "Sahne başında bir kez; çizgiler sabit (kayan bant istersen ayrı bir katman).", en: "Once per scene; the lines stay put (a tracking band is a separate layer)."}
+  pitfalls:
+    tr: ["Çok güçlü çizgi başlığı keser; 0.18 tavanı koru.", "Ekran içeriğinin (FX.phone) üstüne ayrıca koyma, zaten sahnenin üstünde."]
+    en: ["Too strong a raster cuts the headline; keep the 0.18 ceiling.", "Do not add it inside a phone screen as well; it already covers the scene."]
+  seconds: 4
+  demo: |
+    D('', 'inset:0;background:#08101a');
+    D('SYSTEM ONLINE', 'left:90px;top:340px;font:800 100px Inter Tight;color:#7ce7ff;letter-spacing:.04em');
+    D('', 'left:90px;top:640px;width:900px;height:520px;border:6px solid #7ce7ff;box-sizing:border-box');
+    FX.texture(root, 'scanlines', {strength: 1});
+- id: texture.style_default
+  name: {tr: "Stilin kendi dokusu", en: "The style's own texture"}
+  use: {tr: "Bir film stili seçildiğinde: paketin kendi kitabı hangi dokuyu söylüyorsa onu açmak.", en: "When a film style is chosen: opening with whatever texture that pack's bible names."}
+  call: "FX.texture(root, {style: 'riso_print'})   // FX.textureFor('riso_print') -> 'halftone' | 'watercolor' | 'paper' | 'hatching' | 'grain' | 'scanlines' | 'chalk'"
+  timing: {tr: "Her sahnenin ilk satırı; stil notu bunu zaten söyler (TEXTURE satırı).", en: "The first line of every scene; the style note already says it (its TEXTURE line)."}
+  pitfalls:
+    tr: ["Stil dokusu yoksa (swiss_grid, clay_3d) doku da yok: uydurma.", "Elle kind vermek stil dokusunu ezer; ikisini birden kullanma."]
+    en: ["A style with no texture (swiss_grid, clay_3d) gets none: do not invent one.", "Passing a kind overrides the style's; never use both."]
+  seconds: 4
+  demo: |
+    D('', 'inset:0;background:#f4eee2');
+    D('', 'left:0;top:0;width:1080px;height:1920px;background:radial-gradient(circle at 30% 20%,#ffe800,transparent 55%),radial-gradient(circle at 80% 70%,#ff48b0,transparent 60%)');
+    D('RISO', 'left:90px;top:330px;font:900 150px Montserrat;color:#0078bf');
+    D('two inks, one sheet', 'left:96px;top:520px;font:700 52px Inter Tight;color:#0078bf');
+    FX.texture(root, {style: 'riso_print', dark: false});
+- id: texture.paper_base
+  name: {tr: "Figürün altına kâğıt", en: "Paper base under a figure"}
+  use: {tr: "Suluboya paketinde saydam boyanmış kişi/nesne: arkasındaki oda gövdeden görünmesin.", en: "A person or object painted in translucent washes in a watercolour pack: the room must not show through the body."}
+  call: "FX.paperBase(svgOrGroup, {color, parts, share}) · FX.paperShare(el) · FX.paperOf(palette)"
+  timing: {tr: "Çizim kurulduktan hemen sonra, bir kez. Zemini hareket etmiyor.", en: "Once, right after the drawing is built. The base does not move."}
+  pitfalls:
+    tr: ["Yalnız SVG çizimlerde çalışır; div nesnelerde opak renk kullan.", "İskelet parçaları dönüyorsa {parts: [\"#kol\", \"#govde\"]} ver: her parça kendi kâğıdını taşır.", "Hale/cam (opaklık < 0.3) ve gölge şekilleri silüete girmez; bu doğru."]
+    en: ["SVG drawings only; a div object keeps an opaque colour.", "If rig parts rotate, pass {parts: ['#arm', '#body']}: each part carries its own paper.", "Halos/glass (opacity < 0.3) and shadow shapes are left out on purpose."]
+  seconds: 4
+  demo: |
+    D('', 'inset:0;background:repeating-linear-gradient(45deg,#1b2233 0 46px,#33456b 46px 92px)');
+    const svg = FX.svg(root, 1080, 1920);
+    const g = FX.el(svg, 'g', {transform: 'translate(360,520)'});
+    FX.el(g, 'ellipse', {cx: 180, cy: 120, rx: 110, ry: 120, fill: 'rgba(0,120,191,0.55)'});
+    FX.el(g, 'rect', {x: 90, y: 240, width: 190, height: 420, rx: 60, fill: 'rgba(0,120,191,0.55)'});
+    FX.el(g, 'circle', {cx: 330, cy: 330, r: 46, fill: 'rgba(255,255,255,0.22)'});
+    FX.paperBase(svg, {color: '#f4eee2'});
+    D('the room stays out of the body', 'left:90px;top:300px;width:900px;font:800 56px Inter Tight;color:#f4efe6');

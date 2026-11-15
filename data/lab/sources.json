@@ -1,0 +1,26 @@
+[
+ {
+  "id": "yihui-opus55",
+  "url": "https://raw.githubusercontent.com/yihui-dev/awesome-opus5-5-videos/HEAD/data/videos.json",
+  "format": "json",
+  "items": "",
+  "map": {"key": "slug", "title": ["title", "author", "slug"], "url": "post_url", "category": "category",
+          "text": ["description", "prompt"]}
+ },
+ {
+  "id": "opusvideo-claude",
+  "url": "https://raw.githubusercontent.com/opusvideo/awesome-claude-video/HEAD/cases.json",
+  "format": "json",
+  "items": "cases",
+  "map": {"key": "id", "title": "title", "url": "original_post_url", "category": "category",
+          "text": "description"}
+ },
+ {
+  "id": "zhuyansen-opus55",
+  "url": "https://raw.githubusercontent.com/zhuyansen/awesome-opus-5.5-video/HEAD/cases.json",
+  "format": "json",
+  "items": "cases",
+  "map": {"key": "id", "title": "title", "url": "original_post_url", "category": "category",
+          "text": ["description", "prompt"]}
+ }
+]

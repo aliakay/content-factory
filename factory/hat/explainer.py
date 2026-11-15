@@ -276,8 +276,10 @@ def pretrim_voice(pid, path, lines, lang, p, d=None):
     if p.get("pretrim") is False:
         return path, None
     from .. import pretrim
+    from .. import speech_tr
     try:
-        out, info = pretrim.trim(path, lines, lang)
+        with speech_tr.voicing(lang, pron(p)):
+            out, info = pretrim.trim(path, lines, lang)
     except Exception as e:                       # never lose a paid take to the trimmer
         P.decision(pid, "pretrim", "skipped", reason=f"pre-trim failed: {e}"[:300], d=d)
         return path, None
@@ -303,7 +305,16 @@ def assets(pid, s, note=None, d=None):
     voice_id = (prop.get("voice") or {}).get("voice_id") or p.get("voice_id") or formats.default_voice(lang, account)
     path, cost = narrate(pid, con, lines, voice_id, account, [c.get("line") for c in script.get("chapters") or []], d)
     path, trimmed = pretrim_voice(pid, path, lines, lang, p, d)
-    times, dur, words = productions.align(path, lines, lang)
+    from .. import speech_tr
+    with speech_tr.voicing(lang, pron(p)):             # align against the spoken text the take was made from
+        times, dur, words = productions.align(path, lines, lang)
+    try:                                  # free voice-stem audit (no whisper here): gaps, level jumps, clipping, pace
+        from .. import soundqa, voiceaudit
+        va = voiceaudit.audit(path, words, lines, lang, pron(p))
+        if va["findings"]:
+            P.event(pid, "voice_audit", d=d, findings=len(va["findings"]), text=soundqa.as_text(va, 6))
+    except Exception as e:
+        P.event(pid, "voice_audit_skipped", d=d, error=f"{type(e).__name__}: {e}"[:160])
     P.decision(pid, "voice", voice_id, reason="proposal voice or channel default", d=d, model=formats.VOICE_MODEL)
     voice = {"file": _rel(path), "voice_id": voice_id, "model": formats.VOICE_MODEL, "credits": round(cost),
              "duration": dur, "line_times": times, "words": [list(w) for w in words]}
@@ -359,17 +370,34 @@ def pieces(lines, starts=()):
     return out
 
 
+def pron(p):
+    """The project's pronunciation overrides (series under project, factory/speech_tr.py); free, never raises."""
+    from .. import speech_tr
+    try:
+        return speech_tr.overrides(p, _con() if (p or {}).get("series") else None)
+    except Exception:
+        return speech_tr.overrides(p)
+
+
 def narrate(pid, con, lines, voice_id, account, starts=(), d=None):
     """The narration of `lines` inside the approved budget -> (audio path, credits). One request for a short script
-    (same cache key as always); a long one piece by piece, joined with PIECE_GAP of silence."""
-    from .. import eleven, formats
+    (same cache key as always); a long one piece by piece, joined with PIECE_GAP of silence.
+    The script goes in WRITTEN: eleven.tts makes it spoken once (numbers, names), in the project's language with its
+    pronunciation overrides; `assets` aligns the take against the same spoken text and maps the words back."""
+    from .. import eleven, formats, speech_tr
+    try:
+        p = P.load(pid, d)
+    except Exception:
+        p = {}
     ps = pieces(lines, starts)
     if len(ps) == 1:
-        return eleven.tts(con, " ".join(lines), voice_id, formats.VOICE_MODEL, approved=remaining_budget(pid, d), account=account)
+        with speech_tr.voicing(p.get("video_lang", "tr"), pron(p)):
+            return eleven.tts(con, " ".join(lines), voice_id, formats.VOICE_MODEL, approved=remaining_budget(pid, d), account=account)
     files, cost = [], 0.0
     for a, b in ps:
-        path, c = eleven.tts(con, " ".join(lines[a:b + 1]), voice_id, formats.VOICE_MODEL,
-                             approved=max(0, remaining_budget(pid, d) - round(cost)), account=account)
+        with speech_tr.voicing(p.get("video_lang", "tr"), pron(p)):
+            path, c = eleven.tts(con, " ".join(lines[a:b + 1]), voice_id, formats.VOICE_MODEL,
+                                 approved=max(0, remaining_budget(pid, d) - round(cost)), account=account)
         files.append(path)
         cost += c
     out = P.path(pid, "work", "voice.m4a", d=d)
@@ -553,7 +581,9 @@ def compose(pid, s, note=None, d=None):
     tech = qa.technical(res["file"], sp["duration"])
     try:
         starts = [sc["start"] for sc in sp.get("scenes") or []][1:]
-        snd = soundqa.review(res["file"], cues=res.get("placed") or None, total=sp["duration"], cuts=starts)
+        vf = ((P.read_artifact(pid, "assets", d) or {}).get("voice") or {}).get("file")   # the voice stem: its own bursts are not splices
+        snd = soundqa.review(res["file"], cues=res.get("placed") or None, total=sp["duration"], cuts=starts,
+                             voice_file=os.path.join(ROOT, vf) if vf else None, voice_offset=sp.get("voice_start", 0.0))
         sound = {"findings": snd.get("findings", []), "metrics": snd.get("metrics", {})}
         if len(starts) >= 2:
             from .. import craftcheck

@@ -163,7 +163,7 @@ def test_every_role_gets_a_reasoning_effort(monkeypatch):
         return R()
     import subprocess
     monkeypatch.setattr(subprocess, "run", fake_run)
-    monkeypatch.setattr(llm, "_record", lambda *a: None)
+    monkeypatch.setattr(llm, "_record", lambda *a, **k: None)
     monkeypatch.setattr(llm, "selected_provider", lambda *a, **k: "claude")   # and the per-step choice
     monkeypatch.setattr(llm, "provider_for", lambda *a, **k: "claude")        # (the VM user may have saved another)   # not the VM user's Codex choice
     from factory import accounts

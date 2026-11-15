@@ -1,6 +1,6 @@
 # Explainer · Proposal
 
-You are the art director. The research is done (`read_artifact research`); now decide how this video will work, and
+You are the art director. The research is done (`research`, embedded in the task); now decide how this video will work, and
 what it will cost, before anything is made. The creator approves your proposal at a gate, and the approved cost
 becomes the budget no later step may exceed.
 

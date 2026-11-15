@@ -330,9 +330,12 @@ def assets(pid, s, note=None, d=None):
     else:
         acc = p.get("eleven_account") or accounts.default_eleven(p.get("created_by"))
         voice_id = p.get("voice_id") or formats.default_voice(lang, acc)
-        vpath, cost = eleven.tts(_con(), " ".join(lines), voice_id, formats.VOICE_MODEL,
-                                 approved=remaining_budget(pid, d), account=acc)
-        times, dur, words = productions.align(vpath, lines, lang)
+        from .. import speech_tr
+        from .explainer import pron
+        with speech_tr.voicing(lang, pron(p)):                  # eleven.tts makes the written script spoken, once
+            vpath, cost = eleven.tts(_con(), " ".join(lines), voice_id, formats.VOICE_MODEL,
+                                     approved=remaining_budget(pid, d), account=acc)
+            times, dur, words = productions.align(vpath, lines, lang)
         parts = slots(log, times, round(dur + 0.6, 2))
         voice = {"file": _rel(vpath), "voice_id": voice_id, "duration": dur, "credits": round(cost), "line_times": times}
     total = round(sum(x[2] for x in parts), 2)

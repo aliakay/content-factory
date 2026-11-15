@@ -12,6 +12,7 @@ import hashlib, json, os, shutil, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 from factory.config import ROOT, FFMPEG, FFPROBE  # noqa: E402
+from factory import recipes  # noqa: E402
 MOTION = os.path.join(ROOT, "motion")
 SHELL = "/motion/templates/explainer_shell.html"
 ASPECTS = {"9:16": (1080, 1920), "16:9": (1920, 1080)}
@@ -27,8 +28,14 @@ def make_bundle(spec, design):
         d = design["scenes"].get(sc["id"]) or {}
         a, b = sc["lines"]
         scenes.append({"id": sc["id"], "start": sc["start"], "end": sc["end"], "hide_captions": sc.get("hide_captions", False),
-                       "html": d.get("html", ""), "css": d.get("css", ""), "js": d.get("js", ""),
+                       "html": d.get("html", ""), "css": d.get("css", ""),
+                       "js": recipes.lab_helpers(d.get("js", "")) + d.get("js", ""),   # approved Lab helpers the scene calls
                        "lines_t": [{"start": round(x["start"], 3), "end": round(x["end"], 3)} for x in lt[a:b + 1]]})
+    try:   # maps of another year (FX.geo.map {year}) need their history slice written once (factory/geo.py)
+        from factory import geo
+        geo.prepare("\n".join(x["js"] for x in scenes))
+    except Exception:
+        pass
     w, h = ASPECTS.get(spec.get("aspect", "9:16"), ASPECTS["9:16"])
     return {"palette": design["meta"].get("palette") or {}, "global_css": design.get("global_css", ""), "words": words,
             "scenes": scenes, "duration": spec["duration"], "w": w, "h": h, "captions": spec.get("captions") or {},

@@ -54,6 +54,7 @@ const TX = {
     ev_review_fix: "Denetçi düzeltme istedi", ev_tool: "Araç: {0}", ev_approve: "{0} onaylandı", ev_feedback: "{0} için not",
     ev_reopen: "{0} yeniden açıldı", ev_revise: "Not geri gönderildi: {0}", ev_queued: "{0} sıraya alındı", ev_tool_error: "Araç hatası: {0}",
     ev_budget_refit: "Bütçe yazılan metne göre güncellendi",
+    lb_nav: "Atölye", lb_lead: "Fabrika kendi tekniğini büyütür: halka açık örnek videolardan vakalar toplar, bunları motorumuzun gerçekten çizebileceği teknik adaylarına çevirir, adayı gerçek bir reçete kartına yazar ve koduyla kanıtlar. Kart ancak sen onaylayınca tasarımcıya açılır.", lb_sources: "Kaynaklar", lb_cases: "Yeni vakalar", lb_counts: "{0} yeni · {1} işlendi · {2} yok sayıldı", lb_cands: "Adaylar", lb_none: "Henüz aday yok. Terminalde `python -m factory.lab distill` ile başla.", lb_checks: "Kod kontrolleri", lb_demo: "Örnek", lb_why_new: "Neden yeni", lb_approve: "Onayla", lb_reject: "Reddet", lb_why: "Neden reddediyorsun? Gerekçe yazılır ve bu aday bir daha önerilmez.", lb_approved: "Onaylandı: kart artık tasarımcıya açık", lb_rejected: "Reddedildi, gerekçe kaydedildi", lb_lessons: "Dersler (skills/meta/lessons.md)", lb_novelty: "Yenilik özeti", lb_empty_lessons: "Henüz ders yok.", lb_src_count: "{0} vaka", lb_case_src: "kaynak", lb_st_idea: "fikir", lb_st_candidate: "aday", lb_st_active: "etkin", lb_st_rejected: "reddedildi",
   },
   en: {
     nav_make: "Make", nav_prods: "Productions", nav_fstyles: "Film styles", rc_nav: "Recipes", rc_lead: "The motion recipes the scene planner uses: each card is an FX call, its timing, its pitfalls and a working example. The planner names a scene's recipes by id and the designer gets the whole card.", rc_all: "All", rc_search: "Search: chart, camera, rain…", rc_render: "Render {0} demo clips (free)", rc_rendering: "Rendering clips", rc_queued: "Rendering the demo clips (a few minutes, no credits)", rc_noclip: "No demo clip rendered yet.", rc_call: "Call", rc_timing: "Timing", rc_pitfalls: "Pitfalls", rc_code: "Example code", rc_more: "Details", rc_none: "No recipes in this filter", rc_job: "recipe demo clips", rc_count: "{0} recipes", cm_title: "Frame comments", cm_on: "Comment mode", cm_off: "Done commenting", cm_hint: "Turn comment mode on, click a point on a frame or on the paused preview and write what should change. The comments go to the designer together; only the commented scenes change.", cm_hint_on: "Click a point on a frame or on the preview. The text you click and its source line are added to the comment.", cm_note: "Comment", cm_ph: "What should change? E.g. make this number bigger and red", cm_add: "Add comment", cm_cancel: "Cancel", cm_added: "Comment added", cm_empty: "Write the comment.", cm_del: "Delete", cm_none: "No comments yet.", cm_send: "Send {0} comments to the designer", cm_send_hint: "The designer agent fixes only the commented scenes; every other scene, the colours and the shared CSS are put back as they are. The scene plan gate then waits for your approval again.", cm_send_q: "Send the comments to the designer? The scene plan runs again and stops at its gate (no credits).", cm_sent: "{0} comments sent", cm_running: "The designer is applying the comments…", cm_done: "Last revision: scene {0} fixed.", cm_restored: "Put back what had to stay: {0}.", cm_line: "line {0}", cm_video: "Comment on the preview", cm_video_hint: "Pause the video at any moment, then click a point in the picture.", cm_at: "Moment {0} s picked", cm_st_open: "open", cm_st_sent: "sent", cm_st_done: "applied", mu_composer: "our own composer, no credits", mu_composed: "Original score, {0} BPM, no credits", mu_plain: "Plain score (the agent could not write one), {0} BPM, no credits", pt_label: "Pre-trim", pt_cut: "{0} fillers/restarts the script lacks were cut ({1} s)", parts_reused: "Only the changed scenes were re-rendered: {0} of {1} parts.", dr_type: "Type pairing", dr_style: "Source", dr_scheme: "a scheme derived from the project", dr_rules: "Rules", dr_refs: "References", dr_none: "No rules recorded.", dr_fp: "Board fingerprint {0}", an_free: "No credits spent", an_scenes: "scenes", an_findings: "Animatic findings", an_clean: "no warnings", an_warns: "{0} warning(s)", an_none: "No warnings in the measured checks: every scene is long enough, every line is on screen, the film moves.", an_pace: "Pace, scene by scene", an_words: "words", an_wps: "/s", an_timing_draft: "draft timing", an_timing_beats: "beat timing", an_timing_voice: "real voice", fs_lead: "The library's 12 styles and your own. Make your own by changing a style or from a blank page; once approved it can be picked at proposal gates.", fs_lib: "Library", fs_own: "Your styles", fs_new: "Make your own style", fs_name: "Style name", fs_base: "Where to start?", fs_blank: "Blank page", fs_create: "Start", fs_change: "Change this", fs_st_start: "Start", fs_st_plan: "Plan", fs_st_brand: "Brand", fs_st_sample: "Sample frame", fs_st_approve: "Approve", fs_next: "Next", fs_prev: "Back", fs_save: "Save", fs_skip: "Skip", fs_draw: "Draw the sample frame", fs_drawing: "Drawing (about 1 min)…", fs_redraw: "Draw again", fs_approve: "Approve, add to the library", fs_draft: "draft", fs_sampled: "frame ready", fs_approved: "approved", fs_stale: "Draw the sample frame again after a change.", fs_need: "Unanswered: {0}", fs_logo_up: "Upload logo", fs_logo_ok: "Logo uploaded", fs_delete: "Delete", fs_del_q: "Delete this style?", fs_saved: "Saved", fs_in_lib: "This style is in the library; proposal gates can pick it.", fs_no_cost: "No credits: the frame is drawn by the studio's own engine.", fs_based: "Based on: {0}", lang: "Interface language",
@@ -103,6 +104,7 @@ const TX = {
     ev_review_fix: "Reviewer asked for fixes", ev_tool: "Tool: {0}", ev_approve: "{0} approved", ev_feedback: "Note on {0}",
     ev_reopen: "{0} reopened", ev_revise: "Note sent back to: {0}", ev_queued: "{0} queued", ev_tool_error: "Tool error: {0}",
     ev_budget_refit: "Budget re-priced from the written script",
+    lb_nav: "Lab", lb_lead: "The factory grows its own technique library: it collects cases from public collections of example videos, turns them into technique candidates our engine can really draw, writes each one as a real recipe card and proves it with code. A card reaches the designer only after you approve it.", lb_sources: "Sources", lb_cases: "New cases", lb_counts: "{0} new · {1} distilled · {2} ignored", lb_cands: "Candidates", lb_none: "No candidates yet. Start with `python -m factory.lab distill` in a terminal.", lb_checks: "Code checks", lb_demo: "Example", lb_why_new: "Why it is new", lb_approve: "Approve", lb_reject: "Reject", lb_why: "Why reject it? The reason is kept and this candidate is never proposed again.", lb_approved: "Approved: the card is open to the designer", lb_rejected: "Rejected; the reason is kept", lb_lessons: "Lessons (skills/meta/lessons.md)", lb_novelty: "Novelty brief", lb_empty_lessons: "No lessons yet.", lb_src_count: "{0} cases", lb_case_src: "source", lb_st_idea: "idea", lb_st_candidate: "candidate", lb_st_active: "active", lb_st_rejected: "rejected",
   },
 };
 const t = (k, ...a) => { let s = (TX[L()] || TX.tr)[k] ?? TX.tr[k] ?? k; a.forEach((v, i) => { s = s.replace("{" + i + "}", v); }); return s; };
@@ -110,7 +112,7 @@ const STATUS_ICON = { pending: "○", running: "", awaiting_approval: "⏸", app
 const HS = { lines: null, open: null, sel: {}, fsQ: {} };
 
 // ---------------- shell: nav entries and the language switch ----------------
-NAV.unshift(["#/uret", "wand", ""], ["#/uretimler", "film", ""], ["#/film-stilleri", "palette", ""], ["#/receteler", "layers", ""]);
+NAV.unshift(["#/uret", "wand", ""], ["#/uretimler", "film", ""], ["#/film-stilleri", "palette", ""], ["#/receteler", "layers", ""], ["#/atolye", "spark", ""]);
 // One way in: the planner home and the old board send you to the productions list (t206); their pages stay reachable
 // from old links until go-live removes them.
 for (const old of ["#/", "#/hat"]) ROUTES[old] = () => { location.replace("#/uretimler"); return { poll: 0 }; };
@@ -137,7 +139,7 @@ function translateShell() {
 }
 const _renderShell = renderShell;
 renderShell = function () {
-  NAV[0][2] = t("nav_make"); NAV[1][2] = t("nav_prods"); NAV[2][2] = t("nav_fstyles"); NAV[3][2] = t("rc_nav"); JOBTR.recipe_demos = t("rc_job");
+  NAV[0][2] = t("nav_make"); NAV[1][2] = t("nav_prods"); NAV[2][2] = t("nav_fstyles"); NAV[3][2] = t("rc_nav"); NAV[4][2] = t("lb_nav"); JOBTR.recipe_demos = t("rc_job");
   document.documentElement.lang = L();   // text-transform: uppercase needs the right language (tr: i→İ, en: i→I)
   _renderShell();
   translateShell();
@@ -953,6 +955,54 @@ ROUTES["#/receteler"] = async () => {
 };
 ACT.rcFam = (el) => { HS.rcFam = el.dataset.v; $$("[data-act=rcFam]").forEach((c) => c.classList.toggle("on", c.dataset.v === HS.rcFam)); rcFilter(); };
 ACT.rcDemos = async () => { await post("/api/hat/recipes", {}); toast(t("rc_queued")); setTimeout(() => route({ poll: true }), 1500); };
+
+
+// ---------------- #/atolye: the Lab (factory/lab.py) ----------------
+const lbCard = (c) => `<article class="card lb-cand" style="padding:12px">
+    <div class="row" style="gap:8px;align-items:baseline"><h3 style="margin:0;font-size:16px">${esc(c.name || c.name_en || c.id)}</h3><span class="sp"></span>
+      <span class="badge ${c.status === "active" ? "ok" : c.status === "rejected" ? "bad" : "warn"}">${esc(t("lb_st_" + c.status))}</span></div>
+    <div class="tiny faint"><code>${esc(c.id)}</code>${c.family ? " · " + esc(c.family) : ""}</div>
+    ${c.shows ? `<div class="small mt8">${esc(c.shows)}</div>` : ""}
+    ${c.why_new ? `<div class="tiny muted mt8"><b>${esc(t("lb_why_new"))}:</b> ${esc(c.why_new)}</div>` : ""}
+    ${c.demo ? `<video src="${esc(c.demo)}" muted loop playsinline controls preload="none" style="width:100%;max-width:200px;aspect-ratio:9/16;border-radius:10px;background:#000;margin-top:10px"></video>` : ""}
+    ${(c.checks || []).length ? `<details class="mt8"><summary class="small muted" style="cursor:pointer">${esc(t("lb_checks"))}</summary>
+      <ul style="margin:6px 0 0 16px;padding:0">${c.checks.map((k) => `<li class="tiny ${k.ok ? "" : "bad"}">${k.ok ? "✓" : "✗"} <b>${esc(k.name)}</b> — ${esc(k.detail)}</li>`).join("")}</ul></details>` : ""}
+    ${c.reason ? `<div class="tiny bad mt8">${esc(c.reason)}</div>` : ""}
+    <div class="row mt12" style="gap:8px">
+      <button class="btn sm accent" data-act="lbApprove" data-id="${esc(c.id)}" ${c.status === "active" ? "disabled" : ""}>${ICON.check}${esc(t("lb_approve"))}</button>
+      <button class="btn sm ghost" data-act="lbReject" data-id="${esc(c.id)}" ${c.status === "rejected" ? "disabled" : ""}>${esc(t("lb_reject"))}</button></div></article>`;
+ROUTES["#/atolye"] = async () => {
+  crumb([t("lb_nav")]);
+  const d = await api("/api/hat/lab");
+  const cn = d.counts || {};
+  paint(`<div class="row"><div><h1>${esc(t("lb_nav"))}</h1><p class="lead">${esc(t("lb_lead"))}</p></div></div>
+    <div class="chips mt12"><span class="chip on">${esc(t("lb_counts", cn.new || 0, cn.distilled || 0, cn.ignored || 0))}</span>
+      ${(d.sources || []).map((s) => `<span class="chip">${esc(s.id || s.name || "")} · ${esc(t("lb_src_count", s.count || 0))}</span>`).join("")}</div>
+    ${d.novelty ? `<div class="card mt16" style="padding:14px"><b>${esc(t("lb_novelty"))}</b><div class="small mt8" style="white-space:pre-wrap">${esc(d.novelty)}</div></div>` : ""}
+    <h2 class="mt16">${esc(t("lb_cands"))}</h2>
+    ${(d.candidates || []).length ? `<div class="lb-grid mt8">${d.candidates.map(lbCard).join("")}</div>` : `<div class="empty">${esc(t("lb_none"))}</div>`}
+    <h2 class="mt16">${esc(t("lb_cases"))}</h2>
+    <div class="hl-list mt8">${(d.cases || []).map((c) => `<div class="hl-row" style="grid-template-columns:minmax(0,1fr) auto">
+        <span class="hl-row-t">${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener"><b>${esc(c.title || c.key)}</b></a>` : `<b>${esc(c.title || c.key)}</b>`}
+          <span class="tiny muted">${esc(c.category || "")} · ${esc(t("lb_case_src"))}: ${esc(c.source || "")}</span></span>
+        <span class="tiny faint">${esc((c.seen_at || "").slice(0, 10))}</span></div>`).join("") || `<div class="empty">${esc(t("lb_none"))}</div>`}</div>
+    <h2 class="mt16">${esc(t("lb_lessons"))}</h2>
+    <pre class="log mt8" style="white-space:pre-wrap">${esc(d.lessons || t("lb_empty_lessons"))}</pre>`,
+    JSON.stringify([L(), (d.candidates || []).map((c) => c.status + c.id + (c.demo || "")), (d.cases || []).length, d.lessons]));
+  return { poll: 0 };
+};
+ACT.lbApprove = async (el) => {
+  el.disabled = true;
+  try { await post("/api/hat/lab", { action: "approve", id: el.dataset.id }); toast(t("lb_approved")); S.sig = null; route({ poll: true }); }
+  finally { el.disabled = false; }
+};
+ACT.lbReject = async (el) => {
+  const why = prompt(t("lb_why"));
+  if (why === null) return;
+  el.disabled = true;
+  try { await post("/api/hat/lab", { action: "reject", id: el.dataset.id, why }); toast(t("lb_rejected")); S.sig = null; route({ poll: true }); }
+  finally { el.disabled = false; }
+};
 
 ROUTES["#/film-stilleri"] = viewStyles;
 const fsId = () => location.hash.split("/")[2];

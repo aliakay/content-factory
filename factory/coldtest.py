@@ -15,9 +15,13 @@ The four are deterministic and run at the script gate. `cold_read()` is the huma
 has not seen the film reads the lines and says in one sentence what it is about, and the answer is compared with the
 title. It costs one call and it is never part of the deterministic path.
 """
-import hashlib, json, re
+import hashlib, json, os, re, time
 
 from . import words
+from .config import ROOT
+
+CACHE = os.path.join(ROOT, "data", "coldread_cache.json")
+CACHE_KEEP = 400         # cold reads remembered (one per distinct title + lines + language)
 
 CTA = ("takip et", "takip edin", "abone ol", "daha fazlasi", "follow for more", "follow me", "subscribe",
        "like and follow", "begen ve takip")
@@ -217,14 +221,22 @@ def cold_read(script, lang="tr", ask=None):
 
     `ask` is injectable (a function taking the prompt and returning parsed JSON) so the check is testable with no
     model. A failed call is a missing check, never a failed stage: `ok` is None and `error` says why.
+    The same title + lines in the same language are read once: the answer is remembered (CACHE), so an author
+    who re-runs the test on an unchanged script, or a reviewer checking it, costs nothing (project 121 asked 8 times).
     """
+    own = ask is None
     ask = ask or _ask
     lines = content_lines(script, lang)
     prompt = COLD.format(title=str((script or {}).get("title") or ""),
                          lines="\n".join(f"{i + 1}. {x}" for i, x in enumerate(lines)),
                          language=LANG.get(lang, LANG["en"]))
+    key = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:24]
+    out = _cached(key) if own else None
     try:
-        out = ask(prompt) or {}
+        if out is None:
+            out = ask(prompt) or {}
+            if own and isinstance(out, dict) and out.get("one_sentence"):
+                _remember(key, out)
     except Exception as e:
         return {"ok": None, "error": f"{type(e).__name__}: {e}"[:200], "problems": []}
     problems = []
@@ -236,6 +248,34 @@ def cold_read(script, lang="tr", ask=None):
     return {"ok": bool(out.get("delivers")) and not problems, "one_sentence": sentence,
             "throughline": out.get("throughline"), "delivers": out.get("delivers"),
             "remembered": out.get("remembered"), "problems": problems}
+
+
+def _load_cache():
+    try:
+        return json.load(open(CACHE, encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _cached(key):
+    hit = _load_cache().get(key)
+    return dict(hit["out"]) if isinstance(hit, dict) and isinstance(hit.get("out"), dict) else None
+
+
+def _remember(key, out):
+    """Keep one cold read; never fatal (a read-only disk only loses the saving)."""
+    try:
+        data = _load_cache()
+        data[key] = {"at": time.time(), "out": out}
+        if len(data) > CACHE_KEEP:
+            data = dict(sorted(data.items(), key=lambda kv: -float((kv[1] or {}).get("at") or 0))[:CACHE_KEEP])
+        os.makedirs(os.path.dirname(CACHE), exist_ok=True)
+        tmp = f"{CACHE}.{os.getpid()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+        os.replace(tmp, CACHE)
+    except OSError:
+        pass
 
 
 def fingerprint(script):

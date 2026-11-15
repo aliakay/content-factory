@@ -40,6 +40,10 @@ const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/ja
 const server = createServer(async (req, res) => {
   const p = path.resolve(ROOT, "." + decodeURIComponent(req.url.split("?")[0].split("#")[0]));
   if (!p.startsWith(ROOT)) { res.writeHead(403).end(); return; }
+  // scene code is written by models (the designer, the Lab's card builder working from third-party text): a page
+  // gets pictures, fonts and scripts, never the keys. Dot files (.env, .git) and data/ (accounts, ledgers) stay shut.
+  const rel = path.relative(ROOT, p).split(path.sep);
+  if (rel.some((x) => x.startsWith(".")) || rel[0] === "data") { res.writeHead(403).end(); return; }
   let body;   // read first: a missing file must answer 404, not write a second header after the 200
   try { body = await readFile(p); } catch { res.writeHead(404).end(); return; }
   res.writeHead(200, { "Content-Type": TYPES[path.extname(p)] || "application/octet-stream" }).end(body);
@@ -56,6 +60,9 @@ const browser = await chromium.launch({
   args: ["--disable-dev-shm-usage", ...(process.env.CF_CHROME_ARGS || "").split(" ").filter(Boolean)],
 });
 const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: scale });
+// ...and nothing leaves the machine: a frame is a function of the bundle, so any request that is not ours is refused
+// (it also keeps a scene from depending on a URL that will be gone when the film is re-rendered)
+await page.route("**/*", (r) => (/^(data|blob|about):/.test(r.request().url()) || r.request().url().startsWith(base + "/") ? r.continue() : r.abort()));
 page.on("pageerror", (e) => console.error("page error:", e.message));
 page.on("console", (m) => { if (m.type() === "error") console.error("console error:", m.text()); });
 const [file, hash = ""] = page_.split("#");

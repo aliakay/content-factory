@@ -1,0 +1,5 @@
+{
+ "seconds": 3,
+ "css": "position:absolute;inset:0;background:#0b1020",
+ "js": "const k = FX.stage3(tl, root, T, {look: 'blueprint'});\nk.city(tl, 0.1, {n: 8, mark: [[3, 4, 'Peak load']], wave: 0.8});\nk.move('orbit', {at: 0, turn: 25});"
+}

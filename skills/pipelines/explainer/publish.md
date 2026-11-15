@@ -3,10 +3,11 @@
 ## Hard limits (the gate refuses these)
 - `credits` is the `attribution` tool's block verbatim; no asset without a licence reaches the description.
 - Caption in the video's language, under 150 characters, ending with a question; 3-5 hashtags.
+- These are measured by code at review: an output that meets them is not sent to a model reviewer at all.
 
 
-The video is rendered and checked. Write what goes with it when the creator posts it. Read `script` (title, caption
-draft, claims), `research` (sources) and `render` (duration, QA findings, cover candidates).
+The video is rendered and checked. Write what goes with it when the creator posts it. `script` (title, caption
+draft, claims), `research` (sources) and `render` (duration, QA findings, cover candidates) are embedded in the task.
 
 ## Rules
 - `caption`: one or two sentences in the video language, under 150 characters, that add to the video instead of

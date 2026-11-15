@@ -2,7 +2,11 @@
    Everything is deterministic: tweens go on the master timeline `tl` at absolute times; per-frame drawing (canvas,
    Three.js) registers with FX.onFrame and is driven by window.render(t). No timers, no real-time loops, no randomness
    except the seeded FX.rand. Written for this factory (ideas from public motion vocabularies: split/blur/scramble
-   text, shine, spotlight, glass, draw-on paths, count-ups, seeded particles, aurora fields, deterministic 3D). */
+   text, shine, spotlight, glass, draw-on paths, count-ups, seeded particles, aurora fields, deterministic 3D).
+   Late additions, ported from AI-Video-Factory (MIT, (c) Ersin KOÇ): FX.PACE (no entrance hangs as a ghost layer),
+   FX.texture (the medium of a style pack: paper, watercolour, chalk, halftone, hatching, grain, scanlines),
+   FX.paperBase (an opaque paper under a translucent drawing), FX.build (declarative build-in: room, objects, people,
+   labels) and FX.ambience (seeded rain, snow, dust, embers, confetti, fog, rays, flicker). */
 (function () {
   const FX = {};
   const frameHooks = [];
@@ -65,7 +69,26 @@
   };
   FX.rand = (seed = 1) => () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
+  /* ---- PACE: no entrance hangs half-transparent or keeps growing for seconds ("ghost layer"). A tween that brings
+     something IN is a motion-design gesture: 0.3-0.9 s. A director who spreads a 0.45 s pop over 16 s (measured on
+     1584 shots: pop median 1.25 s, slide_in 2.1 s, fade_in 1.6 s) leaves the layer translucent most of the shot. The
+     start the narration asked for stays; the tween gets shorter. `{slow: true}` keeps a long one on purpose (a
+     deliberate 2 s reveal), and `draw_on` is never touched: a pen drawing takes as long as the hand takes. */
+  FX.PACE = { pop: 0.5, fade: 0.8, slide: 0.9, text: 0.9, out: 0.8 };
+  FX._clamps = {};   // every clamp, once: {'pop:2.00': {kind, want, got}} (the lint and the tests read this)
+  FX.pace = (dur, kind = "text", o = {}) => {
+    const most = FX.PACE[kind] ?? FX.PACE.text, d = Number(dur);
+    if (o.slow || !Number.isFinite(d) || d <= most) return dur;
+    const key = kind + ":" + d.toFixed(2);
+    if (!FX._clamps[key]) {
+      FX._clamps[key] = { kind, want: +d.toFixed(2), got: most };
+      if (typeof console !== "undefined") console.warn(`[FX] ${kind} entrance ${d.toFixed(2)} s clamped to ${most} s (pass {slow: true} to keep it)`);
+    }
+    return most;
+  };
+
   function split(el, by) {
+    if (typeof el === "string") { const q = el; el = document.querySelector(q); if (!el) throw new Error("FX text helper: no element matches '" + q + "'"); }
     const text = el.textContent;
     el.textContent = "";
     const parts = by === "chars" ? [...text] : text.split(/(\s+)/);
@@ -82,12 +105,12 @@
 
   /* text entrances: blurIn (word by word from blur), rise (masked slide up), pop (scale with a little overshoot),
      typewriter, scramble (decodes into the final word). All return the spans. */
-  FX.blurWords = (tl, el, at, o = {}) => { const w = split(el, o.by || "words"); tl.fromTo(w, { opacity: 0, filter: "blur(14px)", y: 18 }, { opacity: 1, filter: "blur(0px)", y: 0, duration: o.dur || 0.55, stagger: o.stagger ?? 0.06, ease: "power3.out" }, at); return w; };
-  FX.rise = (tl, el, at, o = {}) => { const w = split(el, o.by || "words"); w.forEach((s) => { const m = document.createElement("span"); m.style.display = "inline-block"; m.style.overflow = "hidden"; m.style.verticalAlign = "bottom"; s.parentNode.insertBefore(m, s); m.appendChild(s); }); tl.fromTo(w, { yPercent: 110 }, { yPercent: 0, duration: o.dur || 0.6, stagger: o.stagger ?? 0.05, ease: "expo.out" }, at); return w; };
+  FX.blurWords = (tl, el, at, o = {}) => { const w = split(el, o.by || "words"); tl.fromTo(w, { opacity: 0, filter: "blur(14px)", y: 18 }, { opacity: 1, filter: "blur(0px)", y: 0, duration: FX.pace(o.dur || 0.55, "text", o), stagger: o.stagger ?? 0.06, ease: "power3.out" }, at); return w; };
+  FX.rise = (tl, el, at, o = {}) => { const w = split(el, o.by || "words"); w.forEach((s) => { const m = document.createElement("span"); m.style.display = "inline-block"; m.style.overflow = "hidden"; m.style.verticalAlign = "bottom"; s.parentNode.insertBefore(m, s); m.appendChild(s); }); tl.fromTo(w, { yPercent: 110 }, { yPercent: 0, duration: FX.pace(o.dur || 0.6, "text", o), stagger: o.stagger ?? 0.05, ease: "expo.out" }, at); return w; };
   /* speed-coupled entrance: the blur rides the SPEED of the move, so it clears before the element settles
      (a fixed blur tied to the tween stops with the motion and reads soft). 0.28 s ramp, 16 px blur, 0.35 stretch. */
   FX.blurFly = (tl, el, at, o = {}) => {
-    const dur = o.dur ?? 0.5, ramp = o.ramp ?? 0.28, blurMax = o.blur ?? 16, stretch = o.stretch ?? 0.35;
+    const dur = FX.pace(o.dur ?? 0.5, "slide", o), ramp = o.ramp ?? 0.28, blurMax = o.blur ?? 16, stretch = o.stretch ?? 0.35;
     const fromX = o.fromX ?? 0, fromY = o.fromY ?? 60;
     tl.fromTo(el, { x: fromX, y: fromY, scaleX: 1 + stretch, scaleY: 1 / (1 + stretch * 0.4), opacity: 0,
                     filter: `blur(${blurMax}px)` },
@@ -95,7 +118,7 @@
     tl.to(el, { filter: "blur(0px)", duration: ramp, ease: "power1.out" }, at);
     return el;
   };
-  FX.pop = (tl, el, at, o = {}) => { const w = split(el, o.by || "words"); tl.fromTo(w, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: o.dur || 0.45, stagger: o.stagger ?? 0.05, ease: "back.out(2)" }, at); return w; };
+  FX.pop = (tl, el, at, o = {}) => { const w = split(el, o.by || "words"); tl.fromTo(w, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: FX.pace(o.dur || 0.45, "pop", o), stagger: o.stagger ?? 0.05, ease: "back.out(2)" }, at); return w; };
   FX.typewriter = (tl, el, at, o = {}) => { const c = split(el, "chars"); tl.fromTo(c, { opacity: 0 }, { opacity: 1, duration: 0.01, stagger: o.cps ? 1 / o.cps : 0.035, ease: "none" }, at); return c; };
   FX.scramble = (tl, el, at, o = {}) => {
     const final = el.textContent, glyphs = o.glyphs || "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&", dur = o.dur || 0.9, r = FX.rand(final.length * 7 + 3);
@@ -1199,7 +1222,7 @@
     return svg;
   };
   FX.whip = (tl, el, at, o = {}) => { const dx = (o.dir || 1) * (o.dist || 900); tl.to(el, { x: -dx, filter: "blur(18px)", duration: o.dur || 0.18, ease: "power3.in" }, at); if (o.sfx !== false) FX.sfx("whoosh", at + 0.12); };
-  FX.whipIn = (tl, el, at, o = {}) => { const dx = (o.dir || 1) * (o.dist || 900); tl.fromTo(el, { x: dx, filter: "blur(18px)" }, { x: 0, filter: "blur(0px)", duration: o.dur || 0.22, ease: "power3.out" }, at); };
+  FX.whipIn = (tl, el, at, o = {}) => { const dx = (o.dir || 1) * (o.dist || 900); tl.fromTo(el, { x: dx, filter: "blur(18px)" }, { x: 0, filter: "blur(0px)", duration: FX.pace(o.dur || 0.22, "slide", o), ease: "power3.out" }, at); };
   FX.dipCut = (tl, root, at) => { const d = document.createElement("div"); Object.assign(d.style, { position: "absolute", inset: 0, background: "#000", opacity: 0, zIndex: 95 }); root.appendChild(d); tl.to(d, { opacity: 0.4, duration: 0.1, ease: "none" }, at - 0.1); return d; };
   FX.colorFlood = (tl, root, at, color, o = {}) => { const d = document.createElement("div"); Object.assign(d.style, { position: "absolute", inset: 0, background: color, zIndex: o.z ?? 0, clipPath: "circle(0% at 50% 50%)" }); root.prepend(d); tl.to(d, { clipPath: "circle(150% at 50% 50%)", duration: o.dur || 0.4, ease: "power2.inOut" }, at); return d; };
 
@@ -1538,6 +1561,483 @@
       if (o.fade !== false) FX.onFrame((t) => { el.style.opacity = vis(t).toFixed(3); });
     }
     if (o.shadow) living(o.shadow, (t) => { const s = Math.max(0.3, 1 - (0.5 * Math.max(0, height(t))) / h); return { sx: s, sy: s }; }, "50% 50%");
+    return el;
+  };
+
+
+  /* ---- STYLE TEXTURE (ported from AI-Video-Factory packages/core/src/texture.ts, MIT, © Ersin KOÇ): one static,
+     code-generated layer over the whole scene, so two packs differ by more than their palette. Paper fibre,
+     watercolour wash and pigment pools, chalk dust, print dots, engraving lines, film grain, screen lines.
+     NORMAL ALPHA, never a blend mode: multiply/screen re-blended the whole frame every frame (+25-35 % render time on a
+     3 s scene, measured on the reference). The texture is painted ONCE into a bitmap and mounted as one composited
+     layer: an inline SVG turbulence filter over the frame re-rasterised on every paint here (2x the scene's render time,
+     measured with bin/htmlmotion.py); the baked bitmap is free to composite. What it does cost is PNG/x264 bits: a
+     noisy frame does not compress, so a 6 s scene at 0.4 scale / 24 fps goes from ~12 s to ~13 s (scanlines) and up to
+     ~25 s (paper, grain, halftone) — the recipe cards say so and point film grain at the ffmpeg post instead.
+     The layer holds no text and is marked aria-hidden + data-tex, and it sits at z 8 under the shell's captions (z 50),
+     so window.lintBoxes (which walks text nodes) never reports it; the layout lint's contrast ring around a text box
+     still reads the median of the ground, and a test asserts its findings are identical with and without the layer.
+     FX.textureCanvas / FX.textureUrl (browser, cached) · FX.texNoise / FX.texFbm (pure, node-testable).
+     FX.texture(root, kind | {style}, {strength, seed, z, reseed, ink, angle, size}) -> the layer element. */
+  FX.TEXTURE_KINDS = ["paper", "watercolor", "chalk", "halftone", "hatching", "grain", "scanlines"];
+  FX.TEXTURE_ALIAS = { none: "", watercolour: "watercolor", wash: "watercolor", ink: "watercolor", gouache: "watercolor",
+                       riso: "halftone", dots: "halftone", dot: "halftone", engraving: "hatching", woodcut: "hatching",
+                       crt: "scanlines", hud: "scanlines", vhs: "scanlines", film: "grain", noise: "grain", board: "chalk" };
+  // style id -> the texture its bible already describes (data/film_styles.json carries the same map: tests keep them equal)
+  FX.STYLE_TEXTURE = { riso_print: "halftone", ink_wash: "watercolor", cut_paper: "paper", blueprint: "hatching",
+                       archive_film: "grain", hologram_hud: "scanlines", woodcut: "hatching", chalkboard: "chalk", noir: "grain",
+                       sketchnote: "paper", vhs_tape: "scanlines", ottoman_miniature: "paper", ukiyo_e: "paper", art_deco: "paper",
+                       constructivist: "paper", linocut: "paper", cyanotype: "paper", manga_screentone: "halftone",
+                       art_nouveau: "paper", cave_painting: "grain", vintage_engraving: "paper", watercolor: "watercolor",
+                       gouache: "paper", oil_impasto: "paper", charcoal: "paper", graphite_sketch: "paper", crayon: "paper",
+                       scratchboard: "paper", mid_century: "paper", comic_pop: "halftone", bauhaus: "paper", synthwave: "scanlines",
+                       silkscreen_travel: "paper", botanical_plate: "paper", technical_cutaway: "paper", pictogram: "paper",
+                       sand_art: "grain", paper_quilling: "paper", origami: "paper", low_poly: "grain", frosted_glass: "grain",
+                       cyberpunk: "grain", gothic: "grain" };
+  FX.textureFor = (style) => FX.STYLE_TEXTURE[String(style || "").replace(/^style\./, "")] || "";
+  FX.rgbOf = (css, fb = [0, 0, 0]) => {   // '#aabbcc' / '#abc' / 'rgb(..)' / 'rgba(..)' / 'var(--ink)' -> [r, g, b]
+    const c = String(css || "").trim();
+    let m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(c);
+    if (m) { const h = m[1].length === 3 ? m[1].split("").map((x) => x + x).join("") : m[1]; return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); }
+    m = /^rgba?\(([^)]+)\)$/i.exec(c);
+    if (m) { const p = m[1].split(/[,\s/]+/).map(parseFloat); return [p[0] || 0, p[1] || 0, p[2] || 0]; }
+    return fb;
+  };
+  FX.cssVar = (name, fb) => {   // a palette variable of the stage (--ink, --paper, --bg), with a fallback
+    try { const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim(); return v || fb; } catch (e) { return fb; }
+  };
+  /* deterministic value noise: a hash of (x, y, seed), never a random draw -- the same seed draws the same paper
+     in every render tab and every re-render */
+  const texHash = (x, y, seed) => {
+    let h = Math.imul(seed | 0, 374761393) + Math.imul(x | 0, 668265263) + Math.imul(y | 0, 2246822519);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  };
+  FX.texNoise = (x, y, seed = 7) => {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const a = texHash(xi, yi, seed), b = texHash(xi + 1, yi, seed), c = texHash(xi, yi + 1, seed), d = texHash(xi + 1, yi + 1, seed);
+    return (a + (b - a) * u) * (1 - v) + (c + (d - c) * u) * v;
+  };
+  FX.texFbm = (x, y, seed = 7, oct = 3) => {   // fractal noise: the fibre (high frequency) and the wash (low) of a medium
+    let sum = 0, amp = 0.5, f = 1, norm = 0;
+    for (let i = 0; i < oct; i++) { sum += amp * FX.texNoise(x * f, y * f, seed + i * 17); norm += amp; amp *= 0.5; f *= 2; }
+    return sum / norm;
+  };
+  FX.TEX_OPACITY = { paper: 0.55, watercolor: 0.4, chalk: 0.34, halftone: 0.16, hatching: 0.5, grain: 0.45, scanlines: 0.18 };
+  const TEX_RES = 0.5;   // the bitmap is painted at half the stage: noise stretched 2x is still noise, at a quarter of the cost
+  /* the pixels of one texture: painted ONCE into a canvas from seed and kind, then kept as a PNG data URL (a bitmap layer
+     costs ~0 to composite; the same look as a live SVG turbulence filter cost 2x the scene's render time, measured) */
+  FX.textureCanvas = (kind, o = {}) => {
+    const k = FX.TEXTURE_ALIAS[kind] !== undefined ? FX.TEXTURE_ALIAS[kind] : String(kind || "");
+    if (FX.TEXTURE_KINDS.indexOf(k) < 0) return null;
+    const W = Math.max(32, Math.round((o.w || 1080) * (o.res || TEX_RES))), H = Math.max(32, Math.round((o.h || 1920) * (o.res || TEX_RES)));
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const ctx = c.getContext("2d"), seed = Math.round(o.seed ?? 7), ink = FX.rgbOf(o.ink || "#000", [0, 0, 0]);
+    // polarity: on a dark ground a dark fibre reads as dirt, a light one reads as paper
+    const dark = !!o.dark, fg = dark ? [232, 226, 210] : ink, str = Math.max(0, Math.min(2, o.strength ?? 1));
+    const put = (r, g, b, a) => `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${Math.max(0, Math.min(1, a)).toFixed(3)})`;
+    if (k === "halftone" || k === "hatching" || k === "scanlines") {   // a printed screen: exact geometry, no noise
+      ctx.fillStyle = put(fg[0], fg[1], fg[2], 1);
+      if (k === "halftone") {
+        const cell = Math.max(2, (o.size ?? 8) * (W / 1080)), r = (o.dot ?? 1.7) * (o.size ?? 8) / 8 * (W / 1080);
+        const ang = ((o.angle ?? 45) * Math.PI) / 180;
+        ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(ang);
+        const span = Math.hypot(W, H) / 2;
+        for (let y = -span; y < span; y += cell) for (let x = -span; x < span; x += cell) { ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fill(); }
+        ctx.restore();
+      } else if (k === "hatching") {
+        // engraving lines at a third of their pitch: at full alpha a 6 px screen greys the whole frame (measured on the
+        // light paper sheet), so each line is drawn thin and part-transparent
+        const step = Math.max(2, 6 * (W / 1080)), ang = ((o.angle ?? -35) * Math.PI) / 180;
+        ctx.strokeStyle = put(fg[0], fg[1], fg[2], 0.55);
+        ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(ang); ctx.lineWidth = Math.max(0.7, 0.9 * (W / 1080));
+        for (let y = -H; y < H; y += step) { ctx.beginPath(); ctx.moveTo(-W, y); ctx.lineTo(W, y); ctx.stroke(); }
+        ctx.restore();
+      } else {
+        const bar = Math.max(1, 1.3 * (H / 1920)), gap = Math.max(1, 4 * (H / 1920));
+        for (let y = 0; y < H; y += gap) ctx.fillRect(0, y, W, bar);
+      }
+      return c;
+    }
+    // noise kinds: one ImageData pass
+    const img = ctx.createImageData(W, H), d = img.data, fib = o.fibre ?? 0.85;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        let a = 0;
+        if (k === "grain") { a = (FX.texNoise(x * 1.35, y * 1.35, seed + 13) - 0.42) * 0.55; }          // fine specks: dark
+        else if (k === "paper") { a = (FX.texFbm(x * fib * 0.9, y * fib * 0.9, seed + 7, 2) - 0.5) * 0.3 + (FX.texFbm(x * 0.006, y * 0.0055, seed + 3, 3) - 0.45) * 0.26; }
+        else if (k === "watercolor") { a = (FX.texFbm(x * 0.004, y * 0.006, seed + 11, 4) - 0.46) * 0.95 + (FX.texFbm(x * fib * 0.9, y * fib * 0.9, seed + 7, 2) - 0.5) * 0.16; }
+        else {   // chalk: sparse bright dust plus a wide smear
+          const dust = FX.texNoise(x * 1.5, y * 1.5, seed + 5), smear = FX.texFbm(x * 0.004, y * 0.011, seed + 9, 3);
+          a = Math.max(0, dust - 0.72) * 2.4 + (smear - 0.55) * 0.5;
+        }
+        const col = k === "chalk" ? [255, 255, 255] : fg;
+        d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = Math.max(0, Math.min(1, a * str)) * 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    return c;
+  };
+  const texUrls = new Map();   // kind/seed/ink/aspect -> the PNG data URL (a scene that wears the same texture pays once)
+  FX.textureUrl = (kind, o = {}) => {
+    const key = [kind, Math.round(o.seed ?? 7), o.ink, !!o.dark, o.strength ?? 1, Math.round(o.w || 1080), Math.round(o.h || 1920),
+                 o.size, o.angle, o.res].join("|");
+    let url = texUrls.get(key);
+    if (url === undefined) {
+      if (texUrls.size > 24) texUrls.clear();
+      const c = FX.textureCanvas(kind, o);
+      url = c ? c.toDataURL("image/png") : "";
+      texUrls.set(key, url);
+    }
+    return url;
+  };
+  FX.texture = (root, kind, o = {}) => {
+    if (kind && typeof kind === "object") { o = kind; kind = o.kind ?? ""; }   // FX.texture(root, {style: 'riso_print'})
+    const which = FX.TEXTURE_ALIAS[kind] !== undefined ? FX.TEXTURE_ALIAS[kind] : String(kind || FX.textureFor(o.style) || "");
+    if (FX.TEXTURE_KINDS.indexOf(which) < 0) return null;   // "none" and an unknown name are no texture, not a crash
+    const [W, H] = dims(root);
+    // the ground: an explicit o.bg / o.dark wins, then the scene's own painted background, then the palette's --bg
+    let bg = o.bg;
+    if (!bg) {
+      try { const bc = getComputedStyle(root).backgroundColor; bg = bc && !/^rgba?\(0, 0, 0, 0\)$|^transparent$/.test(bc) ? bc : ""; } catch (e) { bg = ""; }
+    }
+    const dark = o.dark ?? (FX.luminance(bg || FX.cssVar("--bg", "#0f1220")) < 0.22);
+    // the mark's colour: a printed/painted mark is the ink of the pack -- light on a dark ground (--ink), dark on paper
+    // (--bg, the palette's darkest colour). Reading --ink on paper printed cream dots on cream and nothing showed.
+    const ink = o.ink || (dark ? FX.cssVar("--ink", "#f4efe6") : FX.cssVar("--bg", "#1b1b1b"));
+    const opts = { ...o, w: W, h: H, dark, ink };
+    const str = Math.max(0, Math.min(2, o.strength ?? 1));
+    // normal alpha on its own compositor layer; the bitmap is painted once per look, so the layer costs ~nothing a frame
+    const layer = div(root, { position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "hidden", pointerEvents: "none",
+                              zIndex: String(o.z ?? 8), opacity: Math.min(1, (FX.TEX_OPACITY[which] || 0) * str).toFixed(3),
+                              backgroundSize: "100% 100%", backgroundRepeat: "no-repeat" });
+    layer.setAttribute("aria-hidden", "true");   // not content: no text, so the lint's text boxes cannot see it
+    layer.dataset.tex = which;
+    // grain can re-seed every `reseed` seconds of the render clock: three bitmaps painted up front and cycled by time
+    // (a random draw per frame flickers and is not reproducible in a parallel render; this is still a function of t)
+    const every = +(o.reseed || 0), steps = every > 0 ? 3 : 1, urls = [];
+    for (let i = 0; i < steps; i++) urls.push(FX.textureUrl(which, { ...opts, seed: Math.round(opts.seed ?? 7) + i }));
+    layer.style.backgroundImage = urls[0] ? `url("${urls[0]}")` : "";
+    if (steps > 1) {
+      let shown = 0;
+      FX.onFrame((t) => {
+        const k = Math.floor(t / every) % steps;
+        if (k !== shown) { shown = k; layer.style.backgroundImage = urls[k] ? `url("${urls[k]}")` : ""; }
+      });
+    }
+    return layer;
+  };
+
+  /* ---- PAPER BASE (F27): in a watercolour pack the designer is asked for translucent washes (0.5-0.7 alpha), but the
+     quality gate approves the drawing on white: on the stage the room showed through the person ("foggy ghost layer",
+     31 % of the review notes). Real paint sits ON the paper: an opaque silhouette in the pack's paper colour goes
+     behind the figure, per rig part (a rotating arm carries its own base), while the washes keep stacking over each
+     other. Faint shapes (halos, glass), shadows and gradients are left out: a paper under a shadow turns it into a
+     light patch. FX.paperBase(el, {color, parts, share}) · FX.paperShare(el) · FX.paperOf(palette) */
+  // faint: below this a shape is a halo/glass and never gets paper; shadow: below this luminance a translucent shape is a
+  // shadow (a paper under it would show as a light patch) -- near black only: a saturated ink blue is not a shadow
+  FX.PAPER = { faint: 0.3, translucent: 0.9, share: 0.1, shadow: 0.08, textures: ["watercolor"] };
+  FX.luminance = (css) => {   // relative luminance of '#rgb' / 'rgb()': which palette colour is the paper
+    let c = String(css || "").trim(), r = 0, g = 0, b = 0;
+    const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(c);
+    if (m) { const h = m[1].length === 3 ? m[1].split("").map((x) => x + x).join("") : m[1]; r = parseInt(h.slice(0, 2), 16); g = parseInt(h.slice(2, 4), 16); b = parseInt(h.slice(4, 6), 16); }
+    else { const q = /^rgba?\(([^)]+)\)$/i.exec(c); if (q) { const p = q[1].split(/[,\s/]+/).map(parseFloat); [r, g, b] = [p[0] || 0, p[1] || 0, p[2] || 0]; } else return 0; }
+    const ch = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b);
+  };
+  FX.paperOf = (palette) => {   // the pack's paper = its lightest colour
+    const list = (palette || []).filter((c) => typeof c === "string" && FX.luminance(c) > 0);
+    return list.sort((a, b) => FX.luminance(b) - FX.luminance(a))[0] || "#fdf6ec";
+  };
+  const PAPER_SKIP = /^(defs|clippath|mask|pattern|symbol|marker|lineargradient|radialgradient|filter|metadata|title|desc|style|text|image|use|foreignobject|switch)$/i;
+  const PAPER_SHAPE = /^(path|rect|circle|ellipse|polygon|polyline)$/i, PAPER_PLAIN = /^(#[0-9a-f]{3,8}|rgba?\([^)]*\)|[a-z]+)$/i;
+  const PAPER_GEOM = ["d", "x", "y", "width", "height", "rx", "ry", "cx", "cy", "r", "points", "transform", "fill-rule"];
+  const paintProp = (el, name) => {
+    const m = new RegExp("(?:^|;)\\s*" + name + "\\s*:\\s*([^;]+)").exec(el.getAttribute("style") || "");
+    return m ? m[1].trim() : el.getAttribute(name);
+  };
+  const shareOf = (v) => { const n = v == null ? 1 : parseFloat(v); return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 1; };
+  const paperPaint = (el, top) => ({ fill: paintProp(el, "fill") ?? top.fill, opacity: top.opacity * shareOf(paintProp(el, "opacity")),
+                                    fillOpacity: paintProp(el, "fill-opacity") == null ? top.fillOpacity : shareOf(paintProp(el, "fill-opacity")) });
+  // a wash is often written into the colour itself (fill="rgba(0,120,191,.55)"), not into fill-opacity: count it
+  const fillAlpha = (fill) => {
+    const m = /^rgba\(([^)]+)\)$/i.exec(String(fill || ""));
+    if (!m) return 1;
+    const p = m[1].split(/[,\s\/]+/).map(parseFloat);
+    return p.length > 3 && Number.isFinite(p[3]) ? Math.min(1, Math.max(0, p[3])) : 1;
+  };
+  const paperWalk = (node, paper, top, out) => {   // fills out {markup, filled, translucent}; groups keep their transform / clip / mask
+    for (const ch of node.children) {
+      const tag = ch.tagName.toLowerCase();
+      if (PAPER_SKIP.test(tag) || ch.hasAttribute("data-paper")) continue;
+      const paint = paperPaint(ch, top);
+      if (tag === "g" || tag === "svg") {
+        const before = out.markup.length;
+        paperWalk(ch, paper, paint, out);
+        if (out.markup.length > before) {
+          const keep = ["transform", "clip-path", "mask"].filter((k) => ch.getAttribute(k) != null).map((k) => ` ${k}="${ch.getAttribute(k)}"`).join("");
+          out.markup = out.markup.slice(0, before) + `<g${keep}>` + out.markup.slice(before) + `</g>`;
+        }
+        continue;
+      }
+      if (!PAPER_SHAPE.test(tag)) continue;
+      const fill = paint.fill;
+      if (!fill || fill === "none" || fill === "transparent" || paintProp(ch, "display") === "none" || paintProp(ch, "visibility") === "hidden") continue;
+      const shown = paint.opacity * paint.fillOpacity * fillAlpha(fill);
+      out.filled++;
+      if (shown >= FX.PAPER.translucent) { if (!PAPER_PLAIN.test(fill)) continue; }   // a gradient/pattern fill is not a silhouette
+      else {
+        out.translucent++;
+        if (shown < FX.PAPER.faint || !PAPER_PLAIN.test(fill) || fill.toLowerCase() === "black" || FX.luminance(fill) < FX.PAPER.shadow) continue;
+      }
+      out.markup += `<${tag}${PAPER_GEOM.filter((k) => ch.getAttribute(k) != null).map((k) => ` ${k}="${ch.getAttribute(k)}"`).join("")} fill="${paper}" stroke="none"/>`;
+    }
+    return out;
+  };
+  const paperCount = (el) => { const out = paperWalk(el, "#fff", paperPaint(el, { fill: "#000", opacity: 1, fillOpacity: 1 }), { markup: "", filled: 0, translucent: 0 }); return out.filled ? out.translucent / out.filled : 0; };
+  FX.paperShare = (el) => (el ? paperCount(el) : 0);
+  FX.paperBase = (el, o = {}) => {
+    if (!el) return el;
+    if (typeof el.tagName === "string" && el.tagName.toLowerCase() !== "svg" && !(el instanceof SVGElement)) {
+      if (typeof console !== "undefined") console.warn("[FX] paperBase needs an SVG drawing (a div object keeps an opaque colour instead)");
+      return el;
+    }
+    const paper = o.color || FX.cssVar("--paper", "") || "#fdf6ec";
+    if (paperCount(el) < (o.share ?? FX.PAPER.share)) return el;   // an opaque drawing needs no paper under it
+    const top = (node) => paperPaint(node, { fill: "#000", opacity: 1, fillOpacity: 1 });
+    const parts = (o.parts || []).map((p) => (typeof p === "string" ? el.querySelector(p) : p)).filter(Boolean);
+    if (parts.length) {
+      for (const part of parts) {
+        const out = paperWalk(part, paper, top(part), { markup: "", filled: 0, translucent: 0 });
+        if (out.markup) part.insertAdjacentHTML("afterbegin", `<g data-paper="">${out.markup}</g>`);
+      }
+      return el;
+    }
+    const out = paperWalk(el, paper, top(el), { markup: "", filled: 0, translucent: 0 });
+    if (out.markup) el.insertAdjacentHTML("afterbegin", `<g data-paper="">${out.markup}</g>`);
+    return el;
+  };
+
+  /* ---- BUILD-IN (F37): the set assembles on the shot's first frames: the room, then its furniture and objects, then
+     the people, then the labels; each entrance lasts 0.35 s and the whole build finishes inside the first 40 % of the
+     shot (gaps compress on a short shot). Written per scene before this, every shot opened with all its layers ready
+     and the film read as a slideshow. Objects pop in place (a machine or a vehicle that is 1.2 m or taller fades:
+     popping a whole aircraft reads as a cartoon), people fade, text rises. Gaps are 0.15 / 0.15 / 0.35 s.
+     FX.buildPlan(groups, {dur, pace}) is the pure timing (the tests read it); FX.build(tl, at, [{els, kind, mode}], {dur})
+     applies it. An element that already has its own entrance (a walk-on, a slide) is left alone: pass {skip: true}. */
+  FX.ENTER = { pause: 0.15, gap: [0.15, 0.15, 0.35], length: 0.35, within: 0.4, big: 1.2 };
+  FX.BUILD_MODE = { room: "fade", object: "pop", person: "fade", label: "rise" };
+  FX.buildPlan = (groups, o = {}) => {
+    const E = FX.ENTER, list = (groups || []).filter(Boolean).map((g) => (typeof g === "number" ? { n: g } : g));
+    const raw = [];
+    let t = o.pause ?? E.pause;
+    list.forEach((g, i) => { if (i) t += g.gap ?? E.gap[Math.min(i - 1, E.gap.length - 1)]; raw.push(t); });
+    const length = o.length ?? E.length, total = (raw.length ? raw[raw.length - 1] : 0) + length;
+    const shot = +(o.dur ?? o.shot ?? 0), k = shot > 0 ? Math.min(1, ((o.within ?? E.within) * shot) / Math.max(1e-6, total)) : 1;
+    const plan = list.map((g, i) => ({ i, kind: g.kind ?? ["room", "object", "person", "label"][Math.min(i, 3)],
+                                      mode: g.mode ?? FX.BUILD_MODE[g.kind ?? ["room", "object", "person", "label"][Math.min(i, 3)]] ?? "fade",
+                                      n: g.n ?? (g.els && typeof g.els !== "string" && g.els.length ? g.els.length : 1),
+                                      at: +(raw[i] * k).toFixed(4), dur: +(length * k).toFixed(4) }));
+    return { plan, scale: +k.toFixed(4), total: +(total * k).toFixed(4) };
+  };
+  FX.build = (tl, at, groups, o = {}) => {
+    const list = (groups || []).filter(Boolean), { plan, scale, total } = FX.buildPlan(list, o), A = +at || 0;
+    list.forEach((g, gi) => {
+      const p = plan[gi], mode = g.mode || p.mode;
+      const one = g.els instanceof Element ? [g.els] : (typeof g.els === "string" ? [...document.querySelectorAll(g.els)] : [...(g.els || [])]).filter(Boolean);
+      const d = FX.pace(Math.min(p.dur, o.max ?? 0.9), mode === "pop" ? "pop" : mode === "slide" ? "slide" : mode === "rise" ? "text" : "fade", { slow: !!(g.slow || o.slow) });
+      one.forEach((el, j) => {
+        if (!el || g.skip === true) return;
+        const when = A + p.at + (g.stagger ?? 0) * j;
+        if (mode === "rise" && (el.textContent || "").trim() && !el.querySelector("svg,canvas,img")) FX.rise(tl, el, when, { dur: d, stagger: g.wordStagger ?? 0.03 });
+        else if (mode === "pop") { gsap.set(el, { opacity: 0, scale: 0.86, transformOrigin: "50% 100%" }); tl.to(el, { opacity: 1, scale: 1, duration: d, ease: "back.out(2)" }, when); }
+        else if (mode === "slide") { gsap.set(el, { opacity: 0, x: (g.dir ?? 1) * (g.dist ?? 60) }); tl.to(el, { opacity: 1, x: 0, duration: d, ease: "power3.out" }, when); }
+        else { gsap.set(el, { opacity: 0, y: g.lift ?? 14 }); tl.to(el, { opacity: 1, y: 0, duration: d, ease: "power2.out" }, when); }
+      });
+    });
+    return { plan, scale, end: A + total };
+  };
+
+  /* ---- AMBIENCE (F43): weather and atmosphere that keep a drawn scene alive, deterministic per seed and frame (no
+     state, no per-frame random: a parallel render and a re-render give the same picture). Particle maths is pure
+     (FX.ambienceFrame -> a list of shapes, drawn on one canvas); fog / rays / flicker are CSS gradients with no blur
+     filter (a blur filter was 4-5x slower). Counts are deliberately below the reference's: it ran hundreds of WebGL
+     sprites, we draw a few hundred canvas primitives.
+     FX.ambience(tl, root, 'rain'|'snow'|'dust'|'embers'|'confetti'|'fog'|'rays'|'flicker', {density, dur, start, seed,
+     color, colors, indoors}) -> the layer element (null when an indoor shot asked for rain or snow: the room used to
+     snow on the people, 15 of 18 reviewed shots). */
+  FX.AMB = { rain: [{ n: 150, depth: 0.35 }, { n: 110, depth: 0.65 }, { n: 50, depth: 1 }],
+             snow: [{ n: 130, depth: 0.3 }, { n: 80, depth: 0.6 }, { n: 35, depth: 1 }],
+             splashes: 36, dust: 130, embers: 80, confetti: 110,
+             confettiSpeed: [300, 440], confettiFloor: [0.74, 0.97], confettiLaunch: 0.8, confettiLie: 0.3,
+             colors: ["#ff5a5f", "#ffd84d", "#3ec1d3", "#7bd389", "#a78bfa", "#ff9f43"] };
+  const ambHash = (s) => { let h = 2166136261; for (let i = 0; i < String(s).length; i++) { h ^= String(s).charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) || 1; };
+  const ambCache = new Map();
+  const ambSeeds = (key, n) => {   // per-particle constants, hashed once (never per frame)
+    const k = key + "|" + n;
+    let s = ambCache.get(k);
+    if (!s) {
+      if (ambCache.size > 40) ambCache.clear();
+      const r = FX.rand(ambHash(key));
+      s = Array.from({ length: n }, () => [r(), r(), r(), r(), r(), r()]);
+      ambCache.set(k, s);
+    }
+    return s;
+  };
+  const ambWrap = (v) => ((v % 1) + 1) % 1;
+  FX.ambienceFrame = (kind, seed, t, W, H, o = {}) => {
+    const shapes = [], dens = Math.max(0.05, +(o.density ?? 1)), S = (key, n) => ambSeeds(String(seed) + "-" + key, Math.max(1, Math.round(n * dens)));
+    if (kind === "rain") {
+      for (const [li, layer] of FX.AMB.rain.entries()) {
+        for (const [rx, ry, rs, rz] of S("rain" + li, layer.n)) {
+          const d = layer.depth, len = (18 + 40 * d) * (0.8 + 0.4 * rz), speed = (1400 + 1000 * d) * (0.85 + 0.3 * rs), travel = H + len;
+          const y = ambWrap(ry + (t * speed) / travel) * travel - len, x = ambWrap(rx + (0.18 * y) / W) * W;
+          shapes.push({ t: "streak", x, y, x2: x + len * 0.18, y2: y + len, w: 0.8 + 2.2 * d, c: o.color || "#d2e1ff", a: 0.18 + 0.35 * d });
+        }
+      }
+      for (const [i, [phase, rw]] of S("splash", FX.AMB.splashes).entries()) {   // floor splashes: a ring that grows and dies
+        const cycle = t / 0.45 + phase, age = ambWrap(cycle), c = Math.floor(cycle);
+        const x = ambHash(seed + "-sx-" + i + "-" + c) / 4294967296 * W, y = H * (0.8 + 0.18 * (ambHash(seed + "-sy-" + i + "-" + c) / 4294967296));
+        const r = (2 + 12 * age) * (0.7 + 0.6 * rw);
+        shapes.push({ t: "ring", x, y, rx: r, ry: r * 0.3, w: 1.2, c: o.splash || "#dce8ff", a: (1 - age) * 0.5 });
+      }
+      return { shapes, blend: "normal" };
+    }
+    if (kind === "snow") {
+      for (const [li, layer] of FX.AMB.snow.entries()) {
+        for (const [rx, ry, rs, rz, rp] of S("snow" + li, layer.n)) {
+          const d = layer.depth, r = (1.2 + 4.5 * d) * (0.7 + 0.6 * rz), speed = (30 + 90 * d) * (0.7 + 0.6 * rs), travel = H + 4 * r;
+          const y = ambWrap(ry + (t * speed) / travel) * travel - 2 * r, sway = Math.sin(t * (0.4 + 0.8 * rs) + rp * 6.283) * (10 + 30 * d);
+          shapes.push({ t: "dot", x: ambWrap(rx + (sway + t * 15 * d) / W) * W, y, r, c: o.color || "#ffffff", a: 0.35 + 0.55 * d, glow: d === 1 });
+        }
+      }
+      return { shapes, blend: "normal" };
+    }
+    if (kind === "dust") {
+      for (const [rx, ry, rs, rz, rp] of S("dust", FX.AMB.dust)) {
+        const ph = rp * 6.283, x = ambWrap(rx + t * 0.004 * (rs - 0.5) + Math.sin(t * (0.3 + rs * 0.5) + ph) * 0.02) * W,
+              y = ambWrap(ry - t * (0.004 + rs * 0.01) + Math.cos(t * (0.25 + rz * 0.4) + ph) * 0.01) * H;
+        shapes.push({ t: "dot", x, y, r: 1.2 + rz * 3.2, c: o.color || "#ffe2af", a: 0.25 + (0.5 + 0.5 * Math.sin(t * (1.5 + rs * 2) + ph)) * 0.55, glow: true });   // a mote lighting up as it turns
+      }
+      return { shapes, blend: "add" };
+    }
+    if (kind === "embers") {
+      for (const [rx, ry, rs, rz, rp] of S("embers", FX.AMB.embers)) {
+        const ph = rp * 6.283, y = (1 - ambWrap(ry + (t * (60 + 120 * rs)) / H)) * H;
+        const x = rx * W + Math.sin(t * 1.7 + ph) * 25 + Math.sin(t * 4.3 + ph * 2) * 8, heat = y / H;   // hot air: two frequencies of side drift
+        const c = o.color || (heat > 0.66 ? "#ffd27a" : heat > 0.33 ? "#ff9a3c" : "#ff5a1e");
+        shapes.push({ t: "dot", x, y, r: 1.5 + rz * 3, c, a: Math.min(1, heat / 0.6) * (0.6 + 0.4 * Math.sin(t * (6 + rs * 8) + ph)), glow: true });
+      }
+      return { shapes, blend: "add" };
+    }
+    if (kind === "confetti") {   // thrown once, falls, lies flat on the floor band and stays: no paper in the air at the review moment
+      const [slow, fast] = FX.AMB.confettiSpeed, [top, bottom] = FX.AMB.confettiFloor, land = S("confetti-land", FX.AMB.confetti);
+      const cols = o.colors || FX.AMB.colors;
+      for (const [i, [rx, ry, rs, rz, rp, rc]] of S("confetti", FX.AMB.confetti).entries()) {
+        const age = t - ry * FX.AMB.confettiLaunch;
+        if (age < 0) continue;
+        const ph = rp * 6.283, floor = H * (top + (bottom - top) * land[i][0]), speed = slow + (fast - slow) * rs, fall = (floor + 20) / speed;
+        const at = Math.min(age, fall), landed = age >= fall, y = Math.min(floor, -20 + at * speed), x = ambWrap(rx + Math.sin(at * (0.8 + rs) + ph) * 0.02) * W;
+        shapes.push({ t: "chip", x, y, w: 16 + 10 * rz, h: 9 + 5 * rs, ang: landed ? (rp - 0.5) * 0.8 : ph + at * (2 + 4 * rs), flip: landed ? FX.AMB.confettiLie : Math.cos(at * (5 + 6 * rz) + ph),
+                      c: cols[Math.floor(rc * cols.length) % cols.length], a: 0.95 });
+      }
+      return { shapes, blend: "normal" };
+    }
+    return { shapes, blend: "normal" };
+  };
+  const ambDraw = (ctx, W, H, shapes, blend) => {
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalCompositeOperation = blend === "add" ? "lighter" : "source-over";
+    for (const s of shapes) {
+      ctx.globalAlpha = Math.max(0, Math.min(1, s.a)); ctx.fillStyle = s.c; ctx.strokeStyle = s.c;
+      if (s.t === "streak") { ctx.lineWidth = s.w; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x2, s.y2); ctx.stroke(); }
+      else if (s.t === "dot") {
+        if (s.glow) { ctx.globalAlpha = s.a * 0.18; ctx.beginPath(); ctx.arc(s.x, s.y, s.r * 2.6, 0, 6.283); ctx.fill(); ctx.globalAlpha = Math.max(0, Math.min(1, s.a)); }
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.283); ctx.fill();
+      } else if (s.t === "ring") { ctx.lineWidth = s.w; ctx.beginPath(); ctx.ellipse(s.x, s.y, Math.max(0.5, s.rx), Math.max(0.5, s.ry), 0, 0, 6.283); ctx.stroke(); }
+      else if (s.t === "chip") {
+        const c = Math.cos(s.ang), n = Math.sin(s.ang), hw = s.w / 2, hh = (s.h / 2) * s.flip;
+        ctx.beginPath();
+        [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].forEach(([px, py], i) => { const X = s.x + px * c - py * n, Y = s.y + px * n + py * c; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+  };
+  const ambLayer = (root, kind, o) => {
+    const el = div(root, { position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: String(o.z ?? 6) });
+    el.setAttribute("aria-hidden", "true"); el.dataset.ambience = kind;
+    return el;
+  };
+  const ambCss = (kind, root, start, end, o) => {   // fog / rays / flicker: gradients on divs, no blur filter, one cheap update a frame
+    const [W, H] = dims(root), wrap = ambLayer(root, kind, o), r = FX.rand(ambHash(String(o.seed ?? 7)) + 3), r0 = r() * 6.283;
+    if (kind === "fog") {
+      // far banks sit BEHIND the people (z 2: above a plain ground, under anything the scene gives a z-index) and a thin
+      // near ground mist in front of everything (z 9): one full-frame fog layer washed the faces out in 52 % of the
+      // reviewed shots of the reference
+      wrap.style.zIndex = String(o.z ?? 2);
+      const near = ambLayer(root, kind, { ...o, z: o.z != null ? o.z + 7 : 9 });
+      near.style.background = "linear-gradient(to top, rgba(220,226,235,.32), rgba(220,226,235,0) 22%)";
+      wrap.style.background = "linear-gradient(to top, rgba(220,226,235,.16), rgba(220,226,235,0) 58%)";
+      // banks with air between them (three wide ellipses read as one grey sheet and washed the faces out)
+      const bank = (top, op) => div(wrap, { position: "absolute", left: "-50%", top, width: "200%", height: "70%", opacity: String(op),
+        background: "radial-gradient(ellipse 13% 38% at 16% 55%, rgba(235,240,245,.8), rgba(235,240,245,.3) 45%, transparent 76%)," +
+                    "radial-gradient(ellipse 10% 30% at 38% 44%, rgba(235,240,245,.65), transparent 74%)," +
+                    "radial-gradient(ellipse 15% 44% at 63% 62%, rgba(235,240,245,.75), rgba(235,240,245,.25) 45%, transparent 78%)," +
+                    "radial-gradient(ellipse 9% 26% at 86% 48%, rgba(235,240,245,.6), transparent 72%)" });
+      const banks = [[bank("26%", 0.42), 9, 0.07, r() * 100], [bank("46%", 0.34), 7, -0.05, r() * 100],
+                     [div(wrap, { position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(220,226,235,.24), rgba(220,226,235,0) 34%)" }), 0, 0, 0]];
+      FX.onFrame((t) => {
+        if (t < start - 0.05 || t > end + 0.05) return;
+        for (const [el, amp, speed, ph] of banks) if (speed) el.style.transform = `translateX(${(Math.sin((t + ph) * speed) * amp).toFixed(2)}%)`;
+      });
+    } else if (kind === "rays") {
+      // light from a corner outside the frame: one conic gradient (its stops soften every beam edge, a blur filter was
+      // 4-5x slower), turned a degree and dimmed per frame; a radial mask kills the far end so no hard line shows
+      const fromLeft = r() < 0.5, origin = fromLeft ? "0% 0%" : "100% 0%", base = fromLeft ? 90 : 170;
+      wrap.style.maskImage = `radial-gradient(circle at ${origin}, #000 8%, rgba(0,0,0,.35) 55%, transparent 92%)`;
+      wrap.style.webkitMaskImage = wrap.style.maskImage;
+      const stops = [...Array(5)].map((_, i) => {
+        const c = base + 6 + i * 11 + r() * 4, half = 1.2 + r() * 2.2, a = 0.16 + r() * 0.14;
+        return `transparent ${(c - half * 2.2).toFixed(1)}deg, rgba(255,238,195,${a.toFixed(3)}) ${c.toFixed(1)}deg, transparent ${(c + half * 2.2).toFixed(1)}deg`;
+      }).join(", ");
+      const beam = div(wrap, { position: "absolute", left: fromLeft ? "-40%" : "0%", top: "-40%", width: "140%", height: "180%", transformOrigin: origin,
+                               background: `conic-gradient(from ${fromLeft ? 0 : 180}deg at ${origin}, transparent 0deg, ${stops}, transparent 360deg)`, opacity: 0.5 });
+      FX.onFrame((t) => { if (t < start - 0.05 || t > end + 0.05) return;
+        const n = Math.sin(t * 0.55 + r0) * 0.5 + Math.sin(t * 0.23 + r0 * 2) * 0.5;
+        beam.style.transform = `rotate(${(n * 1.2).toFixed(3)}deg)`;
+        beam.style.opacity = (0.42 + n * 0.18).toFixed(3); });
+    } else {   // flicker: a warm lamp and the shadow breathing at its edge
+      const warm = div(wrap, { position: "absolute", inset: 0, background: "radial-gradient(ellipse 60% 55% at 50% 40%, rgba(255,175,90,.55), rgba(255,175,90,0) 70%)", opacity: 0.6 });
+      const dark = div(wrap, { position: "absolute", inset: 0, background: "radial-gradient(ellipse 75% 70% at 50% 45%, rgba(0,0,0,0) 45%, rgba(15,5,0,.6) 100%)", opacity: 0.55 });
+      const p = r() * 10;   // three sines that never line up: no visible period
+      FX.onFrame((t) => { if (t < start - 0.05 || t > end + 0.05) return;
+        const n = Math.sin((t + p) * 7.3) * 0.5 + Math.sin((t + p) * 13.1) * 0.3 + Math.sin((t + p) * 2.1) * 0.2;
+        warm.style.opacity = (0.6 + n * 0.4).toFixed(3); dark.style.opacity = (0.55 - n * 0.3).toFixed(3); });
+    }
+    return wrap;
+  };
+  FX.ambience = (tl, root, kind, o = {}) => {
+    const k = String(kind || ""), start = +(o.start ?? o.at ?? (o.T && o.T.start) ?? 0), dur = +(o.dur ?? (o.T && o.T.dur) ?? 30), end = start + dur;
+    if (!root) return null;
+    if (o.indoors && (k === "rain" || k === "snow")) return null;   // a room does not rain inside it: the drawn window already does
+    if (k === "fog" || k === "rays" || k === "flicker") return ambCss(k, root, start, end, o);
+    if (!FX.AMB[k]) return null;
+    const [W, H] = dims(root), c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const el = ambLayer(root, k, o);
+    Object.assign(c.style, { position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" });
+    el.appendChild(c);
+    const ctx = c.getContext("2d"), seed = String(o.seed ?? 7);
+    FX.onFrame((t) => {
+      if (t < start - 0.05 || t > end + 0.05) return;
+      const f = FX.ambienceFrame(k, seed, t - start, W, H, o);
+      ambDraw(ctx, W, H, f.shapes, f.blend);
+    });
+    if (tl && o.fade) { tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: Math.min(0.6, +o.fade || 0.4), ease: "sine.out" }, start); }
     return el;
   };
 

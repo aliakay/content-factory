@@ -73,6 +73,10 @@ VERBS = {
            "spread", "spreads", "lift", "lifts", "drop", "drops", "jump", "jumps", "connect", "connects",
            "collapse", "collapses", "match", "matches", "separate", "separates", "loop", "loops", "reveal",
            "reveals", "sweep", "sweeps", "trace", "traces", "pop", "pops", "crawl", "crawls", "climb", "climbs",
+           "slam", "slams", "land", "lands", "knock", "knocks", "stamp", "stamps", "peel", "peels", "roll", "rolls",
+           "swing", "swings", "orbit", "orbits", "tilt", "tilts", "squeeze", "squeezes", "press", "presses", "glow",
+           "glows", "flip", "flips", "fold", "folds", "unfold", "crumble", "crumbles", "snap", "snaps", "wedge", "wedges", "extrude", "extrudes", "assemble", "assembles", "explode",
+           "explodes", "swarm", "swarms", "fly", "flies", "travel", "travels",
            "puls", "spin", "spins", "rotate", "rotates", "drift", "drifts", "float", "floats", "bounce",
            "bounces", "zoom", "zooms", "pan", "pans", "label", "labels", "mark", "marks", "highlight", "highlights",
            "dim", "dims", "fade", "fades", "flash", "flashes", "glow", "glows", "expand", "expands", "contract",
@@ -98,7 +102,17 @@ def has_number(text, lang="tr"):
     tr_suffixes = ("de", "da", "den", "dan", "te", "ta", "ye", "ya", "yi", "yı", "yu", "yü",
                    "nin", "nın", "nun", "nün", "ler", "lar", "şer", "şar", "inci", "ıncı", "uncu", "üncü")
     tr_numbers = {fold(x) for x in NUMBERS["tr"]} | {"birinci", "ikinci", "üçüncü", "dördüncü", "beşinci"}
-    for tok in toks:
+    # two Turkish number words are also ordinary words: "bir" is the article ("a layer") and "yüz" is a face. "bir"
+    # alone never makes a figure; "yüz" does not when the text is talking about a face ("geniş yüzün ... o yüz
+    # kadar"), unless it stands next to another number ("dokuz yüz").
+    plain = (en_numbers | tr_numbers) - {"bir", "yuz", "yüz"}
+    face = any(t.startswith(("yuzu", "yuze", "yüzü", "yüze")) for t in toks)
+    for i, tok in enumerate(toks):
+        if tok in ("bir", "yuz", "yüz"):
+            near = toks[max(0, i - 1):i] + toks[i + 1:i + 2]
+            if tok != "bir" and (not face or any(n in plain or _DIGIT.search(n) for n in near)):
+                return True
+            continue
         if tok in en_numbers or tok in tr_numbers:
             return True
         for stem in tr_numbers:
@@ -114,6 +128,8 @@ def _verb_forms(tok):
     if tok.endswith("ing") and len(tok) > 5:
         base = tok[:-3]
         forms += [base, base + "e"]
+        if len(base) > 3 and base[-1] == base[-2]:        # slamming -> slam, tipping -> tip
+            forms.append(base[:-1])
     return forms
 
 

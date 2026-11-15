@@ -18,6 +18,10 @@ SECONDS_AT = 2.4      # where the preview frame is taken: every scene has settle
 HELPER = ("const E = (css, html) => { const d = document.createElement('div'); d.style.cssText = 'position:absolute;' + css;"
           " if (html) d.innerHTML = html; root.appendChild(d); return d; };\n")
 PICK = re.compile(r"^\s*(?:stil|style)\s*[:=]\s*([\w-]+)\s*$", re.I)
+# A style whose bible already asks for a texture (data/film_styles.json: the `texture` field) opens each scene with the
+# matching FX.texture layer: the pack's prose ("paper texture", "halftone dots", "film grain", "scanline overlay") becomes
+# a drawn layer instead of a hope. fxlib.js keeps the same map (FX.STYLE_TEXTURE) for scene code; a test keeps them equal.
+TEXTURE_TEMPLATE = "FX.texture(root, {kind!r}, {{strength: 0.9}});\n"   # the scene opens with its medium on the page
 
 
 def _all():
@@ -43,6 +47,21 @@ def preview_file(sid):
 def preview_url(sid):
     f = preview_file(sid)
     return f"/media/filmstyles/{sid}.jpg?v={int(os.path.getmtime(f))}" if os.path.exists(f) else None
+
+
+def texture(sid):
+    """The texture kind a style's bible names ('' when the pack draws none)."""
+    s = get(sid)
+    return (s or {}).get("texture") or ""
+
+
+def with_texture(b, sid):
+    """A style's scene bundle with that style's texture layer put in front of its JS (only when the style names one)."""
+    kind = texture(sid)
+    scenes = b.get("scenes") or []
+    if kind and scenes and TEXTURE_TEMPLATE.format(kind=kind) not in (scenes[0].get("js") or ""):
+        scenes[0]["js"] = TEXTURE_TEMPLATE.format(kind=kind) + (scenes[0].get("js") or "")
+    return b
 
 
 def card(s, ui="tr"):
@@ -87,6 +106,7 @@ def draw(sc, post, out, name, logo=None):
     os.makedirs(WORK, exist_ok=True)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     b, dur = _bundle(sc)
+    with_texture(b, name)   # the pack's own medium (paper / halftone / grain...), when its bible names one
     bpath, clip = os.path.join(WORK, name + ".json"), os.path.join(WORK, name + ".mp4")
     json.dump(b, open(bpath, "w", encoding="utf-8"), ensure_ascii=False)
     sys.path.insert(0, os.path.join(ROOT, "bin"))

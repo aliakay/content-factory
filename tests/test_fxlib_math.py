@@ -88,3 +88,64 @@ def test_word_weighted_draft_timing_puts_the_long_word_last_longer():
     span = {w: e - s for w, s, e in words}
     assert span["Elektrik"] >= 1.8 * span["iki"]          # letters decide the interval, not the word count
     assert dur == pytest.approx(line_times[0]["end"])
+
+
+# ---------------------------------------------------------------- texture, build-in and ambience maths (F26/F37/F43)
+def test_the_entrance_pace_caps_a_ghost_layer_and_keeps_an_authored_one():
+    out = _fx('''const long = FX.pace(2.5, "pop"), text = FX.pace(3, "text"), kept = FX.pace(2.5, "pop", {slow: true}),
+      short = FX.pace(0.3, "pop"), clamps = FX._clamps;
+console.log(JSON.stringify({long, text, kept, short, clamps, n: Object.keys(clamps).length}))''')
+    assert out["long"] == 0.5 and out["text"] == 0.9 and out["short"] == 0.3      # pop 0.5 s, text 0.9 s
+    assert out["kept"] == 2.5                                                    # {slow: true} is the escape hatch
+    assert out["n"] == 2 and out["clamps"]["pop:2.50"]["got"] == 0.5             # the clamp is reported, once
+
+
+def test_the_build_in_orders_its_groups_and_fits_the_forty_percent():
+    out = _fx('''const g = [{n: 4}, {n: 2}, {n: 1}, {n: 1}];
+console.log(JSON.stringify({six: FX.buildPlan(g, {dur: 6}), two: FX.buildPlan(g, {dur: 2}), open: FX.buildPlan(g)}))''')
+    six, two = out["six"], out["two"]
+    assert [p["kind"] for p in six["plan"]] == ["room", "object", "person", "label"]
+    assert [p["at"] for p in six["plan"]] == [0.15, 0.30, 0.45, 0.80]           # 0.15 / 0.15 / 0.35 s apart
+    assert all(p["dur"] == 0.35 for p in six["plan"]) and six["total"] == pytest.approx(1.15)
+    assert six["scale"] == 1                                                    # a 6 s shot has room for the whole build
+    assert two["scale"] < 1 and two["total"] == pytest.approx(0.8)               # a 2 s shot: 40 % = 0.8 s, compressed
+    assert two["plan"][-1]["at"] + two["plan"][-1]["dur"] <= 0.8 + 1e-9
+    assert all(p["at"] + p["dur"] <= 0.8 + 1e-9 for p in two["plan"])
+    assert out["open"]["scale"] == 1 and out["open"]["total"] == pytest.approx(1.15)
+
+
+def test_value_noise_is_seeded_and_stable():
+    out = _fx('''const a = FX.texNoise(3.25, 7.5, 5), b = FX.texNoise(3.25, 7.5, 5), c = FX.texNoise(3.25, 7.5, 6);
+const f = FX.texFbm(12.5, 4.25, 9, 3), g = FX.texFbm(12.5, 4.25, 9, 3);
+console.log(JSON.stringify({a, same: a === b, differs: a !== c, f, fsame: f === g, inRange: a >= 0 && a <= 1 && f >= 0 && f <= 1,
+  rgb: [FX.rgbOf("#ff5a5f"), FX.rgbOf("rgba(0,120,191,.55)")], op: FX.TEX_OPACITY}))''')
+    assert out["same"] is True and out["differs"] is True and out["fsame"] is True
+    assert out["inRange"] is True and 0 < out["a"] < 1 and 0 < out["f"] < 1
+    assert out["rgb"] == [[255, 90, 95], [0, 120, 191]]
+    assert out["op"]["paper"] > out["op"]["scanlines"] and set(out["op"]) == {"paper", "watercolor", "chalk", "halftone",
+                                                                             "hatching", "grain", "scanlines"}
+
+
+def test_the_ambience_frame_is_a_pure_function_of_t_and_stays_cheap():
+    out = _fx('''const a = FX.ambienceFrame("rain", "s", 1.0, 1080, 1920), b = FX.ambienceFrame("rain", "s", 1.0, 1080, 1920),
+      c = FX.ambienceFrame("rain", "s", 2.5, 1080, 1920), d = FX.ambienceFrame("rain", "s", 1.0, 1080, 1920, {density: 0.3});
+const counts = Object.fromEntries(["snow","dust","embers","confetti"].map((k) => [k, FX.ambienceFrame(k, "s", 2, 1080, 1920).shapes.length]));
+console.log(JSON.stringify({same: JSON.stringify(a) === JSON.stringify(b), moved: JSON.stringify(a) !== JSON.stringify(c),
+  n: a.shapes.length, thin: d.shapes.length, counts, blend: [a.blend, FX.ambienceFrame("dust", "s", 1, 1080, 1920).blend],
+  kinds: a.shapes.map((s) => s.t).slice(0, 3)}))''')
+    assert out["same"] is True and out["moved"] is True
+    assert out["n"] < 500 and out["thin"] < out["n"]                  # a few hundred shapes a frame, density scales them
+    assert out["blend"] == ["normal", "add"] and set(out["kinds"]) <= {"streak", "ring", "dot", "chip"}
+    assert all(5 < v < 400 for v in out["counts"].values())
+
+
+def test_confetti_is_thrown_once_and_lands_on_the_floor():
+    out = _fx('''const f = (t) => FX.ambienceFrame("confetti", "c", t, 1080, 1920).shapes;
+const early = f(0.05), mid = f(2.0), late = f(8.0);
+const landed = (sh) => sh.filter((s) => s.flip === FX.AMB.confettiLie).length;
+console.log(JSON.stringify({early: early.length, mid: mid.length, late: late.length, lateLanded: landed(late),
+  lateY: late.map((s) => s.y), ceil: Math.max(...late.map((s) => s.y)), colours: new Set(late.map((s) => s.c)).size}))''')
+    assert out["early"] < out["mid"] and out["late"] == out["mid"]          # nothing new is thrown after launch
+    assert out["lateLanded"] == out["late"]                                 # every paper has settled
+    assert out["ceil"] <= 1920 * 0.97 + 1                                   # none hangs in the air
+    assert out["colours"] >= 4                                              # a mix, not one ink

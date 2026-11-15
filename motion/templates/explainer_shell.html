@@ -50,9 +50,24 @@ window.ready = (async () => {
   if (hash.get("alpha")) {   // export: a transparent stage, only the scenes' own drawing (render.mjs without --opaque)
     const a = document.createElement("style"); a.textContent = "html,body,#stage{background:transparent!important}"; document.head.appendChild(a);
   }
+  if (B.lineart === true || (B.lineart !== false && /FX\.ink\b/.test((B.scenes || []).map((s) => s.js || "").join("\n")))) {   // the hand-inked line-art kit (lineart.js, FX.ink): only for a film that draws with it
+    await new Promise((ok) => { const sc = document.createElement("script"); sc.src = "/motion/templates/lineart.js"; sc.onload = ok; sc.onerror = () => { console.error("lineart.js not found"); ok(); }; document.head.appendChild(sc); });
+  }
   document.documentElement.lang = B.lang || "en";   // locale-aware text-transform (Turkish "biri" -> "BİRİ", not "BIRI")
-  if (B.three !== false) {   // Three.js for scenes that build 3D with FX.three / FX.globe (deterministic, driven by render)
-    try { window.THREE = await import("/motion/node_modules/three/build/three.module.min.js"); } catch (e) { console.error("three: " + e.message); }
+  // Three.js + the 3D kit (fx3d.js) only for a film that has a 3D scene (FX.stage3 / FX.three / FX.globe ...): other pages never load them
+  if (B.three === true || (B.three !== false && /FX\.(stage3|three|globe|orbit3d|set3d|space)\b|\bTHREE\./.test((B.scenes || []).map((s) => s.js || "").join("\n")))) {
+    try {
+      await new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "/motion/templates/fx3d.js"; sc.onload = ok; sc.onerror = () => no(new Error("fx3d.js not found")); document.head.appendChild(sc); });
+      await FX.load3d();
+    } catch (e) { console.error("three: " + e.message); }
+  }
+  // maps + flags from real data (fxgeo.js, FX.geo): d3-geo / topojson-client are vendored under assets/geo; only for a film whose scenes use FX.geo
+  if (B.geo === true || (B.geo !== false && /FX\.geo\b/.test((B.scenes || []).map((s) => s.js || "").join("\n")))) {
+    try {
+      for (const f of ["assets/geo/vendor/d3-array.min.js", "assets/geo/vendor/d3-geo.min.js", "assets/geo/vendor/topojson-client.min.js", "motion/templates/fxgeo.js"])
+        await new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "/" + f; sc.onload = ok; sc.onerror = () => no(new Error(f + " not found")); document.head.appendChild(sc); });
+      await FX.geo.load();
+    } catch (e) { console.error("geo: " + e.message); }
   }
   if (B.math || /FX\.(math|eqSteps|tex)\b|k\.label\([^)]*tex/.test((B.scenes || []).map((s) => s.js || "").join("\n"))) {
     await new Promise((ok) => {   // KaTeX for equations (FX.math / FX.eqSteps), only when a scene writes one
@@ -94,7 +109,7 @@ window.ready = (async () => {
     tl.set(sec, { display: "none" }, sc.end);
     FX._scene = sc.id;
     try { new Function("tl", "root", "T", "gsap", "$", "FX", sc.js || "")(tl, sec, T, gsap, (q) => sec.querySelectorAll(q), FX); }
-    catch (e) { console.error("scene " + sc.id + " js: " + e.message); }
+    catch (e) { console.error("scene " + sc.id + " js: " + e.message + " | " + String(e.stack).split("\n").slice(1, 4).map((x) => x.trim().replace(/\(?https?:\/\/[^/]+\/(?:[^\s)]*\/)?/, "(")).join(" < ")); }
   }
   tl.set(document.getElementById("s_" + B.scenes[0].id), { display: "block" }, 0);
   if ((B.chrome || {}).progress) {   // segments: the intro (if any) and each chapter, in proportion to their length
@@ -144,7 +159,7 @@ window.lintBoxes = () => {
       const cs = getComputedStyle(el);
       const own = el.closest("[data-e]");     // the scene editor's address of this text (factory/sceneedit.py)
       out.push({ scene: sec.id.slice(2), e: own ? own.getAttribute("data-e") : null, text: txt.slice(0, 48), x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), flip,
-                 color: cs.color, size: parseFloat(cs.fontSize), clipText: cs.webkitBackgroundClip === "text" || cs.color === "rgba(0, 0, 0, 0)" });
+                 color: el.dataset.ink || cs.color, size: parseFloat(cs.fontSize), clipText: !el.dataset.ink && (cs.webkitBackgroundClip === "text" || cs.color === "rgba(0, 0, 0, 0)") });   // data-ink: the twin of text drawn in WebGL (fx3d.js)
     }
   }
   const cap = document.querySelector("#stage > #cap"); const cb = cap.getBoundingClientRect();

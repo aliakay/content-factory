@@ -1,0 +1,89 @@
+# Maps, flags and borders from real data (FX.geo, motion/templates/fxgeo.js; offline: Natural Earth + flag-icons vendored under assets/geo).
+# The kit note (motion/recipes/geo_note.md) rides along with these cards to the scene designer. Demos work on 9:16 and 16:9.
+- id: geo.map_highlight
+  name: {tr: "Haritada ülke vurgusu", en: "Highlight countries on a map"}
+  use: {tr: "Bir yerin nerede olduğunu göstermek: ülke, komşuları, bölge. Sınırlar kalemle çizilir, söylenen ülke renklenir ve adı yazılır.", en: "Showing where something is: a country, its neighbours, a region. The borders draw on, the named country lights up with its name."}
+  call: "g = FX.geo.map(tl, root, T, {region: 'Türkiye' | 'europe' | ['Almanya', 'Fransa'] | bbox: [w, s, e, n] | center: 'Paris', zoom: 6, projection: 'mercator'|'naturalEarth'|'globe', pad: 0.18, draw: 'stroke'|'fade', at}); g.highlight(at, ['Yunanistan', 'BG'], {color, label}); g.label(at, 'Gürcistan')"
+  timing: {tr: "Sınırlar 1.3 s'de çizilir (merkezden dışa). Vurgu 0.6 s'de dolar, ülkeler arası 0.12 s; ülke adı söylendiği anda vurgula (T.at('kelime')).", en: "Borders draw on in 1.3 s (from the centre out). A highlight fills in 0.6 s, countries 0.12 s apart; highlight on the word that names the country (T.at('word'))."}
+  pitfalls:
+    tr: ["Ülke adı Türkçe ya da İngilizce, ISO kodu (TR, TUR) da olur; bilinmeyen ad hata verir, tahmin yürütme.", "Küçük ülke (Lüksemburg, Kıbrıs) bölge olarak verilirse harita çok yakınlaşır: pad 0.6+ ver ya da komşularla birlikte ver.", "Aynı sahnede yazıyı DOM'a tekrar yazma: ülke adları haritanın kendi etiketidir (lint görür).", "Koordinat verirken [enlem, boylam] (önce enlem). fx3d küresi [boylam, enlem]'dir."]
+    en: ["A country is a Turkish or English name or an ISO code (TR, TUR); an unknown name throws, never guess.", "A tiny country (Luxembourg, Cyprus) as the region zooms very close: pad 0.6+ or pass it with its neighbours.", "Do not write the names again in the DOM: country names are the map's own labels (the lint sees them).", "Coordinates are [lat, lon] (latitude first). The fx3d globe takes [lon, lat]."]
+  seconds: 5
+  demo: |
+    const g = FX.geo.map(tl, root, T, {region: ['Mısır', 'Sudan', 'Libya'], pad: 0.3, labels: false});
+    g.highlight(1.3, ['Mısır'], {label: 'Mısır'});
+    g.highlight(2.6, ['Sudan', 'Libya'], {color: 'var(--accent2)', label: false});
+    g.label(2.9, 'Libya'); g.label(3.1, 'Sudan');
+- id: geo.route
+  name: {tr: "Rota: uçak büyük daire boyunca", en: "Route: a plane along the great circle"}
+  use: {tr: "Bir şeyin bir yerden bir yere gidişi: uçuş, ticaret yolu, göç, bir kişinin yolculuğu. Çizgi çizilir, uçak ilerler, durak adı varınca belirir.", en: "Something travelling from A to B: a flight, a trade route, a migration, a person's journey. The line draws, a plane rides it, each stop names itself on arrival."}
+  call: "g = FX.geo.map(tl, root, T, {region: ['İstanbul', 'New York']}); g.route(at, ['İstanbul', 'Londra', [40.7, -74], {lat, lon, label}], {dur, arc: true|false|'lift', marker: 'plane'|'dot', color, labels: [..]|false, ghost})"
+  timing: {tr: "Süre 1.2 s × etap + 0.8 s (varsayılan); uçak sabit hızla gider, durak noktası vardığı anda zıplar ve adı 0.2 s sonra gelir. Kamerayı rotaya göre ver: region = duraklar.", en: "Duration is 1.2 s per leg + 0.8 s (default); the plane moves at constant speed, a stop pops as it arrives and its name follows 0.2 s later. Frame the map on the route: region = the stops."}
+  pitfalls:
+    tr: ["Duraklar şehir adı (74 şehir tabloda: İstanbul, Londra, New York...), ülke adı ya da [enlem, boylam]; tabloda olmayan şehri koordinatla ver.", "arc:true gerçek büyük daire (düz haritada eğri görünür, Atlantik'te belirgin); arc:'lift' yalnız süs için yukarı kavisli, arc:false düz çizgi.", "En çok 4-5 durak; etiketler üst üste biner, sıkışırsa labels:false ver ve sesle söyle.", "Kamera rota boyunca sabittir: region'ı önce tüm duraklara göre ver."]
+    en: ["Stops are a city name (74 in the table: İstanbul, Londra, New York ...), a country or [lat, lon]; give a city that is not in the table as coordinates.", "arc:true is the true great circle (a curve on a flat map, obvious across the Atlantic); arc:'lift' bows upward for looks only, arc:false is a straight line.", "4-5 stops at most; labels collide, pass labels:false when it is crowded and say them in the voice.", "The camera is fixed for the route: frame region to all the stops first."]
+  seconds: 5.5
+  demo: |
+    const g = FX.geo.map(tl, root, T, {region: ['İstanbul', 'New York'], pad: 0.45, labels: false});
+    g.route(0.9, ['İstanbul', 'Londra', 'New York'], {dur: 3.4});
+- id: geo.fly
+  name: {tr: "Kamera ülkeden ülkeye uçar", en: "Camera flies from country to country"}
+  use: {tr: "Anlatı bir yerden başka bir yere geçerken: bölgeye yakınlaş, sonra dünyanın öbür ucuna uç. Küre görünümünde dönerek, düz haritada kayarak.", en: "When the story moves somewhere else: zoom to a region, then fly to the other side of the world. A globe turns, a flat map glides."}
+  call: "g = FX.geo.map(tl, root, T, {projection: 'globe', center: 'Türkiye', zoom: 1, highlight: ['Türkiye']}); g.fly(at, {from, to: 'Japonya'|[..]|bbox, dur: 2, pad}); g.highlight(at2, ['Japonya'])"
+  timing: {tr: "Uçuş 1.8-2.4 s (cubic in-out); uzun mesafede kamera ortada kendiliğinden biraz uzaklaşır. Varıştan 0.3 s sonra vurgula. Uçuşlar zincirlenir: her biri bir öncekinin bittiği yerden çıkar.", en: "A flight takes 1.8-2.4 s (cubic in-out); on a long hop the camera pulls out by itself mid-way. Highlight 0.3 s after landing. Flights chain: each leaves from where the last ended."}
+  pitfalls:
+    tr: ["Uçuş sırasında haritada çok şey olmasın: her karede yeniden çizilir (küre 0.3 s/kare'ye çıkabilir); büyük sahnede tek uçuş yeter.", "Küre görünümünde arka yüzdeki etiket/pin kendiliğinden gizlenir; yön bilmek için varış ülkesini sonda vurgula.", "from yalnız ilk uçuştan önce başlangıç kadrajını değiştirir; sonrakilerde yok sayılır."]
+    en: ["Keep the map quiet during a flight: it is redrawn every frame (a globe can cost 0.3 s a frame); one flight per scene is plenty.", "On the globe, labels and pins on the far side hide by themselves; highlight the destination at the end so the viewer knows where they landed.", "from only changes the opening frame ahead of the first flight; it is ignored later."]
+  seconds: 6
+  demo: |
+    const g = FX.geo.map(tl, root, T, {projection: 'globe', center: 'Türkiye', zoom: 1, highlight: ['Türkiye'], draw: 'fade'});
+    g.fly(2.0, {to: 'Japonya', dur: 2.2, pad: 1.2});
+    g.highlight(4.5, ['Japonya']);
+- id: geo.pin
+  name: {tr: "Şehir iğneleri", en: "City pins"}
+  use: {tr: "Birkaç yeri adlarıyla işaretlemek: şehirler, olay yerleri, 'burada oldu'. İğne zıplayarak düşer, halka yayılır, adı yanında belirir.", en: "Marking a few places by name: cities, locations, 'it happened here'. The pin drops with a bounce, a ring pings out, the name appears beside it."}
+  call: "g.pin(at, 'İzmir' | 'TR' | [38.4, 27.1] | {lat, lon, label}, {label, color, side: 'above'|'below', r, pill: false})"
+  timing: {tr: "İğne 0.5 s'de oturur (yaylı), ad 0.18 s sonra gelir; ping 1.1 s'de döner. Pinleri anlatıdaki sırayla 0.6-1 s arayla ver.", en: "The pin settles in 0.5 s (spring), the name follows 0.18 s later; the ping repeats every 1.1 s. Drop pins in story order 0.6-1 s apart."}
+  pitfalls:
+    tr: ["Bir sahnede en çok 4 iğne; yakın iki şehir (İstanbul-Bursa) etiketleri çakıştırır: side:'below' ile birini aşağı al.", "Şehir adı tabloda yoksa hata verir: [enlem, boylam] ve label ile ver.", "İğne ve etiket güvenli alanın içine sıkıştırılır; kenardaki yeri tam kenara koyma."]
+    en: ["4 pins at most in a scene; two close cities (Istanbul-Bursa) collide: put one label side:'below'.", "A city that is not in the table throws: pass [lat, lon] and a label.", "Pins and labels are clamped into the safe area; do not pin a place at the very edge."]
+  seconds: 4.5
+  demo: |
+    const g = FX.geo.map(tl, root, T, {region: 'Türkiye', pad: 0.3, highlight: ['Türkiye'], labels: false, highlightAt: 0.6});
+    g.pin(1.4, 'İstanbul'); g.pin(2.1, 'Ankara', {side: 'below'}); g.pin(2.8, 'İzmir', {side: 'below'});
+- id: geo.flag_row
+  name: {tr: "Bayrak sırası", en: "A row of flags"}
+  use: {tr: "Ülkeleri yan yana tanıtmak ya da karşılaştırmak: 'bu üç ülke', 'ilk beş', iki tarafın bayrakları. Her bayrak sırayla zıplayarak gelir, adı altında.", en: "Introducing or comparing countries side by side: 'these three countries', 'the top five', the two sides' flags. Each flag pops in turn with its name below."}
+  call: "FX.geo.flagRow(tl, root, at, ['TR', 'Almanya', 'Japan'], {y, w, cols, names: true|false, stagger: 0.14}); one flag: FX.geo.flag(tl, root, at, 'TR', {x, y, w, wave: true, label: true, pole: false})"
+  timing: {tr: "Bayrak başına 0.55 s (back.out), aralık 0.14 s; ad söylenince gelsin (T.at). wave:true hafif dalgalanır (deterministik, 2.6 rad/s).", en: "0.55 s per flag (back.out), 0.14 s apart; land on the spoken name (T.at). wave:true adds a gentle ripple (deterministic, 2.6 rad/s)."}
+  pitfalls:
+    tr: ["Dikeyde 1-3 bayrak tek sütun, 4+ iki sütun; 6'dan fazlası küçülür, okunmaz.", "Bayraklar flag-icons setinden (270 ülke); olmayan kod yerine ülke kodu yazılı gri kart çıkar, yanlış bayrak asla.", "Dalga yalnız tek büyük bayrakta güzel; sırada hepsine koyma.", "Oran 4:3 sabit; w piksel genişliktir (dikey 440, yatay 360 varsayılan)."]
+    en: ["Portrait: 1-3 flags in one column, 4+ in two; more than 6 shrink past reading.", "Flags come from the flag-icons set (270 countries); a missing code gives a grey card with the code, never a wrong flag.", "The wave suits one big flag; do not put it on every flag of a row.", "The ratio is fixed 4:3; w is pixel width (440 portrait, 360 landscape by default)."]
+  seconds: 4
+  demo: |
+    FX.geo.flagRow(tl, root, 0.3, ['TR', 'DE', 'JP', 'Brezilya'], {});
+- id: geo.choropleth
+  name: {tr: "Değerlere göre renkli harita", en: "Choropleth: countries coloured by value"}
+  use: {tr: "Bir sayıyı ülkeler arasında karşılaştırmak: nüfus, gelir, oran, sıralama. Koyu = çok; en yüksek üçünün adı ve değeri yazılır, altta ölçek çubuğu.", en: "Comparing one number across countries: population, income, a rate, a ranking. Darker = more; the top three are named with their value, a legend bar below."}
+  call: "g = FX.geo.map(tl, root, T, {region: 'europe', labels: false}); g.choropleth(at, {values: {DE: 84, Fransa: 68, TR: 85}, legend: {title: 'Nüfus (milyon)'}, labelTop: 3, colors: [lo, hi], unit: 'M', decimals: 0, min, max})"
+  timing: {tr: "Renkler batıdan doğuya dalga gibi 0.9 s'de dolar, her ülke 0.55 s; efsane 0.2 s sonra gelir, ilk üçün etiketi renk bittikten sonra. Toplam ~2 s.", en: "Colours fill west to east like a wave over 0.9 s, 0.55 s each; the legend follows 0.2 s later, the top-three labels after the colour. About 2 s in all."}
+  pitfalls:
+    tr: ["Anahtarlar ülke adı ya da ISO kodu; verisi olmayan ülke nötr kalır (renksiz) — bunu efsanede 'veri yok' diye söyle.", "Değerler 8-25 ülkeden fazla olursa küçük ülkeler görünmez: bölgeyi daralt.", "Sayıyı kendin biçimleme: fmt/unit/decimals ver (Türkçe binlik noktası otomatik).", "Renk ölçeği doğrusal; çok uç bir değer (10x) hepsini soldurur: max ver ya da değeri kırp."]
+    en: ["Keys are country names or ISO codes; a country with no value stays neutral: say 'no data' for it in the voice.", "Past 8-25 countries the small ones disappear: narrow the region.", "Do not format the numbers yourself: give fmt/unit/decimals (Turkish thousands separators are automatic).", "The colour scale is linear; one outlier (10x) washes out the rest: give max or clip it."]
+  seconds: 5
+  demo: |
+    const g = FX.geo.map(tl, root, T, {region: ['Türkiye', 'Birleşik Krallık', 'İspanya', 'Polonya'], pad: 0.1, labels: false});
+    g.choropleth(1.0, {values: {DE: 84, FR: 68, IT: 59, ES: 48, PL: 38, TR: 85, GB: 67, UA: 37, RO: 19, NL: 18, GR: 10.4, BG: 6.9}, legend: {title: 'Nüfus (milyon)'}, labelTop: 3});
+- id: geo.history
+  name: {tr: "Tarihî sınırlar (o yılın haritası)", en: "Historical borders (the map of that year)"}
+  use: {tr: "Geçmişte geçen bir olayı o günün siyasi haritasıyla anlatmak: 1453 Osmanlı ve Bizans, Roma'nın zirvesi, Moğol İmparatorluğu. Bugünün sınırı gösterilmez.", en: "Telling a past event on that day's political map: 1453 Ottomans and Byzantium, Rome at its height, the Mongol Empire. Today's borders are never shown."}
+  call: "g = FX.geo.map(tl, root, T, {region: [...], year: 1453, labels: false|'all', yearLabel: true|'1453 · Fetih'}); g.highlight(at, ['Osmanlı', 'Bizans'], {label, color})"
+  timing: {tr: "Siyasi şekiller 0.35-1 s'de sırayla belirir; vurgulanan öne çıkar, diğerleri 0.5 s'de silikleşir. Yıl rozeti 0.2 s'de gelir.", en: "Political shapes appear over 0.35-1 s; the highlighted one comes forward, the rest dim over 0.5 s. The year badge arrives at 0.2 s."}
+  pitfalls:
+    tr: ["Veri Cliopatria (CC BY 4.0, Seshat): ilk kullanımda Python bir kez indirir (factory/geo.py); künye yayın açıklamasına otomatik eklenir, silme.", "Veri yoksa yalnız kıyı çizgisi çıkar (yanlış çağın sınırı asla) ve konsola hata düşer: önce factory.geo.prepare çalışmalı.", "Adlar polity başlığıdır (Ottoman Empire); Türkçe karşılıkları tabloda: Osmanlı, Bizans, Roma, Selçuklu, Moğol, Memlük... Bulunamazsa bugünkü ülke sanılır.", "Veri adım adım (yaklaşık ±50 yıl); '1453' yerine 'o sıralarda' diye anlat. Uçuş (fly) bu haritada yavaştır."]
+    en: ["The data is Cliopatria (CC BY 4.0, Seshat): Python downloads it once on first use (factory/geo.py); the credit line is added to the publish description automatically, do not delete it.", "With no data only coastlines show (never a border of the wrong era) and the console errors: factory.geo.prepare must run first.", "Names are polity titles (Ottoman Empire); the Turkish ones are mapped: Osmanlı, Bizans, Roma, Selçuklu, Moğol, Memlük ... An unknown name is tried as a modern country.", "The data steps (about ±50 years): say 'around 1453'. fly is slow on this map."]
+  seconds: 5
+  demo: |
+    const g = FX.geo.map(tl, root, T, {region: ['Türkiye', 'Yunanistan', 'Bulgaristan'], year: 1453, pad: 1.0, labels: false});
+    g.highlight(1.8, ['Osmanlı'], {label: 'Osmanlı'});
+    g.highlight(2.6, ['Bizans'], {label: 'Bizans'});

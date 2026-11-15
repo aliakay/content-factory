@@ -1,0 +1,5 @@
+{
+ "seconds": 3,
+ "css": "position:absolute;inset:0;background:radial-gradient(120% 80% at 50% 40%, #2c3150, #161a2c)",
+ "js": "const k = FX.stage3(tl, root, T, {look: 'clay', cam: {ty: 0.6}});\nk.bars(tl, 0.1, [{v: 12, label: '2019'}, {v: 19, label: '2020'}, {v: 31, label: '2021'}, {v: 58, label: '2022'}], {highlight: 3, suffix: 'M', y: -4.2});\nk.text3d(tl, 0.2, 'GROWTH', {y: 5.2, w: 7.4});\nk.move('orbit', {at: 0, turn: 20});"
+}

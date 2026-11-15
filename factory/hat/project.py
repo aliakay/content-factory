@@ -126,6 +126,16 @@ def save(p, d=None):
     _atomic(path(p["id"], "project.json", d=d), p)
 
 
+def set_pronunciations(pid, terms, d=None):
+    """The project's own pronunciation overrides {written: spoken} (project.json `pronunciations`); they win over the
+    series' and the built-in lexicon (factory/speech_tr.py). A changed term re-voices: the TTS cache key is the spoken text."""
+    from .. import speech_tr
+    p = load(pid, d)
+    p["pronunciations"] = speech_tr.clean_terms(terms)
+    save(p, d)
+    return p["pronunciations"]
+
+
 def list_ids(d=None):
     try:
         return sorted((n for n in os.listdir(root(d)) if os.path.isfile(path(n, "project.json", d=d))), reverse=True)

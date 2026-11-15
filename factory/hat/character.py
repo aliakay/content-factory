@@ -710,7 +710,8 @@ def _render(pid, d, a, final=False):
 
 def assets(pid, s, note=None, d=None):
     """A voice take per line (each speaker its own voice), the music, then the animated cut with captions."""
-    from .. import accounts, eleven, formats, productions
+    from .. import accounts, eleven, formats, productions, speech_tr
+    from .explainer import pron
     p = P.load(pid, d)
     story = _story(pid, d)
     if not (P.read_artifact(pid, "plates", d) or {}).get("scenes"):
@@ -727,7 +728,8 @@ def assets(pid, s, note=None, d=None):
     for ln in lines:
         vid = (chars.get(ln["who"]) or {}).get("voice_id") or narrator
         share = max(1, min(tts_left - round(vcost), round(left * len(ln["say"]) / chars_total) + 1))
-        path, c = eleven.tts(con, ln["say"], vid, formats.VOICE_MODEL, approved=share, account=acc)
+        with speech_tr.voicing(lang, pron(p)):                  # eleven.tts makes the written line spoken, once
+            path, c = eleven.tts(con, ln["say"], vid, formats.VOICE_MODEL, approved=share, account=acc)
         vcost += c
         takes.append(path)
         durs.append(round(_dur(path), 3))

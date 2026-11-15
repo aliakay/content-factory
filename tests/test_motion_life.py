@@ -1,6 +1,6 @@
 """The alive kit (living characters, idle loops, the illustrated rig), the kinetic kit (type on the beat), the reference
 motion study and the measured motion gates the designer checks before a preview."""
-import math, os, re, subprocess
+import json, math, os, re, subprocess
 
 import numpy as np
 import pytest
@@ -208,3 +208,37 @@ def test_motion_lint_reports_how_each_scene_comes_in():
         ("a", "power3.out", 0.5), ("c", "power3.out", 0.5), ("e", "expo.out", 0.8)]
     assert rep["grade"] in ("slop", "orta", "maxxed") and rep["easing"]["moves"] == 3 and rep["easing"]["intent"] == 1.0
     assert not any(f["kind"] in ("entry", "ease") for f in found)
+
+
+def test_the_texture_kit_is_in_the_living_library_and_never_draws_random():
+    """F26/F27/F43: the medium, the paper under a wash, the build-in and the weather live in the same kit as the rest."""
+    js = open(os.path.join(ROOT, "motion", "templates", "fxlib.js")).read()
+    names = set(re.findall(r"FX\.(\w+) = ", js))
+    assert {"texture", "textureFor", "texNoise", "paperBase", "paperShare", "paperOf", "build", "buildPlan", "ambience",
+            "ambienceFrame", "pace", "PACE", "STYLE_TEXTURE", "TEX_OPACITY"} <= names
+    assert "Math.random" not in js and "setTimeout" not in js and "requestAnimationFrame" not in js
+    assert "front of every scene" not in js                       # the kit says it once, where it belongs
+    for line in ("the same seed draws the same paper", "never a random draw"):
+        assert line in js
+
+
+def test_the_ambience_kinds_kept_their_seeded_look_between_frames():
+    """A per-frame particle layer must not carry state: the same t twice gives the same shapes, and t moves them."""
+    src = """
+global.window = {};
+const fs = require("fs");
+new Function("window", fs.readFileSync("motion/templates/fxlib.js", "utf8"))(global.window);
+const FX = global.window.FX;
+const a = FX.ambienceFrame("snow", "seed-1", 1.2, 1080, 1920).shapes;
+const b = FX.ambienceFrame("snow", "seed-1", 1.2, 1080, 1920).shapes;
+const c = FX.ambienceFrame("snow", "seed-1", 1.4, 1080, 1920).shapes;
+const d = FX.ambienceFrame("snow", "seed-2", 1.2, 1080, 1920).shapes;
+console.log(JSON.stringify({same: JSON.stringify(a) === JSON.stringify(b), moves: JSON.stringify(a) !== JSON.stringify(c),
+  reseeded: JSON.stringify(a) !== JSON.stringify(d), n: a.length}));
+"""
+    p = subprocess.run(["node", "-e", src], capture_output=True, text=True, timeout=30)
+    if p.returncode != 0:
+        pytest.skip("node is not installed on this machine")
+    out = json.loads(p.stdout.strip().splitlines()[-1])
+    assert out["same"] is True and out["moves"] is True and out["reseeded"] is True
+    assert 100 < out["n"] < 400

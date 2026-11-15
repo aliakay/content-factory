@@ -59,9 +59,26 @@ def step_tr(step):
 
 
 def _family(model):
-    if "gpt-" in (model or "").lower():
+    m = (model or "").lower()
+    if "gpt-" in m:
         return "codex"
-    return next((k for k in _PRICE if k in (model or "")), "opus")
+    if m.startswith("gemini") or "/gemini" in m:
+        return "gemini"
+    if "/" in m:                       # an OpenRouter id (vendor/model)
+        return "openrouter"
+    return next((k for k in _PRICE if k in m), "opus")
+
+
+# Who paid for a row. Only "claude" spends the subscription's 5-hour limit (its dollars are list-price equivalents);
+# the API providers' dollars are real money on their own bills.
+PROVIDER_OF_SOURCE = {"live": "claude", "live_codex": "codex", "live_gemini": "gemini", "live_openrouter": "openrouter"}
+PROVIDER_LABEL = {"claude": "Claude subscription", "codex": "Codex subscription", "gemini": "Gemini API",
+                  "openrouter": "OpenRouter API"}
+
+
+def provider_of(source):
+    s = str(source or "")
+    return PROVIDER_OF_SOURCE.get(s, "claude" if s.startswith(("live", "transcript")) else s or "claude")
 
 
 def import_transcripts(con, days=7):
@@ -119,9 +136,15 @@ def summary(con):
         hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat(),
            "7d": (now - timedelta(days=7)).isoformat()}
     rows = [dict(r) for r in con.execute("SELECT * FROM llm_usage WHERE at >= ? ORDER BY at DESC", (win["7d"],))]
-    tot = {k: round(sum(r["cost_usd"] or 0 for r in rows if r["at"] >= v), 2) for k, v in win.items()}
-    by_step, by_model, by_prod = {}, {}, {}
+    # the windows count subscription calls only: Gemini/OpenRouter dollars are real API money, not limit share
+    sub = [r for r in rows if provider_of(r["source"]) in ("claude", "codex")]
+    tot = {k: round(sum(r["cost_usd"] or 0 for r in sub if r["at"] >= v), 2) for k, v in win.items()}
+    by_step, by_model, by_prod, by_provider, by_project = {}, {}, {}, {}, {}
     for r in rows:
+        prov = provider_of(r["source"])
+        by_provider[prov] = by_provider.get(prov, 0) + (r["cost_usd"] or 0)
+        if r.get("project"):
+            by_project[r["project"]] = by_project.get(r["project"], 0) + ((r["cost_usd"] or 0) if prov == "claude" else 0)
         if r["at"] < win["today"]:
             continue
         s = step_tr(r["step"])
@@ -144,4 +167,97 @@ def summary(con):
             "recent": [{"at": r["at"], "step": step_tr(r["step"]), "model": r["model"], "prod_id": r["prod_id"],
                         "cost": round(r["cost_usd"], 3) if r["cost_usd"] is not None else None, "ok": r["ok"], "live": r["source"].startswith("live"),
                         "tokens": (r["input"] or 0) + (r["cache_write"] or 0) + (r["output"] or 0)} for r in rows[:40]],
-            "pct_per_usd": cal.get("pct_per_usd"), "calibrated_at": cal.get("at")}
+            "pct_per_usd": cal.get("pct_per_usd"), "calibrated_at": cal.get("at"),
+            # 7 days: dollars per provider (only "claude" is the subscription limit) and the Claude dollars per v2 project
+            "by_provider": {k: round(v, 2) for k, v in by_provider.items()},
+            "claude_7d": round(by_provider.get("claude", 0), 2),
+            "by_project": sorted(([k, _title(k), round(v, 2)] for k, v in by_project.items()), key=lambda x: -x[2])[:10]}
+
+
+def _title(pid):
+    try:
+        from .hat import project as P
+        return P.load(pid).get("title") or pid
+    except Exception:
+        return pid
+
+
+def report(con, project=None, days=None):
+    """Per v2 project and per step: calls, tokens and dollars split by provider. `claude_usd` is the number that
+    answers "what did this video cost the Claude limit" (times pct_per_usd once calibrated).
+
+    -> {projects: [{project, title, calls, tokens, usd: {provider: $}, claude_usd, steps: [{step, provider, calls,
+        tokens, usd}]}], totals: {provider: $}, pct_per_usd}"""
+    q, args = "SELECT * FROM llm_usage WHERE 1=1", []
+    if project:
+        q += " AND project = ?"
+        args.append(str(project))
+    else:
+        q += " AND project IS NOT NULL AND project != ''"
+    if days:
+        q += " AND at >= ?"
+        args.append((datetime.now(timezone.utc) - timedelta(days=float(days))).isoformat())
+    projects, totals = {}, {}
+    for r in con.execute(q + " ORDER BY at", args):
+        r = dict(r)
+        prov, usd = provider_of(r["source"]), float(r["cost_usd"] or 0)
+        tok = sum(int(r[k] or 0) for k in ("input", "cache_write", "cache_read", "output"))
+        p = projects.setdefault(r["project"], {"project": r["project"], "calls": 0, "tokens": 0, "usd": {}, "steps": {}})
+        p["calls"] += 1
+        p["tokens"] += tok
+        p["usd"][prov] = p["usd"].get(prov, 0) + usd
+        s = p["steps"].setdefault((r["step"], prov), {"step": r["step"], "provider": prov, "calls": 0, "tokens": 0,
+                                                       "usd": 0.0})
+        s["calls"] += 1
+        s["tokens"] += tok
+        s["usd"] += usd
+        totals[prov] = totals.get(prov, 0) + usd
+    out = []
+    for p in projects.values():
+        p["usd"] = {k: round(v, 4) for k, v in p["usd"].items()}
+        p["claude_usd"] = p["usd"].get("claude", 0)
+        p["title"] = _title(p["project"])
+        p["steps"] = sorted(({**s, "usd": round(s["usd"], 4)} for s in p["steps"].values()), key=lambda s: -s["usd"])
+        out.append(p)
+    out.sort(key=lambda p: -sum(p["usd"].values()))
+    return {"projects": out, "totals": {k: round(v, 4) for k, v in totals.items()},
+            "pct_per_usd": calibration().get("pct_per_usd")}
+
+
+def text(rep):
+    """The report as plain lines for the terminal."""
+    pct = rep.get("pct_per_usd")
+    lines = []
+    for p in rep["projects"]:
+        limit = f" ≈ {p['claude_usd'] * pct:.1f}% of the 5-h limit" if pct else ""
+        lines.append(f"project {p['project']} · {p['title']}")
+        lines.append(f"  Claude limit: ${p['claude_usd']:.2f}{limit} · "
+                     + " · ".join(f"{PROVIDER_LABEL.get(k, k)} ${v:.2f}" for k, v in sorted(p["usd"].items()))
+                     + f" · {p['calls']} calls, {p['tokens'] / 1000:.0f}k tokens")
+        for s in p["steps"]:
+            lines.append(f"    {s['step'][:44]:<44} {s['provider']:<10} {s['calls']:>3} calls "
+                         f"{s['tokens'] / 1000:>7.0f}k tok  ${s['usd']:.3f}")
+    if not rep["projects"]:
+        lines.append("no ledger rows tagged with a project (rows before the `project` column have none)")
+    lines.append("total: " + (" · ".join(f"{PROVIDER_LABEL.get(k, k)} ${v:.2f}" for k, v in sorted(rep["totals"].items()))
+                              or "$0"))
+    return "\n".join(lines)
+
+
+def main(argv=None):
+    import argparse
+    from .store import connect
+    ap = argparse.ArgumentParser(prog="python -m factory.usage",
+                                 description="Model spend per v2 project and step, split by provider.")
+    ap.add_argument("--project", help="one project id (e.g. 121)")
+    ap.add_argument("--days", type=float, help="only the last N days")
+    ap.add_argument("--json", action="store_true")
+    a = ap.parse_args(argv)
+    con = connect()
+    rep = report(con, a.project, a.days)
+    con.close()
+    print(json.dumps(rep, ensure_ascii=False, indent=1) if a.json else text(rep))
+
+
+if __name__ == "__main__":
+    main()
