@@ -143,7 +143,33 @@ def test_json_report_is_printed(monkeypatch, capsys):
 def test_claude_login_is_read_from_the_config_dir(tmp_path):
     (tmp_path / ".claude").mkdir()
     (tmp_path / ".claude" / ".credentials.json").write_text('{"token": "x"}')
-    res = doctor._claude_cli(_run_ok, env={"HOME": str(tmp_path)})
+    res = doctor._claude_cli(_run_ok, env={"HOME": str(tmp_path)}, status=lambda exe: None)
     assert res["status"] == "ok"
-    res = doctor._claude_cli(_run_ok, env={"HOME": str(tmp_path / "empty")})
+    res = doctor._claude_cli(_run_ok, env={"HOME": str(tmp_path / "empty")}, status=lambda exe: None)
     assert res["status"] == "warn"
+
+
+def test_an_expired_login_fails_even_with_a_credentials_file(tmp_path):
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / ".credentials.json").write_text('{"token": "x"}')
+    res = doctor._claude_cli(_run_ok, env={"HOME": str(tmp_path)}, status=lambda exe: {"loggedIn": False})
+    assert res["status"] == "fail" and "claude auth login" in res["hint"]["tr"]
+    res = doctor._claude_cli(_run_ok, env={"HOME": str(tmp_path)},
+                             status=lambda exe: {"loggedIn": True, "authMethod": "claude.ai"})
+    assert res["status"] == "ok" and "claude.ai" in res["detail"]["tr"]
+
+
+def test_studio_behind_the_login_wall_on_the_tailscale_ip_is_up(monkeypatch):
+    import urllib.error
+    seen = []
+
+    def fake_open(url, timeout=0):
+        seen.append(url)
+        if "100.1.2.3" in url:
+            raise urllib.error.HTTPError(url, 401, "login", {}, None)
+        raise ConnectionRefusedError()
+    monkeypatch.setattr(doctor, "HOST", "")
+    monkeypatch.setattr(doctor, "_tailscale_ip", lambda: "100.1.2.3")
+    monkeypatch.setattr(doctor.urllib.request, "urlopen", fake_open)
+    res = doctor._studio()
+    assert res["status"] == "ok" and any("100.1.2.3" in u for u in seen)

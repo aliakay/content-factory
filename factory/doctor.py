@@ -18,6 +18,7 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 
 from .config import CLAUDE, FFMPEG, FFPROBE, HOST, NODE, ROOT, STUDIO_PORT
@@ -171,7 +172,20 @@ def _fonts(root):
     return {"status": "ok", "detail": _tr(f"{n} font files", f"{n} font dosyası"), "hint": None}
 
 
-def _claude_cli(run, env=None):
+def _auth_status(exe):
+    """`claude auth status` as a dict (the CLI's own view of the session; it exits non-zero when logged out), or None
+    when this CLI has no such command or its output is not JSON. Free: no model call."""
+    try:
+        r = subprocess.run([exe, "auth", "status"], capture_output=True, text=True, timeout=20, stdin=subprocess.DEVNULL)
+        data = json.loads(r.stdout or "")
+        return data if isinstance(data, dict) and "loggedIn" in data else None
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+
+
+def _claude_cli(run, env=None, status=None):
+    """`status(exe)` reports the live session (default `claude auth status`); a credentials file can outlive an
+    expired login, so files are only the fallback when the CLI cannot say."""
     env = os.environ if env is None else env
     exe = _which(CLAUDE) or shutil.which("claude")
     if not exe:
@@ -182,6 +196,15 @@ def _claude_cli(run, env=None):
     if out is None:
         return {"status": "fail", "detail": _tr("claude --version failed", "claude --version çalışmadı"),
                 "hint": _tr("run `claude` once in a terminal", "bir terminalde bir kez `claude` çalıştır")}
+    live = (status or _auth_status)(exe)
+    if live is not None and not env.get("CLAUDE_CODE_OAUTH_TOKEN"):
+        if not live.get("loggedIn"):
+            return {"status": "fail", "detail": _tr(f"Claude Code {_version(out)}, not logged in (login expired?)",
+                                                    f"Claude Code {_version(out)}, giriş yok (süresi dolmuş olabilir)"),
+                    "hint": _tr("run `claude auth login` on this machine", "bu makinede `claude auth login` çalıştır")}
+        how = live.get("authMethod") or "?"
+        return {"status": "ok", "detail": _tr(f"Claude Code {_version(out)}, logged in ({how})",
+                                              f"Claude Code {_version(out)}, giriş yapılmış ({how})"), "hint": None}
     home = pathlib.Path(env.get("HOME") or os.path.expanduser("~"))
     logged = bool(env.get("CLAUDE_CODE_OAUTH_TOKEN"))
     for f in (home / ".claude" / ".credentials.json", home / ".claude" / "auth.json"):
@@ -323,10 +346,17 @@ def _data_writable(root):
     return {"status": "ok", "detail": _tr("data/ writable", "data/ yazılabilir"), "hint": None}
 
 
+def _tailscale_ip():
+    """bin/start-factory.sh binds the panels to CF_HOST from config.env, else this machine's Tailscale IP; the Python
+    process does not read config.env, so look the same address up."""
+    out = _run("tailscale", ["ip", "-4"], timeout=3)
+    return (out or "").strip().splitlines()[0].strip() if out and out.strip() else ""
+
+
 def _studio():
     """Info only: is the panel answering on its port (loopback first, then the configured host)?"""
     hosts = []
-    for h in ("127.0.0.1", HOST or ""):
+    for h in ("127.0.0.1", HOST or "", _tailscale_ip()):
         if h and h not in hosts:
             hosts.append(h)
     ok = False
@@ -334,9 +364,12 @@ def _studio():
         try:
             with urllib.request.urlopen(f"http://{host}:{STUDIO_PORT}/", timeout=1.5) as r:
                 ok = r.status < 500
-            break
+        except urllib.error.HTTPError as e:            # 401/403 from the login wall still means it is up
+            ok = e.code < 500
         except Exception:
             continue
+        if ok:
+            break
     return {"status": "ok" if ok else "info",
             "detail": _tr(f"Studio :{STUDIO_PORT} {'reachable' if ok else 'not running'}",
                           f"Studio :{STUDIO_PORT} {'erişilebilir' if ok else 'çalışmıyor'}"),
