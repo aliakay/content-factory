@@ -601,7 +601,9 @@ def compose(pid, s, note=None, d=None):
     tech = qa.technical(res["file"], sp["duration"])
     try:
         starts = [sc["start"] for sc in sp.get("scenes") or []][1:]
-        snd = soundqa.review(res["file"], cues=res.get("placed") or None, total=sp["duration"], cuts=starts)
+        vf = ((P.read_artifact(pid, "assets", d) or {}).get("voice") or {}).get("file")
+        snd = soundqa.review(res["file"], cues=res.get("placed") or None, total=sp["duration"], cuts=starts,
+                             voice_file=os.path.join(ROOT, vf) if vf else None)
         sound = {"findings": snd.get("findings", []), "metrics": snd.get("metrics", {})}
         if len(starts) >= 2:
             from .. import craftcheck

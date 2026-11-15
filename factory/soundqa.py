@@ -68,6 +68,19 @@ def click_times(y, sr, max_n=12):
     return out[:max_n]
 
 
+def not_in_speech(clicks, voice_clicks, tol=0.06):
+    """Drop the clicks the narration file has itself: a plosive (p, t, k) or a mouth sound of the voice is not a cut
+    without a fade (007: 10 of its 12 "clicks" were the narrator's consonants). The voice sits in the mix at an offset
+    the caller may not know exactly, so the offset is measured: the median of the nearest pairs."""
+    if not clicks or not voice_clicks:
+        return clicks
+    vc = sorted(voice_clicks)
+    pairs = [min((c - v for v in vc), key=abs) for c in clicks]
+    near = sorted(d for d in pairs if abs(d) < 0.6)
+    off = near[len(near) // 2] if near else 0.0
+    return [c for c in clicks if not any(abs(c - off - v) < tol for v in vc)]
+
+
 def review(path, cues=None, words=None, voice_offset=0.0, total=None, voice_file=None, music=None, lufs=None,
            cuts=()):
     """Findings + metrics for a finished file. cues = [{t, kind, gain_db}] as placed; words = [[w, s, e]] of the voice
@@ -119,6 +132,8 @@ def review(path, cues=None, words=None, voice_offset=0.0, total=None, voice_file
         add("low_end", "warn", f"{round(100 * lo / tot)} % of the energy is under 150 Hz: on a phone speaker it plays as "
                                "almost nothing; lift the mids or thin the bass")
     clicks = [c for c in click_times(y, SR) if not any(abs(c - float(q["t"])) < 0.12 for q in cues or [])]  # our own taps
+    if clicks and voice_file and os.path.exists(voice_file):
+        clicks = not_in_speech(clicks, click_times(decode(voice_file), SR, max_n=400))
     if clicks:
         add("clicks", "warn", f"{len(clicks)} click(s) at {', '.join(f'{c:.2f}s' for c in clicks[:6])}: a cut without a fade",
             clicks[0])

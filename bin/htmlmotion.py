@@ -274,6 +274,8 @@ def sound_plan(cues_path, spec, total):
         c = {}
     snd = spec.get("sound") or {}
     cues = sfx.clean_cues(c.get("sfx"), total, snd.get("level", "full")) if snd.get("sfx", True) else []
+    cuts = [float(s["start"]) for s in (spec.get("scenes") or [])[1:] if s.get("start") is not None]
+    cues = sfx.budget(cues, cuts)            # the QA's sound budget, kept instead of reported
     mutes, drop, open_at = [], None, None
     for ev in sorted(c.get("music") or [], key=lambda e: e.get("t", 0)):
         a, t = ev.get("action"), float(ev.get("t", 0))

@@ -233,3 +233,8 @@ def test_the_theme_is_not_bought_again():
     assert not X.themed({"source": "channel"}) and not X.themed({"source": "elevenlabs", "file": "a.mp3"})
     row = licence.made_entries({"music": {"file": "m.mp3", "source": "channel"}})[0]
     assert row["what"] == "Channel theme" and row["credit"] is False
+
+
+def test_an_episode_script_is_written_by_sonnet():
+    assert manifest.stage(manifest.get(C.LINE), "script")["model"] == "sonnet"
+    assert manifest.stage(manifest.get("explainer"), "script")["model"] == "opus"      # the pilot keeps Opus

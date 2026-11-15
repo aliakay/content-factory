@@ -51,7 +51,7 @@ stages:
   - id: script
     gate: true
     run: agent
-    model: opus
+    model: sonnet          # the mould is the pilot's script: Sonnet writes to it (~$0.15 and ~40 s less than Opus)
     tools: [read_artifact, web_search, web_fetch, proof_check, words_check, cold_test]
     review:
       - "Word count fits the template's duration within 10% (Turkish ~2.4 words/s, English ~2.6)"
