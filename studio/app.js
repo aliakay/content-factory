@@ -707,6 +707,7 @@ async function viewProd(id) {
   const c = p.channel || cur();
   if (c && c.id !== S.ch) { setChannel(c.id); renderShell(); }
   crumb([c ? c.name : "Kanal", p.title]);
+  if (d.kind === "imported") return viewImported(p, c, id);
   const order = f.voice ? ["idea", "voice", "preview", "ready", "published"] : ["idea", "preview", "ready", "published"];
   const ci = order.indexOf(p.stage);
   const isEx = d.kind === "explainer", wide = d.aspect === "16:9";
@@ -737,6 +738,32 @@ async function viewProd(id) {
   </div>`;
   paint(html, JSON.stringify([p.updated_at, p.busy && p.busy.tail, p.stage]));
   return { poll: p.busy ? 4000 : 0 };
+}
+// A finished video made outside the Studio's lines (bin/import_video.py): the file, where it came from, publishing.
+function viewImported(p, c, id) {
+  const d = p.data, im = d.imported || {}, wide = d.aspect === "16:9";
+  const mb = im.size ? (im.size / 1e6).toFixed(0) + " MB" : "";
+  const html = `
+  <div class="row"><a class="btn ghost sm" href="${c ? "#/c/" + esc(c.id) : "#/hat"}">${ICON.back}${esc(c ? c.name : "Pano")}</a><span class="sp"></span>
+    ${stageBadge(p.stage)}<span class="badge">${esc(p.format_info.name_tr)}</span>${d.series ? `<a class="badge" href="#/s/${esc(d.series.id)}">📚 ${esc(d.series.title || "seri")} · bölüm ${esc(d.series.episode)}</a>` : ""}</div>
+  <div class="ptitle"><div style="flex:1;min-width:0"><h1>${esc(p.title)}</h1></div></div>
+  <div class="split">
+    <div class="col" style="gap:14px">
+      <div class="card"><h3>Hazır video</h3><div class="kv">
+        <div>Süre</div><div><b>${sec(im.duration)}</b></div>
+        <div>Boyut</div><div>${esc(im.width || "?")}×${esc(im.height || "?")}${mb ? " · " + mb : ""}</div>
+        <div>Kaynak</div><div class="muted small" style="word-break:break-all">${esc(im.source || "")}</div>
+        ${im.note ? `<div>Not</div><div>${esc(im.note)}</div>` : ""}</div>
+        <div class="tiny faint mt8">Bu video Studio dışında üretildi ve buraya eklendi; Studio'da düzenlenmez.</div></div>
+    </div>
+    <div class="col sticky" style="gap:14px">
+      ${actionCard(p, wide)}
+      <div class="card"><h3>Geçmiş</h3><div class="hist">${p.history.slice().reverse().map((h) => `<div><time>${dt(h.at)}</time><span><b>${esc(h.event)}</b> ${esc(h.detail || "")}${h.by ? ` <span class="faint">· ${esc(h.by)}</span>` : ""}</span></div>`).join("")}</div></div>
+      <div class="card flat"><button class="btn danger sm" data-act="delProd" data-id="${id}">${ICON.trash}Studio'dan kaldır</button><div class="tiny faint mt8">Kaydı ve Studio'daki kopyasını siler; kaynak dosyaya dokunmaz.</div></div>
+    </div>
+  </div>`;
+  paint(html, JSON.stringify([p.updated_at, p.stage]));
+  return { poll: 0 };
 }
 function controlsCard(p) {
   const d = p.data, done = ["ready", "published", "rejected"].includes(p.stage), isEx = d.kind === "explainer";
@@ -955,7 +982,7 @@ function actionCard(p, wide) {
       ${qaBox(p.qa)}
       <h3 class="mt16">Paylaştın mı? Linki ekle</h3><div class="row nowrap"><input id="purl" type="url" placeholder="YouTube / TikTok / Instagram linki"><button class="btn sm accent" data-act="publish" data-id="${id}">Ekle</button></div>
       ${p.posts.length ? `<div class="mt12 small">${p.posts.map((x) => `<div class="row mt8"><b>${plat(x.platform)}</b><a class="muted tiny" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.url.slice(0, 44))}…</a><span class="sp"></span>${x.latest ? num(x.latest.views) + " izlenme" : "—"}</div>`).join("")}</div>` : ""}
-      ${p.stage === "ready" ? `<details class="mt12"><summary class="muted small">Yine de değişiklik iste</summary>${reviseBox(p)}</details>` : ""}</div>`; }
+      ${p.stage === "ready" && p.data.kind !== "imported" ? `<details class="mt12"><summary class="muted small">Yine de değişiklik iste</summary>${reviseBox(p)}</details>` : ""}</div>`; }
   else if (p.stage === "rejected") a = `<div class="card"><h3>Reddedildi</h3><button class="btn" data-act="act" data-id="${id}" data-a="restore">↩ Geri al</button></div>`;
   return a;
 }

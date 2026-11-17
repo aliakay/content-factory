@@ -170,6 +170,11 @@ FORMATS = [
      "desc_tr": "Kendi konuşma videonu yükle: transkript, kesmeler, yüz takipli kadraj, punch-in, kodla B-roll, vurgulu "
                 "altyazı, ses temizliği, müzik ve -14 LUFS master. Teknikleri planner seçer.",
      "guide": "The creator's own raw talking video, edited (factory/talk.py)."},
+    {"id": "imported", "name": "Imported finished video", "name_tr": "Hazır video",
+     "status": "internal", "style": "story", "source": "imported", "voice": False, "duration": [1, 43200],
+     "series": False, "platforms": ["tiktok", "youtube", "instagram"],
+     "desc_tr": "Studio dışında üretilmiş bitmiş bir video (factory/imports.py); kanal ve seri altında listelenir.",
+     "guide": "A finished video brought in with bin/import_video.py; never offered for new ideas."},
     {"id": "avatar_news", "name": "Avatar news / explainer", "name_tr": "Avatar ile haber",
      "status": "planned", "style": "story", "source": "avatar", "voice": True, "duration": [45, 60],
      "series": False, "platforms": ["tiktok", "youtube"],
@@ -184,7 +189,7 @@ for _f in FORMATS:
 
 def offered(mode=None):
     """Presets the Studio offers (ready or planned, not merged), optionally for one mode."""
-    return [f for f in FORMATS if f["status"] != "merged" and (mode is None or f["mode"] == mode)]
+    return [f for f in FORMATS if f["status"] not in ("merged", "internal") and (mode is None or f["mode"] == mode)]
 
 
 def canonical(fid):

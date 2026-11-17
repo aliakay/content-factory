@@ -57,6 +57,8 @@ def prod_summary(con, p):
     d = p["data"] or {}
     shots = d.get("shots") or [{}]
     key = (p["prod_id"], p["updated_at"])
+    if key not in _timeline_cache and d.get("kind") == "imported":   # a finished video: no timeline to build
+        _timeline_cache[key] = ((d.get("imported") or {}).get("duration"), [])
     if key not in _timeline_cache:
         try:
             _, total, _, warn = P.shown_timeline(con, p)
@@ -123,13 +125,16 @@ def production_detail(con, pid):
     if accounts.shared():   # who started it and who did each step, by display name
         out["by"] = accounts.name_of(p["data"].get("created_by"))
         out["history"] = [{**h, "by": accounts.name_of(h.get("by"))} if h.get("by") else h for h in p["history"]]
-    try:
-        spec, total, starts, warn = P.shown_timeline(con, p)
-        if p["data"].get("motion"):   # HTML-designed scenes: the script-stage stock photos are not used
-            warn = [w for w in warn if "açık lisanslı görsel" not in w]
-        out["timeline"] = {"spec": spec, "total": total, "starts": starts, "warn": warn}
-    except Exception as e:
-        out["timeline"] = {"error": f"{type(e).__name__}: {e}"}
+    if p["data"].get("kind") == "imported":   # a finished video brought in: nothing to lay out
+        out["timeline"] = {"spec": {}, "total": (p["data"].get("imported") or {}).get("duration"), "starts": [], "warn": []}
+    else:
+        try:
+            spec, total, starts, warn = P.shown_timeline(con, p)
+            if p["data"].get("motion"):   # HTML-designed scenes: the script-stage stock photos are not used
+                warn = [w for w in warn if "açık lisanslı görsel" not in w]
+            out["timeline"] = {"spec": spec, "total": total, "starts": starts, "warn": warn}
+        except Exception as e:
+            out["timeline"] = {"error": f"{type(e).__name__}: {e}"}
     if fmt["voice"]:
         out["estimate"] = P.voice_estimate(con, p["data"])
     lib = {r["ref_id"]: r for r in refs.library(con)}
