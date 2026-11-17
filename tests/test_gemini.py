@@ -1,3 +1,4 @@
+import io
 """Google Gemini as the second media provider: the key, the routing per capability, and the Interactions calls.
 
 Nothing here reaches the network: `_req` is faked with the response shape the API documents (`steps` ->
@@ -79,26 +80,40 @@ def test_gemini_needs_a_key_before_it_can_be_picked(users):
 
 
 # ---------------------------------------------------------------- the calls
+def _jpeg():
+    from PIL import Image
+    out = io.BytesIO()
+    Image.new("RGB", (8, 6), (200, 40, 30)).save(out, "JPEG")
+    return out.getvalue()
+
+
+def test_garbage_image_bytes_are_a_clear_error():
+    with pytest.raises(gemini.GeminiError, match="okunamad"):
+        gemini._as_png(b"not an image")
+
+
 def test_an_image_asks_for_the_aspect_and_the_size(monkeypatch):
     seen = {}
 
     def fake_req(path, body=None, api_key=None, timeout=600, method=None):
         seen.update({"path": path, "body": body})
-        return _resp("image", b"PNGDATA")
+        return _resp("image", _jpeg(), "image/jpeg")
 
     monkeypatch.setattr(gemini, "_req", fake_req)
     data, mime, iid = gemini.image("a red scarf", aspect="9:16", size="2K")
-    assert (data, mime, iid) == (b"PNGDATA", "image/png", "int_1")
+    assert data[:8] == b"\x89PNG\r\n\x1a\n" and (mime, iid) == ("image/png", "int_1")
+    from PIL import Image
+    assert Image.open(io.BytesIO(data)).size == (8, 6)
     assert seen["path"] == "/interactions"
     assert seen["body"]["model"] == gemini.DEFAULT["image"] and seen["body"]["input"] == "a red scarf"
-    assert seen["body"]["response_format"] == {"type": "image", "mime_type": "image/png",
+    assert seen["body"]["response_format"] == {"type": "image", "mime_type": "image/jpeg",
                                                "aspect_ratio": "9:16", "image_size": "2K"}
 
 
 def test_a_reference_continues_the_earlier_picture_or_goes_inline(tmp_path, monkeypatch):
     seen = {}
     monkeypatch.setattr(gemini, "_req", lambda path, body=None, api_key=None, timeout=600, method=None:
-                        seen.update({"body": body}) or _resp("image"))
+                        seen.update({"body": body}) or _resp("image", _jpeg()))
     gemini.image("same girl", refs=["gen:int_7"])
     assert seen["body"]["previous_interaction_id"] == "int_7" and seen["body"]["input"] == "same girl"
     ref = tmp_path / "plate.png"

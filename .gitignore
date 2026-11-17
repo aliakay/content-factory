@@ -4,6 +4,7 @@ config.env
 data/users.json
 data/eleven_accounts.json
 data/claude_auth/
+data/youtube/
 *.pem
 
 # --- runtime state (back up separately, see README) ---

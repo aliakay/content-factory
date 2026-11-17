@@ -8,7 +8,7 @@ node graph and no CLI involved:
   voice   gemini-3.8-flash-tts           input text + generation_config.speech_config.voice -> audio (wav)
   music   lyria-3-clip-preview (30 s)    input text                                            -> audio
           lyria-3.5 (full song)
-  image   gemini-nano-banana-2.1         input text (+ reference images)                       -> image/png
+  image   gemini-nano-banana-2.1         input text (+ reference images)                       -> image/jpeg (we hand back png)
           gemini-3.1-flash-image, gemini-3-pro-image
   video   gemini-omni-1.2-flash          input text, response_format.aspect_ratio/duration      -> video/mp4
 
@@ -241,11 +241,27 @@ def image(prompt, model=None, aspect="9:16", refs=(), size="2K", api_key=None):
                                "data": base64.b64encode(blob).decode()})
     body = {"model": model,
             "input": ([{"type": "text", "text": prompt}] + inline) if inline else prompt,
-            "response_format": {"type": "image", "mime_type": "image/png", "aspect_ratio": aspect, "image_size": size}}
+            "response_format": {"type": "image", "mime_type": "image/jpeg", "aspect_ratio": aspect, "image_size": size}}
     if prior:
         body["previous_interaction_id"] = prior
     data, mime, iid = _media(interaction(body, api_key), "image")
-    return data, mime or "image/png", iid
+    return _as_png(data), "image/png", iid
+
+
+def _as_png(data):
+    """The image API only answers in JPEG now (2026-11); callers store .png files, so convert."""
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return data
+    import io
+    from PIL import Image
+    try:
+        im = Image.open(io.BytesIO(data))
+        im.load()
+    except Exception as e:
+        raise GeminiError(f"Gemini görseli okunamadı: {e}") from e
+    out = io.BytesIO()
+    im.convert("RGBA" if im.mode in ("RGBA", "LA", "P") else "RGB").save(out, "PNG")
+    return out.getvalue()
 
 
 def video(prompt, seconds=8, model=None, aspect="9:16", start=None, resolution="1080p", api_key=None):
